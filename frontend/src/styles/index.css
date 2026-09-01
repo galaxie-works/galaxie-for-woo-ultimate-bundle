@@ -13,17 +13,27 @@
 @import 'tailwindcss/utilities.css' layer(utilities);
 @import 'tw-animate-css';
 
-/* Design tokens (shadcn "new-york", neutral) — ported from the galaxie-for-woocommerce admin. */
-:root {
+/*
+ * Design tokens. Each maps to the active pixfort theme's CSS variable
+ * (`--pix-*`, confirmed live on staging) with a shadcn "new-york" neutral value
+ * as the fallback — so components look native inside pixfort, and still render
+ * correctly on any other theme (or none) via the fallback. Defined on
+ * `.galaxie-ui`, NOT `:root`, so we never touch the host page's own tokens.
+ *
+ * High-confidence mappings are wired (surface/text/primary/ring). The rest stay
+ * neutral until the visual pass on staging pins the right pixfort var for each
+ * (e.g. secondary/muted/border, and mapping shadows to --pix-box-shadow*).
+ */
+.galaxie-ui {
   --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
+  --background: var(--pix-white, oklch(1 0 0));
+  --foreground: var(--pix-body-default, oklch(0.145 0 0));
+  --card: var(--pix-white, oklch(1 0 0));
+  --card-foreground: var(--pix-body-default, oklch(0.145 0 0));
+  --popover: var(--pix-white, oklch(1 0 0));
+  --popover-foreground: var(--pix-body-default, oklch(0.145 0 0));
+  --primary: var(--pix-primary, oklch(0.205 0 0));
+  --primary-foreground: var(--pix-btn-color, oklch(0.985 0 0));
   --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0 0);
   --muted: oklch(0.97 0 0);
@@ -33,7 +43,7 @@
   --destructive: oklch(0.577 0.245 27.325);
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --ring: var(--pix-primary, oklch(0.708 0 0));
 }
 
 @theme inline {
