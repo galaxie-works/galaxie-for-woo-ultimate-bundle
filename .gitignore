@@ -1,0 +1,22 @@
+# Dependencies
+/vendor/
+node_modules/
+
+# Build output (committed builds, if any, live under assets/ — decide per module)
+*.map
+
+# Editor / OS
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+
+# Logs & temp
+*.log
+*.local
+
+# Env / secrets — never commit
+.env
+.env.*
+*-credentials*.md

@@ -1,0 +1,17 @@
+{
+    "name": "galaxie-works/galaxie-for-woo-ultimate-bundle",
+    "description": "Modular WooCommerce storefront UX bundle (toggleable modules + Elementor widgets), theme-independent.",
+    "type": "wordpress-plugin",
+    "license": "proprietary",
+    "require": {
+        "php": ">=8.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Galaxie\\Woo\\": "src/"
+        }
+    },
+    "config": {
+        "optimize-autoloader": true
+    }
+}
