@@ -47,12 +47,33 @@ final class Plugin {
 
 		if ( is_admin() ) {
 			( new ModulesPage( $this->modules, $this->settings ) )->hooks();
+		} else {
+			add_action( 'wp_head', array( $this, 'print_boot_data' ), 5 );
 		}
 
 		// Safe to attach unconditionally — the callbacks only fire if Elementor is loaded.
 		( new Widgets( $this->modules ) )->hooks();
 
 		$this->modules->boot_enabled();
+	}
+
+	/**
+	 * Prints `window.__GALAXIE_WOO__` — merged boot config from every enabled
+	 * module that implements {@see ProvidesBootData} — in the head, ahead of the
+	 * deferred module bundle so the JS can read it before it runs.
+	 */
+	public function print_boot_data(): void {
+		$data = array();
+		foreach ( $this->modules->enabled() as $module ) {
+			if ( $module instanceof ProvidesBootData ) {
+				$data = array_merge( $data, $module->boot_data() );
+			}
+		}
+		if ( empty( $data ) ) {
+			return;
+		}
+		echo '<script>window.__GALAXIE_WOO__=Object.assign(window.__GALAXIE_WOO__||{},'
+			. wp_json_encode( $data ) . ');</script>' . "\n";
 	}
 
 	/**

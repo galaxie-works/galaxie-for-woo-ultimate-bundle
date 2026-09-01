@@ -8,10 +8,18 @@
 namespace Galaxie\Woo\Modules\ToastNotices;
 
 use Galaxie\Woo\Core\Module as ModuleContract;
+use Galaxie\Woo\Core\ProvidesBootData;
+use Galaxie\Woo\Support\Assets;
 
 defined( 'ABSPATH' ) || exit;
 
-final class Module implements ModuleContract {
+/**
+ * A global (non-widget) module: it loads the bundle on the front-end and flags
+ * `toastNotices` so the JS boots the WC-notice interceptor. First module ported
+ * from eir-my-account-ux (assets/js/toast-notices.js), and the one that proves
+ * the module + boot-data + asset pipeline end to end.
+ */
+final class Module implements ModuleContract, ProvidesBootData {
 
 	public function id(): string {
 		return 'toast-notices';
@@ -30,8 +38,10 @@ final class Module implements ModuleContract {
 	}
 
 	public function boot(): void {
-		// TODO: port from eir-my-account-ux assets/js/toast-notices.js + css
-		// toast-notices.css. Theme-agnostic already; good first port to validate
-		// the module + asset-loading pattern.
+		add_action( 'wp_enqueue_scripts', array( Assets::class, 'enqueue' ) );
+	}
+
+	public function boot_data(): array {
+		return array( 'toastNotices' => true );
 	}
 }
