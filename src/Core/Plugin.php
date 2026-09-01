@@ -7,7 +7,7 @@
 
 namespace Galaxie\Woo\Core;
 
-use Galaxie\Woo\Core\Admin\ModulesPage;
+use Galaxie\Woo\Core\Admin\SettingsPage;
 use Galaxie\Woo\Elementor\Widgets;
 
 defined( 'ABSPATH' ) || exit;
@@ -46,7 +46,7 @@ final class Plugin {
 		load_plugin_textdomain( 'galaxie-woo', false, dirname( plugin_basename( GALAXIE_WOO_FILE ) ) . '/languages' );
 
 		if ( is_admin() ) {
-			( new ModulesPage( $this->modules, $this->settings ) )->hooks();
+			( new SettingsPage( $this->modules, $this->settings ) )->hooks();
 		} else {
 			add_action( 'wp_head', array( $this, 'print_boot_data' ), 5 );
 		}
@@ -82,6 +82,9 @@ final class Plugin {
 	 */
 	private function register_modules(): void {
 		$this->modules->register( new \Galaxie\Woo\Modules\PasswordlessAuth\Module() );
+		$this->modules->register( new \Galaxie\Woo\Modules\GoogleLogin\Module() );
+		$this->modules->register( new \Galaxie\Woo\Modules\AddressAutocomplete\Module() );
+		$this->modules->register( new \Galaxie\Woo\Modules\FluentCRM\Module() );
 		$this->modules->register( new \Galaxie\Woo\Modules\Checkout\Module() );
 		$this->modules->register( new \Galaxie\Woo\Modules\MyAccount\Module() );
 		$this->modules->register( new \Galaxie\Woo\Modules\Cart\Module() );

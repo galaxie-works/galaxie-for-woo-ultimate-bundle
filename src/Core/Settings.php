@@ -16,11 +16,12 @@ defined( 'ABSPATH' ) || exit;
  */
 final class Settings {
 
-	private const OPTION = 'galaxie_woo_modules';
+	private const MODULES_OPTION  = 'galaxie_woo_modules';
+	private const SETTINGS_OPTION = 'galaxie_woo_settings';
 
 	/** @return array<string,bool> */
 	public function enabled_map(): array {
-		return (array) get_option( self::OPTION, array() );
+		return (array) get_option( self::MODULES_OPTION, array() );
 	}
 
 	public function is_enabled( string $id, bool $default ): bool {
@@ -30,6 +31,24 @@ final class Settings {
 
 	/** @param array<string,bool> $map */
 	public function set_enabled_map( array $map ): void {
-		update_option( self::OPTION, $map );
+		update_option( self::MODULES_OPTION, $map );
+	}
+
+	/**
+	 * A module's saved settings values, keyed by field key. Empty array if the
+	 * module has never been configured.
+	 *
+	 * @return array<string,mixed>
+	 */
+	public function module_settings( string $module_id ): array {
+		$all = (array) get_option( self::SETTINGS_OPTION, array() );
+		return (array) ( $all[ $module_id ] ?? array() );
+	}
+
+	/** @param array<string,mixed> $values */
+	public function set_module_settings( string $module_id, array $values ): void {
+		$all               = (array) get_option( self::SETTINGS_OPTION, array() );
+		$all[ $module_id ] = $values;
+		update_option( self::SETTINGS_OPTION, $all );
 	}
 }

@@ -6,7 +6,7 @@
  * Author:            Galaxie Works
  * Text Domain:       galaxie-woo
  * Requires at least: 6.4
- * Requires PHP:      8.0
+ * Requires PHP:      8.1
  *
  * @package Galaxie\Woo
  */
