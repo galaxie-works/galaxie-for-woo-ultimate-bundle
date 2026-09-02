@@ -70,13 +70,20 @@ como barras + uma barra de **Intensidade**. Formatos: **50 g · 190 g · persona
 
 ## Tabela mestre (bater o olho)
 
-| Fragrância | Perfil | Barra 1 | Barra 2 | Intensidade | Mini copy (card) |
-|------------|--------|:-------:|:-------:|:-----------:|------------------|
-| **Nordic Moss** | Floral amadeirado | Floral 80 | Amadeirada 40 | Média (50) | Serena · Floral amadeirada |
-| **Fjord Citrus** | Cítrico herbal | Cítrica 90 | Herbal 20 | Suave (30) | Leve · Cítrica herbal |
-| **Golden Tundra** | Frutado cítrico | Frutada 80 | Cítrica 40 | Média (40) | Acolhedora · Frutada cítrica |
-| **Boreal Herbs** | Herbal floral | Herbal 80 | Floral 50 | Marcante (60) | Renovadora · Herbal floral |
-| **Solstice Light** | Amadeirado cítrico | Amadeirada 90 | Cítrica 20 | Intensa (80) | Envolvente · Amadeirada cítrica |
+| Fragrância | Perfil | Barra 1 | Barra 2 | Intensidade | Tag (caráter) | Momento |
+|------------|--------|:-------:|:-------:|:-----------:|:-------------:|:-------:|
+| **Nordic Moss** | Floral amadeirado | Floral 80 | Amadeirada 40 | Média (50) | Serena | Fim de tarde |
+| **Fjord Citrus** | Cítrico herbal | Cítrica 90 | Herbal 20 | Suave (30) | Leve | Manhã |
+| **Golden Tundra** | Frutado cítrico | Frutada 80 | Cítrica 40 | Média (40) | Acolhedora | Convívio |
+| **Boreal Herbs** | Herbal floral | Herbal 80 | Floral 50 | Marcante (60) | Renovadora | Rotina |
+| **Solstice Light** | Amadeirado cítrico | Amadeirada 90 | Cítrica 20 | Intensa (80) | Envolvente | Noite |
+
+**Tags do card** — dois badges por card, ambos derivados do brandbook:
+- **Tag de caráter** = o adjetivo da mini copy oficial (Serena, Leve, Acolhedora, Renovadora,
+  Envolvente). Badge principal, uma palavra.
+- **Tag de momento** = quando usar, resumido da "atmosfera de uso". Serve de filtro no shop.
+- **Badges de merchandising** (Mais vendida, Novidade, Edição limitada) são separados e
+  **atribuídos por vocês com base em dado real** — não entram como fixos aqui.
 
 > Barras 1 e 2 = as **características olfativas oficiais**. Valores 0–100 = **impressão
 > percebida derivada da composição** (dominância real), não a proporção da fórmula.
@@ -108,11 +115,11 @@ Nenhum ingrediente da fórmula aparece — só percepção derivada dela.
   "collection": "Nordic Rituals",
   "formats": ["50 g", "190 g", "personalizado"],
   "candles": [
-    { "id": "nordic-moss",   "name": "Nordic Moss",   "profile": "Floral amadeirado",  "tagline": "Para a leitura do fim de tarde, quando a casa pede silêncio.", "miniCopy": "Serena · Floral amadeirada",      "intensity": 50, "intensityLabel": "Média",    "barColor": ["#6F7D6A", "#A8A29E"], "bars": [{ "label": "Floral", "value": 80 }, { "label": "Amadeirada", "value": 40 }] },
-    { "id": "fjord-citrus",  "name": "Fjord Citrus",  "profile": "Cítrico herbal",     "tagline": "A manhã na cozinha com as janelas abertas.",                  "miniCopy": "Leve · Cítrica herbal",           "intensity": 30, "intensityLabel": "Suave",    "barColor": ["#C6A96B", "#A8A29E"], "bars": [{ "label": "Cítrica", "value": 90 }, { "label": "Herbal", "value": 20 }] },
-    { "id": "golden-tundra", "name": "Golden Tundra", "profile": "Frutado cítrico",    "tagline": "Aquela sala pronta pra receber quem você gosta.",             "miniCopy": "Acolhedora · Frutada cítrica",    "intensity": 40, "intensityLabel": "Média",    "barColor": ["#C6A96B", "#6F7D6A"], "bars": [{ "label": "Frutada", "value": 80 }, { "label": "Cítrica", "value": 40 }] },
-    { "id": "boreal-herbs",  "name": "Boreal Herbs",  "profile": "Herbal floral",      "tagline": "O ar limpo de quando você acabou de arrumar a casa.",         "miniCopy": "Renovadora · Herbal floral",      "intensity": 60, "intensityLabel": "Marcante", "barColor": ["#6F7D6A", "#A8A29E"], "bars": [{ "label": "Herbal", "value": 80 }, { "label": "Floral", "value": 50 }] },
-    { "id": "solstice-light","name": "Solstice Light","profile": "Amadeirado cítrico", "tagline": "A noite mais lenta, o cantinho de sempre.",                   "miniCopy": "Envolvente · Amadeirada cítrica", "intensity": 80, "intensityLabel": "Intensa",  "barColor": ["#C6A96B", "#0B0B0B"], "bars": [{ "label": "Amadeirada", "value": 90 }, { "label": "Cítrica", "value": 20 }] }
+    { "id": "nordic-moss",   "name": "Nordic Moss",   "profile": "Floral amadeirado",  "tag": "Serena",     "moment": "Fim de tarde", "tagline": "Para a leitura do fim de tarde, quando a casa pede silêncio.", "miniCopy": "Serena · Floral amadeirada",      "intensity": 50, "intensityLabel": "Média",    "barColor": ["#6F7D6A", "#A8A29E"], "bars": [{ "label": "Floral", "value": 80 }, { "label": "Amadeirada", "value": 40 }] },
+    { "id": "fjord-citrus",  "name": "Fjord Citrus",  "profile": "Cítrico herbal",     "tag": "Leve",       "moment": "Manhã",        "tagline": "A manhã na cozinha com as janelas abertas.",                  "miniCopy": "Leve · Cítrica herbal",           "intensity": 30, "intensityLabel": "Suave",    "barColor": ["#C6A96B", "#A8A29E"], "bars": [{ "label": "Cítrica", "value": 90 }, { "label": "Herbal", "value": 20 }] },
+    { "id": "golden-tundra", "name": "Golden Tundra", "profile": "Frutado cítrico",    "tag": "Acolhedora", "moment": "Convívio",     "tagline": "Aquela sala pronta pra receber quem você gosta.",             "miniCopy": "Acolhedora · Frutada cítrica",    "intensity": 40, "intensityLabel": "Média",    "barColor": ["#C6A96B", "#6F7D6A"], "bars": [{ "label": "Frutada", "value": 80 }, { "label": "Cítrica", "value": 40 }] },
+    { "id": "boreal-herbs",  "name": "Boreal Herbs",  "profile": "Herbal floral",      "tag": "Renovadora", "moment": "Rotina",       "tagline": "O ar limpo de quando você acabou de arrumar a casa.",         "miniCopy": "Renovadora · Herbal floral",      "intensity": 60, "intensityLabel": "Marcante", "barColor": ["#6F7D6A", "#A8A29E"], "bars": [{ "label": "Herbal", "value": 80 }, { "label": "Floral", "value": 50 }] },
+    { "id": "solstice-light","name": "Solstice Light","profile": "Amadeirado cítrico", "tag": "Envolvente", "moment": "Noite",        "tagline": "A noite mais lenta, o cantinho de sempre.",                   "miniCopy": "Envolvente · Amadeirada cítrica", "intensity": 80, "intensityLabel": "Intensa",  "barColor": ["#C6A96B", "#0B0B0B"], "bars": [{ "label": "Amadeirada", "value": 90 }, { "label": "Cítrica", "value": 20 }] }
   ]
 }
 ```
