@@ -101,9 +101,9 @@ A **Intensidade** é uma barra separada (Suave ▸ Intensa).
 | Sensação dominante | Gradiente | HEX (início → fim) |
 |--------------------|-----------|--------------------|
 | Frescor | Azul-gelo → turquesa | `#A1C4FD` → `#5FC9C9` |
-| Amadeirado | Âmbar → marrom-musgo | `#D4A257` → `#6B5B3E` |
+| Amadeirado | Dourado → marrom | `#D4A257` → `#6B5B3E` |
 | Floral | Rosé → lilás | `#F6A5C0` → `#B892D6` |
-| Aconchego | Caramelo → âmbar quente | `#E6B980` → `#C0803A` |
+| Aconchego | Caramelo → dourado quente | `#E6B980` → `#C0803A` |
 
 Cada card pinta a barra pela sensação de maior valor — assim o "humor" da vela se
 comunica pela cor antes mesmo da leitura.
