@@ -12,6 +12,22 @@ export interface AjaxResult<T = unknown> {
   data?: T & { message?: string }
 }
 
+interface AjaxEndpoint {
+  ajaxUrl: string
+  nonce: string
+}
+
+export interface GalaxieWooConfig {
+  auth?: AjaxEndpoint
+  checkout?: AjaxEndpoint
+  toastNotices?: boolean
+}
+
+/** Reads the boot config every enabled module contributes (see PHP Core\Plugin::print_boot_data). */
+export function getGalaxieConfig(): GalaxieWooConfig {
+  return (window as unknown as { __GALAXIE_WOO__?: GalaxieWooConfig }).__GALAXIE_WOO__ ?? {}
+}
+
 /** Parse the JSON props a mount node carries. Never throws. */
 export function readProps<T = Record<string, unknown>>(el: Element): T {
   const raw = el.getAttribute('data-galaxie-props')
@@ -30,11 +46,11 @@ export function readProps<T = Record<string, unknown>>(el: Element): T {
  * + `nonce`, same-origin credentials, JSON back, and a synthetic failure shape
  * instead of a thrown error so callers can always read `.success`.
  */
-export async function post<T = unknown>(
+export async function post<T = unknown, D extends object = Record<string, unknown>>(
   ajaxUrl: string,
   action: string,
   nonce: string,
-  data: Record<string, unknown> = {}
+  data: D = {} as D
 ): Promise<AjaxResult<T>> {
   const body = new FormData()
   body.append('action', action)

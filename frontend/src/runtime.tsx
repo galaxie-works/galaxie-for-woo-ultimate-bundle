@@ -10,7 +10,9 @@ import { readProps } from '@/lib/wp'
  * backbone that keeps every module's UI on the same component library.
  */
 
-type IslandComponent = ComponentType<Record<string, unknown>>
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- registry boundary: each island's real prop
+// type is only known at its own definition, not here; PHP emits untyped JSON regardless.
+type IslandComponent = ComponentType<any>
 
 const registry = new Map<string, IslandComponent>()
 const mounted = new WeakMap<Element, Root>()
