@@ -152,6 +152,17 @@ final class Module implements ModuleContract, ProvidesSettings {
 		</datalist>
 		<script type="application/json" id="gxf-interest-tag-map"><?php echo wp_json_encode( array_flip( array_map( 'strtolower', $tags ) ) ); ?></script>
 
+		<p class="description">
+			<?php
+			printf(
+				/* translators: 1: Windows shortcut, 2: Mac shortcut */
+				esc_html__( 'Tip: the icon field takes a plain emoji — open your OS emoji picker to type one (Windows: %1$s · Mac: %2$s).', 'galaxie-woo' ),
+				'<kbd>Win</kbd> + <kbd>.</kbd>',
+				'<kbd>Cmd</kbd> + <kbd>Ctrl</kbd> + <kbd>Space</kbd>'
+			);
+			?>
+		</p>
+
 		<div id="gxf-interests-rows">
 			<?php foreach ( $options as $i => $option ) : ?>
 				<?php $this->render_interest_row( (int) $i, (array) $option ); ?>
@@ -179,6 +190,11 @@ final class Module implements ModuleContract, ProvidesSettings {
 				var labelInput = row.querySelector( '[data-role="label"]' );
 				var tagIdInput = row.querySelector( '[data-role="tag_id"]' );
 				var removeBtn = row.querySelector( '[data-role="remove"]' );
+				var uploadBtn = row.querySelector( '[data-role="upload"]' );
+				var removeImageBtn = row.querySelector( '[data-role="remove-image"]' );
+				var iconUrlInput = row.querySelector( '[data-role="icon_url"]' );
+				var preview = row.querySelector( '[data-role="preview"]' );
+				var previewImg = row.querySelector( '[data-role="preview-img"]' );
 
 				labelInput.addEventListener( 'change', function () {
 					var match = tagMap[ labelInput.value.trim().toLowerCase() ];
@@ -186,6 +202,35 @@ final class Module implements ModuleContract, ProvidesSettings {
 				} );
 				removeBtn.addEventListener( 'click', function () {
 					row.remove();
+				} );
+
+				uploadBtn.addEventListener( 'click', function ( e ) {
+					e.preventDefault();
+					if ( ! window.wp || ! wp.media ) {
+						return;
+					}
+					var frame = wp.media( {
+						title: <?php echo wp_json_encode( __( 'Select interest icon', 'galaxie-woo' ) ); ?>,
+						button: { text: <?php echo wp_json_encode( __( 'Use this image', 'galaxie-woo' ) ); ?> },
+						library: { type: 'image' },
+						multiple: false
+					} );
+					frame.on( 'select', function () {
+						var attachment = frame.state().get( 'selection' ).first().toJSON();
+						iconUrlInput.value = attachment.url;
+						previewImg.src = attachment.url;
+						preview.style.display = 'inline-flex';
+						removeImageBtn.style.display = 'inline';
+					} );
+					frame.open();
+				} );
+
+				removeImageBtn.addEventListener( 'click', function ( e ) {
+					e.preventDefault();
+					iconUrlInput.value = '';
+					previewImg.src = '';
+					preview.style.display = 'none';
+					removeImageBtn.style.display = 'none';
 				} );
 			}
 
@@ -214,31 +259,54 @@ final class Module implements ModuleContract, ProvidesSettings {
 		<?php
 	}
 
-	/** @param int|string $index Row index (or the `__INDEX__` template placeholder). */
+	/**
+	 * @param int|string $index Row index (or the `__INDEX__` template placeholder).
+	 *
+	 * The icon can be a typed emoji (`icon`) and/or an uploaded image
+	 * (`icon_url`, via the WP media library). If both are set, the front-end
+	 * (built later, alongside My Account) prefers the image.
+	 */
 	private function render_interest_row( $index, array $option ): void {
-		$tag_id = $option['tag_id'] ?? '';
-		$label  = $option['label'] ?? '';
-		$icon   = $option['icon'] ?? '';
+		$tag_id   = $option['tag_id'] ?? '';
+		$label    = $option['label'] ?? '';
+		$icon     = $option['icon'] ?? '';
+		$icon_url = $option['icon_url'] ?? '';
+		$prefix   = "fields[interests][{$index}]";
 		?>
-		<div class="gxf-interest-row" style="display:flex;gap:8px;align-items:center;margin-bottom:6px;">
-			<input type="hidden" data-role="tag_id" name="<?php echo esc_attr( "fields[interests][{$index}][tag_id]" ); ?>" value="<?php echo esc_attr( (string) $tag_id ); ?>" />
+		<div class="gxf-interest-row" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:8px;">
+			<input type="hidden" data-role="tag_id" name="<?php echo esc_attr( "{$prefix}[tag_id]" ); ?>" value="<?php echo esc_attr( (string) $tag_id ); ?>" />
+			<input type="hidden" data-role="icon_url" name="<?php echo esc_attr( "{$prefix}[icon_url]" ); ?>" value="<?php echo esc_attr( (string) $icon_url ); ?>" />
+
+			<span
+				data-role="preview"
+				style="width:32px;height:32px;display:<?php echo $icon_url ? 'inline-flex' : 'none'; ?>;align-items:center;justify-content:center;border:1px solid #dcdcde;border-radius:4px;overflow:hidden;flex-shrink:0;"
+			>
+				<img data-role="preview-img" src="<?php echo esc_url( (string) $icon_url ); ?>" style="max-width:100%;max-height:100%;" alt="" />
+			</span>
+
 			<input
 				type="text"
 				data-role="icon"
-				name="<?php echo esc_attr( "fields[interests][{$index}][icon]" ); ?>"
+				name="<?php echo esc_attr( "{$prefix}[icon]" ); ?>"
 				value="<?php echo esc_attr( (string) $icon ); ?>"
 				placeholder="🪻"
-				style="width:60px;text-align:center;"
+				title="<?php esc_attr_e( 'Emoji', 'galaxie-woo' ); ?>"
+				style="width:50px;text-align:center;"
 			/>
+
+			<button type="button" class="button" data-role="upload"><?php esc_html_e( 'Upload image', 'galaxie-woo' ); ?></button>
+			<button type="button" class="button-link" data-role="remove-image" style="display:<?php echo $icon_url ? 'inline' : 'none'; ?>;"><?php esc_html_e( 'Remove image', 'galaxie-woo' ); ?></button>
+
 			<input
 				type="text"
 				data-role="label"
 				list="gxf-interest-tag-suggestions"
-				name="<?php echo esc_attr( "fields[interests][{$index}][label]" ); ?>"
+				name="<?php echo esc_attr( "{$prefix}[label]" ); ?>"
 				value="<?php echo esc_attr( (string) $label ); ?>"
 				placeholder="<?php esc_attr_e( 'e.g. Lavanda', 'galaxie-woo' ); ?>"
 				class="regular-text"
 			/>
+
 			<button type="button" class="button-link-delete" data-role="remove"><?php esc_html_e( 'Remove', 'galaxie-woo' ); ?></button>
 		</div>
 		<?php
@@ -329,7 +397,7 @@ final class Module implements ModuleContract, ProvidesSettings {
 
 	/**
 	 * @param array<int,array<string,mixed>> $rows
-	 * @return array<int,array{tag_id:int,label:string,icon:string}>
+	 * @return array<int,array{tag_id:int,label:string,icon:string,icon_url:string}>
 	 */
 	private function sanitize_interests( array $rows ): array {
 		$out       = array();
@@ -341,8 +409,9 @@ final class Module implements ModuleContract, ProvidesSettings {
 				continue; // Blank row (e.g. added then left empty).
 			}
 
-			$icon   = sanitize_text_field( trim( (string) ( $row['icon'] ?? '' ) ) );
-			$tag_id = absint( $row['tag_id'] ?? 0 );
+			$icon     = sanitize_text_field( trim( (string) ( $row['icon'] ?? '' ) ) );
+			$icon_url = esc_url_raw( trim( (string) ( $row['icon_url'] ?? '' ) ) );
+			$tag_id   = absint( $row['tag_id'] ?? 0 );
 
 			if ( $tag_id <= 0 ) {
 				$tag_id = $this->find_or_create_tag( $label );
@@ -353,9 +422,10 @@ final class Module implements ModuleContract, ProvidesSettings {
 
 			$seen_tags[ $tag_id ] = true;
 			$out[]                = array(
-				'tag_id' => $tag_id,
-				'label'  => $label,
-				'icon'   => $icon,
+				'tag_id'   => $tag_id,
+				'label'    => $label,
+				'icon'     => $icon,
+				'icon_url' => $icon_url,
 			);
 		}
 

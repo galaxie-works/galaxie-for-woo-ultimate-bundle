@@ -31,16 +31,31 @@ final class SettingsPage {
 	private const SAVE_SETTINGS = 'galaxie_woo_save_settings';
 	private const MODULES_NONCE = 'galaxie_woo_modules';
 
+	/** Hook suffix returned by add_menu_page(), used to scope wp_enqueue_media() to just this page. */
+	private ?string $page_hook = null;
+
 	public function __construct( private ModuleRegistry $modules, private Settings $settings ) {}
 
 	public function hooks(): void {
 		add_action( 'admin_menu', array( $this, 'menu' ) );
+		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_media' ) );
 		add_action( 'admin_post_' . self::SAVE_MODULES, array( $this, 'save_modules' ) );
 		add_action( 'admin_post_' . self::SAVE_SETTINGS, array( $this, 'save_settings' ) );
 	}
 
+	/**
+	 * Loads the WP media library JS (wp.media()) on our settings page only —
+	 * modules that need an image picker (e.g. FluentCRM's interest icons) rely
+	 * on it being available without each having to enqueue it themselves.
+	 */
+	public function enqueue_media( string $hook ): void {
+		if ( $this->page_hook === $hook ) {
+			wp_enqueue_media();
+		}
+	}
+
 	public function menu(): void {
-		add_menu_page(
+		$this->page_hook = add_menu_page(
 			__( 'Galaxie for WooCommerce', 'galaxie-woo' ),
 			__( 'Galaxie', 'galaxie-woo' ),
 			'manage_woocommerce',
