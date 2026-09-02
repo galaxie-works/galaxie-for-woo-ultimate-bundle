@@ -20,6 +20,8 @@ interface AjaxEndpoint {
 export interface GalaxieWooConfig {
   auth?: AjaxEndpoint
   checkout?: AjaxEndpoint
+  myAccount?: AjaxEndpoint
+  accountDeletion?: AjaxEndpoint
   toastNotices?: boolean
 }
 

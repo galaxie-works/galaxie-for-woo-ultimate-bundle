@@ -9,7 +9,9 @@ namespace Galaxie\Woo\Modules\FluentCRM;
 
 use Galaxie\Woo\Core\Field;
 use Galaxie\Woo\Core\Module as ModuleContract;
+use Galaxie\Woo\Core\Plugin;
 use Galaxie\Woo\Core\ProvidesSettings;
+use Galaxie\Woo\Integrations\FluentCRM as FluentCRMApi;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -67,13 +69,125 @@ final class Module implements ModuleContract, ProvidesSettings {
 	}
 
 	public function boot(): void {
-		// TODO: port the sync logic from eir-my-account-ux
-		// includes/class-eir-checkout-auth.php (sync_to_fluentcrm, tag_customer_on_order)
-		// and includes/class-eir-fluentcrm-order-tags.php, reading tag/list IDs from
-		// this module's settings instead of hardcoded class constants. The Interests
-		// front-end picker (My Account) reads `interest_options` from settings and,
-		// on toggle, attach/detach the linked tag_id — same AJAX shape as v1's
-		// eir_toggle_interest.
+		// Ported from eir-my-account-ux's sync_to_fluentcrm() + the separate
+		// order-tags class — both decoupled via action hooks (fired by
+		// PasswordlessAuth/MyAccount) rather than those modules calling this one
+		// directly, so this module can be off without breaking them.
+		add_action( 'galaxie_woo/customer_registered', array( $this, 'on_customer_registered' ), 10, 2 );
+		add_action( 'galaxie_woo/profile_updated', array( $this, 'on_profile_updated' ) );
+
+		add_action( 'woocommerce_order_status_processing', array( $this, 'on_order_paid' ) );
+		add_action( 'woocommerce_order_status_completed', array( $this, 'on_order_paid' ) );
+		add_action( 'woocommerce_order_status_cancelled', array( $this, 'on_order_cancelled' ) );
+		add_action( 'woocommerce_order_status_refunded', array( $this, 'on_order_refunded' ) );
+		add_action( 'woocommerce_order_status_failed', array( $this, 'on_order_failed' ) );
+	}
+
+	/** @param string $source 'email' or 'google'. */
+	public function on_customer_registered( int $user_id, string $source ): void {
+		$user = get_userdata( $user_id );
+		if ( ! $user ) {
+			return;
+		}
+
+		$settings = $this->settings();
+
+		FluentCRMApi::sync_contact(
+			$user->user_email,
+			array(
+				'first_name' => $user->first_name,
+				'last_name'  => $user->last_name,
+				'status'     => 'subscribed',
+			)
+		);
+
+		$tag_key = 'google' === $source ? 'signup_google_tag_id' : 'signup_email_tag_id';
+		$tag_id  = (int) ( $settings[ $tag_key ] ?? 0 );
+		if ( $tag_id > 0 ) {
+			FluentCRMApi::attach_tags( $user->user_email, array( $tag_id ) );
+		}
+
+		if ( 'yes' === get_user_meta( $user_id, \Galaxie\Woo\Support\ProfileFields::MARKETING_OPT_IN, true ) ) {
+			$list_id = (int) ( $settings['newsletter_list_id'] ?? 0 );
+			if ( $list_id > 0 ) {
+				FluentCRMApi::attach_lists( $user->user_email, array( $list_id ) );
+			}
+		}
+	}
+
+	/** Re-syncs core fields after a My Account details edit — never re-applies signup/tag logic. */
+	public function on_profile_updated( int $user_id ): void {
+		$user = get_userdata( $user_id );
+		if ( ! $user ) {
+			return;
+		}
+		FluentCRMApi::sync_contact(
+			$user->user_email,
+			array(
+				'first_name' => $user->first_name,
+				'last_name'  => $user->last_name,
+			)
+		);
+	}
+
+	public function on_order_paid( int $order_id ): void {
+		$this->tag_order( $order_id, 'order_paid_tag_id', true );
+	}
+
+	public function on_order_cancelled( int $order_id ): void {
+		$this->tag_order( $order_id, 'order_cancelled_tag_id' );
+	}
+
+	public function on_order_refunded( int $order_id ): void {
+		$this->tag_order( $order_id, 'order_refunded_tag_id' );
+	}
+
+	public function on_order_failed( int $order_id ): void {
+		$this->tag_order( $order_id, 'order_failed_tag_id' );
+	}
+
+	/** @param bool $also_customer Also apply the "customer" tag/list (only on a paid order). */
+	private function tag_order( int $order_id, string $tag_key, bool $also_customer = false ): void {
+		if ( ! function_exists( 'wc_get_order' ) ) {
+			return;
+		}
+		$order = wc_get_order( $order_id );
+		if ( ! $order ) {
+			return;
+		}
+		$email = $order->get_billing_email();
+		if ( ! $email ) {
+			return;
+		}
+
+		$settings = $this->settings();
+		$tags     = array();
+
+		$tag_id = (int) ( $settings[ $tag_key ] ?? 0 );
+		if ( $tag_id > 0 ) {
+			$tags[] = $tag_id;
+		}
+		if ( $also_customer ) {
+			$customer_tag = (int) ( $settings['customer_tag_id'] ?? 0 );
+			if ( $customer_tag > 0 ) {
+				$tags[] = $customer_tag;
+			}
+		}
+		if ( ! empty( $tags ) ) {
+			FluentCRMApi::attach_tags( $email, $tags );
+		}
+
+		if ( $also_customer ) {
+			$list_id = (int) ( $settings['customers_list_id'] ?? 0 );
+			if ( $list_id > 0 ) {
+				FluentCRMApi::attach_lists( $email, array( $list_id ) );
+			}
+		}
+	}
+
+	/** @return array<string,mixed> */
+	private function settings(): array {
+		return Plugin::instance()->settings()->module_settings( $this->id() );
 	}
 
 	public function settings_tab_label(): string {
