@@ -1,215 +1,141 @@
-# Eir Naturals — Perfis Olfativos (barras de progresso)
+# Eir Naturals — Perfil Sensorial (barras de progresso)
 
-Referência de conteúdo para o **widget de carrossel** (inspirado nas *progress bars* do
-template Nordic Rituals). Cada vela expõe sua "pirâmide olfativa" como barras — informação
-real que ajuda a escolher **e** desperta curiosidade.
+Referência de conteúdo para o **widget de carrossel** (as *progress bars* do template
+Nordic Rituals).
 
-> **Regra de ouro:** máximo de **3 notas por vela**, sempre somando 100%. Uma nota
-> dominante (≥50%) + 1–2 de apoio. Quatro barras viram poluição visual.
+> ⚠️ **A barra NÃO expõe a composição.** Nada de "Cítrico 70%" — isso entregaria a
+> fórmula. Aqui a barra mede **percepção/sensação**: um "equalizador" com eixos fixos
+> (Frescor · Amadeirado · Floral · Aconchego) que **não somam 100%**. São impressões, não
+> proporções de ingrediente. Mesma curiosidade, zero receita revelada.
 
----
-
-## 1. Tabela mestre — composição olfativa
-
-| Vela | Família | Composição (barra) | Intensidade | Momento | Queima |
-|------|---------|--------------------|-------------|---------|--------|
-| **Fjord** | Fresco / Aquático | Cítrico `60%` · Sálvia `25%` · Sal marinho `15%` | Suave | Manhã / Foco | ~45h |
-| **Skog** *(Bosque)* | Amadeirado / Terroso | Cedro `55%` · Musgo `30%` · Fumaça `15%` | Marcante | Trabalho / Leitura | ~50h |
-| **Aurora** | Floral / Etéreo | Floral branco `60%` · Íris `25%` · Almíscar `15%` | Média | Autocuidado | ~45h |
-| **Hygge** | Gourmand / Aconchego | Baunilha `55%` · Âmbar `30%` · Canela `15%` | Média | Noite / Relaxar | ~48h |
-| **Névoa** *(Mist)* | Herbal / Calmante | Lavanda `60%` · Eucalipto `25%` · Menta `15%` | Suave | Sono / Meditar | ~45h |
-| **Solstício** | Cálido / Especiado | Âmbar `50%` · Cravo `30%` · Laranja `20%` | Marcante | Jantar / Inverno | ~50h |
-| **Vetr** *(Inverno)* | Resinoso / Frio | Pinho `55%` · Zimbro `30%` · Hortelã `15%` | Marcante | Festas / Ar puro | ~50h |
-| **Brasa** *(Ember)* | Defumado / Intenso | Sândalo `50%` · Fumaça `30%` · Couro `20%` | Intensa | Encontros / Estar | ~52h |
+Os 4 eixos são os mesmos para todas as velas, o que deixa os cards comparáveis entre si.
+A **Intensidade** é uma barra separada (Suave ▸ Intensa).
 
 ---
 
-## 2. Biblioteca de cores da barra (por família olfativa)
+## Perfil pronto por vela
 
-O gradiente da barra preenchida comunica o "humor" da vela antes mesmo da leitura.
+### 🕯️ Fjord — *Fresco / Aquático*
+> Uma lufada de manhã à beira-mar. Limpo, vivo, respirável.
+- Frescor    `█████████░` 90
+- Amadeirado `███░░░░░░░` 30
+- Floral     `██░░░░░░░░` 20
+- Aconchego  `█░░░░░░░░░` 10
+- **Intensidade:** `███░░░░░░░` Suave
 
-| Família | Gradiente sugerido | HEX (início → fim) |
-|---------|--------------------|--------------------|
-| Cítrico / Fresco | Amarelo → verde-limão | `#F6D365` → `#A8E063` |
-| Aquático | Azul-gelo → turquesa | `#A1C4FD` → `#5FC9C9` |
-| Amadeirado / Terroso | Âmbar → marrom-musgo | `#D4A257` → `#6B5B3E` |
-| Floral / Etéreo | Rosé → lilás | `#F6A5C0` → `#B892D6` |
-| Gourmand / Aconchego | Caramelo → âmbar quente | `#E6B980` → `#C0803A` |
-| Herbal / Calmante | Lilás → verde-sálvia | `#C3AED6` → `#9DC6A0` |
-| Cálido / Especiado | Laranja → vermelho-queimado | `#F5A623` → `#C0392B` |
-| Resinoso / Frio | Verde-pinho → azul-gelo | `#4B7A5A` → `#A9D6E5` |
-| Defumado / Intenso | Marrom → vinho | `#7A4B3A` → `#4A2530` |
+### 🕯️ Skog *(Bosque)* — *Amadeirado / Terroso*
+> Chão de floresta depois da chuva. Encorpado e enraizado.
+- Frescor    `██░░░░░░░░` 20
+- Amadeirado `█████████░` 90
+- Floral     `█░░░░░░░░░` 10
+- Aconchego  `████░░░░░░` 40
+- **Intensidade:** `███████░░░` Marcante
 
-> **Dica de implementação:** a cor da barra segue a **nota dominante** de cada vela.
+### 🕯️ Aurora — *Floral / Etéreo*
+> Pétalas ao amanhecer. Delicada, luminosa, presente.
+- Frescor    `████░░░░░░` 40
+- Amadeirado `██░░░░░░░░` 20
+- Floral     `█████████░` 90
+- Aconchego  `████░░░░░░` 40
+- **Intensidade:** `█████░░░░░` Média
+
+### 🕯️ Hygge — *Gourmand / Aconchego*
+> Cobertor, luz baixa, xícara quente. O abraço em forma de vela.
+- Frescor    `█░░░░░░░░░` 10
+- Amadeirado `████░░░░░░` 40
+- Floral     `██░░░░░░░░` 20
+- Aconchego  `█████████░` 90
+- **Intensidade:** `██████░░░░` Média
+
+### 🕯️ Névoa *(Mist)* — *Herbal / Calmante*
+> Ar de montanha ao entardecer. Silêncio que se respira.
+- Frescor    `███████░░░` 70
+- Amadeirado `██░░░░░░░░` 20
+- Floral     `████░░░░░░` 40
+- Aconchego  `███░░░░░░░` 30
+- **Intensidade:** `████░░░░░░` Suave
+
+### 🕯️ Solstício — *Cálido / Especiado*
+> Noite longa de inverno, especiarias no ar. Aconchego intenso.
+- Frescor    `███░░░░░░░` 30
+- Amadeirado `█████░░░░░` 50
+- Floral     `███░░░░░░░` 30
+- Aconchego  `████████░░` 80
+- **Intensidade:** `███████░░░` Marcante
+
+### 🕯️ Vetr *(Inverno)* — *Resinoso / Frio*
+> Pinheiros cobertos de gelo. Ar cortante e limpo.
+- Frescor    `███████░░░` 70
+- Amadeirado `████████░░` 80
+- Floral     `█░░░░░░░░░` 10
+- Aconchego  `██░░░░░░░░` 20
+- **Intensidade:** `████████░░` Marcante
+
+### 🕯️ Brasa *(Ember)* — *Defumado / Intenso*
+> Lareira ao fim da noite. Profundo, quente, envolvente.
+- Frescor    `█░░░░░░░░░` 10
+- Amadeirado `████████░░` 80
+- Floral     `█░░░░░░░░░` 10
+- Aconchego  `██████░░░░` 60
+- **Intensidade:** `█████████░` Intensa
 
 ---
 
-## 3. Métricas alternativas (mesmo efeito de barra)
+## Tabela mestre (para bater o olho)
 
-Além das notas, cada card pode alternar a barra para outra leitura — ótimo para
-combater a objeção "vela forte demais":
-
-### 3.1 Intensidade da fragrância
-| Vela | Suave ▸ Intensa |
-|------|-----------------|
-| Fjord | `▓▓▓░░░░░░░` 30% |
-| Névoa | `▓▓▓▓░░░░░░` 40% |
-| Aurora | `▓▓▓▓▓░░░░░` 50% |
-| Hygge | `▓▓▓▓▓░░░░░` 55% |
-| Skog | `▓▓▓▓▓▓▓░░░` 70% |
-| Solstício | `▓▓▓▓▓▓▓░░░` 75% |
-| Vetr | `▓▓▓▓▓▓▓▓░░` 80% |
-| Brasa | `▓▓▓▓▓▓▓▓▓░` 90% |
-
-### 3.2 Perfil de momento (Relaxar ▸ Energizar)
-| Vela | Relaxar | Energizar |
-|------|---------|-----------|
-| Névoa | 90% | 10% |
-| Hygge | 80% | 20% |
-| Aurora | 65% | 35% |
-| Brasa | 60% | 40% |
-| Skog | 50% | 50% |
-| Solstício | 45% | 55% |
-| Vetr | 30% | 70% |
-| Fjord | 20% | 80% |
-
-### 3.3 Estação (reforça a temática nórdica)
-| Vela | Estação dominante |
-|------|-------------------|
-| Fjord | Verão `▓▓▓▓▓▓▓▓` |
-| Aurora | Primavera `▓▓▓▓▓▓▓░` |
-| Skog | Outono `▓▓▓▓▓▓▓░` |
-| Névoa | Primavera `▓▓▓▓▓▓░░` |
-| Hygge | Inverno `▓▓▓▓▓▓▓▓` |
-| Solstício | Inverno `▓▓▓▓▓▓▓▓` |
-| Vetr | Inverno `▓▓▓▓▓▓▓▓▓` |
-| Brasa | Outono `▓▓▓▓▓▓▓▓` |
+| Vela | Família | Frescor | Amadeirado | Floral | Aconchego | Intensidade |
+|------|---------|:-------:|:----------:|:------:|:---------:|:-----------:|
+| **Fjord** | Fresco / Aquático | 90 | 30 | 20 | 10 | Suave |
+| **Skog** | Amadeirado / Terroso | 20 | 90 | 10 | 40 | Marcante |
+| **Aurora** | Floral / Etéreo | 40 | 20 | 90 | 40 | Média |
+| **Hygge** | Gourmand / Aconchego | 10 | 40 | 20 | 90 | Média |
+| **Névoa** | Herbal / Calmante | 70 | 20 | 40 | 30 | Suave |
+| **Solstício** | Cálido / Especiado | 30 | 50 | 30 | 80 | Marcante |
+| **Vetr** | Resinoso / Frio | 70 | 80 | 10 | 20 | Marcante |
+| **Brasa** | Defumado / Intenso | 10 | 80 | 10 | 60 | Intensa |
 
 ---
 
-## 4. Dados prontos para o widget (JSON)
+## Cor da barra (segue a sensação dominante)
 
-Estrutura sugerida para alimentar o carrossel. `bars` é genérico: serve para notas,
-intensidade, estação — o widget só renderiza `label` + `value` + `color`.
+| Sensação dominante | Gradiente | HEX (início → fim) |
+|--------------------|-----------|--------------------|
+| Frescor | Azul-gelo → turquesa | `#A1C4FD` → `#5FC9C9` |
+| Amadeirado | Âmbar → marrom-musgo | `#D4A257` → `#6B5B3E` |
+| Floral | Rosé → lilás | `#F6A5C0` → `#B892D6` |
+| Aconchego | Caramelo → âmbar quente | `#E6B980` → `#C0803A` |
+
+Cada card pinta a barra pela sensação de maior valor — assim o "humor" da vela se
+comunica pela cor antes mesmo da leitura.
+
+---
+
+## Dados prontos para o widget (JSON)
+
+`bars` é genérico (`label` + `value`), então o widget renderiza os 4 eixos sem saber
+que são sensações — dá pra trocar por outra métrica sem tocar no código.
 
 ```json
 {
   "candles": [
-    {
-      "id": "fjord",
-      "name": "Fjord",
-      "family": "Fresco / Aquático",
-      "intensity": 30,
-      "burnHours": 45,
-      "barColor": ["#F6D365", "#A8E063"],
-      "notes": [
-        { "label": "Cítrico", "value": 60 },
-        { "label": "Sálvia", "value": 25 },
-        { "label": "Sal marinho", "value": 15 }
-      ]
-    },
-    {
-      "id": "skog",
-      "name": "Skog",
-      "family": "Amadeirado / Terroso",
-      "intensity": 70,
-      "burnHours": 50,
-      "barColor": ["#D4A257", "#6B5B3E"],
-      "notes": [
-        { "label": "Cedro", "value": 55 },
-        { "label": "Musgo", "value": 30 },
-        { "label": "Fumaça", "value": 15 }
-      ]
-    },
-    {
-      "id": "aurora",
-      "name": "Aurora",
-      "family": "Floral / Etéreo",
-      "intensity": 50,
-      "burnHours": 45,
-      "barColor": ["#F6A5C0", "#B892D6"],
-      "notes": [
-        { "label": "Floral branco", "value": 60 },
-        { "label": "Íris", "value": 25 },
-        { "label": "Almíscar", "value": 15 }
-      ]
-    },
-    {
-      "id": "hygge",
-      "name": "Hygge",
-      "family": "Gourmand / Aconchego",
-      "intensity": 55,
-      "burnHours": 48,
-      "barColor": ["#E6B980", "#C0803A"],
-      "notes": [
-        { "label": "Baunilha", "value": 55 },
-        { "label": "Âmbar", "value": 30 },
-        { "label": "Canela", "value": 15 }
-      ]
-    },
-    {
-      "id": "nevoa",
-      "name": "Névoa",
-      "family": "Herbal / Calmante",
-      "intensity": 40,
-      "burnHours": 45,
-      "barColor": ["#C3AED6", "#9DC6A0"],
-      "notes": [
-        { "label": "Lavanda", "value": 60 },
-        { "label": "Eucalipto", "value": 25 },
-        { "label": "Menta", "value": 15 }
-      ]
-    },
-    {
-      "id": "solsticio",
-      "name": "Solstício",
-      "family": "Cálido / Especiado",
-      "intensity": 75,
-      "burnHours": 50,
-      "barColor": ["#F5A623", "#C0392B"],
-      "notes": [
-        { "label": "Âmbar", "value": 50 },
-        { "label": "Cravo", "value": 30 },
-        { "label": "Laranja", "value": 20 }
-      ]
-    },
-    {
-      "id": "vetr",
-      "name": "Vetr",
-      "family": "Resinoso / Frio",
-      "intensity": 80,
-      "burnHours": 50,
-      "barColor": ["#4B7A5A", "#A9D6E5"],
-      "notes": [
-        { "label": "Pinho", "value": 55 },
-        { "label": "Zimbro", "value": 30 },
-        { "label": "Hortelã", "value": 15 }
-      ]
-    },
-    {
-      "id": "brasa",
-      "name": "Brasa",
-      "family": "Defumado / Intenso",
-      "intensity": 90,
-      "burnHours": 52,
-      "barColor": ["#7A4B3A", "#4A2530"],
-      "notes": [
-        { "label": "Sândalo", "value": 50 },
-        { "label": "Fumaça", "value": 30 },
-        { "label": "Couro", "value": 20 }
-      ]
-    }
+    { "id": "fjord",     "name": "Fjord",     "family": "Fresco / Aquático",     "tagline": "Uma lufada de manhã à beira-mar.",              "intensity": 30, "barColor": ["#A1C4FD", "#5FC9C9"], "bars": [{ "label": "Frescor", "value": 90 }, { "label": "Amadeirado", "value": 30 }, { "label": "Floral", "value": 20 }, { "label": "Aconchego", "value": 10 }] },
+    { "id": "skog",      "name": "Skog",      "family": "Amadeirado / Terroso",  "tagline": "Chão de floresta depois da chuva.",             "intensity": 70, "barColor": ["#D4A257", "#6B5B3E"], "bars": [{ "label": "Frescor", "value": 20 }, { "label": "Amadeirado", "value": 90 }, { "label": "Floral", "value": 10 }, { "label": "Aconchego", "value": 40 }] },
+    { "id": "aurora",    "name": "Aurora",    "family": "Floral / Etéreo",       "tagline": "Pétalas ao amanhecer.",                         "intensity": 50, "barColor": ["#F6A5C0", "#B892D6"], "bars": [{ "label": "Frescor", "value": 40 }, { "label": "Amadeirado", "value": 20 }, { "label": "Floral", "value": 90 }, { "label": "Aconchego", "value": 40 }] },
+    { "id": "hygge",     "name": "Hygge",     "family": "Gourmand / Aconchego",  "tagline": "O abraço em forma de vela.",                    "intensity": 60, "barColor": ["#E6B980", "#C0803A"], "bars": [{ "label": "Frescor", "value": 10 }, { "label": "Amadeirado", "value": 40 }, { "label": "Floral", "value": 20 }, { "label": "Aconchego", "value": 90 }] },
+    { "id": "nevoa",     "name": "Névoa",     "family": "Herbal / Calmante",     "tagline": "Ar de montanha ao entardecer.",                 "intensity": 40, "barColor": ["#A1C4FD", "#5FC9C9"], "bars": [{ "label": "Frescor", "value": 70 }, { "label": "Amadeirado", "value": 20 }, { "label": "Floral", "value": 40 }, { "label": "Aconchego", "value": 30 }] },
+    { "id": "solsticio", "name": "Solstício", "family": "Cálido / Especiado",    "tagline": "Especiarias na noite longa de inverno.",        "intensity": 70, "barColor": ["#E6B980", "#C0803A"], "bars": [{ "label": "Frescor", "value": 30 }, { "label": "Amadeirado", "value": 50 }, { "label": "Floral", "value": 30 }, { "label": "Aconchego", "value": 80 }] },
+    { "id": "vetr",      "name": "Vetr",      "family": "Resinoso / Frio",       "tagline": "Pinheiros cobertos de gelo.",                   "intensity": 80, "barColor": ["#D4A257", "#6B5B3E"], "bars": [{ "label": "Frescor", "value": 70 }, { "label": "Amadeirado", "value": 80 }, { "label": "Floral", "value": 10 }, { "label": "Aconchego", "value": 20 }] },
+    { "id": "brasa",     "name": "Brasa",     "family": "Defumado / Intenso",    "tagline": "Lareira ao fim da noite.",                      "intensity": 90, "barColor": ["#D4A257", "#6B5B3E"], "bars": [{ "label": "Frescor", "value": 10 }, { "label": "Amadeirado", "value": 80 }, { "label": "Floral", "value": 10 }, { "label": "Aconchego", "value": 60 }] }
   ]
 }
 ```
 
 ---
 
-## 5. Notas de uso
+## Notas de uso
 
-- Os nomes nórdicos (*Skog*, *Vetr*, *Névoa*) reforçam a coleção **Nordic Rituals**; o
-  descritivo PT-BR fica no subtítulo do card.
-- Percentuais e horas de queima são **placeholders de design** — ajustar aos blends reais
-  da produção antes de publicar.
-- Para acessibilidade: nunca comunicar só pela cor da barra — manter sempre o rótulo da
-  nota + o valor numérico visível.
+- Os 4 eixos são **percepção**, não receita — publicáveis sem risco. A composição real
+  nunca aparece.
+- Valores são **placeholders de design**; ajustar à percepção real de cada blend antes de
+  publicar (é sensorial, não confidencial).
+- Acessibilidade: manter sempre o rótulo do eixo + o número visível, nunca só a cor.
