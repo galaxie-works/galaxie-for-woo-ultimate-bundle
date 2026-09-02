@@ -11,12 +11,16 @@ Nordic Rituals).
 Os 4 eixos são os mesmos para todas as velas, o que deixa os cards comparáveis entre si.
 A **Intensidade** é uma barra separada (Suave ▸ Intensa).
 
+> 🇧🇷 **Taglines pensadas pro brasileiro.** O nome da coleção é aspiracional, mas a
+> evocação é do cotidiano daqui — café na cozinha, cheiro de chuva, fim de churrasco —
+> não lareira nem neve, que 99% do público nunca viveu.
+
 ---
 
 ## Perfil pronto por vela
 
 ### 🕯️ Fjord — *Fresco / Aquático*
-> Uma lufada de manhã à beira-mar. Limpo, vivo, respirável.
+> Brisa de mar entrando pela janela de manhã.
 - Frescor    `█████████░` 90
 - Amadeirado `███░░░░░░░` 30
 - Floral     `██░░░░░░░░` 20
@@ -24,7 +28,7 @@ A **Intensidade** é uma barra separada (Suave ▸ Intensa).
 - **Intensidade:** `███░░░░░░░` Suave
 
 ### 🕯️ Skog *(Bosque)* — *Amadeirado / Terroso*
-> Chão de floresta depois da chuva. Encorpado e enraizado.
+> Cheiro de terra molhada depois da primeira chuva.
 - Frescor    `██░░░░░░░░` 20
 - Amadeirado `█████████░` 90
 - Floral     `█░░░░░░░░░` 10
@@ -32,7 +36,7 @@ A **Intensidade** é uma barra separada (Suave ▸ Intensa).
 - **Intensidade:** `███████░░░` Marcante
 
 ### 🕯️ Aurora — *Floral / Etéreo*
-> Pétalas ao amanhecer. Delicada, luminosa, presente.
+> Flores do quintal numa manhã de domingo.
 - Frescor    `████░░░░░░` 40
 - Amadeirado `██░░░░░░░░` 20
 - Floral     `█████████░` 90
@@ -40,7 +44,7 @@ A **Intensidade** é uma barra separada (Suave ▸ Intensa).
 - **Intensidade:** `█████░░░░░` Média
 
 ### 🕯️ Hygge — *Gourmand / Aconchego*
-> Cobertor, luz baixa, xícara quente. O abraço em forma de vela.
+> Tarde de chuva com o café passando na cozinha.
 - Frescor    `█░░░░░░░░░` 10
 - Amadeirado `████░░░░░░` 40
 - Floral     `██░░░░░░░░` 20
@@ -48,7 +52,7 @@ A **Intensidade** é uma barra separada (Suave ▸ Intensa).
 - **Intensidade:** `██████░░░░` Média
 
 ### 🕯️ Névoa *(Mist)* — *Herbal / Calmante*
-> Ar de montanha ao entardecer. Silêncio que se respira.
+> O silêncio gostoso da casa quando todo mundo já dormiu.
 - Frescor    `███████░░░` 70
 - Amadeirado `██░░░░░░░░` 20
 - Floral     `████░░░░░░` 40
@@ -56,7 +60,7 @@ A **Intensidade** é uma barra separada (Suave ▸ Intensa).
 - **Intensidade:** `████░░░░░░` Suave
 
 ### 🕯️ Solstício — *Cálido / Especiado*
-> Noite longa de inverno, especiarias no ar. Aconchego intenso.
+> Noite fria de junho, cobertor e conversa boa.
 - Frescor    `███░░░░░░░` 30
 - Amadeirado `█████░░░░░` 50
 - Floral     `███░░░░░░░` 30
@@ -64,7 +68,7 @@ A **Intensidade** é uma barra separada (Suave ▸ Intensa).
 - **Intensidade:** `███████░░░` Marcante
 
 ### 🕯️ Vetr *(Inverno)* — *Resinoso / Frio*
-> Pinheiros cobertos de gelo. Ar cortante e limpo.
+> O frescor da casa recém-arrumada de manhã cedo.
 - Frescor    `███████░░░` 70
 - Amadeirado `████████░░` 80
 - Floral     `█░░░░░░░░░` 10
@@ -72,7 +76,7 @@ A **Intensidade** é uma barra separada (Suave ▸ Intensa).
 - **Intensidade:** `████████░░` Marcante
 
 ### 🕯️ Brasa *(Ember)* — *Defumado / Intenso*
-> Lareira ao fim da noite. Profundo, quente, envolvente.
+> Fim de churrasco, a brasa apagando devagar.
 - Frescor    `█░░░░░░░░░` 10
 - Amadeirado `████████░░` 80
 - Floral     `█░░░░░░░░░` 10
@@ -118,14 +122,14 @@ que são sensações — dá pra trocar por outra métrica sem tocar no código.
 ```json
 {
   "candles": [
-    { "id": "fjord",     "name": "Fjord",     "family": "Fresco / Aquático",     "tagline": "Uma lufada de manhã à beira-mar.",              "intensity": 30, "barColor": ["#A1C4FD", "#5FC9C9"], "bars": [{ "label": "Frescor", "value": 90 }, { "label": "Amadeirado", "value": 30 }, { "label": "Floral", "value": 20 }, { "label": "Aconchego", "value": 10 }] },
-    { "id": "skog",      "name": "Skog",      "family": "Amadeirado / Terroso",  "tagline": "Chão de floresta depois da chuva.",             "intensity": 70, "barColor": ["#D4A257", "#6B5B3E"], "bars": [{ "label": "Frescor", "value": 20 }, { "label": "Amadeirado", "value": 90 }, { "label": "Floral", "value": 10 }, { "label": "Aconchego", "value": 40 }] },
-    { "id": "aurora",    "name": "Aurora",    "family": "Floral / Etéreo",       "tagline": "Pétalas ao amanhecer.",                         "intensity": 50, "barColor": ["#F6A5C0", "#B892D6"], "bars": [{ "label": "Frescor", "value": 40 }, { "label": "Amadeirado", "value": 20 }, { "label": "Floral", "value": 90 }, { "label": "Aconchego", "value": 40 }] },
-    { "id": "hygge",     "name": "Hygge",     "family": "Gourmand / Aconchego",  "tagline": "O abraço em forma de vela.",                    "intensity": 60, "barColor": ["#E6B980", "#C0803A"], "bars": [{ "label": "Frescor", "value": 10 }, { "label": "Amadeirado", "value": 40 }, { "label": "Floral", "value": 20 }, { "label": "Aconchego", "value": 90 }] },
-    { "id": "nevoa",     "name": "Névoa",     "family": "Herbal / Calmante",     "tagline": "Ar de montanha ao entardecer.",                 "intensity": 40, "barColor": ["#A1C4FD", "#5FC9C9"], "bars": [{ "label": "Frescor", "value": 70 }, { "label": "Amadeirado", "value": 20 }, { "label": "Floral", "value": 40 }, { "label": "Aconchego", "value": 30 }] },
-    { "id": "solsticio", "name": "Solstício", "family": "Cálido / Especiado",    "tagline": "Especiarias na noite longa de inverno.",        "intensity": 70, "barColor": ["#E6B980", "#C0803A"], "bars": [{ "label": "Frescor", "value": 30 }, { "label": "Amadeirado", "value": 50 }, { "label": "Floral", "value": 30 }, { "label": "Aconchego", "value": 80 }] },
-    { "id": "vetr",      "name": "Vetr",      "family": "Resinoso / Frio",       "tagline": "Pinheiros cobertos de gelo.",                   "intensity": 80, "barColor": ["#D4A257", "#6B5B3E"], "bars": [{ "label": "Frescor", "value": 70 }, { "label": "Amadeirado", "value": 80 }, { "label": "Floral", "value": 10 }, { "label": "Aconchego", "value": 20 }] },
-    { "id": "brasa",     "name": "Brasa",     "family": "Defumado / Intenso",    "tagline": "Lareira ao fim da noite.",                      "intensity": 90, "barColor": ["#D4A257", "#6B5B3E"], "bars": [{ "label": "Frescor", "value": 10 }, { "label": "Amadeirado", "value": 80 }, { "label": "Floral", "value": 10 }, { "label": "Aconchego", "value": 60 }] }
+    { "id": "fjord",     "name": "Fjord",     "family": "Fresco / Aquático",     "tagline": "Brisa de mar entrando pela janela de manhã.",          "intensity": 30, "barColor": ["#A1C4FD", "#5FC9C9"], "bars": [{ "label": "Frescor", "value": 90 }, { "label": "Amadeirado", "value": 30 }, { "label": "Floral", "value": 20 }, { "label": "Aconchego", "value": 10 }] },
+    { "id": "skog",      "name": "Skog",      "family": "Amadeirado / Terroso",  "tagline": "Cheiro de terra molhada depois da primeira chuva.",    "intensity": 70, "barColor": ["#D4A257", "#6B5B3E"], "bars": [{ "label": "Frescor", "value": 20 }, { "label": "Amadeirado", "value": 90 }, { "label": "Floral", "value": 10 }, { "label": "Aconchego", "value": 40 }] },
+    { "id": "aurora",    "name": "Aurora",    "family": "Floral / Etéreo",       "tagline": "Flores do quintal numa manhã de domingo.",             "intensity": 50, "barColor": ["#F6A5C0", "#B892D6"], "bars": [{ "label": "Frescor", "value": 40 }, { "label": "Amadeirado", "value": 20 }, { "label": "Floral", "value": 90 }, { "label": "Aconchego", "value": 40 }] },
+    { "id": "hygge",     "name": "Hygge",     "family": "Gourmand / Aconchego",  "tagline": "Tarde de chuva com o café passando na cozinha.",       "intensity": 60, "barColor": ["#E6B980", "#C0803A"], "bars": [{ "label": "Frescor", "value": 10 }, { "label": "Amadeirado", "value": 40 }, { "label": "Floral", "value": 20 }, { "label": "Aconchego", "value": 90 }] },
+    { "id": "nevoa",     "name": "Névoa",     "family": "Herbal / Calmante",     "tagline": "O silêncio gostoso da casa quando todo mundo já dormiu.", "intensity": 40, "barColor": ["#A1C4FD", "#5FC9C9"], "bars": [{ "label": "Frescor", "value": 70 }, { "label": "Amadeirado", "value": 20 }, { "label": "Floral", "value": 40 }, { "label": "Aconchego", "value": 30 }] },
+    { "id": "solsticio", "name": "Solstício", "family": "Cálido / Especiado",    "tagline": "Noite fria de junho, cobertor e conversa boa.",        "intensity": 70, "barColor": ["#E6B980", "#C0803A"], "bars": [{ "label": "Frescor", "value": 30 }, { "label": "Amadeirado", "value": 50 }, { "label": "Floral", "value": 30 }, { "label": "Aconchego", "value": 80 }] },
+    { "id": "vetr",      "name": "Vetr",      "family": "Resinoso / Frio",       "tagline": "O frescor da casa recém-arrumada de manhã cedo.",      "intensity": 80, "barColor": ["#D4A257", "#6B5B3E"], "bars": [{ "label": "Frescor", "value": 70 }, { "label": "Amadeirado", "value": 80 }, { "label": "Floral", "value": 10 }, { "label": "Aconchego", "value": 20 }] },
+    { "id": "brasa",     "name": "Brasa",     "family": "Defumado / Intenso",    "tagline": "Fim de churrasco, a brasa apagando devagar.",          "intensity": 90, "barColor": ["#D4A257", "#6B5B3E"], "bars": [{ "label": "Frescor", "value": 10 }, { "label": "Amadeirado", "value": 80 }, { "label": "Floral", "value": 10 }, { "label": "Aconchego", "value": 60 }] }
   ]
 }
 ```
@@ -134,6 +138,8 @@ que são sensações — dá pra trocar por outra métrica sem tocar no código.
 
 ## Notas de uso
 
+- **Taglines são do cotidiano brasileiro** — evocam um momento que o público realmente
+  vive. Nada de lareira, neve ou floresta congelada.
 - Os 4 eixos são **percepção**, não receita — publicáveis sem risco. A composição real
   nunca aparece.
 - Valores são **placeholders de design**; ajustar à percepção real de cada blend antes de
