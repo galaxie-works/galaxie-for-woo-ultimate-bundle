@@ -819,15 +819,6 @@ final class PixfortControls {
 			'default' => $d( 'media_type', 'icon' ),
 		) );
 
-		if ( self::available() ) {
-			self::add( $target, $condition, $prefix . '_icon', array(
-				'label'     => __( 'pixfort icon', 'galaxie-woo' ),
-				'type'      => \Elementor\CustomControl\PixfortIconSelector_Control::PixfortIconSelector,
-				'default'   => $d( 'icon', '' ),
-				'condition' => array( $prefix . '_media_type' => 'icon' ),
-			) );
-		}
-
 		self::add( $target, $condition, $prefix . '_char', array(
 			'label'     => __( 'Character', 'galaxie-woo' ),
 			'type'      => Controls_Manager::TEXT,
@@ -882,10 +873,10 @@ final class PixfortControls {
 	 * @param array<string,mixed> $settings
 	 * @return array<string,mixed>
 	 */
-	public static function alert_attr( array $settings, string $prefix, string $title, string $type ): array {
+	public static function alert_attr( array $settings, string $prefix, string $title, string $type, string $icon = '', array $link = array() ): array {
 		$keys = array(
 			'bold', 'italic', 'secondary_font', 'shadow', 'hover_effect',
-			'add_hover_effect', 'media_type', 'icon', 'char', 'icon_color',
+			'add_hover_effect', 'media_type', 'char', 'icon_color',
 			'custom_icon_color', 'icon_size', 'hide_close', 'animation', 'delay',
 		);
 
@@ -895,16 +886,26 @@ final class PixfortControls {
 			// PixAlert calls the radius attribute `rounded_img` even when there is
 			// no image; it is simply appended to the alert's class list.
 			'rounded_img'  => (string) ( $settings[ $prefix . '_rounded' ] ?? 'rounded-lg' ),
-			// Nothing to navigate to, so both halves of PixAlert's link branch stay
-			// empty and the alert renders as a plain block rather than an anchor.
-			'link'         => '',
-			'link_text'    => '',
+			// PixAlert keys its whole link branch off `link_text`: with it empty the
+			// alert renders as a plain block, and with it set it grows a slot at
+			// `order-2`, immediately left of the close button at `order-3`. That
+			// is the slot the cart link belongs in — no markup of ours required.
+			'link'         => $link['link'] ?? '',
+			'link_text'    => $link['link_text'] ?? '',
+			'link_color'   => $link['link_color'] ?? 'alert-default',
 		);
 
 		foreach ( $keys as $key ) {
 			if ( isset( $settings[ $prefix . '_' . $key ] ) ) {
 				$attr[ $key ] = $settings[ $prefix . '_' . $key ];
 			}
+		}
+
+		// The icon travels with the message rather than with the skin: a warning
+		// triangle over "Added to cart" is worse than no icon at all, and one
+		// shared glyph cannot be right for four different things being said.
+		if ( '' !== $icon ) {
+			$attr['icon'] = $icon;
 		}
 
 		// Asking for an icon without picking one would render an empty box.
@@ -914,6 +915,30 @@ final class PixfortControls {
 		}
 
 		return $attr;
+	}
+
+	/**
+	 * A plain palette dropdown whose value is handed to a pixfort component as an
+	 * attribute — the component turns it into its own `text-{slug}` class.
+	 *
+	 * Distinct from {@see palette_control()}, which drives CSS selectors for
+	 * markup pixfort does not render. Use this one whenever the component itself
+	 * understands the palette, so the class it emits stays the class it would
+	 * have emitted in pixfort's own widget.
+	 *
+	 * @param array<string,mixed> $condition
+	 */
+	public static function palette_select( object $target, string $id, string $label, string $default = '', array $condition = array() ): void {
+		if ( ! self::available() ) {
+			return;
+		}
+
+		self::add( $target, $condition, $id, array(
+			'label'   => $label,
+			'type'    => Controls_Manager::SELECT,
+			'groups'  => self::colors( array( 'defaultValue' => array( $default => __( 'Default', 'galaxie-woo' ) ), 'mainLight' => true, 'gradients' => false ) ),
+			'default' => $default,
+		) );
 	}
 
 	/**

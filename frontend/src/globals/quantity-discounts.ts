@@ -13,8 +13,7 @@
  * makes the theme's mini-cart update without us knowing anything about it.
  */
 
-/** pixfort's alert types — one at a time, so showing one clears the rest. */
-const ALERT_TYPES = ['success', 'secondary', 'primary', 'danger', 'warning', 'info', 'light', 'dark']
+import { findAlert } from '@/globals/buy-box-alert'
 
 interface FoundVariation {
   variation_id?: number
@@ -65,26 +64,7 @@ function ceilingFor(variation: FoundVariation | undefined): number | null {
  * anything the merchant did not write.
  */
 function askForVariation(form: HTMLFormElement): void {
-  const holder = document.querySelector<HTMLElement>('.galaxie-buybox-alert')
-  const alert = holder?.querySelector<HTMLElement>('.alert')
-  const title = holder?.querySelector<HTMLElement>('.pix-alert-title')
-
-  if (holder && alert && title) {
-    try {
-      const messages = JSON.parse(holder.dataset.galaxieMessages || '{}')
-      const message = messages.select
-
-      if (message) {
-        title.innerHTML = message.text
-        ALERT_TYPES.forEach((type) => alert.classList.remove(`alert-${type}`))
-        alert.classList.add(`alert-${message.type || 'warning'}`)
-        holder.classList.add('is-visible')
-      }
-    } catch {
-      // A malformed payload is not worth failing the click over; the scroll
-      // below still tells the shopper where to go.
-    }
-  }
+  findAlert()?.show('select')
 
   const picker = form.querySelector<HTMLElement>('.galaxie-variation-picker, .variations')
   picker?.scrollIntoView({ block: 'center', behavior: 'smooth' })
@@ -183,8 +163,34 @@ function initBlock(block: HTMLElement): void {
   apply()
 }
 
+/**
+ * A tier row that succeeded says so through the same Alert the Buy Box uses.
+ *
+ * WooCommerce hands the button it just handled as the third argument of its own
+ * `added_to_cart`, which is the only way to tell one of our rows apart from any
+ * other add-to-cart on the page — the event itself is global and fires for
+ * every one of them.
+ */
+function announceAdds(): void {
+  const jq = window.jQuery
+  if (!jq) return
+
+  jq(document.body).on('added_to_cart', (_event: unknown, ...args: unknown[]) => {
+    const button = args[2] as { get?: (index: number) => HTMLElement | undefined } | undefined
+    const node = button?.get?.(0)
+
+    if (!node?.classList?.contains('galaxie-qd-add')) return
+
+    const alert = findAlert()
+    if (alert?.has('added')) alert.show('added')
+  })
+}
+
 export function bootQuantityDiscounts(): void {
-  const run = () => document.querySelectorAll<HTMLElement>('.galaxie-qd').forEach(initBlock)
+  const run = () => {
+    document.querySelectorAll<HTMLElement>('.galaxie-qd').forEach(initBlock)
+    announceAdds()
+  }
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', run)

@@ -23,6 +23,8 @@ interface AddToCartResponse {
   data?: { message?: string; fragments?: Record<string, string>; cart_hash?: string }
 }
 
+import { findAlert } from '@/globals/buy-box-alert'
+
 interface VariationPayload {
   price_html?: string
   availability_html?: string
@@ -155,79 +157,6 @@ function initPriceAndStock(form: HTMLFormElement): void {
   })
 }
 
-/**
- * pixfort's alert types. Only one may be on the element at a time, so showing
- * a message means clearing the other seven before adding its own.
- */
-const ALERT_TYPES = ['success', 'secondary', 'primary', 'danger', 'warning', 'info', 'light', 'dark']
-
-interface AlertMessage {
-  text: string
-  type: string
-}
-
-interface AlertController {
-  show(key: string, override?: string): boolean
-  hide(): void
-  has(key: string): boolean
-}
-
-/**
- * The widget renders ONE pixfort alert, hidden, carrying every configured
- * message as JSON. Showing one is a matter of writing its text into
- * `.pix-alert-title` and swapping the `alert-{type}` class — the only place
- * PixAlert puts the type — so the merchant's icon, radius, shadow and weight
- * survive untouched whichever message is speaking.
- *
- * Returns null when the widget has no Alert block, and every caller treats that
- * as "say nothing, let the form submit the way it always did".
- */
-function initAlert(form: HTMLFormElement): AlertController | null {
-  const holder = form.querySelector<HTMLElement>('.galaxie-buybox-alert')
-  const alert = holder?.querySelector<HTMLElement>('.alert')
-  const title = holder?.querySelector<HTMLElement>('.pix-alert-title')
-  if (!holder || !alert || !title) return null
-
-  let messages: Record<string, AlertMessage> = {}
-  try {
-    messages = JSON.parse(holder.dataset.galaxieMessages || '{}')
-  } catch {
-    messages = {}
-  }
-
-  const hide = () => holder.classList.remove('is-visible')
-
-  // pixfort's close button is Bootstrap's `data-dismiss="alert"`, which removes
-  // the node from the document. This one has to survive to be shown again on
-  // the next failed attempt, so the dismissal is caught on the way down and
-  // turned into a hide.
-  holder.addEventListener(
-    'click',
-    (event) => {
-      if (!(event.target as HTMLElement).closest('[data-dismiss="alert"]')) return
-      event.preventDefault()
-      event.stopPropagation()
-      hide()
-    },
-    true,
-  )
-
-  return {
-    hide,
-    has: (key) => key in messages,
-    show(key, override) {
-      const message = messages[key]
-      if (!message) return false
-
-      title.innerHTML = override || message.text
-      ALERT_TYPES.forEach((type) => alert.classList.remove(`alert-${type}`))
-      alert.classList.add(`alert-${message.type || 'warning'}`)
-      holder.classList.add('is-visible')
-      return true
-    },
-  }
-}
-
 function currentQuantity(form: HTMLFormElement): number {
   const field = form.querySelector<HTMLInputElement | HTMLSelectElement>('.galaxie-buybox-quantity .qty')
   return field ? Number(field.value) || 1 : 1
@@ -238,7 +167,7 @@ function initButtons(form: HTMLFormElement, config?: BuyBoxConfig): void {
   const buyNow = form.querySelector<HTMLButtonElement>('.galaxie-buybox-buynow')
   const variationField = form.querySelector<HTMLInputElement>('input[name="variation_id"]')
   const productField = form.querySelector<HTMLInputElement>('input[name="add-to-cart"]')
-  const alert = initAlert(form)
+  const alert = findAlert()
 
   // Any change to the choice makes whatever the alert is saying stale.
   form.addEventListener('change', () => alert?.hide(), true)

@@ -382,6 +382,60 @@ final class BuyBoxWidget extends Widget_Base {
 					'condition' => array( 'alert_' . $key . '_text!' => '' ),
 				)
 			);
+
+			if ( ! empty( $message['link'] ) ) {
+				$this->add_control(
+					'alert_' . $key . '_link_text',
+					array(
+						'label'       => __( 'Link text', 'galaxie-woo' ),
+						'description' => __( 'Sits just left of the close button. Leave empty for no link.', 'galaxie-woo' ),
+						'label_block' => true,
+						'type'        => Controls_Manager::TEXT,
+						'default'     => $message['link_text'],
+						'condition'   => array( 'alert_' . $key . '_text!' => '' ),
+					)
+				);
+
+				$this->add_control(
+					'alert_' . $key . '_link',
+					array(
+						'label'       => __( 'Link', 'galaxie-woo' ),
+						'description' => __( 'Empty points at the cart.', 'galaxie-woo' ),
+						'type'        => Controls_Manager::URL,
+						'default'     => array( 'url' => '', 'is_external' => false, 'nofollow' => false ),
+						'condition'   => array(
+							'alert_' . $key . '_text!'      => '',
+							'alert_' . $key . '_link_text!' => '',
+						),
+					)
+				);
+
+				PixfortControls::palette_select(
+					$this,
+					'alert_' . $key . '_link_color',
+					__( 'Link color', 'galaxie-woo' ),
+					'alert-default',
+					array(
+						'alert_' . $key . '_text!'      => '',
+						'alert_' . $key . '_link_text!' => '',
+					)
+				);
+			}
+
+			if ( PixfortControls::available() ) {
+				$this->add_control(
+					'alert_' . $key . '_icon',
+					array(
+						'label'     => __( 'Icon', 'galaxie-woo' ),
+						'type'      => \Elementor\CustomControl\PixfortIconSelector_Control::PixfortIconSelector,
+						'default'   => $message['icon'],
+						'condition' => array(
+							'alert_' . $key . '_text!' => '',
+							'alert_media_type'         => 'icon',
+						),
+					)
+				);
+			}
 		}
 
 		$this->add_control(
@@ -766,7 +820,10 @@ final class BuyBoxWidget extends Widget_Base {
 	 * @param array<string,mixed> $settings
 	 */
 	private function render_alert( array $settings ): void {
-		$messages = array();
+		$rendered = 0;
+		$editing  = self::is_editing();
+
+		ob_start();
 
 		foreach ( self::alert_messages() as $key => $message ) {
 			$text = trim( (string) ( $settings[ 'alert_' . $key . '_text' ] ?? '' ) );
@@ -775,35 +832,92 @@ final class BuyBoxWidget extends Widget_Base {
 				continue;
 			}
 
-			$messages[ $key ] = array(
-				'text' => wp_kses_post( $text ),
-				'type' => (string) ( $settings[ 'alert_' . $key . '_type' ] ?? $message['type'] ),
+			$text = wp_kses_post( $text );
+			$type = (string) ( $settings[ 'alert_' . $key . '_type' ] ?? $message['type'] );
+			$icon = (string) ( $settings[ 'alert_' . $key . '_icon' ] ?? $message['icon'] );
+			$link = $this->alert_link( $settings, $key, $message );
+
+			// Only the first configured message is visible in the editor, so the
+			// merchant sees one alert rather than a stack of four.
+			printf(
+				'<div class="galaxie-buybox-alert-message%s" data-galaxie-alert="%s">',
+				$editing && 0 === $rendered ? ' is-current' : '',
+				esc_attr( $key )
 			);
+
+			if ( PixfortControls::available() ) {
+				echo \PixfortCore::instance()->elementsManager->renderElement( 'Alert', PixfortControls::alert_attr( $settings, 'alert', $text, $type, $icon, $link ) ); // phpcs:ignore WordPress.Security.EscapeOutput -- pixfort's own component markup.
+			} else {
+				printf(
+					'<div class="alert alert-%s" role="alert"><div class="pix-alert-title">%s</div></div>',
+					esc_attr( $type ),
+					wp_kses_post( $text )
+				);
+			}
+
+			echo '</div>';
+			++$rendered;
 		}
 
-		if ( ! $messages ) {
+		$markup = (string) ob_get_clean();
+
+		if ( ! $rendered ) {
 			return;
 		}
 
-		$first = reset( $messages );
-
+		/*
+		 * One alert per message, not one alert repainted.
+		 *
+		 * Repainting meant every message wore the same icon, and a warning
+		 * triangle over "Added to cart" is worse than no icon at all — the glyph
+		 * is part of what the sentence means, not part of the widget's skin.
+		 * Rendering each one through PixAlert also means the type, the icon and
+		 * the colour all come from pixfort exactly as configured, instead of
+		 * from us swapping a class at runtime and hoping the rest follows.
+		 */
 		printf(
-			'<div class="galaxie-buybox-alert%s" data-galaxie-messages="%s" role="status" aria-live="polite">',
-			self::is_editing() ? ' is-visible' : '',
-			esc_attr( (string) wp_json_encode( $messages ) )
+			'<div class="galaxie-buybox-alert%s" role="status" aria-live="polite">%s</div>',
+			$editing ? ' is-visible' : '',
+			$markup // phpcs:ignore WordPress.Security.EscapeOutput -- built above from escaped parts and pixfort's own component markup.
 		);
+	}
 
-		if ( PixfortControls::available() ) {
-			echo \PixfortCore::instance()->elementsManager->renderElement( 'Alert', PixfortControls::alert_attr( $settings, 'alert', $first['text'], $first['type'] ) ); // phpcs:ignore WordPress.Security.EscapeOutput -- pixfort's own component markup.
-		} else {
-			printf(
-				'<div class="alert alert-%s" role="alert"><div class="pix-alert-title">%s</div></div>',
-				esc_attr( $first['type'] ),
-				wp_kses_post( $first['text'] )
-			);
+	/**
+	 * The link slot for one message, or nothing when it has no link to offer.
+	 *
+	 * An empty URL falls back to the cart rather than rendering a dead anchor:
+	 * the only link this message ever wants is the cart, and making the merchant
+	 * paste that URL to get the obvious behaviour is a step with no decision in
+	 * it. Leaving the TEXT empty is how the link is turned off — the same
+	 * "empty means silent" rule the messages themselves follow.
+	 *
+	 * @param array<string,mixed> $settings
+	 * @param array<string,string> $message
+	 * @return array<string,mixed>
+	 */
+	private function alert_link( array $settings, string $key, array $message ): array {
+		if ( empty( $message['link'] ) ) {
+			return array();
 		}
 
-		echo '</div>';
+		$text = trim( (string) ( $settings[ 'alert_' . $key . '_link_text' ] ?? '' ) );
+
+		if ( '' === $text ) {
+			return array();
+		}
+
+		$link = $settings[ 'alert_' . $key . '_link' ] ?? array();
+		$link = is_array( $link ) ? $link : array( 'url' => (string) $link );
+
+		if ( '' === trim( (string) ( $link['url'] ?? '' ) ) ) {
+			$link['url'] = function_exists( 'wc_get_cart_url' ) ? wc_get_cart_url() : '';
+		}
+
+		return array(
+			'link_text'  => $text,
+			'link'       => $link,
+			'link_color' => (string) ( $settings[ 'alert_' . $key . '_link_color' ] ?? 'alert-default' ),
+		);
 	}
 
 	/**
@@ -920,25 +1034,34 @@ final class BuyBoxWidget extends Widget_Base {
 		return array(
 			'select'      => array(
 				'label' => __( 'No option chosen', 'galaxie-woo' ),
+				'icon'  => 'Line/pixfort-icon-interface-alert-triangle',
 				'text'  => __( 'Escolha uma opção antes de adicionar ao carrinho.', 'galaxie-woo' ),
 				'type'  => 'warning',
 			),
 			'unavailable' => array(
 				'label' => __( 'Combination unavailable', 'galaxie-woo' ),
+				'icon'  => 'Line/pixfort-icon-interface-alert-circle',
 				'text'  => __( 'Essa combinação não está disponível. Escolha outra.', 'galaxie-woo' ),
 				'type'  => 'danger',
 			),
 			'error'       => array(
 				'label' => __( 'Add to cart failed', 'galaxie-woo' ),
+				'icon'  => 'Line/pixfort-icon-interface-delete-circle',
 				'text'  => __( 'Não foi possível adicionar ao carrinho. Tente novamente.', 'galaxie-woo' ),
 				'type'  => 'danger',
 			),
 			// Off unless the merchant asks for it: the theme already opens its cart
 			// panel on a successful add, and saying it twice is worse than once.
 			'added'       => array(
-				'label' => __( 'Added to cart', 'galaxie-woo' ),
-				'text'  => '',
-				'type'  => 'success',
+				'label'     => __( 'Added to cart', 'galaxie-woo' ),
+				'icon'      => 'Line/pixfort-icon-interface-validation-check-circle',
+				'text'      => '',
+				'type'      => 'success',
+				// The one message where a link earns its place: it is the only
+				// one raised after something succeeded, so it is the only one
+				// with somewhere to send the shopper next.
+				'link'      => true,
+				'link_text' => __( 'Ver carrinho', 'galaxie-woo' ),
 			),
 		);
 	}

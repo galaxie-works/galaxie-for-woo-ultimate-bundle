@@ -511,12 +511,13 @@ form.galaxie-buybox .single_add_to_cart_button:hover {
   white-space: nowrap;
 }
 
-/* WooCommerce appends its own "view cart" link right after the button once an
-   add succeeds; inside a table cell it needs to sit under, not beside. */
+/* WooCommerce appends its own "View cart" anchor right after any button it
+   handled. In a tier row it lands beside that row's button and shunts the line
+   out of alignment, and it says the same thing the Added-to-cart alert says in
+   a place the merchant controls. Suppressed for the same reason it is
+   suppressed in the buy box row. */
 .galaxie-qd-action .added_to_cart {
-  display: block;
-  margin-top: 0.25rem;
-  font-size: 0.875em;
+  display: none;
 }
 
 /* The alert is a hidden block that becomes visible when the widget has
@@ -538,6 +539,26 @@ form.galaxie-buybox .galaxie-buybox-alert {
 
 form.galaxie-buybox .galaxie-buybox-alert.is-visible {
   display: block;
+}
+
+/* One element per configured message, only the current one on screen. Showing
+   a message is showing its element, so its icon, its type and its link are the
+   ones pixfort rendered for that message and not a repaint of another's. */
+form.galaxie-buybox .galaxie-buybox-alert-message {
+  display: none;
+}
+
+form.galaxie-buybox .galaxie-buybox-alert-message.is-current {
+  display: block;
+}
+
+/* WooCommerce appends its own "View cart" anchor beside any button it handled,
+   which inside the buy box row lands between Add to Cart and Buy Now. The
+   Added-to-cart alert offers the same link in a place the merchant controls,
+   so this one is suppressed rather than left to wedge itself into the row. */
+form.galaxie-buybox > .added_to_cart,
+form.galaxie-buybox .galaxie-buybox-row > .added_to_cart {
+  display: none;
 }
 
 /* pixfort's alert carries a bottom margin for standalone stacking; inside the
