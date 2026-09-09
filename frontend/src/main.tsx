@@ -10,6 +10,7 @@ import { bootVariationSpotlight } from '@/globals/variation-spotlight'
 import { bootVariationBadgesWidget } from '@/globals/variation-badges-widget'
 import { bootBuyBox } from '@/globals/buy-box'
 import { bootWishlist } from '@/globals/wishlist'
+import { bootQuantityDiscounts } from '@/globals/quantity-discounts'
 
 // Each module registers its island(s) here as they are ported.
 registerIsland('demo', Demo)
@@ -31,6 +32,7 @@ function boot(): void {
 
   bootBuyBox(config.variationSwatches?.buyBox)
   bootVariationBadgesWidget(config.variationSwatches?.buyBox)
+  bootQuantityDiscounts()
 
   if (config.toastNotices) {
     bootToastNotices()

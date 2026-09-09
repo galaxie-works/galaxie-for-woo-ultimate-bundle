@@ -466,6 +466,52 @@ form.galaxie-buybox .single_add_to_cart_button:hover {
   transform: translateY(calc(-1 * var(--galaxie-hover-lift, 0px))) !important;
 }
 
+/* The Add button on a quantity-discount row.
+
+   Same split as the Buy Box: our element is only the click target and pixfort's
+   own .btn inside it is the visible control, so the wrapper is reset to nothing
+   and the button keeps whatever the theme gives it. The shadow reset is not
+   speculative — pixfort paints `.single_add_to_cart_button` at rest, and a
+   shadow on a square wrapper around a rounded button draws a rectangle. Anything
+   it does to `.add_to_cart_button` would land here the same way. */
+.galaxie-qd-add {
+  display: inline-flex;
+  appearance: none;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  height: auto;
+  font: inherit;
+  box-shadow: none !important;
+}
+
+.galaxie-qd-add > *,
+.galaxie-qd-add .btn {
+  margin: 0 !important;
+}
+
+/* Disabled covers the whole "cannot act on this row yet" family: no variation
+   chosen, or one chosen whose stock is under the row's quantity. */
+.galaxie-qd-add[disabled] {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.galaxie-qd-action {
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* WooCommerce appends its own "view cart" link right after the button once an
+   add succeeds; inside a table cell it needs to sit under, not beside. */
+.galaxie-qd-action .added_to_cart {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.875em;
+}
+
 /* The alert is a hidden block that becomes visible when the widget has
    something to say, and `display: none` rather than `hidden` because the block
    wrapper sits in a flex column with a gap — a merely invisible element still
