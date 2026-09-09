@@ -411,6 +411,16 @@ form.galaxie-buybox {
   margin: 0;
 }
 
+/* Inside the buy box the quantity wrapper must not be inline-level. As an
+   inline-block it sits on the text baseline, so the browser reserves descender
+   space under it and the wrapping block ends up ~9px taller than the field
+   itself. A row centring its items on that inflated height then pushed the
+   button several pixels below the quantity — the misalignment was the gap, not
+   the button. */
+form.galaxie-buybox .galaxie-buybox-quantity {
+  display: flex;
+}
+
 /* Quantity and the buttons share a row when the layout asks for it. */
 form.galaxie-buybox .galaxie-buybox-row {
   display: flex;

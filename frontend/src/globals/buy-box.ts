@@ -29,13 +29,23 @@ interface VariationPayload {
 }
 
 /**
- * pixfort's Text component wraps the content in its own element, and that
- * element is where size/weight/colour live — so replacing the block's whole
- * innerHTML on every variation change would strip the styling the merchant
- * configured. Swap the content inside that wrapper instead.
+ * pixfort's components wrap content in their own markup, and that markup is
+ * where size/weight/colour live — so replacing a block's whole innerHTML on
+ * every variation change would strip the styling the merchant configured.
+ * Swap the content inside the wrapper instead.
+ *
+ * Both shapes have to be recognised. The sale price renders through Text or
+ * through Badge depending on its display setting, and Badge's markup carries
+ * no `.pix-el-text` and no paragraph — so matching only Text meant the badge
+ * fell through to the block itself and got overwritten with a bare price.
  */
 function contentTarget(block: HTMLElement): HTMLElement {
-  return block.querySelector<HTMLElement>('.pix-el-text p, .pix-el-text, p') ?? block
+  return (
+    block.querySelector<HTMLElement>('.pix-el-text p') ??
+    block.querySelector<HTMLElement>('.pix-badge-element .badge > span') ??
+    block.querySelector<HTMLElement>('.pix-el-text, p') ??
+    block
+  )
 }
 
 function initSwatches(form: HTMLFormElement): void {
