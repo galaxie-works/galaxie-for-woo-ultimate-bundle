@@ -8,7 +8,6 @@
 namespace Galaxie\Woo\Modules\VariationSwatches\Widget;
 
 use Elementor\Controls_Manager;
-use Galaxie\Woo\Elementor\IconPicker;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -940,7 +939,9 @@ final class PixfortControls {
 	public static function icon_select( object $target, string $id, string $label, string $default = '', array $condition = array() ): void {
 		self::add( $target, $condition, $id, array(
 			'label'   => $label,
-			'type'    => IconPicker::TYPE,
+			// The literal, not the constant: naming the class would autoload it
+			// wherever controls are registered, including the front end.
+			'type'    => 'galaxie_icon',
 			'default' => $default,
 		) );
 	}

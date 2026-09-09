@@ -32,6 +32,16 @@ final class IconPicker extends Base_Data_Control {
 	/** The three style folders pixfort ships. Nothing else resolves. */
 	private const STYLES = array( 'Line', 'Duotone', 'Solid' );
 
+	/**
+	 * Ceiling on how many icons go into the shared map.
+	 *
+	 * Three styles across pixfort's full list is over six thousand file reads
+	 * and several megabytes inlined into the editor. Fast enough once and
+	 * cached, but an unbounded build is its own kind of outage, and the search
+	 * box makes a bounded list perfectly usable.
+	 */
+	private const LIMIT = 700;
+
 	private const TRANSIENT = 'galaxie_icon_picker_map';
 
 	public function get_type(): string {
@@ -47,13 +57,22 @@ final class IconPicker extends Base_Data_Control {
 		);
 	}
 
-	public static function hooks(): void {
-		add_action( 'elementor/controls/register', array( self::class, 'register' ) );
-		add_action( 'elementor/editor/after_enqueue_scripts', array( self::class, 'enqueue' ) );
-		add_action( 'elementor/editor/after_enqueue_styles', array( self::class, 'enqueue_styles' ) );
+	public static function register( $controls_manager ): void {
+		$controls_manager->register( new self() );
 	}
 
-	public static function enqueue(): void {
+	/**
+	 * Elementor's own hook for a control to load what it needs.
+	 *
+	 * This is an INSTANCE method because `Base_Control::enqueue()` is one, and
+	 * redeclaring an inherited non-static method as static is a fatal at
+	 * class-load time — which took the whole site down, not just the editor,
+	 * because the class loads during `plugins_loaded`. The method I collided
+	 * with turned out to be exactly the one I wanted: Elementor calls it once
+	 * per registered control type, in the editor, which is precisely when the
+	 * map and the script are needed and never otherwise.
+	 */
+	public function enqueue(): void {
 		self::print_map();
 
 		wp_enqueue_script(
@@ -63,19 +82,13 @@ final class IconPicker extends Base_Data_Control {
 			GALAXIE_WOO_VERSION,
 			true
 		);
-	}
 
-	public static function enqueue_styles(): void {
 		wp_enqueue_style(
 			'galaxie-icon-picker',
 			GALAXIE_WOO_URL . 'assets/editor/icon-picker.css',
 			array(),
 			GALAXIE_WOO_VERSION
 		);
-	}
-
-	public static function register( $controls_manager ): void {
-		$controls_manager->register( new self() );
 	}
 
 	/**
@@ -110,8 +123,10 @@ final class IconPicker extends Base_Data_Control {
 			return $map;
 		}
 
+		$names = array_slice( self::names(), 0, self::LIMIT );
+
 		foreach ( self::STYLES as $style ) {
-			foreach ( self::names() as $name ) {
+			foreach ( $names as $name ) {
 				$id  = $style . '/pixfort-icon-' . $name;
 				$svg = \PixfortCore::instance()->icons->getIcon( $id, 22, 'galaxie-icon-preview' );
 
