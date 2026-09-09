@@ -298,6 +298,56 @@ final class PixfortControls {
 			'type'        => Controls_Manager::TEXT,
 			'default'     => '',
 		) );
+
+		self::button_hover( $target, $prefix, $condition, $scope );
+	}
+
+	/**
+	 * Hover styling beyond what pixfort's Button offers.
+	 *
+	 * pixfort covers only the shadow and the movement (`btn_hover_effect` and
+	 * `btn_add_hover_effect`, registered above); it has no hover COLOURS at
+	 * all. XStore's add-to-cart widget does, and that combination is the point
+	 * of this bundle — so they are added here, still through the theme's own
+	 * palette so they follow light/dark and Dynamic Colors like everything
+	 * else does.
+	 *
+	 * The lift is exposed too. The theme applies its own
+	 * `translate(0, -3px)` to `.single_add_to_cart_button:hover` regardless of
+	 * any widget setting; that is neutralised in our stylesheet so this control
+	 * is the only thing that moves the button. A control reporting None while
+	 * the button still hops is worse than no control.
+	 *
+	 * @param array<string,mixed> $condition
+	 */
+	private static function button_hover( object $target, string $prefix, array $condition, string $scope ): void {
+		$hovered = $scope . ':hover .btn';
+
+		self::add( $target, $condition, $prefix . '_hover_heading', array(
+			'label'     => __( 'Hover', 'galaxie-woo' ),
+			'type'      => Controls_Manager::HEADING,
+			'separator' => 'before',
+		) );
+
+		self::palette_control( $target, $prefix . '_hover_bg', __( 'Hover background', 'galaxie-woo' ), $hovered, 'background-color', $condition );
+		self::palette_control( $target, $prefix . '_hover_color', __( 'Hover text color', 'galaxie-woo' ), $hovered, 'color', $condition );
+		self::palette_control(
+			$target,
+			$prefix . '_hover_border',
+			__( 'Hover border color', 'galaxie-woo' ),
+			$hovered,
+			'border-color',
+			$condition,
+			' border-style: solid !important;'
+		);
+
+		self::add( $target, $condition, $prefix . '_hover_lift', array(
+			'label'      => __( 'Hover lift', 'galaxie-woo' ),
+			'type'       => Controls_Manager::SLIDER,
+			'size_units' => array( 'px' ),
+			'range'      => array( 'px' => array( 'min' => 0, 'max' => 12 ) ),
+			'selectors'  => array( $scope . ':hover' => 'transform: translateY(-{{SIZE}}{{UNIT}}) !important;' ),
+		) );
 	}
 
 	/**
@@ -631,6 +681,7 @@ final class PixfortControls {
 			'default'     => '',
 		) );
 	}
+
 
 	/**
 	 * @param array<string,mixed> $settings
