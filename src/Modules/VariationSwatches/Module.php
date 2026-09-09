@@ -30,6 +30,17 @@ defined( 'ABSPATH' ) || exit;
  * Ships theme-independent on purpose — this was going to be "install YITH or
  * ShopLentor for swatches", but the whole point of the bundle is not needing
  * a third-party suite for a WooCommerce storefront behavior this contained.
+ *
+ * Not an Elementor widget on purpose: on sites whose single-product template
+ * doesn't otherwise render WooCommerce's own price/variations/add-to-cart
+ * block (Elementor Pro Theme Builder templates commonly need this dropped in
+ * explicitly), the fix is placing Elementor Pro's own native "Add To Cart"
+ * widget — it renders the same classic `<select name="attribute_x">` markup
+ * this module already scans for, so the badges appear with zero extra code
+ * (confirmed live 2026-09-09 on test.eirnaturals.shop). A custom
+ * "Galaxie Variation Badges" widget was built and then removed after this
+ * turned out to be simpler and more robust than duplicating what Elementor
+ * Pro already ships.
  */
 final class Module implements ModuleContract, ProvidesBootData, ProvidesSettings {
 

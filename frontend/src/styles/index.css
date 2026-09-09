@@ -211,3 +211,41 @@ button.galaxie-spotlight-add:disabled {
   cursor: not-allowed;
   opacity: 0.6;
 }
+
+/* Re-skins WooCommerce's native variation form controls (quantity input,
+   add-to-cart button, price) wherever that form appears — e.g. rendered by
+   Elementor Pro's own native "Add To Cart" widget, which is what actually
+   needs to sit on a product template for this module's badges to have a
+   `<select>` to enhance in the first place (see Modules/VariationSwatches). */
+.woocommerce div.product form.cart .quantity .qty {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md, 0.375rem);
+  padding: 0.5rem;
+  font: inherit;
+  color: var(--foreground);
+  background: var(--background);
+}
+
+.woocommerce div.product form.cart .single_add_to_cart_button {
+  appearance: none;
+  cursor: pointer;
+  border: none;
+  border-radius: var(--radius-md, 0.375rem);
+  background: var(--primary);
+  color: var(--primary-foreground);
+  font: inherit;
+  font-weight: 600;
+  padding: 0.625rem 1.25rem;
+}
+
+.woocommerce div.product form.cart .single_add_to_cart_button.disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.woocommerce div.product form.cart .reset_variations {
+  display: inline-block;
+  margin-top: 0.5rem;
+  font-size: 0.8125rem;
+  color: var(--muted-foreground);
+}
