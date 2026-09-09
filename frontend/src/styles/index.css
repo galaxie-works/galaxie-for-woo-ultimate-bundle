@@ -471,9 +471,18 @@ form.galaxie-buybox .galaxie-buybox-row {
   border-radius: var(--radius-md, 0.375rem);
 }
 
-.galaxie-buybox-price-regular {
+/* The regular-price slot only reads as an "old" price once a sale price sits
+   beside it — on its own it IS the price, at full weight. */
+.galaxie-buybox-price {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.galaxie-buybox-price-regular.is-struck {
   opacity: 0.6;
-  margin-right: 0.5rem;
+  text-decoration: line-through;
 }
 
 /* Wishlist toggle — both states are rendered server-side as two independently

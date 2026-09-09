@@ -404,6 +404,11 @@ final class BuyBoxWidget extends Widget_Base {
 		);
 
 		if ( $variable ) {
+			// WooCommerce enqueues its own variation script from inside
+			// woocommerce_variable_add_to_cart(), which this widget replaces —
+			// so it has to be asked for explicitly. Without it nothing matches
+			// variations at all: no price update, no narrowing of options.
+			wp_enqueue_script( 'wc-add-to-cart-variation' );
 			$this->render_attribute_selects( $product );
 		}
 
@@ -526,16 +531,36 @@ final class BuyBoxWidget extends Widget_Base {
 	 * @param array<string,mixed> $settings
 	 */
 	private function render_price( array $settings, \WC_Product $product ): void {
-		$regular = $product->get_regular_price();
+		// Both slots always ship, because on a variable product there is no
+		// price to split until a variation is chosen — the JS fills them from
+		// the matched variation's own `price_html`. Rendering only what the
+		// parent product currently knows would mean the sale styling could
+		// never apply to a variable product at all, which is most of the
+		// catalogue here.
+		$regular = $product->is_on_sale() && '' !== $product->get_regular_price()
+			? wp_strip_all_tags( wc_price( wc_get_price_to_display( $product, array( 'price' => $product->get_regular_price() ) ) ) )
+			: wp_strip_all_tags( $product->get_price_html() );
+
+		$sale = $product->is_on_sale() && '' !== $product->get_regular_price()
+			? wp_strip_all_tags( wc_price( wc_get_price_to_display( $product ) ) )
+			: '';
 
 		echo '<div class="galaxie-buybox-price">';
 
-		if ( $product->is_on_sale() && '' !== $regular ) {
-			echo '<del class="galaxie-buybox-price-regular">' . wp_kses_post( wc_price( wc_get_price_to_display( $product, array( 'price' => $regular ) ) ) ) . '</del>';
-			$this->render_sale( $settings, $product, (string) $product->get_price() );
-		} else {
-			echo '<span class="galaxie-buybox-price-current">' . $this->text( $settings, 'price_regular', $product->get_price_html() ) . '</span>'; // phpcs:ignore WordPress.Security.EscapeOutput -- rendered through pixfort's own component.
-		}
+		printf(
+			'<span class="galaxie-buybox-price-regular%s">%s</span>',
+			'' === $sale ? '' : ' is-struck',
+			$this->text( $settings, 'price_regular', $regular ) // phpcs:ignore WordPress.Security.EscapeOutput -- rendered through pixfort's own component.
+		);
+
+		printf(
+			'<span class="galaxie-buybox-price-sale" data-galaxie-sale="%s"%s>%s</span>',
+			esc_attr( (string) ( $settings['sale_display'] ?? 'simple' ) ),
+			'' === $sale ? ' hidden' : '',
+			'advanced' === ( $settings['sale_display'] ?? 'simple' )
+				? $this->badge( $settings, 'price_sale_badge', $sale ) // phpcs:ignore WordPress.Security.EscapeOutput -- pixfort's own component markup.
+				: $this->text( $settings, 'price_sale', $sale ) // phpcs:ignore WordPress.Security.EscapeOutput -- rendered through pixfort's own component.
+		);
 
 		echo '</div>';
 
@@ -545,23 +570,6 @@ final class BuyBoxWidget extends Widget_Base {
 		}
 	}
 
-	/**
-	 * The sale price either reads as styled text or as a pixfort badge — the
-	 * two are different enough visually that one control set could not serve
-	 * both without becoming a compromise.
-	 *
-	 * @param array<string,mixed> $settings
-	 */
-	private function render_sale( array $settings, \WC_Product $product, string $price ): void {
-		$formatted = wp_strip_all_tags( wc_price( wc_get_price_to_display( $product, array( 'price' => $price ) ) ) );
-
-		if ( 'advanced' === ( $settings['sale_display'] ?? 'simple' ) ) {
-			echo '<span class="galaxie-buybox-price-sale">' . $this->badge( $settings, 'price_sale_badge', $formatted ) . '</span>'; // phpcs:ignore WordPress.Security.EscapeOutput -- pixfort's own component markup.
-			return;
-		}
-
-		echo '<span class="galaxie-buybox-price-sale">' . $this->text( $settings, 'price_sale', $formatted ) . '</span>'; // phpcs:ignore WordPress.Security.EscapeOutput -- rendered through pixfort's own component.
-	}
 
 	/**
 	 * @param array<string,mixed> $settings

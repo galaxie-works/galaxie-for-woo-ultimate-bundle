@@ -78,27 +78,64 @@ function initSwatches(form: HTMLFormElement): void {
   })
 }
 
+/**
+ * WooCommerce hands us the matched variation's price as ready-made markup —
+ * `<del>old</del> <ins>new</ins>` when it's on sale, a bare amount otherwise.
+ * Splitting that into our two slots is what lets the merchant's regular and
+ * sale styling apply to a VARIABLE product: server-side there is no single
+ * price to style until a variation is picked.
+ */
+function applyPrice(regular: HTMLElement | null, sale: HTMLElement | null, html: string): void {
+  const parsed = document.createElement('div')
+  parsed.innerHTML = html
+
+  const struck = parsed.querySelector('del')
+  const current = parsed.querySelector('ins')
+
+  const regularHtml = struck ? struck.innerHTML : parsed.innerHTML
+  const saleHtml = struck && current ? current.innerHTML : ''
+
+  if (regular) {
+    contentTarget(regular).innerHTML = regularHtml
+    regular.classList.toggle('is-struck', saleHtml !== '')
+  }
+  if (sale) {
+    contentTarget(sale).innerHTML = saleHtml
+    sale.hidden = saleHtml === ''
+  }
+}
+
 function initPriceAndStock(form: HTMLFormElement): void {
-  const priceBlock = form.querySelector<HTMLElement>('.galaxie-buybox-price')
+  const regularSlot = form.querySelector<HTMLElement>('.galaxie-buybox-price-regular')
+  const saleSlot = form.querySelector<HTMLElement>('.galaxie-buybox-price-sale')
   const stockBlock = form.querySelector<HTMLElement>('.galaxie-buybox-stock')
   const jq = window.jQuery
-  if (!jq || (!priceBlock && !stockBlock)) return
+  if (!jq || (!regularSlot && !stockBlock)) return
 
-  const priceTarget = priceBlock ? contentTarget(priceBlock) : null
   const stockTarget = stockBlock ? contentTarget(stockBlock) : null
-  const initialPrice = priceTarget?.innerHTML ?? ''
+  const initialRegular = regularSlot ? contentTarget(regularSlot).innerHTML : ''
+  const initialStruck = !!regularSlot?.classList.contains('is-struck')
+  const initialSale = saleSlot ? contentTarget(saleSlot).innerHTML : ''
+  const initialSaleHidden = !!saleSlot?.hidden
   const initialStock = stockTarget?.innerHTML ?? ''
 
-  // Read straight off the event payload rather than off WooCommerce's own
-  // markup: that markup is exactly what this widget stopped rendering.
+  // Read off the event payload rather than WooCommerce's own price markup:
+  // that markup is exactly what this widget stopped rendering.
   jq(form).on('found_variation', (_event: unknown, ...args: unknown[]) => {
     const variation = args[0] as VariationPayload | undefined
-    if (priceTarget && variation?.price_html) priceTarget.innerHTML = variation.price_html
+    if (variation?.price_html) applyPrice(regularSlot, saleSlot, variation.price_html)
     if (stockTarget) stockTarget.innerHTML = variation?.availability_html || initialStock
   })
 
   jq(form).on('reset_data', () => {
-    if (priceTarget) priceTarget.innerHTML = initialPrice
+    if (regularSlot) {
+      contentTarget(regularSlot).innerHTML = initialRegular
+      regularSlot.classList.toggle('is-struck', initialStruck)
+    }
+    if (saleSlot) {
+      contentTarget(saleSlot).innerHTML = initialSale
+      saleSlot.hidden = initialSaleHidden
+    }
     if (stockTarget) stockTarget.innerHTML = initialStock
   })
 }
