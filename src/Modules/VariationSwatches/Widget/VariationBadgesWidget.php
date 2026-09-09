@@ -417,7 +417,14 @@ final class VariationBadgesWidget extends Widget_Base {
 			return;
 		}
 
-		wc_setup_product_data( $product );
+		// wc_setup_product_data() expects a post ID/WP_Post, NOT a WC_Product —
+		// passing $product silently no-ops (WC_Product has no ->post_type, so
+		// the function's own guard clause returns false without setting
+		// $GLOBALS['product']/$GLOBALS['post']). That was the real cause of
+		// the native form printing nothing below: `global $product;` inside
+		// woocommerce_variable_add_to_cart() saw whatever was already set
+		// (often nothing), not this widget's product.
+		wc_setup_product_data( $product->get_id() );
 
 		$settings = $this->get_settings_for_display();
 		$slug     = (string) ( $settings['attribute'] ?? 'pa_peso' );
