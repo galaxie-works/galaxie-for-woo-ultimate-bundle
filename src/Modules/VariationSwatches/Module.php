@@ -43,6 +43,9 @@ defined( 'ABSPATH' ) || exit;
  */
 final class Module implements ModuleContract, ProvidesBootData, ProvidesElementorWidgets, ProvidesSettings {
 
+	public const AJAX_ACTION  = 'galaxie_variation_add_to_cart';
+	public const NONCE_ACTION = 'galaxie_woo_variation_badges';
+
 	public function id(): string {
 		return 'variation-swatches';
 	}
@@ -63,6 +66,54 @@ final class Module implements ModuleContract, ProvidesBootData, ProvidesElemento
 
 	public function boot(): void {
 		add_action( 'wp_enqueue_scripts', array( $this, 'maybe_enqueue' ) );
+		add_action( 'wp_ajax_' . self::AJAX_ACTION, array( $this, 'ajax_add_to_cart' ) );
+		add_action( 'wp_ajax_nopriv_' . self::AJAX_ACTION, array( $this, 'ajax_add_to_cart' ) );
+	}
+
+	/**
+	 * Adds the currently-selected variation to the cart for the Galaxie
+	 * Variation Badges widget's own Add to Cart / Buy Now buttons — mirrors
+	 * WooCommerce's own `WC_AJAX::add_to_cart()` (same filters/actions/
+	 * response shape) so third-party cart-fragment integrations keep working,
+	 * same pattern already proven in Modules/VariationSpotlight.
+	 */
+	public function ajax_add_to_cart(): void {
+		check_ajax_referer( self::NONCE_ACTION, 'nonce' );
+
+		$variation_id = isset( $_POST['variation_id'] ) ? absint( $_POST['variation_id'] ) : 0;
+		$quantity     = isset( $_POST['quantity'] ) ? wc_stock_amount( wp_unslash( $_POST['quantity'] ) ) : 1;
+		$variation    = $variation_id ? wc_get_product( $variation_id ) : null;
+
+		if ( ! $variation || 'variation' !== $variation->get_type() ) {
+			wp_send_json_error( array( 'message' => __( 'Selecione uma variação válida.', 'galaxie-woo' ) ) );
+		}
+
+		$parent_id  = $variation->get_parent_id();
+		$attributes = $variation->get_variation_attributes();
+
+		$passed_validation = apply_filters( 'woocommerce_add_to_cart_validation', true, $parent_id, $quantity, $variation_id, $attributes );
+
+		if ( ! $passed_validation ) {
+			$notices = wc_get_notices( 'error' );
+			wc_clear_notices();
+			wp_send_json_error( array(
+				'message' => $notices ? wp_strip_all_tags( $notices[0]['notice'] ) : __( 'Não foi possível adicionar ao carrinho.', 'galaxie-woo' ),
+			) );
+		}
+
+		$cart_item_key = WC()->cart->add_to_cart( $parent_id, $quantity, $variation_id, $attributes );
+
+		if ( ! $cart_item_key ) {
+			wp_send_json_error( array( 'message' => __( 'Não foi possível adicionar ao carrinho.', 'galaxie-woo' ) ) );
+		}
+
+		do_action( 'woocommerce_ajax_added_to_cart', $parent_id );
+
+		wp_send_json_success( array(
+			'fragments'    => apply_filters( 'woocommerce_add_to_cart_fragments', array() ),
+			'cart_hash'    => WC()->cart->get_cart_hash(),
+			'checkout_url' => wc_get_checkout_url(),
+		) );
 	}
 
 	public function maybe_enqueue(): void {
@@ -81,6 +132,10 @@ final class Module implements ModuleContract, ProvidesBootData, ProvidesElemento
 		return array(
 			'variationSwatches' => array(
 				'attributes' => $this->attribute_slugs( $values ),
+				'buyBox'     => array(
+					'ajaxUrl' => admin_url( 'admin-ajax.php' ),
+					'nonce'   => wp_create_nonce( self::NONCE_ACTION ),
+				),
 			),
 		);
 	}

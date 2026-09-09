@@ -16,16 +16,17 @@ registerIsland('my-account', MyAccount)
 
 interface GalaxieConfig {
   toastNotices?: boolean
-  variationSwatches?: { attributes?: string[] }
+  variationSwatches?: { attributes?: string[]; buyBox?: { ajaxUrl: string; nonce: string } }
   variationSpotlight?: { ajaxUrl: string; nonce: string }
 }
 
 function boot(): void {
   mountIslands()
-  bootVariationBadgesWidget()
 
   const config: GalaxieConfig =
     (window as unknown as { __GALAXIE_WOO__?: GalaxieConfig }).__GALAXIE_WOO__ ?? {}
+
+  bootVariationBadgesWidget(config.variationSwatches?.buyBox)
 
   if (config.toastNotices) {
     bootToastNotices()

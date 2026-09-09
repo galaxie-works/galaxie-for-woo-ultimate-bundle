@@ -82,6 +82,8 @@ final class VariationBadgesWidget extends Widget_Base {
 		$this->register_badge_style_controls();
 		$this->register_selected_badge_style_controls();
 		$this->register_layout_style_controls();
+		$this->register_button_controls( 'addcart', 'addcart_style_section', __( 'Add to Cart button', 'galaxie-woo' ), __( 'Adicionar ao carrinho', 'galaxie-woo' ), 'primary', '' );
+		$this->register_button_controls( 'buynow', 'buynow_style_section', __( 'Buy Now button', 'galaxie-woo' ), __( 'Comprar agora', 'galaxie-woo' ), 'primary', 'outline' );
 	}
 
 	private function register_label_style_controls(): void {
@@ -386,6 +388,140 @@ final class VariationBadgesWidget extends Widget_Base {
 		$this->end_controls_section();
 	}
 
+	/**
+	 * Full pixfort Button parity for one of our two buttons (Add to Cart /
+	 * Buy Now), keyed by $prefix so both can coexist on the same widget —
+	 * pixfort's own shared helper (`pix_get_elementor_btn()`) hardcodes
+	 * unprefixed control ids, so it can only be used once per widget; this
+	 * mirrors its meaningful controls (button/icon/style/color/size) with our
+	 * own prefixed ids instead, matching `PixButton::render()`'s `btn_*` attr
+	 * keys 1:1 in {@see render_button()}. Includes `pixfort_icon_selector` —
+	 * pixfort-core's own globally-registered icon-picker control type; any
+	 * widget can add it directly, no re-registration needed.
+	 */
+	private function register_button_controls( string $prefix, string $section_id, string $label, string $default_text, string $default_color, string $default_style ): void {
+		$this->start_controls_section(
+			$section_id,
+			array(
+				'label' => $label,
+				'tab'   => Controls_Manager::TAB_STYLE,
+			)
+		);
+
+		$this->add_control(
+			$prefix . '_text',
+			array(
+				'label'   => __( 'Button text', 'galaxie-woo' ),
+				'type'    => Controls_Manager::TEXT,
+				'default' => $default_text,
+			)
+		);
+
+		if ( $this->pixfort_active() ) {
+			$this->add_control(
+				$prefix . '_icon',
+				array(
+					'label'   => __( 'Icon', 'galaxie-woo' ),
+					'type'    => \Elementor\CustomControl\PixfortIconSelector_Control::PixfortIconSelector,
+					'default' => '',
+				)
+			);
+			$this->add_control(
+				$prefix . '_icon_position',
+				array(
+					'label'     => __( 'Icon position', 'galaxie-woo' ),
+					'type'      => Controls_Manager::SELECT,
+					'options'   => array(
+						''      => __( 'Before text', 'galaxie-woo' ),
+						'after' => __( 'After text', 'galaxie-woo' ),
+					),
+					'default'   => '',
+					'condition' => array( $prefix . '_icon!' => '' ),
+				)
+			);
+			$this->add_control(
+				$prefix . '_style',
+				array(
+					'label'   => __( 'Button style', 'galaxie-woo' ),
+					'type'    => Controls_Manager::SELECT,
+					'options' => array(
+						''          => __( 'Default', 'galaxie-woo' ),
+						'flat'      => __( 'Flat', 'galaxie-woo' ),
+						'line'      => __( 'Line', 'galaxie-woo' ),
+						'outline'   => __( 'Outline', 'galaxie-woo' ),
+						'underline' => __( 'Underline', 'galaxie-woo' ),
+						'link'      => __( 'Link', 'galaxie-woo' ),
+						'blink'     => __( 'Blink', 'galaxie-woo' ),
+					),
+					'default' => $default_style,
+				)
+			);
+			$this->add_control(
+				$prefix . '_color',
+				array(
+					'label'   => __( 'Button color', 'galaxie-woo' ),
+					'type'    => Controls_Manager::SELECT,
+					'groups'  => \PixfortCore::instance()->coreFunctions->getColorsArray( array( 'defaultColors' => false, 'mainLight' => true, 'custom' => false ) ),
+					'default' => $default_color,
+				)
+			);
+			$this->add_control(
+				$prefix . '_text_color',
+				array(
+					'label'   => __( 'Text color', 'galaxie-woo' ),
+					'type'    => Controls_Manager::SELECT,
+					'groups'  => \PixfortCore::instance()->coreFunctions->getColorsArray( array( 'defaultValue' => array( '' => __( 'Default', 'galaxie-woo' ) ), 'mainLight' => true ) ),
+					'default' => '',
+				)
+			);
+		} else {
+			$this->add_control(
+				$prefix . '_color_fallback',
+				array(
+					'label'     => __( 'Button color', 'galaxie-woo' ),
+					'type'      => Controls_Manager::COLOR,
+					'selectors' => array( '{{WRAPPER}} .' . $prefix . '-btn' => 'background-color: {{VALUE}};' ),
+				)
+			);
+		}
+
+		$this->add_control(
+			$prefix . '_size',
+			array(
+				'label'   => __( 'Button size', 'galaxie-woo' ),
+				'type'    => Controls_Manager::SELECT,
+				'options' => array(
+					'sm'     => __( 'Small', 'galaxie-woo' ),
+					'normal' => __( 'Normal', 'galaxie-woo' ),
+					'md'     => __( 'Medium', 'galaxie-woo' ),
+					'lg'     => __( 'Large', 'galaxie-woo' ),
+					'xl'     => __( 'X-Large', 'galaxie-woo' ),
+				),
+				'default' => 'md',
+			)
+		);
+		$this->add_control(
+			$prefix . '_rounded',
+			array(
+				'label'        => __( 'Rounded corners', 'galaxie-woo' ),
+				'type'         => Controls_Manager::SWITCHER,
+				'return_value' => 'btn-rounded',
+				'default'      => '',
+			)
+		);
+		$this->add_control(
+			$prefix . '_full',
+			array(
+				'label'        => __( 'Full width', 'galaxie-woo' ),
+				'type'         => Controls_Manager::SWITCHER,
+				'return_value' => 'yes',
+				'default'      => '',
+			)
+		);
+
+		$this->end_controls_section();
+	}
+
 	/** @return array<string,string> */
 	private function attribute_options(): array {
 		$product = $this->current_product();
@@ -454,14 +590,59 @@ final class VariationBadgesWidget extends Widget_Base {
 
 		echo '</div>'; // .galaxie-variation-picker
 
-		// The real, still-functional WooCommerce variation form. Our JS hides
-		// this attribute's own row inside it and drives its <select> instead.
+		echo '<div class="galaxie-buybox-quantity">';
+		woocommerce_quantity_input();
+		echo '</div>';
+
+		echo '<div class="galaxie-buybox-actions">';
+		printf(
+			'<button type="button" class="galaxie-buybox-btn galaxie-buybox-addcart">%s</button>',
+			$this->render_button( 'addcart', $settings ) // phpcs:ignore
+		);
+		printf(
+			'<button type="button" class="galaxie-buybox-btn galaxie-buybox-buynow">%s</button>',
+			$this->render_button( 'buynow', $settings ) // phpcs:ignore
+		);
+		echo '</div>';
+
+		// The real, still-functional WooCommerce variation form — kept for its
+		// <select> (WooCommerce's own variation-matching JS only recognizes one
+		// inside `.variations`) and its price/stock/description block. Its own
+		// quantity input and button are visually hidden (CSS) since we render
+		// our own pixfort-styled ones above and drive everything via our own
+		// AJAX endpoint — see variation-badges-widget.ts.
+		echo '<div class="galaxie-variation-native">';
 		$fn = 'woocommerce_' . $product->get_type() . '_add_to_cart';
 		if ( function_exists( $fn ) ) {
 			$fn();
 		} else {
 			woocommerce_template_single_add_to_cart();
 		}
+		echo '</div>';
+	}
+
+	/** @param array<string,mixed> $settings */
+	private function render_button( string $prefix, array $settings ): string {
+		$text = (string) ( $settings[ $prefix . '_text' ] ?? '' );
+
+		if ( $this->pixfort_active() ) {
+			$attr = array(
+				'is_elementor'      => 'true',
+				'btn_text'          => $text,
+				'btn_link'          => '', // Empty on purpose: renders a <span>, not an <a> — our own wrapping <button> handles the click.
+				'btn_icon'          => $settings[ $prefix . '_icon' ] ?? '',
+				'btn_icon_position' => $settings[ $prefix . '_icon_position' ] ?? '',
+				'btn_style'         => $settings[ $prefix . '_style' ] ?? '',
+				'btn_color'         => $settings[ $prefix . '_color' ] ?? 'primary',
+				'btn_text_color'    => $settings[ $prefix . '_text_color' ] ?? '',
+				'btn_size'          => $settings[ $prefix . '_size' ] ?? 'md',
+				'btn_rounded'       => $settings[ $prefix . '_rounded' ] ?? '',
+				'btn_full'          => $settings[ $prefix . '_full' ] ?? '',
+			);
+			return \PixfortCore::instance()->elementsManager->renderElement( 'Button', $attr );
+		}
+
+		return '<span class="' . esc_attr( $prefix ) . '-btn">' . esc_html( $text ) . '</span>';
 	}
 
 	/** @param array<string,mixed> $settings */

@@ -303,3 +303,47 @@ button.galaxie-spotlight-add:disabled {
 .galaxie-swatch-option.is-selected .galaxie-swatch-selected {
   display: inline-block;
 }
+
+/* Galaxie buy box (quantity + Add to Cart / Buy Now) — the widget renders its
+   own pixfort-Button-styled controls; the native form right after it stays
+   in the DOM only for its <select> (WooCommerce's own JS requirement) and
+   its price/stock/description block, so its own quantity/button/reset link
+   are hidden here to avoid a duplicate, unstyled second buy box. */
+.galaxie-buybox-quantity {
+  margin-bottom: 0.75rem;
+}
+
+.galaxie-buybox-quantity .qty {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md, 0.375rem);
+  padding: 0.5rem;
+  font: inherit;
+  color: var(--foreground);
+  background: var(--background);
+}
+
+.galaxie-buybox-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.galaxie-buybox-btn {
+  appearance: none;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+}
+
+.galaxie-buybox-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.galaxie-variation-native .quantity,
+.galaxie-variation-native .single_add_to_cart_button,
+.galaxie-variation-native .reset_variations {
+  display: none;
+}
