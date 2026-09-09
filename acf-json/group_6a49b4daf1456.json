@@ -1,0 +1,107 @@
+{
+    "key": "group_6a49b4daf1456",
+    "title": "Product Details",
+    "fields": [
+        {
+            "key": "field_6a49b4db3a0c7",
+            "label": "Atmosfera de uso",
+            "name": "product_atmosfera_de_uso",
+            "aria-label": "",
+            "type": "select",
+            "instructions": "",
+            "required": 0,
+            "conditional_logic": 0,
+            "wrapper": {
+                "width": "",
+                "class": "",
+                "id": ""
+            },
+            "choices": {
+                "Áreas de convivência": "Áreas de convivência",
+                "Banho": "Banho",
+                "Cozinha": "Cozinha",
+                "Descanso": "Descanso",
+                "Encontros": "Encontros",
+                "Encontros em casa": "Encontros em casa",
+                "Fim de tarde": "Fim de tarde",
+                "Leitura": "Leitura",
+                "Manhãs": "Manhãs",
+                "Momentos de acolhimento com frescor luminoso": "Momentos de acolhimento com frescor luminoso",
+                "Momentos de renovação do ambiente": "Momentos de renovação do ambiente",
+                "Momentos de silêncio": "Momentos de silêncio",
+                "Momentos que pedem acolhimento": "Momentos que pedem acolhimento",
+                "Momentos que pedem leveza": "Momentos que pedem leveza",
+                "Noites": "Noites",
+                "Recepção": "Recepção",
+                "Rotinas de organização": "Rotinas de organização",
+                "Sala": "Sala",
+                "Trabalho": "Trabalho",
+                "Trabalho criativo": "Trabalho criativo"
+            },
+            "default_value": [],
+            "return_format": "value",
+            "multiple": 1,
+            "allow_null": 0,
+            "allow_in_bindings": 1,
+            "ui": 1,
+            "ajax": 0,
+            "placeholder": "",
+            "create_options": 0,
+            "save_options": 0
+        },
+        {
+            "key": "field_6a49b5b13a0c8",
+            "label": "Características olfativas",
+            "name": "product_caracteristicas_olfativas",
+            "aria-label": "",
+            "type": "select",
+            "instructions": "",
+            "required": 0,
+            "conditional_logic": 0,
+            "wrapper": {
+                "width": "",
+                "class": "",
+                "id": ""
+            },
+            "choices": {
+                "Amadeirado": "Amadeirado",
+                "Cítrico": "Cítrico",
+                "Floral": "Floral",
+                "Frutado": "Frutado",
+                "Herbal": "Herbal"
+            },
+            "default_value": [],
+            "return_format": "value",
+            "multiple": 1,
+            "allow_null": 0,
+            "allow_in_bindings": 1,
+            "ui": 1,
+            "ajax": 0,
+            "placeholder": "",
+            "create_options": 0,
+            "save_options": 0
+        }
+    ],
+    "location": [
+        [
+            {
+                "param": "post_type",
+                "operator": "==",
+                "value": "product"
+            }
+        ]
+    ],
+    "menu_order": 0,
+    "position": "normal",
+    "style": "default",
+    "label_placement": "top",
+    "instruction_placement": "label",
+    "hide_on_screen": "",
+    "active": true,
+    "description": "",
+    "show_in_rest": 1,
+    "display_title": "",
+    "allow_ai_access": false,
+    "ai_description": "",
+    "modified": 1788975436
+}
