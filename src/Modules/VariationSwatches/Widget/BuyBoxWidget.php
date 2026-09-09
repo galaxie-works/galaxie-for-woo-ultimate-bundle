@@ -1034,19 +1034,19 @@ final class BuyBoxWidget extends Widget_Base {
 		return array(
 			'select'      => array(
 				'label' => __( 'No option chosen', 'galaxie-woo' ),
-				'icon'  => 'Line/pixfort-icon-interface-alert-triangle',
+				'icon'  => 'Line/pixfort-icon-alert-1',
 				'text'  => __( 'Escolha uma opção antes de adicionar ao carrinho.', 'galaxie-woo' ),
 				'type'  => 'warning',
 			),
 			'unavailable' => array(
 				'label' => __( 'Combination unavailable', 'galaxie-woo' ),
-				'icon'  => 'Line/pixfort-icon-interface-alert-circle',
+				'icon'  => 'Line/pixfort-icon-prohibited-circle-1',
 				'text'  => __( 'Essa combinação não está disponível. Escolha outra.', 'galaxie-woo' ),
 				'type'  => 'danger',
 			),
 			'error'       => array(
 				'label' => __( 'Add to cart failed', 'galaxie-woo' ),
-				'icon'  => 'Line/pixfort-icon-interface-delete-circle',
+				'icon'  => 'Line/pixfort-icon-exclamation-mark-circle-1',
 				'text'  => __( 'Não foi possível adicionar ao carrinho. Tente novamente.', 'galaxie-woo' ),
 				'type'  => 'danger',
 			),
@@ -1054,7 +1054,7 @@ final class BuyBoxWidget extends Widget_Base {
 			// panel on a successful add, and saying it twice is worse than once.
 			'added'       => array(
 				'label'     => __( 'Added to cart', 'galaxie-woo' ),
-				'icon'      => 'Line/pixfort-icon-interface-validation-check-circle',
+				'icon'      => 'Line/pixfort-icon-check-circle-1',
 				'text'      => '',
 				'type'      => 'success',
 				// The one message where a link earns its place: it is the only
