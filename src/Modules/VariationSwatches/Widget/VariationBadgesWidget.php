@@ -94,16 +94,6 @@ final class VariationBadgesWidget extends Widget_Base {
 		);
 
 		$this->add_control(
-			'label_bold',
-			array(
-				'label'        => __( 'Bold', 'galaxie-woo' ),
-				'type'         => Controls_Manager::SWITCHER,
-				'return_value' => 'font-weight-bold',
-				'default'      => 'font-weight-bold',
-			)
-		);
-
-		$this->add_control(
 			'label_size',
 			array(
 				'label'   => __( 'Size', 'galaxie-woo' ),
@@ -120,28 +110,110 @@ final class VariationBadgesWidget extends Widget_Base {
 			)
 		);
 
+		$this->add_control(
+			'label_bold',
+			array(
+				'label'        => __( 'Bold', 'galaxie-woo' ),
+				'type'         => Controls_Manager::SWITCHER,
+				'return_value' => 'font-weight-bold',
+				'default'      => 'font-weight-bold',
+			)
+		);
+
+		$this->add_control(
+			'label_italic',
+			array(
+				'label'        => __( 'Italic', 'galaxie-woo' ),
+				'type'         => Controls_Manager::SWITCHER,
+				'return_value' => 'font-italic',
+				'default'      => '',
+			)
+		);
+
+		$this->add_control(
+			'label_secondary_font',
+			array(
+				'label'        => __( 'Secondary font', 'galaxie-woo' ),
+				'type'         => Controls_Manager::SWITCHER,
+				'return_value' => 'secondary-font',
+				'default'      => '',
+			)
+		);
+
 		if ( $this->pixfort_active() ) {
 			$this->add_control(
-				'label_color',
+				'label_content_color',
 				array(
-					'label'   => __( 'Color', 'galaxie-woo' ),
+					'label'   => __( 'Content color', 'galaxie-woo' ),
 					'type'    => Controls_Manager::SELECT,
 					'groups'  => \PixfortCore::instance()->coreFunctions->getColorsArray(),
 					'default' => '',
 				)
 			);
+			$this->add_control(
+				'label_content_custom_color',
+				array(
+					'label'     => __( 'Custom content color', 'galaxie-woo' ),
+					'type'      => Controls_Manager::COLOR,
+					'default'   => '',
+					'condition' => array( 'label_content_color' => 'custom' ),
+				)
+			);
 		} else {
 			$this->add_control(
-				'label_color_fallback',
+				'label_content_color_fallback',
 				array(
-					'label'   => __( 'Color', 'galaxie-woo' ),
-					'type'    => Controls_Manager::COLOR,
+					'label'     => __( 'Content color', 'galaxie-woo' ),
+					'type'      => Controls_Manager::COLOR,
 					'selectors' => array(
-						'{{WRAPPER}} .galaxie-variation-label' => 'color: {{VALUE}};',
+						'{{WRAPPER}} .galaxie-variation-label-text' => 'color: {{VALUE}};',
 					),
 				)
 			);
 		}
+
+		$this->add_control(
+			'label_position',
+			array(
+				'label'   => __( 'Position', 'galaxie-woo' ),
+				'type'    => Controls_Manager::SELECT,
+				'options' => array(
+					'text-center' => __( 'Center', 'galaxie-woo' ),
+					'text-left'   => __( 'Start', 'galaxie-woo' ),
+					'text-right'  => __( 'End', 'galaxie-woo' ),
+				),
+				'default' => 'text-left',
+			)
+		);
+
+		$this->add_control(
+			'label_animation',
+			array(
+				'label'   => __( 'Animation', 'galaxie-woo' ),
+				'type'    => Controls_Manager::SELECT,
+				'default' => '',
+				'options' => function_exists( 'pix_get_animations' ) ? pix_get_animations( true ) : array( '' => __( 'None', 'galaxie-woo' ) ),
+			)
+		);
+		$this->add_control(
+			'label_delay',
+			array(
+				'label'     => __( 'Animation delay (in miliseconds)', 'galaxie-woo' ),
+				'type'      => Controls_Manager::TEXT,
+				'default'   => '0',
+				'condition' => array( 'label_animation!' => '' ),
+			)
+		);
+
+		$this->add_control(
+			'label_remove_pb_padding',
+			array(
+				'label'        => __( 'Remove margin under paragraphs', 'galaxie-woo' ),
+				'type'         => Controls_Manager::SWITCHER,
+				'return_value' => 'm-0',
+				'default'      => '',
+			)
+		);
 
 		$this->end_controls_section();
 	}
@@ -387,19 +459,37 @@ final class VariationBadgesWidget extends Widget_Base {
 
 	/** @param array<string,mixed> $settings */
 	private function render_label( string $label, array $settings ): string {
-		$attr = array(
-			'content_type' => 'simple',
-			'content'      => $label,
-			'bold'         => $settings['label_bold'] ?? '',
-			'size'         => $settings['label_size'] ?? '',
-		);
-
 		if ( $this->pixfort_active() ) {
-			$attr['content_color'] = $settings['label_color'] ?? '';
+			$attr = array(
+				'content_type'         => 'simple',
+				'content'              => $label,
+				'size'                 => $settings['label_size'] ?? '',
+				'bold'                 => $settings['label_bold'] ?? '',
+				'italic'               => $settings['label_italic'] ?? '',
+				'secondary_font'       => $settings['label_secondary_font'] ?? '',
+				'content_color'        => $settings['label_content_color'] ?? '',
+				'content_custom_color' => $settings['label_content_custom_color'] ?? '',
+				'position'             => $settings['label_position'] ?? 'text-left',
+				'animation'            => $settings['label_animation'] ?? '',
+				'delay'                => $settings['label_delay'] ?? '0',
+				'remove_pb_padding'    => $settings['label_remove_pb_padding'] ?? '',
+			);
 			return \PixfortCore::instance()->elementsManager->renderElement( 'Text', $attr, $label );
 		}
 
-		return '<p class="galaxie-variation-label-text">' . esc_html( $label ) . '</p>';
+		$classes = 'galaxie-variation-label-text';
+		if ( ! empty( $settings['label_bold'] ) ) {
+			$classes .= ' ' . $settings['label_bold'];
+		}
+		if ( ! empty( $settings['label_italic'] ) ) {
+			$classes .= ' ' . $settings['label_italic'];
+		}
+		$style = '';
+		if ( ! empty( $settings['label_content_color_fallback'] ) ) {
+			$style = 'color:' . $settings['label_content_color_fallback'] . ';';
+		}
+
+		return '<p class="' . esc_attr( $classes ) . '" style="' . esc_attr( $style ) . '">' . esc_html( $label ) . '</p>';
 	}
 
 	/** @param array<string,mixed> $settings */
