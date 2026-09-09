@@ -11,7 +11,9 @@ use Galaxie\Woo\Core\Field;
 use Galaxie\Woo\Core\Module as ModuleContract;
 use Galaxie\Woo\Core\Plugin;
 use Galaxie\Woo\Core\ProvidesBootData;
+use Galaxie\Woo\Core\ProvidesElementorWidgets;
 use Galaxie\Woo\Core\ProvidesSettings;
+use Galaxie\Woo\Modules\VariationSwatches\Widget\VariationBadgesWidget;
 use Galaxie\Woo\Support\Assets;
 
 defined( 'ABSPATH' ) || exit;
@@ -31,18 +33,15 @@ defined( 'ABSPATH' ) || exit;
  * ShopLentor for swatches", but the whole point of the bundle is not needing
  * a third-party suite for a WooCommerce storefront behavior this contained.
  *
- * Not an Elementor widget on purpose: on sites whose single-product template
- * doesn't otherwise render WooCommerce's own price/variations/add-to-cart
- * block (Elementor Pro Theme Builder templates commonly need this dropped in
- * explicitly), the fix is placing Elementor Pro's own native "Add To Cart"
- * widget — it renders the same classic `<select name="attribute_x">` markup
- * this module already scans for, so the badges appear with zero extra code
- * (confirmed live 2026-09-09 on test.eirnaturals.shop). A custom
- * "Galaxie Variation Badges" widget was built and then removed after this
- * turned out to be simpler and more robust than duplicating what Elementor
- * Pro already ships.
+ * Also ships an Elementor widget ({@see VariationBadgesWidget}) for when the
+ * automatic behavior above (which just skins whatever `<select>` already
+ * exists on the page) isn't enough — Wagner wanted the label/badges
+ * themselves to be styled through pixfort's own Text/Badge component system
+ * (the same global color dropdown — Primary, Gray 1-9, Dynamic Colors — every
+ * other pixfort widget uses), not a separate hardcoded palette. That widget
+ * literally renders through pixfort-core's own component functions.
  */
-final class Module implements ModuleContract, ProvidesBootData, ProvidesSettings {
+final class Module implements ModuleContract, ProvidesBootData, ProvidesElementorWidgets, ProvidesSettings {
 
 	public function id(): string {
 		return 'variation-swatches';
@@ -70,6 +69,10 @@ final class Module implements ModuleContract, ProvidesBootData, ProvidesSettings
 		if ( function_exists( 'is_product' ) && is_product() ) {
 			Assets::enqueue();
 		}
+	}
+
+	public function elementor_widgets(): array {
+		return array( VariationBadgesWidget::class );
 	}
 
 	public function boot_data(): array {

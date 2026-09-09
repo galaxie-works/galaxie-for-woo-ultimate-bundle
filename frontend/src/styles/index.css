@@ -249,3 +249,47 @@ button.galaxie-spotlight-add:disabled {
   font-size: 0.8125rem;
   color: var(--muted-foreground);
 }
+
+/* Galaxie Variation Badges widget — layout only. All actual color/typography
+   come from pixfort's own Text/Badge component classes, rendered server-side
+   by the widget itself (see Modules/VariationSwatches/Widget); this is just
+   the plumbing: badge row layout and the normal/selected variant swap. */
+.galaxie-variation-picker {
+  margin-bottom: 0.75rem;
+}
+
+.galaxie-variation-label {
+  margin-bottom: 0.375rem;
+}
+
+.galaxie-swatch-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.galaxie-swatch-option {
+  appearance: none;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  padding: 0;
+  line-height: 0;
+}
+
+.galaxie-swatch-option:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.galaxie-swatch-option .galaxie-swatch-selected {
+  display: none;
+}
+
+.galaxie-swatch-option.is-selected .galaxie-swatch-normal {
+  display: none;
+}
+
+.galaxie-swatch-option.is-selected .galaxie-swatch-selected {
+  display: inline-block;
+}

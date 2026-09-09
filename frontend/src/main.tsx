@@ -7,6 +7,7 @@ import { MyAccount } from '@/islands/my-account'
 import { bootToastNotices } from '@/globals/toast-notices'
 import { bootVariationSwatches } from '@/globals/variation-swatches'
 import { bootVariationSpotlight } from '@/globals/variation-spotlight'
+import { bootVariationBadgesWidget } from '@/globals/variation-badges-widget'
 
 // Each module registers its island(s) here as they are ported.
 registerIsland('demo', Demo)
@@ -21,6 +22,7 @@ interface GalaxieConfig {
 
 function boot(): void {
   mountIslands()
+  bootVariationBadgesWidget()
 
   const config: GalaxieConfig =
     (window as unknown as { __GALAXIE_WOO__?: GalaxieConfig }).__GALAXIE_WOO__ ?? {}
