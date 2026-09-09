@@ -260,7 +260,9 @@ final class QuantityDiscountsWidget extends Widget_Base {
 
 	protected function render(): void {
 		$product  = $this->current_product();
-		$resolved = $product ? $this->module()->tiers_for_product( $product ) : array( 'tiers' => array(), 'type' => Module::TYPE_PERCENTAGE );
+		$resolved = $product
+			? $this->module()->tiers_for_product( $product )
+			: array( 'tiers' => array(), 'type' => Module::TYPE_PERCENTAGE, 'rules' => Module::RULES_INTERVALS );
 
 		if ( ! $product || ! $resolved['tiers'] ) {
 			if ( \Elementor\Plugin::$instance->editor->is_edit_mode() ) {
@@ -287,7 +289,7 @@ final class QuantityDiscountsWidget extends Widget_Base {
 		foreach ( $resolved['tiers'] as $tier ) {
 			echo '<tr class="galaxie-qd-row">';
 
-			echo '<td class="galaxie-qd-qty">' . $this->render_text( $this->quantity_label( $tier['min'] ), 'row', $settings ) . '</td>'; // phpcs:ignore WordPress.Security.EscapeOutput -- escaped by render_text().
+			echo '<td class="galaxie-qd-qty">' . $this->render_text( $this->quantity_label( $tier, $resolved['rules'] ), 'row', $settings ) . '</td>'; // phpcs:ignore WordPress.Security.EscapeOutput -- escaped by render_text().
 			echo '<td class="galaxie-qd-discount">' . $this->render_text( $this->discount_label( $tier['value'], $resolved['type'], $product ), 'row', $settings ) . '</td>'; // phpcs:ignore WordPress.Security.EscapeOutput -- escaped by render_text().
 
 			// A variable product whose variations differ in price has no single
@@ -306,11 +308,38 @@ final class QuantityDiscountsWidget extends Widget_Base {
 		echo '</div>';
 	}
 
-	private function quantity_label( int $min ): string {
+	/**
+	 * How one tier's quantity condition reads to a shopper. A range with no
+	 * ceiling says "3+"; one with a ceiling says "3 a 5", because "3+" would
+	 * be a promise the cart then breaks at 6.
+	 *
+	 * @param array<string,float|int|null> $tier
+	 */
+	private function quantity_label( array $tier, string $rules ): string {
+		if ( Module::RULES_STEPS === $rules ) {
+			return sprintf(
+				/* translators: %d: the exact quantity this tier applies to. */
+				__( 'exatamente %d unidades', 'galaxie-woo' ),
+				(int) ( $tier['every'] ?? 0 )
+			);
+		}
+
+		$min = (int) ( $tier['min'] ?? 0 );
+		$max = isset( $tier['max'] ) && null !== $tier['max'] ? (int) $tier['max'] : null;
+
+		if ( null === $max ) {
+			return sprintf(
+				/* translators: %d: minimum quantity that unlocks this tier. */
+				__( '%d+ unidades', 'galaxie-woo' ),
+				$min
+			);
+		}
+
 		return sprintf(
-			/* translators: %d: minimum quantity that unlocks this tier. */
-			__( '%d+ unidades', 'galaxie-woo' ),
-			$min
+			/* translators: 1: lowest quantity in the range, 2: highest. */
+			__( '%1$d a %2$d unidades', 'galaxie-woo' ),
+			$min,
+			$max
 		);
 	}
 
