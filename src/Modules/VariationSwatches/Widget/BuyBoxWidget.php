@@ -506,7 +506,11 @@ final class BuyBoxWidget extends Widget_Base {
 			return;
 		}
 
-		echo '<div class="galaxie-buybox-block galaxie-buybox-' . esc_attr( sanitize_html_class( $block ) ) . '">';
+		// Deliberately NOT `galaxie-buybox-{block}`: the block renderers emit
+		// their own element with that exact class, and two nested nodes sharing
+		// it meant every rule written for the inner one also hit the wrapper —
+		// which is what put the stock line beside the price instead of under it.
+		echo '<div class="galaxie-buybox-block galaxie-buybox-block--' . esc_attr( sanitize_html_class( $block ) ) . '">';
 
 		switch ( $block ) {
 			case 'price':
