@@ -321,38 +321,37 @@ button.galaxie-spotlight-add:disabled {
   margin-bottom: 0.75rem;
 }
 
+/* Deliberately hands-off on the quantity input itself: the theme's own
+   sitewide quantity-stepper script/CSS (the one already styling every other
+   +/- input on the site) applies here too, since this is a real
+   `woocommerce_quantity_input()` — fighting it with our own height/padding
+   overrides was making it look worse, not better. If it ever needs to look
+   different specifically here, target `.galaxie-buybox-quantity .qty`. */
 .galaxie-buybox-quantity {
+  display: inline-block;
   margin-bottom: 0.75rem;
-}
-
-.galaxie-buybox-quantity .quantity {
-  display: inline-flex;
-}
-
-.galaxie-buybox-quantity .qty {
-  height: 2.75rem;
-  min-width: 4.5rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md, 0.375rem);
-  padding: 0.5rem 0.75rem;
-  font: inherit;
-  text-align: center;
-  color: var(--foreground);
-  background: var(--background);
-  /* Hide the browser's default number spin buttons — WooCommerce's own
-     +/- stepper buttons (if the theme adds them) replace that affordance. */
-  -moz-appearance: textfield;
-}
-.galaxie-buybox-quantity .qty::-webkit-outer-spin-button,
-.galaxie-buybox-quantity .qty::-webkit-inner-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
 }
 
 .galaxie-buybox-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+/* Pairs the Spinner and Buttons blocks into one row when they land adjacent
+   in the configured block order (see Widget::render()) — that's the common
+   layout and what Wagner asked for ("botões ao lado do spinner"). */
+.galaxie-buybox-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+.galaxie-buybox-row .galaxie-buybox-quantity,
+.galaxie-buybox-row .galaxie-buybox-actions {
+  margin-bottom: 0;
 }
 
 .galaxie-buybox-btn {

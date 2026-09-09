@@ -98,17 +98,19 @@ function initWidget(picker: HTMLElement, config?: BuyBoxConfig): void {
       const initialPriceHtml = priceEl?.innerHTML ?? ''
       const initialStockHtml = stockEl?.innerHTML ?? ''
 
-      interface VariationPayload {
-        price_html?: string
-        availability_html?: string
+      // Mirrored straight from the DOM WooCommerce itself renders/updates
+      // inside `.single_variation_wrap` (standard classes from
+      // single-variation.php), rather than trusting the exact shape of the
+      // `found_variation` event payload — more robust across WC versions.
+      const syncFromNativeBlock = () => {
+        const nativePrice = nativeForm.querySelector<HTMLElement>('.woocommerce-variation-price')
+        const nativeStock = nativeForm.querySelector<HTMLElement>('.woocommerce-variation-availability')
+        if (priceEl) priceEl.innerHTML = nativePrice ? nativePrice.innerHTML : initialPriceHtml
+        if (stockEl) stockEl.innerHTML = nativeStock ? nativeStock.innerHTML : initialStockHtml
       }
 
-      jq(nativeForm).on('found_variation', (_event, variation) => {
-        const payload = variation as VariationPayload
-        if (priceEl && payload.price_html !== undefined) priceEl.innerHTML = payload.price_html
-        if (stockEl && payload.availability_html !== undefined) stockEl.innerHTML = payload.availability_html
-      })
-      jq(nativeForm).on('reset_data hide_variation', () => {
+      jq(nativeForm).on('show_variation found_variation', syncFromNativeBlock)
+      jq(nativeForm).on('hide_variation reset_data', () => {
         if (priceEl) priceEl.innerHTML = initialPriceHtml
         if (stockEl) stockEl.innerHTML = initialStockHtml
       })

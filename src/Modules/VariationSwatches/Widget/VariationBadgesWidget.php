@@ -634,56 +634,28 @@ final class VariationBadgesWidget extends Widget_Base {
 
 		echo '<div class="galaxie-ui galaxie-buybox' . ( $show_stock ? '' : ' galaxie-buybox--no-stock' ) . '">';
 
-		foreach ( array_keys( $blocks ) as $block ) {
-			switch ( $block ) {
-				case 'price':
-					echo '<div class="galaxie-buybox-price">' . wp_kses_post( $product->get_price_html() ) . '</div>';
-					if ( $show_stock ) {
-						echo '<div class="galaxie-buybox-stock">' . wp_kses_post( wc_get_stock_html( $product ) ) . '</div>';
-					}
-					break;
+		// Spinner + Buttons render side-by-side in one flex row whenever they
+		// land adjacent in the configured order (the common case, and what
+		// Wagner asked for) — any other order just renders each separately.
+		$order = array_keys( $blocks );
+		$i     = 0;
+		$count = count( $order );
+		while ( $i < $count ) {
+			$block = $order[ $i ];
+			$next  = $order[ $i + 1 ] ?? null;
+			$pair  = array( 'spinner', 'buttons' );
 
-				case 'variations':
-					echo '<div class="galaxie-variation-picker" data-galaxie-attribute="' . esc_attr( $slug ) . '">';
-
-					echo '<div class="galaxie-variation-label">';
-					echo $this->render_label( $attribute_data['label'], $settings ); // phpcs:ignore -- already escaped by pixfort/our own renderer.
-					echo '</div>';
-
-					echo '<div class="galaxie-swatch-options">';
-					foreach ( $attribute_data['options'] as $option_value => $option_label ) {
-						printf(
-							'<button type="button" class="galaxie-swatch-option" data-value="%s">',
-							esc_attr( $option_value )
-						);
-						echo '<span class="galaxie-swatch-normal">' . $this->render_badge( $option_label, $settings, false ) . '</span>'; // phpcs:ignore
-						echo '<span class="galaxie-swatch-selected">' . $this->render_badge( $option_label, $settings, true ) . '</span>'; // phpcs:ignore
-						echo '</button>';
-					}
-					echo '</div>';
-
-					echo '</div>'; // .galaxie-variation-picker
-					break;
-
-				case 'spinner':
-					echo '<div class="galaxie-buybox-quantity">';
-					woocommerce_quantity_input();
-					echo '</div>';
-					break;
-
-				case 'buttons':
-					echo '<div class="galaxie-buybox-actions">';
-					printf(
-						'<button type="button" class="galaxie-buybox-btn galaxie-buybox-addcart">%s</button>',
-						$this->render_button( 'addcart', $settings ) // phpcs:ignore
-					);
-					printf(
-						'<button type="button" class="galaxie-buybox-btn galaxie-buybox-buynow">%s</button>',
-						$this->render_button( 'buynow', $settings ) // phpcs:ignore
-					);
-					echo '</div>';
-					break;
+			if ( in_array( $block, $pair, true ) && in_array( $next, $pair, true ) ) {
+				echo '<div class="galaxie-buybox-row">';
+				$this->render_block( $block, $product, $attribute_data, $slug, $settings, $show_stock );
+				$this->render_block( $next, $product, $attribute_data, $slug, $settings, $show_stock );
+				echo '</div>';
+				$i += 2;
+				continue;
 			}
+
+			$this->render_block( $block, $product, $attribute_data, $slug, $settings, $show_stock );
+			++$i;
 		}
 
 		echo '</div>'; // .galaxie-buybox
@@ -703,6 +675,62 @@ final class VariationBadgesWidget extends Widget_Base {
 			woocommerce_template_single_add_to_cart();
 		}
 		echo '</div>';
+	}
+
+	/**
+	 * @param array{label:string,options:array<string,string>} $attribute_data
+	 * @param array<string,mixed>                               $settings
+	 */
+	private function render_block( string $block, \WC_Product $product, array $attribute_data, string $slug, array $settings, bool $show_stock ): void {
+		switch ( $block ) {
+			case 'price':
+				echo '<div class="galaxie-buybox-price">' . wp_kses_post( $product->get_price_html() ) . '</div>';
+				if ( $show_stock ) {
+					echo '<div class="galaxie-buybox-stock">' . wp_kses_post( wc_get_stock_html( $product ) ) . '</div>';
+				}
+				break;
+
+			case 'variations':
+				echo '<div class="galaxie-variation-picker" data-galaxie-attribute="' . esc_attr( $slug ) . '">';
+
+				echo '<div class="galaxie-variation-label">';
+				echo $this->render_label( $attribute_data['label'], $settings ); // phpcs:ignore -- already escaped by pixfort/our own renderer.
+				echo '</div>';
+
+				echo '<div class="galaxie-swatch-options">';
+				foreach ( $attribute_data['options'] as $option_value => $option_label ) {
+					printf(
+						'<button type="button" class="galaxie-swatch-option" data-value="%s">',
+						esc_attr( $option_value )
+					);
+					echo '<span class="galaxie-swatch-normal">' . $this->render_badge( $option_label, $settings, false ) . '</span>'; // phpcs:ignore
+					echo '<span class="galaxie-swatch-selected">' . $this->render_badge( $option_label, $settings, true ) . '</span>'; // phpcs:ignore
+					echo '</button>';
+				}
+				echo '</div>';
+
+				echo '</div>'; // .galaxie-variation-picker
+				break;
+
+			case 'spinner':
+				echo '<div class="galaxie-buybox-quantity">';
+				woocommerce_quantity_input();
+				echo '</div>';
+				break;
+
+			case 'buttons':
+				echo '<div class="galaxie-buybox-actions">';
+				printf(
+					'<button type="button" class="galaxie-buybox-btn galaxie-buybox-addcart">%s</button>',
+					$this->render_button( 'addcart', $settings ) // phpcs:ignore
+				);
+				printf(
+					'<button type="button" class="galaxie-buybox-btn galaxie-buybox-buynow">%s</button>',
+					$this->render_button( 'buynow', $settings ) // phpcs:ignore
+				);
+				echo '</div>';
+				break;
+		}
 	}
 
 	/** @param array<string,mixed> $settings */
