@@ -16,7 +16,7 @@ interface JQueryStatic {
   (selector: Document | Element | string): {
     on: (event: string, handler: () => void) => void
     off: (event: string, handler: () => void) => void
-    trigger: (event: string) => void
+    trigger: (event: string, args?: unknown[]) => void
   }
 }
 

@@ -92,5 +92,6 @@ final class Plugin {
 		$this->modules->register( new \Galaxie\Woo\Modules\AccountDeletion\Module() );
 		$this->modules->register( new \Galaxie\Woo\Modules\ToastNotices\Module() );
 		$this->modules->register( new \Galaxie\Woo\Modules\VariationSwatches\Module() );
+		$this->modules->register( new \Galaxie\Woo\Modules\VariationSpotlight\Module() );
 	}
 }
