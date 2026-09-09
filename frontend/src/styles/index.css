@@ -409,6 +409,66 @@ form.galaxie-buybox {
 
 .galaxie-buybox-block {
   max-width: 100%;
+  margin: 0;
+}
+
+/* Quantity and the buttons share a row when the layout asks for it. */
+form.galaxie-buybox .galaxie-buybox-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0;
+}
+
+/* Our <button> is only a click target; pixfort's own .btn inside it is the
+   visible control. The reset stops the browser's button styling from showing
+   through, and the margin override kills the spacing pixfort's button carries
+   for standalone use — which is what pushed it down and to the right of the
+   quantity field. */
+.galaxie-buybox-btn {
+  display: inline-flex;
+  appearance: none;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+}
+
+.galaxie-buybox-btn > *,
+.galaxie-buybox-btn .btn {
+  margin: 0 !important;
+}
+
+.galaxie-buybox-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* The dropdown replaces the number input, so it inherits the same box rather
+   than arriving as a bare browser select. */
+.galaxie-quantity-select .qty {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  padding: 0.5rem 1.75rem 0.5rem 0.75rem;
+  cursor: pointer;
+  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
+    linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position:
+    calc(100% - 15px) calc(50% + 2px),
+    calc(100% - 10px) calc(50% + 2px);
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+}
+
+.galaxie-buybox-quantity .quantity {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md, 0.375rem);
 }
 
 .galaxie-buybox-price-regular {

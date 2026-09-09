@@ -499,6 +499,52 @@ final class PixfortControls {
 	}
 
 	/**
+	 * A pixfort-palette colour picker for markup pixfort's own components don't
+	 * render — the native quantity field, chiefly. Those can't take a
+	 * `text-{slug}` utility class, so the chosen palette entry is applied as the
+	 * matching `--pix-*` variable through a selectors dictionary, which is the
+	 * same trick pixfort itself uses for its button icon colour. That keeps the
+	 * control theme-aware (light/dark, Dynamic Colors) instead of freezing a
+	 * literal hex the way a raw Elementor colour picker would.
+	 *
+	 * @param array<string,mixed> $condition
+	 */
+	public static function palette_control( object $target, string $id, string $label, string $selector, string $property, array $condition = array() ): void {
+		if ( ! self::available() ) {
+			self::add( $target, $condition, $id . '_fallback', array(
+				'label'     => $label,
+				'type'      => Controls_Manager::COLOR,
+				'selectors' => array( $selector => $property . ': {{VALUE}};' ),
+			) );
+			return;
+		}
+
+		$colors     = self::colors( array( 'defaultValue' => array( '' => __( 'Default', 'galaxie-woo' ) ), 'mainLight' => true, 'gradients' => false ) );
+		$dictionary = array( '' => '' );
+
+		foreach ( $colors as $group ) {
+			if ( empty( $group['options'] ) || ! is_array( $group['options'] ) ) {
+				continue;
+			}
+			foreach ( array_keys( $group['options'] ) as $value ) {
+				if ( '' === $value || 'custom' === $value ) {
+					continue;
+				}
+				$dictionary[ $value ] = $property . ': var(--pix-' . $value . ') !important;';
+			}
+		}
+
+		self::add( $target, $condition, $id, array(
+			'label'                => $label,
+			'type'                 => Controls_Manager::SELECT,
+			'groups'               => $colors,
+			'default'              => '',
+			'selectors_dictionary' => $dictionary,
+			'selectors'            => array( $selector => '{{VALUE}}' ),
+		) );
+	}
+
+	/**
 	 * Registers one control, folding the caller's blanket condition in.
 	 *
 	 * Deliberately only Elementor's simple `condition` map, never the richer

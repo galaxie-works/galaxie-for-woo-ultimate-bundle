@@ -32,17 +32,21 @@ defined( 'ABSPATH' ) || exit;
  * attribute stays in the form (visually hidden), so WooCommerce's own
  * `wc-add-to-cart-variation.js` keeps doing the matching it has always done and
  * keeps firing `found_variation` / `show_variation` / `hide_variation` /
- * `reset_data` — the events third-party plugins actually bind to. Rewriting
- * that matcher would have bought nothing and quietly dropped that ecosystem.
+ * `reset_data` — the events third-party plugins actually bind to.
  *
- * Block presence lives in the repeater rows rather than in separate switches:
- * deleting a row is how a block is turned off, so an unwanted block leaves
- * neither markup on the canvas nor an orphaned control in the panel.
+ * CONTROL LAYOUT, and why it is what it is. The repeater holds ONLY the block
+ * type: it decides order, and deleting a row is how a block is turned off, so
+ * an unwanted block never reaches the canvas. Everything else lives in a
+ * clearly-named section per block, for two reasons. One is legibility — with
+ * every set flattened into one repeater row there was no telling whether
+ * "Bold" belonged to the caption or the badge. The other is a hard constraint:
+ * pixfort's `pixfort_icon_selector` prints its entire icon library inline in
+ * its `content_template()`, and Elementor re-renders a repeater row's controls
+ * on every interaction, so thousands of nodes were being rebuilt per click —
+ * that is what froze the editor. Custom controls of that shape must stay out
+ * of repeater rows.
  */
 final class BuyBoxWidget extends Widget_Base {
-
-	/** Scopes a repeater row's `selectors` to that row, so rows can't style each other. */
-	private const ROW_SCOPE = '{{WRAPPER}} {{CURRENT_ITEM}}';
 
 	public function get_name(): string {
 		return 'galaxie-buybox';
@@ -62,17 +66,31 @@ final class BuyBoxWidget extends Widget_Base {
 
 	protected function register_controls(): void {
 		$this->register_blocks_section();
+		$this->register_price_section();
+		$this->register_variations_section();
+		$this->register_quantity_section();
+		$this->register_button_section( 'addcart', __( 'Add to Cart button', 'galaxie-woo' ), __( 'Adicionar ao carrinho', 'galaxie-woo' ), '' );
+		$this->register_button_section( 'buynow', __( 'Buy Now button', 'galaxie-woo' ), __( 'Comprar agora', 'galaxie-woo' ), 'outline' );
 		$this->register_layout_section();
 	}
 
+	/** Order and presence. Nothing else — see the class docblock. */
 	private function register_blocks_section(): void {
 		$this->start_controls_section(
 			'blocks_section',
 			array( 'label' => __( 'Blocks', 'galaxie-woo' ) )
 		);
 
-		$repeater = new Repeater();
+		$this->add_control(
+			'blocks_note',
+			array(
+				'type'            => Controls_Manager::RAW_HTML,
+				'raw'             => esc_html__( 'Drag to reorder. Remove a row to leave that block out entirely — its own section below is then ignored.', 'galaxie-woo' ),
+				'content_classes' => 'elementor-descriptor',
+			)
+		);
 
+		$repeater = new Repeater();
 		$repeater->add_control(
 			'block',
 			array(
@@ -81,21 +99,6 @@ final class BuyBoxWidget extends Widget_Base {
 				'options' => self::block_options(),
 				'default' => 'price',
 			)
-		);
-
-		$this->add_price_controls( $repeater );
-		$this->add_variations_controls( $repeater );
-		$this->add_quantity_controls( $repeater );
-
-		// One button control set serves both button blocks: the row's own type
-		// decides which of them it is, so a second prefixed copy would only
-		// duplicate 25 controls to say the same thing.
-		PixfortControls::button(
-			$repeater,
-			'btn',
-			array( 'text' => __( 'Adicionar ao carrinho', 'galaxie-woo' ), 'color' => 'primary' ),
-			array( 'block' => array( 'addcart', 'buynow' ) ),
-			self::ROW_SCOPE
 		);
 
 		$this->add_control(
@@ -108,7 +111,7 @@ final class BuyBoxWidget extends Widget_Base {
 					array( 'block' => 'price' ),
 					array( 'block' => 'variations' ),
 					array( 'block' => 'quantity' ),
-					array( 'block' => 'addcart', 'btn_text' => __( 'Adicionar ao carrinho', 'galaxie-woo' ) ),
+					array( 'block' => 'addcart' ),
 				),
 			)
 		);
@@ -116,90 +119,118 @@ final class BuyBoxWidget extends Widget_Base {
 		$this->end_controls_section();
 	}
 
-	private function add_price_controls( Repeater $repeater ): void {
-		$price = array( 'block' => 'price' );
+	private function register_price_section(): void {
+		$this->start_controls_section(
+			'price_section',
+			array( 'label' => __( 'Price', 'galaxie-woo' ) )
+		);
 
-		PixfortControls::text( $repeater, 'price_regular', array( 'size' => 'h4', 'bold' => 'font-weight-bold' ), $price, self::ROW_SCOPE );
+		$this->heading( 'price_regular_heading', __( 'Regular price', 'galaxie-woo' ), false );
+		PixfortControls::text( $this, 'price_regular', array( 'size' => 'h4', 'bold' => 'font-weight-bold' ) );
 
-		$repeater->add_control(
+		$this->heading( 'price_sale_heading', __( 'Sale price', 'galaxie-woo' ) );
+		$this->add_control(
 			'sale_display',
 			array(
-				'label'     => __( 'Sale price display', 'galaxie-woo' ),
-				'type'      => Controls_Manager::SELECT,
-				'options'   => array(
+				'label'   => __( 'Sale price display', 'galaxie-woo' ),
+				'type'    => Controls_Manager::SELECT,
+				'options' => array(
 					'simple'   => __( 'Simple (text)', 'galaxie-woo' ),
 					'advanced' => __( 'Advanced (badge)', 'galaxie-woo' ),
 				),
-				'default'   => 'simple',
-				'condition' => $price,
+				'default' => 'simple',
 			)
 		);
+		PixfortControls::text( $this, 'price_sale', array( 'size' => 'h4', 'bold' => 'font-weight-bold' ), array( 'sale_display' => 'simple' ) );
+		PixfortControls::badge( $this, 'price_sale_badge', array(), array( 'sale_display' => 'advanced' ) );
 
-		PixfortControls::text( $repeater, 'price_sale', array( 'size' => 'h4', 'bold' => 'font-weight-bold' ), $price + array( 'sale_display' => 'simple' ), self::ROW_SCOPE );
-		PixfortControls::badge( $repeater, 'price_sale_badge', array(), $price + array( 'sale_display' => 'advanced' ), self::ROW_SCOPE );
-
-		$repeater->add_control(
+		$this->heading( 'stock_heading', __( 'Stock', 'galaxie-woo' ) );
+		$this->add_control(
 			'show_stock',
 			array(
 				'label'        => __( 'Show stock', 'galaxie-woo' ),
 				'type'         => Controls_Manager::SWITCHER,
 				'return_value' => 'yes',
 				'default'      => 'yes',
-				'condition'    => $price,
 			)
 		);
+		PixfortControls::text( $this, 'stock', array(), array( 'show_stock' => 'yes' ) );
 
-		PixfortControls::text( $repeater, 'stock', array(), $price + array( 'show_stock' => 'yes' ), self::ROW_SCOPE );
+		$this->end_controls_section();
 	}
 
-	private function add_variations_controls( Repeater $repeater ): void {
-		$variations = array( 'block' => 'variations' );
+	private function register_variations_section(): void {
+		$this->start_controls_section(
+			'variations_section',
+			array( 'label' => __( 'Variations', 'galaxie-woo' ) )
+		);
 
-		$repeater->add_control(
+		$this->add_control(
 			'attribute',
 			array(
-				'label'     => __( 'Attribute', 'galaxie-woo' ),
-				'type'      => Controls_Manager::SELECT,
-				'options'   => self::attribute_options(),
-				'default'   => 'pa_peso',
-				'condition' => $variations,
+				'label'   => __( 'Attribute', 'galaxie-woo' ),
+				'type'    => Controls_Manager::SELECT,
+				'options' => self::attribute_options(),
+				'default' => 'pa_peso',
 			)
 		);
 
-		$repeater->add_control(
+		$this->heading( 'label_heading', __( 'Caption', 'galaxie-woo' ) );
+		$this->add_control(
 			'label_text',
 			array(
-				'label'       => __( 'Caption', 'galaxie-woo' ),
+				'label'       => __( 'Caption text', 'galaxie-woo' ),
 				'type'        => Controls_Manager::TEXT,
 				'default'     => '',
 				'placeholder' => __( 'Defaults to the attribute name', 'galaxie-woo' ),
-				'condition'   => $variations,
 			)
 		);
+		$this->add_control(
+			'show_label',
+			array(
+				'label'        => __( 'Show caption', 'galaxie-woo' ),
+				'type'         => Controls_Manager::SWITCHER,
+				'return_value' => 'yes',
+				'default'      => 'yes',
+			)
+		);
+		PixfortControls::text( $this, 'label', array( 'bold' => 'font-weight-bold' ), array( 'show_label' => 'yes' ) );
 
-		PixfortControls::text( $repeater, 'label', array( 'bold' => 'font-weight-bold' ), $variations, self::ROW_SCOPE );
-		PixfortControls::badge( $repeater, 'badge', array( 'text_color' => 'primary', 'bg_color' => 'primary-light' ), $variations, self::ROW_SCOPE );
-		PixfortControls::badge( $repeater, 'badgesel', array( 'text_color' => 'white', 'bg_color' => 'primary' ), $variations, self::ROW_SCOPE );
+		$this->heading( 'badge_heading', __( 'Badge', 'galaxie-woo' ) );
+		PixfortControls::badge( $this, 'badge', array( 'text_color' => 'primary', 'bg_color' => 'primary-light' ) );
+
+		$this->heading( 'badgesel_heading', __( 'Badge — selected', 'galaxie-woo' ) );
+		PixfortControls::badge( $this, 'badgesel', array( 'text_color' => 'white', 'bg_color' => 'primary' ) );
+
+		$this->end_controls_section();
 	}
 
-	private function add_quantity_controls( Repeater $repeater ): void {
-		$quantity = array( 'block' => 'quantity' );
+	/**
+	 * The quantity field is native WooCommerce markup, so it can't go through a
+	 * pixfort component — but it still has to follow the theme's light/dark and
+	 * Dynamic Colors, which is what {@see PixfortControls::palette_control()}
+	 * is for.
+	 */
+	private function register_quantity_section(): void {
+		$this->start_controls_section(
+			'quantity_section',
+			array( 'label' => __( 'Quantity', 'galaxie-woo' ) )
+		);
 
-		$repeater->add_control(
-			'qty_type',
+		$this->add_control(
+			'qty_style',
 			array(
-				'label'     => __( 'Quantity field', 'galaxie-woo' ),
-				'type'      => Controls_Manager::SELECT,
-				'options'   => array(
+				'label'   => __( 'Style', 'galaxie-woo' ),
+				'type'    => Controls_Manager::SELECT,
+				'options' => array(
 					'input'  => __( 'Number input (+/-)', 'galaxie-woo' ),
 					'select' => __( 'Dropdown', 'galaxie-woo' ),
 				),
-				'default'   => 'input',
-				'condition' => $quantity,
+				'default' => 'input',
 			)
 		);
 
-		$repeater->add_control(
+		$this->add_control(
 			'qty_max',
 			array(
 				'label'     => __( 'Dropdown goes up to', 'galaxie-woo' ),
@@ -207,19 +238,60 @@ final class BuyBoxWidget extends Widget_Base {
 				'min'       => 1,
 				'max'       => 50,
 				'default'   => 5,
-				'condition' => $quantity + array( 'qty_type' => 'select' ),
+				'condition' => array( 'qty_style' => 'select' ),
 			)
 		);
 
-		// Quantity width lives in the Layout section rather than here on purpose:
-		// a responsive control inside a repeater row is a rarely-travelled path
-		// in Elementor's editor, and there is only ever one quantity block.
+		$field = '{{WRAPPER}} .galaxie-buybox-quantity .quantity';
+		$input = '{{WRAPPER}} .galaxie-buybox-quantity .qty';
+
+		PixfortControls::palette_control( $this, 'qty_text_color', __( 'Text color', 'galaxie-woo' ), $input, 'color' );
+		PixfortControls::palette_control( $this, 'qty_bg_color', __( 'Background color', 'galaxie-woo' ), $field, 'background-color' );
+		PixfortControls::palette_control( $this, 'qty_border_color', __( 'Border color', 'galaxie-woo' ), $field, 'border-color' );
+
+		$this->add_responsive_control(
+			'qty_width',
+			array(
+				'label'      => __( 'Width', 'galaxie-woo' ),
+				'type'       => Controls_Manager::SLIDER,
+				'size_units' => array( 'px', '%' ),
+				'range'      => array( 'px' => array( 'min' => 60, 'max' => 400 ) ),
+				'selectors'  => array( $field => 'width: {{SIZE}}{{UNIT}};' ),
+			)
+		);
+
+		$this->add_responsive_control(
+			'qty_radius',
+			array(
+				'label'      => __( 'Border radius', 'galaxie-woo' ),
+				'type'       => Controls_Manager::SLIDER,
+				'size_units' => array( 'px' ),
+				'range'      => array( 'px' => array( 'min' => 0, 'max' => 60 ) ),
+				'selectors'  => array( $field => 'border-radius: {{SIZE}}{{UNIT}}; overflow: hidden;' ),
+			)
+		);
+
+		$this->end_controls_section();
 	}
 
-	/**
-	 * Spacing between and inside blocks — the thing the previous widget had no
-	 * answer for at all.
-	 */
+	private function register_button_section( string $prefix, string $label, string $default_text, string $default_style ): void {
+		$this->start_controls_section(
+			$prefix . '_section',
+			array( 'label' => $label )
+		);
+
+		PixfortControls::button(
+			$this,
+			$prefix,
+			array( 'text' => $default_text, 'style' => $default_style, 'color' => 'primary' ),
+			array(),
+			'{{WRAPPER}} .galaxie-buybox-' . $prefix
+		);
+
+		$this->end_controls_section();
+	}
+
+	/** Spacing between and inside blocks — the thing the previous widget had no answer for at all. */
 	private function register_layout_section(): void {
 		$this->start_controls_section(
 			'layout_section',
@@ -238,6 +310,17 @@ final class BuyBoxWidget extends Widget_Base {
 				'range'      => array( 'px' => array( 'min' => 0, 'max' => 80 ) ),
 				'default'    => array( 'unit' => 'px', 'size' => 12 ),
 				'selectors'  => array( '{{WRAPPER}} .galaxie-buybox' => 'gap: {{SIZE}}{{UNIT}};' ),
+			)
+		);
+
+		$this->add_control(
+			'inline_actions',
+			array(
+				'label'        => __( 'Buttons beside quantity', 'galaxie-woo' ),
+				'type'         => Controls_Manager::SWITCHER,
+				'return_value' => 'yes',
+				'default'      => 'yes',
+				'description'  => __( 'Lays adjacent quantity and button blocks out on one row.', 'galaxie-woo' ),
 			)
 		);
 
@@ -266,17 +349,6 @@ final class BuyBoxWidget extends Widget_Base {
 		);
 
 		$this->add_responsive_control(
-			'qty_width',
-			array(
-				'label'      => __( 'Quantity field width', 'galaxie-woo' ),
-				'type'       => Controls_Manager::SLIDER,
-				'size_units' => array( 'px', '%' ),
-				'range'      => array( 'px' => array( 'min' => 60, 'max' => 400 ) ),
-				'selectors'  => array( '{{WRAPPER}} .galaxie-buybox-quantity .quantity' => 'width: {{SIZE}}{{UNIT}};' ),
-			)
-		);
-
-		$this->add_responsive_control(
 			'label_spacing',
 			array(
 				'label'      => __( 'Caption spacing', 'galaxie-woo' ),
@@ -289,6 +361,17 @@ final class BuyBoxWidget extends Widget_Base {
 		);
 
 		$this->end_controls_section();
+	}
+
+	private function heading( string $id, string $label, bool $separator = true ): void {
+		$this->add_control(
+			$id,
+			array(
+				'label'     => $label,
+				'type'      => Controls_Manager::HEADING,
+				'separator' => $separator ? 'before' : 'default',
+			)
+		);
 	}
 
 	protected function render(): void {
@@ -324,13 +407,49 @@ final class BuyBoxWidget extends Widget_Base {
 			$this->render_attribute_selects( $product );
 		}
 
-		foreach ( $rows as $row ) {
-			$this->render_block( $row, $product, $settings );
-		}
-
+		$this->render_blocks( $rows, $product, $settings );
 		$this->render_hidden_fields( $product, $variable );
 
 		echo '</form>';
+	}
+
+	/**
+	 * Walks the configured order, pairing an adjacent quantity and button into
+	 * one row when asked — the common storefront layout, and impossible to get
+	 * from the block list alone.
+	 *
+	 * @param array<int,array<string,mixed>> $rows
+	 * @param array<string,mixed>            $settings
+	 */
+	private function render_blocks( array $rows, \WC_Product $product, array $settings ): void {
+		$inline  = 'yes' === ( $settings['inline_actions'] ?? 'yes' );
+		$buttons = array( 'addcart', 'buynow' );
+		$count   = count( $rows );
+
+		for ( $i = 0; $i < $count; $i++ ) {
+			$block = (string) ( $rows[ $i ]['block'] ?? '' );
+			$next  = (string) ( $rows[ $i + 1 ]['block'] ?? '' );
+
+			$pairs = $inline
+				&& ( 'quantity' === $block || in_array( $block, $buttons, true ) )
+				&& in_array( $next, $buttons, true );
+
+			if ( ! $pairs ) {
+				$this->render_block( $block, $product, $settings );
+				continue;
+			}
+
+			echo '<div class="galaxie-buybox-row">';
+			$this->render_block( $block, $product, $settings );
+
+			// Keep absorbing following button blocks so quantity + Add to Cart
+			// + Buy Now all land on the same row rather than just the first two.
+			while ( $i + 1 < $count && in_array( (string) ( $rows[ $i + 1 ]['block'] ?? '' ), $buttons, true ) ) {
+				++$i;
+				$this->render_block( (string) $rows[ $i ]['block'], $product, $settings );
+			}
+			echo '</div>';
+		}
 	}
 
 	/**
@@ -350,14 +469,10 @@ final class BuyBoxWidget extends Widget_Base {
 			);
 
 			foreach ( $options as $option ) {
-				$label = taxonomy_exists( $name )
-					? ( get_term_by( 'slug', $option, $name )->name ?? $option )
-					: $option;
-
 				printf(
 					'<option value="%s">%s</option>',
 					esc_attr( $option ),
-					esc_html( $label )
+					esc_html( self::term_label( $name, $option ) )
 				);
 			}
 
@@ -379,29 +494,28 @@ final class BuyBoxWidget extends Widget_Base {
 	}
 
 	/**
-	 * @param array<string,mixed> $row
 	 * @param array<string,mixed> $settings
 	 */
-	private function render_block( array $row, \WC_Product $product, array $settings ): void {
-		$block = (string) ( $row['block'] ?? '' );
-		$class = 'galaxie-buybox-block galaxie-buybox-' . sanitize_html_class( $block )
-			. ' elementor-repeater-item-' . sanitize_html_class( (string) ( $row['_id'] ?? '' ) );
+	private function render_block( string $block, \WC_Product $product, array $settings ): void {
+		if ( '' === $block ) {
+			return;
+		}
 
-		echo '<div class="' . esc_attr( $class ) . '">';
+		echo '<div class="galaxie-buybox-block galaxie-buybox-' . esc_attr( sanitize_html_class( $block ) ) . '">';
 
 		switch ( $block ) {
 			case 'price':
-				$this->render_price( $row, $product );
+				$this->render_price( $settings, $product );
 				break;
 			case 'variations':
-				$this->render_variations( $row, $product );
+				$this->render_variations( $settings, $product );
 				break;
 			case 'quantity':
-				$this->render_quantity( $row, $product );
+				$this->render_quantity( $settings, $product );
 				break;
 			case 'addcart':
 			case 'buynow':
-				$this->render_button( $row, $block );
+				$this->render_button( $settings, $block );
 				break;
 		}
 
@@ -409,26 +523,25 @@ final class BuyBoxWidget extends Widget_Base {
 	}
 
 	/**
-	 * @param array<string,mixed> $row
+	 * @param array<string,mixed> $settings
 	 */
-	private function render_price( array $row, \WC_Product $product ): void {
+	private function render_price( array $settings, \WC_Product $product ): void {
 		$regular = $product->get_regular_price();
-		$active  = $product->get_price();
-		$on_sale = $product->is_on_sale();
 
 		echo '<div class="galaxie-buybox-price">';
 
-		if ( $on_sale && '' !== $regular ) {
+		if ( $product->is_on_sale() && '' !== $regular ) {
 			echo '<del class="galaxie-buybox-price-regular">' . wp_kses_post( wc_price( wc_get_price_to_display( $product, array( 'price' => $regular ) ) ) ) . '</del>';
-			$this->render_sale( $row, $product, (string) $active );
+			$this->render_sale( $settings, $product, (string) $product->get_price() );
 		} else {
-			echo '<span class="galaxie-buybox-price-current">' . $this->text( $row, 'price_regular', $product->get_price_html() ) . '</span>'; // phpcs:ignore WordPress.Security.EscapeOutput -- rendered through pixfort's own component.
+			echo '<span class="galaxie-buybox-price-current">' . $this->text( $settings, 'price_regular', $product->get_price_html() ) . '</span>'; // phpcs:ignore WordPress.Security.EscapeOutput -- rendered through pixfort's own component.
 		}
 
 		echo '</div>';
 
-		if ( 'yes' === ( $row['show_stock'] ?? 'yes' ) ) {
-			echo '<div class="galaxie-buybox-stock">' . $this->text( $row, 'stock', wp_strip_all_tags( wc_get_stock_html( $product ) ) ) . '</div>'; // phpcs:ignore WordPress.Security.EscapeOutput -- rendered through pixfort's own component.
+		if ( 'yes' === ( $settings['show_stock'] ?? 'yes' ) ) {
+			$stock = wp_strip_all_tags( wc_get_stock_html( $product ) );
+			echo '<div class="galaxie-buybox-stock">' . $this->text( $settings, 'stock', $stock ) . '</div>'; // phpcs:ignore WordPress.Security.EscapeOutput -- rendered through pixfort's own component.
 		}
 	}
 
@@ -437,26 +550,24 @@ final class BuyBoxWidget extends Widget_Base {
 	 * two are different enough visually that one control set could not serve
 	 * both without becoming a compromise.
 	 *
-	 * @param array<string,mixed> $row
+	 * @param array<string,mixed> $settings
 	 */
-	private function render_sale( array $row, \WC_Product $product, string $price ): void {
+	private function render_sale( array $settings, \WC_Product $product, string $price ): void {
 		$formatted = wp_strip_all_tags( wc_price( wc_get_price_to_display( $product, array( 'price' => $price ) ) ) );
 
-		if ( 'advanced' === ( $row['sale_display'] ?? 'simple' ) && PixfortControls::available() ) {
-			echo '<span class="galaxie-buybox-price-sale galaxie-badge-price_sale_badge">';
-			echo \PixfortCore::instance()->elementsManager->renderElement( 'Badge', PixfortControls::badge_attr( $row, 'price_sale_badge', $formatted ) ); // phpcs:ignore WordPress.Security.EscapeOutput -- pixfort's own component markup.
-			echo '</span>';
+		if ( 'advanced' === ( $settings['sale_display'] ?? 'simple' ) ) {
+			echo '<span class="galaxie-buybox-price-sale">' . $this->badge( $settings, 'price_sale_badge', $formatted ) . '</span>'; // phpcs:ignore WordPress.Security.EscapeOutput -- pixfort's own component markup.
 			return;
 		}
 
-		echo '<span class="galaxie-buybox-price-sale">' . $this->text( $row, 'price_sale', $formatted ) . '</span>'; // phpcs:ignore WordPress.Security.EscapeOutput -- rendered through pixfort's own component.
+		echo '<span class="galaxie-buybox-price-sale">' . $this->text( $settings, 'price_sale', $formatted ) . '</span>'; // phpcs:ignore WordPress.Security.EscapeOutput -- rendered through pixfort's own component.
 	}
 
 	/**
-	 * @param array<string,mixed> $row
+	 * @param array<string,mixed> $settings
 	 */
-	private function render_variations( array $row, \WC_Product $product ): void {
-		$slug       = (string) ( $row['attribute'] ?? 'pa_peso' );
+	private function render_variations( array $settings, \WC_Product $product ): void {
+		$slug       = (string) ( $settings['attribute'] ?? 'pa_peso' );
 		$attributes = $product->get_variation_attributes();
 
 		$options = null;
@@ -472,27 +583,24 @@ final class BuyBoxWidget extends Widget_Base {
 			return;
 		}
 
-		$caption = trim( (string) ( $row['label_text'] ?? '' ) );
-		if ( '' === $caption ) {
-			$caption = wc_attribute_label( $slug, $product );
-		}
-
 		printf(
 			'<div class="galaxie-variation-picker" data-galaxie-attribute="%s">',
 			esc_attr( sanitize_title( $slug ) )
 		);
 
-		echo '<div class="galaxie-variation-label">' . $this->text( $row, 'label', $caption ) . '</div>'; // phpcs:ignore WordPress.Security.EscapeOutput -- rendered through pixfort's own component.
+		if ( 'yes' === ( $settings['show_label'] ?? 'yes' ) ) {
+			$caption = trim( (string) ( $settings['label_text'] ?? '' ) );
+			if ( '' === $caption ) {
+				$caption = wc_attribute_label( $slug, $product );
+			}
+			echo '<div class="galaxie-variation-label">' . $this->text( $settings, 'label', $caption ) . '</div>'; // phpcs:ignore WordPress.Security.EscapeOutput -- rendered through pixfort's own component.
+		}
 
 		echo '<div class="galaxie-swatch-options">';
 		foreach ( $options as $option ) {
-			$label = taxonomy_exists( $slug )
-				? ( get_term_by( 'slug', $option, $slug )->name ?? $option )
-				: $option;
-
 			printf( '<button type="button" class="galaxie-swatch-option" data-value="%s">', esc_attr( $option ) );
-			echo '<span class="galaxie-swatch-normal">' . $this->badge( $row, 'badge', $label ) . '</span>'; // phpcs:ignore WordPress.Security.EscapeOutput -- pixfort's own component markup.
-			echo '<span class="galaxie-swatch-selected">' . $this->badge( $row, 'badgesel', $label ) . '</span>'; // phpcs:ignore WordPress.Security.EscapeOutput -- pixfort's own component markup.
+			echo '<span class="galaxie-swatch-normal">' . $this->badge( $settings, 'badge', self::term_label( $slug, $option ) ) . '</span>'; // phpcs:ignore WordPress.Security.EscapeOutput -- pixfort's own component markup.
+			echo '<span class="galaxie-swatch-selected">' . $this->badge( $settings, 'badgesel', self::term_label( $slug, $option ) ) . '</span>'; // phpcs:ignore WordPress.Security.EscapeOutput -- pixfort's own component markup.
 			echo '</button>';
 		}
 		echo '</div>';
@@ -501,13 +609,13 @@ final class BuyBoxWidget extends Widget_Base {
 	}
 
 	/**
-	 * @param array<string,mixed> $row
+	 * @param array<string,mixed> $settings
 	 */
-	private function render_quantity( array $row, \WC_Product $product ): void {
+	private function render_quantity( array $settings, \WC_Product $product ): void {
 		echo '<div class="galaxie-buybox-quantity">';
 
-		if ( 'select' === ( $row['qty_type'] ?? 'input' ) ) {
-			$this->render_quantity_select( $product, (int) ( $row['qty_max'] ?? 5 ) );
+		if ( 'select' === ( $settings['qty_style'] ?? 'input' ) ) {
+			$this->render_quantity_select( $product, (int) ( $settings['qty_max'] ?? 5 ) );
 		} else {
 			woocommerce_quantity_input( array(), $product );
 		}
@@ -516,9 +624,9 @@ final class BuyBoxWidget extends Widget_Base {
 	}
 
 	/**
-	 * Dropdown alternative to the number input. Keeps `name="quantity"` and the
-	 * `qty` class so both WooCommerce and our own JS treat it like any other
-	 * quantity field.
+	 * Dropdown alternative to the number input. Carries `.quantity` and `.qty`
+	 * so it inherits exactly the same styling — ours and the theme's — as the
+	 * number input it replaces, rather than arriving unstyled.
 	 */
 	private function render_quantity_select( \WC_Product $product, int $max ): void {
 		$min         = max( 1, (int) $product->get_min_purchase_quantity() );
@@ -539,10 +647,10 @@ final class BuyBoxWidget extends Widget_Base {
 	}
 
 	/**
-	 * @param array<string,mixed> $row
+	 * @param array<string,mixed> $settings
 	 */
-	private function render_button( array $row, string $block ): void {
-		$text = (string) ( $row['btn_text'] ?? '' );
+	private function render_button( array $settings, string $prefix ): void {
+		$text = (string) ( $settings[ $prefix . '_text' ] ?? '' );
 
 		// Both are real submit buttons: with JS off the form still posts and
 		// WooCommerce still adds the item. The JS upgrades Add to Cart to AJAX
@@ -550,12 +658,13 @@ final class BuyBoxWidget extends Widget_Base {
 		// is kept on Add to Cart because WooCommerce's own variation JS toggles
 		// its disabled state as combinations narrow.
 		printf(
-			'<button type="submit" class="galaxie-buybox-btn %s">',
-			'addcart' === $block ? 'galaxie-buybox-addcart single_add_to_cart_button' : 'galaxie-buybox-buynow'
+			'<button type="submit" class="galaxie-buybox-btn galaxie-buybox-%s%s">',
+			esc_attr( $prefix ),
+			'addcart' === $prefix ? ' single_add_to_cart_button' : ''
 		);
 
 		if ( PixfortControls::available() ) {
-			echo \PixfortCore::instance()->elementsManager->renderElement( 'Button', PixfortControls::button_attr( $row, 'btn', $text ) ); // phpcs:ignore WordPress.Security.EscapeOutput -- pixfort's own component markup.
+			echo \PixfortCore::instance()->elementsManager->renderElement( 'Button', PixfortControls::button_attr( $settings, $prefix, $text ) ); // phpcs:ignore WordPress.Security.EscapeOutput -- pixfort's own component markup.
 		} else {
 			echo '<span class="btn">' . esc_html( $text ) . '</span>';
 		}
@@ -564,25 +673,40 @@ final class BuyBoxWidget extends Widget_Base {
 	}
 
 	/**
-	 * @param array<string,mixed> $row
+	 * `PixText::render()` reads the text from its SECOND argument and ignores
+	 * `$attr['content']` entirely — passing it only in the attributes renders
+	 * an empty paragraph.
+	 *
+	 * @param array<string,mixed> $settings
 	 */
-	private function text( array $row, string $prefix, string $content ): string {
+	private function text( array $settings, string $prefix, string $content ): string {
 		if ( PixfortControls::available() ) {
-			return \PixfortCore::instance()->elementsManager->renderElement( 'Text', PixfortControls::text_attr( $row, $prefix, $content ) );
+			return \PixfortCore::instance()->elementsManager->renderElement( 'Text', PixfortControls::text_attr( $settings, $prefix, $content ), $content );
 		}
 
 		return '<span>' . wp_kses_post( $content ) . '</span>';
 	}
 
 	/**
-	 * @param array<string,mixed> $row
+	 * @param array<string,mixed> $settings
 	 */
-	private function badge( array $row, string $prefix, string $text ): string {
+	private function badge( array $settings, string $prefix, string $text ): string {
 		if ( PixfortControls::available() ) {
-			return \PixfortCore::instance()->elementsManager->renderElement( 'Badge', PixfortControls::badge_attr( $row, $prefix, $text ) );
+			return \PixfortCore::instance()->elementsManager->renderElement( 'Badge', PixfortControls::badge_attr( $settings, $prefix, $text ) );
 		}
 
 		return '<span class="galaxie-swatch-badge">' . esc_html( $text ) . '</span>';
+	}
+
+	/** A taxonomy attribute stores slugs; the shopper should see the term name. */
+	private static function term_label( string $taxonomy, string $option ): string {
+		if ( ! taxonomy_exists( $taxonomy ) ) {
+			return $option;
+		}
+
+		$term = get_term_by( 'slug', $option, $taxonomy );
+
+		return $term instanceof \WP_Term ? $term->name : $option;
 	}
 
 	/** @return array<string,string> */
