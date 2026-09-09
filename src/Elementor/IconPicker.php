@@ -42,7 +42,13 @@ final class IconPicker extends Base_Data_Control {
 	 */
 	private const LIMIT = 700;
 
-	private const TRANSIENT = 'galaxie_icon_picker_map';
+	/**
+	 * Bump to discard a cached map.
+	 *
+	 * Separate from the plugin version because the map can be wrong without the
+	 * plugin version changing — an empty one got cached exactly that way.
+	 */
+	private const TRANSIENT = 'galaxie_icon_picker_map_v2';
 
 	public function get_type(): string {
 		return self::TYPE;
@@ -73,8 +79,10 @@ final class IconPicker extends Base_Data_Control {
 	 * map and the script are needed and never otherwise.
 	 */
 	public function enqueue(): void {
-		self::print_map();
-
+		// Enqueue first, THEN attach the map. wp_add_inline_script() on a handle
+		// that is not registered yet returns false and drops the script without
+		// a word — which is precisely how the picker came up with no icons and
+		// no error to explain it.
 		wp_enqueue_script(
 			'galaxie-icon-picker',
 			GALAXIE_WOO_URL . 'assets/editor/icon-picker.js',
@@ -89,25 +97,35 @@ final class IconPicker extends Base_Data_Control {
 			array(),
 			GALAXIE_WOO_VERSION
 		);
+
+		self::print_map();
 	}
 
 	/**
 	 * The shared map, printed once into the editor.
 	 *
-	 * Cached because building it reads a couple of hundred files. The cache is
-	 * keyed on the plugin version so a release that changes the list is not
-	 * served a stale map.
+	 * Cached because building it reads several hundred files. Bump TRANSIENT to
+	 * discard a cached map.
 	 */
 	public static function print_map(): void {
-		$map = get_transient( self::TRANSIENT . '_' . GALAXIE_WOO_VERSION );
+		$map = get_transient( self::TRANSIENT );
 
-		if ( ! is_array( $map ) ) {
+		if ( ! is_array( $map ) || ! $map ) {
 			$map = self::build_map();
-			set_transient( self::TRANSIENT . '_' . GALAXIE_WOO_VERSION, $map, WEEK_IN_SECONDS );
+
+			// An empty map is never cached. Caching one froze the picker empty
+			// for a week over a bug that took a minute to fix, and a picker that
+			// silently shows nothing is worse than one that rebuilds each load.
+			if ( $map ) {
+				set_transient( self::TRANSIENT, $map, WEEK_IN_SECONDS );
+			}
 		}
 
+		// Inline on our own handle rather than Elementor's: an inline script
+		// attached to a handle that is not enqueued at that moment is dropped
+		// without a word, and our own handle is one we know is there.
 		wp_add_inline_script(
-			'elementor-editor',
+			'galaxie-icon-picker',
 			'window.galaxieIcons = ' . wp_json_encode( $map ) . ';',
 			'before'
 		);
@@ -153,23 +171,33 @@ final class IconPicker extends Base_Data_Control {
 	 */
 	private static function names(): array {
 		$path = defined( 'PIX_CORE_PLUGIN_DIR' )
-			? PIX_CORE_PLUGIN_DIR . '/includes/icons/pixfort-icons-list.php'
+			? rtrim( PIX_CORE_PLUGIN_DIR, '/' ) . '/includes/icons/pixfort-icons-list.php'
 			: '';
 
 		if ( ! $path || ! is_readable( $path ) ) {
 			return array();
 		}
 
-		$list = include $path;
+		/*
+		 * Read as text, not `include`.
+		 *
+		 * The file assigns `$pixfortIconsList` instead of returning it, so an
+		 * include only helps if it actually runs — and pixfort includes the same
+		 * file itself. Anything reaching it first with `require_once` makes our
+		 * include a no-op that defines nothing, and the picker comes up empty
+		 * with no error to explain it. Reading the source has no such ordering
+		 * to lose: the names are quoted string literals and nothing else in the
+		 * file looks like one.
+		 */
+		$source = (string) file_get_contents( $path ); // phpcs:ignore WordPress.WP.AlternativeFunctions -- a local file on disk, not a remote request.
 
-		// The file assigns `$pixfortIconsList` rather than returning it, so a
-		// plain include gives back `1`. Fall back to reading the variable the
-		// include just defined in this scope.
-		if ( ! is_array( $list ) ) {
-			$list = isset( $pixfortIconsList ) && is_array( $pixfortIconsList ) ? $pixfortIconsList : array();
-		}
+		// Both quote styles. pixfort's list is written with DOUBLE quotes, and
+		// a pattern that only knew single ones matched nothing at all — an
+		// empty picker with no error, which is the hardest kind of wrong to see.
+		preg_match_all( '/[\'"]([a-z0-9][a-z0-9-]*)[\'"]/', $source, $matches );
 
-		return array_values( array_filter( $list, 'is_string' ) );
+
+		return array_values( array_unique( $matches[1] ?? array() ) );
 	}
 
 	/**
