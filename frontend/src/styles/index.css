@@ -411,14 +411,21 @@ form.galaxie-buybox {
   margin: 0;
 }
 
-/* Inside the buy box the quantity wrapper must not be inline-level. As an
-   inline-block it sits on the text baseline, so the browser reserves descender
-   space under it and the wrapping block ends up ~9px taller than the field
-   itself. A row centring its items on that inflated height then pushed the
-   button several pixels below the quantity — the misalignment was the gap, not
-   the button. */
-form.galaxie-buybox .galaxie-buybox-quantity {
+/* Nothing in the buy box may sit in an inline formatting context. An
+   inline-level box rides the text baseline, so the browser reserves descender
+   space around it and its wrapper ends up taller than the control — and worse,
+   anything that shifts the line's metrics (a hover state changing font or
+   line-height) moves the box within it. That produced two separate symptoms
+   from one cause: the quantity wrapper measuring ~9px taller than its field,
+   and the button sitting 3px outside its own block and appearing to fly on
+   hover. Making these wrappers flex containers removes the line box entirely,
+   so their contents can only be positioned by the flex alignment. */
+form.galaxie-buybox .galaxie-buybox-quantity,
+form.galaxie-buybox .galaxie-buybox-block--quantity,
+form.galaxie-buybox .galaxie-buybox-block--addcart,
+form.galaxie-buybox .galaxie-buybox-block--buynow {
   display: flex;
+  align-items: center;
 }
 
 /* Quantity and the buttons share a row when the layout asks for it. */
