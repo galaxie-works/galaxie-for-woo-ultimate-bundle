@@ -537,12 +537,16 @@ final class BuyBoxWidget extends Widget_Base {
 		// parent product currently knows would mean the sale styling could
 		// never apply to a variable product at all, which is most of the
 		// catalogue here.
+		// Kept as markup rather than stripped: `get_price_html()` carries a
+		// `screen-reader-text` span ("Price range: X through Y") whose whole
+		// job is to be visually hidden, and stripping the tags leaves the text
+		// behind with nothing left to hide it.
 		$regular = $product->is_on_sale() && '' !== $product->get_regular_price()
-			? wp_strip_all_tags( wc_price( wc_get_price_to_display( $product, array( 'price' => $product->get_regular_price() ) ) ) )
-			: wp_strip_all_tags( $product->get_price_html() );
+			? wc_price( wc_get_price_to_display( $product, array( 'price' => $product->get_regular_price() ) ) )
+			: $product->get_price_html();
 
 		$sale = $product->is_on_sale() && '' !== $product->get_regular_price()
-			? wp_strip_all_tags( wc_price( wc_get_price_to_display( $product ) ) )
+			? wc_price( wc_get_price_to_display( $product ) )
 			: '';
 
 		echo '<div class="galaxie-buybox-price">';

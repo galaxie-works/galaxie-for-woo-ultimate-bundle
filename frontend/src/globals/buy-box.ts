@@ -89,10 +89,15 @@ function applyPrice(regular: HTMLElement | null, sale: HTMLElement | null, html:
   const parsed = document.createElement('div')
   parsed.innerHTML = html
 
-  const struck = parsed.querySelector('del')
-  const current = parsed.querySelector('ins')
+  // Unwrap WooCommerce's own `.price` container in BOTH branches. It carries
+  // theme font sizing, so keeping it for a plain price while dropping it for a
+  // sale price (whose amounts sit inside <del>/<ins>) made the same configured
+  // size render differently depending on whether the variation was on sale.
+  const scope = parsed.querySelector('.price') ?? parsed
+  const struck = scope.querySelector('del')
+  const current = scope.querySelector('ins')
 
-  const regularHtml = struck ? struck.innerHTML : parsed.innerHTML
+  const regularHtml = struck ? struck.innerHTML : scope.innerHTML
   const saleHtml = struck && current ? current.innerHTML : ''
 
   if (regular) {
