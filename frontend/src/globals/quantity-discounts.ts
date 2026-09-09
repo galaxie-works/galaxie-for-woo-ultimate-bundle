@@ -32,6 +32,26 @@ function variationForm(): HTMLFormElement | null {
   )
 }
 
+/**
+ * How many units of this variation may be bought, or null for "no ceiling".
+ *
+ * WooCommerce sends `max_qty` as '' when no ceiling exists, which is what it
+ * reports whenever stock is not being counted — Manage stock off, or backorders
+ * allowed. Its own `get_max_purchase_quantity()` produces -1 in those cases
+ * before that translation, and the filter behind it (`woocommerce_quantity_
+ * input_max`) is public, so a third party can put any number there. Anything at
+ * or below zero is therefore read as "no ceiling" rather than trusted as a real
+ * limit — trusting a -1 would disable every row on a product with unlimited
+ * stock, which is the exact opposite of what it means.
+ */
+function ceilingFor(variation: FoundVariation | undefined): number | null {
+  if (variation?.is_in_stock === false) return 0
+
+  const max = Number(variation?.max_qty)
+
+  return Number.isFinite(max) && max > 0 ? max : null
+}
+
 function initBlock(block: HTMLElement): void {
   const buttons = Array.from(
     block.querySelectorAll<HTMLButtonElement>('.galaxie-qd-add[data-galaxie-qd-needs-variation]'),
@@ -43,8 +63,7 @@ function initBlock(block: HTMLElement): void {
 
   const field = form.querySelector<HTMLInputElement>('input[name="variation_id"]')
 
-  // '' means WooCommerce reports no ceiling for this variation, which is not
-  // the same as a ceiling of zero — hence null rather than 0 for "unlimited".
+  // null means no ceiling; 0 means nothing can be bought at all.
   let ceiling: number | null = null
 
   const apply = () => {
@@ -74,9 +93,7 @@ function initBlock(block: HTMLElement): void {
 
   if (jq) {
     jq(form).on('found_variation', (_event: unknown, ...args: unknown[]) => {
-      const variation = args[0] as FoundVariation | undefined
-      const max = variation?.max_qty
-      ceiling = variation?.is_in_stock === false ? 0 : typeof max === 'number' ? max : null
+      ceiling = ceilingFor(args[0] as FoundVariation | undefined)
       apply()
     })
 

@@ -407,13 +407,22 @@ final class QuantityDiscountsWidget extends Widget_Base {
 	 */
 	private function applicable_tiers( array $resolved, \WC_Product $product, bool $hide_unavailable ): array {
 		$steps = Module::RULES_STEPS === $resolved['rules'];
-		$stock = $product->managing_stock() ? $product->get_stock_quantity() : null;
-		$out   = array();
+
+		// Stock constrains nothing unless the product is actually counting it.
+		// With "Manage stock" off there is no number to compare against, and
+		// with backorders on the number is not a limit — in both cases the
+		// tiers stand as written. This is deliberately the same test
+		// WooCommerce uses in `get_max_purchase_quantity()` to decide whether a
+		// purchase ceiling exists at all, so the table and the quantity field
+		// on the page can never disagree about what is buyable.
+		$counts_stock = $product->managing_stock() && ! $product->backorders_allowed();
+		$stock        = $counts_stock ? $product->get_stock_quantity() : null;
+		$out          = array();
 
 		foreach ( $resolved['tiers'] as $tier ) {
 			$needed = (int) ( $steps ? ( $tier['every'] ?? 0 ) : ( $tier['min'] ?? 0 ) );
 
-			if ( $hide_unavailable && $needed > 0 && ! $product->has_enough_stock( $needed ) ) {
+			if ( $hide_unavailable && $counts_stock && $needed > 0 && ! $product->has_enough_stock( $needed ) ) {
 				continue;
 			}
 
