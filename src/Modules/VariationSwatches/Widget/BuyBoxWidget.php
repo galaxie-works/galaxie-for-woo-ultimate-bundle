@@ -68,6 +68,7 @@ final class BuyBoxWidget extends Widget_Base {
 		$this->register_blocks_section();
 		$this->register_price_section();
 		$this->register_variations_section();
+		$this->register_alert_section();
 		$this->register_quantity_section();
 		$this->register_button_section( 'addcart', __( 'Add to Cart button', 'galaxie-woo' ), __( 'Adicionar ao carrinho', 'galaxie-woo' ), '' );
 		$this->register_button_section( 'buynow', __( 'Buy Now button', 'galaxie-woo' ), __( 'Comprar agora', 'galaxie-woo' ), 'outline' );
@@ -110,6 +111,7 @@ final class BuyBoxWidget extends Widget_Base {
 				'default'     => array(
 					array( 'block' => 'price' ),
 					array( 'block' => 'variations' ),
+					array( 'block' => 'alert' ),
 					array( 'block' => 'quantity' ),
 					array( 'block' => 'addcart' ),
 				),
@@ -296,6 +298,78 @@ final class BuyBoxWidget extends Widget_Base {
 				'selectors'  => array( $field => 'border-radius: {{SIZE}}{{UNIT}}; overflow: hidden;' ),
 			)
 		);
+
+		$this->end_controls_section();
+	}
+
+	/**
+	 * The messages, and the one skin they share.
+	 *
+	 * Every message is a plain text field the merchant owns, because the wording
+	 * of a refusal is a shop's voice and not the plugin's. Leaving one empty
+	 * turns that case off rather than printing a blank alert — which is how
+	 * "added to cart" ships off by default, since the theme already pops its own
+	 * cart panel and two confirmations of the same click is one too many.
+	 */
+	private function register_alert_section(): void {
+		$this->start_controls_section(
+			'alert_section',
+			array( 'label' => __( 'Alert', 'galaxie-woo' ) )
+		);
+
+		$this->add_control(
+			'alert_note',
+			array(
+				'type'            => Controls_Manager::RAW_HTML,
+				'raw'             => esc_html__( 'Shown in place, without reloading the page. Drag the Alert block in Blocks to move it — directly under Variations is where it reads best. Leave a message empty to say nothing in that case.', 'galaxie-woo' ),
+				'content_classes' => 'elementor-descriptor',
+			)
+		);
+
+		foreach ( self::alert_messages() as $key => $message ) {
+			$this->add_control(
+				'alert_' . $key . '_heading',
+				array(
+					'label'     => $message['label'],
+					'type'      => Controls_Manager::HEADING,
+					'separator' => 'before',
+				)
+			);
+
+			$this->add_control(
+				'alert_' . $key . '_text',
+				array(
+					'label'       => __( 'Message', 'galaxie-woo' ),
+					'label_block' => true,
+					'type'        => Controls_Manager::TEXTAREA,
+					'rows'        => 2,
+					'default'     => $message['text'],
+					'placeholder' => __( 'Leave empty to stay silent', 'galaxie-woo' ),
+				)
+			);
+
+			$this->add_control(
+				'alert_' . $key . '_type',
+				array(
+					'label'     => __( 'Alert type', 'galaxie-woo' ),
+					'type'      => Controls_Manager::SELECT,
+					'options'   => self::alert_types(),
+					'default'   => $message['type'],
+					'condition' => array( 'alert_' . $key . '_text!' => '' ),
+				)
+			);
+		}
+
+		$this->add_control(
+			'alert_style_heading',
+			array(
+				'label'     => __( 'Appearance', 'galaxie-woo' ),
+				'type'      => Controls_Manager::HEADING,
+				'separator' => 'before',
+			)
+		);
+
+		PixfortControls::alert( $this, 'alert', array(), array(), '{{WRAPPER}} .galaxie-buybox-alert' );
 
 		$this->end_controls_section();
 	}
@@ -545,6 +619,9 @@ final class BuyBoxWidget extends Widget_Base {
 			case 'variations':
 				$this->render_variations( $settings, $product );
 				break;
+			case 'alert':
+				$this->render_alert( $settings );
+				break;
 			case 'quantity':
 				$this->render_quantity( $settings, $product );
 				break;
@@ -651,6 +728,61 @@ final class BuyBoxWidget extends Widget_Base {
 	}
 
 	/**
+	 * One alert, rendered once and hidden, reused for every message.
+	 *
+	 * Not one alert per message: `alert-{type}` is the only place PixAlert puts
+	 * the type, so swapping that single class is an exact substitution and four
+	 * near-identical blocks of markup would buy nothing. The messages ride along
+	 * as JSON for the script to pick from.
+	 *
+	 * It renders visible inside Elementor so the merchant can actually see what
+	 * they are styling; on the site it stays out of the way until something goes
+	 * wrong.
+	 *
+	 * @param array<string,mixed> $settings
+	 */
+	private function render_alert( array $settings ): void {
+		$messages = array();
+
+		foreach ( self::alert_messages() as $key => $message ) {
+			$text = trim( (string) ( $settings[ 'alert_' . $key . '_text' ] ?? '' ) );
+
+			if ( '' === $text ) {
+				continue;
+			}
+
+			$messages[ $key ] = array(
+				'text' => wp_kses_post( $text ),
+				'type' => (string) ( $settings[ 'alert_' . $key . '_type' ] ?? $message['type'] ),
+			);
+		}
+
+		if ( ! $messages ) {
+			return;
+		}
+
+		$first = reset( $messages );
+
+		printf(
+			'<div class="galaxie-buybox-alert%s" data-galaxie-messages="%s" role="status" aria-live="polite">',
+			self::is_editing() ? ' is-visible' : '',
+			esc_attr( (string) wp_json_encode( $messages ) )
+		);
+
+		if ( PixfortControls::available() ) {
+			echo \PixfortCore::instance()->elementsManager->renderElement( 'Alert', PixfortControls::alert_attr( $settings, 'alert', $first['text'], $first['type'] ) ); // phpcs:ignore WordPress.Security.EscapeOutput -- pixfort's own component markup.
+		} else {
+			printf(
+				'<div class="alert alert-%s" role="alert"><div class="pix-alert-title">%s</div></div>',
+				esc_attr( $first['type'] ),
+				wp_kses_post( $first['text'] )
+			);
+		}
+
+		echo '</div>';
+	}
+
+	/**
 	 * @param array<string,mixed> $settings
 	 */
 	private function render_quantity( array $settings, \WC_Product $product ): void {
@@ -751,11 +883,68 @@ final class BuyBoxWidget extends Widget_Base {
 		return $term instanceof \WP_Term ? $term->name : $option;
 	}
 
+	/**
+	 * The cases the buy box can hit, in the order a shopper meets them.
+	 *
+	 * Keyed, not a repeater: each one is raised by a specific thing going wrong,
+	 * so the script has to be able to ask for it by name. The merchant owns the
+	 * wording and the colour; the list of situations is ours.
+	 *
+	 * @return array<string,array<string,string>>
+	 */
+	private static function alert_messages(): array {
+		return array(
+			'select'      => array(
+				'label' => __( 'No option chosen', 'galaxie-woo' ),
+				'text'  => __( 'Escolha uma opção antes de adicionar ao carrinho.', 'galaxie-woo' ),
+				'type'  => 'warning',
+			),
+			'unavailable' => array(
+				'label' => __( 'Combination unavailable', 'galaxie-woo' ),
+				'text'  => __( 'Essa combinação não está disponível. Escolha outra.', 'galaxie-woo' ),
+				'type'  => 'danger',
+			),
+			'error'       => array(
+				'label' => __( 'Add to cart failed', 'galaxie-woo' ),
+				'text'  => __( 'Não foi possível adicionar ao carrinho. Tente novamente.', 'galaxie-woo' ),
+				'type'  => 'danger',
+			),
+			// Off unless the merchant asks for it: the theme already opens its cart
+			// panel on a successful add, and saying it twice is worse than once.
+			'added'       => array(
+				'label' => __( 'Added to cart', 'galaxie-woo' ),
+				'text'  => '',
+				'type'  => 'success',
+			),
+		);
+	}
+
+	/** pixfort's own alert palette, verbatim. @return array<string,string> */
+	private static function alert_types(): array {
+		return array(
+			'success'   => __( 'Success', 'galaxie-woo' ),
+			'secondary' => __( 'Secondary', 'galaxie-woo' ),
+			'primary'   => __( 'Primary', 'galaxie-woo' ),
+			'danger'    => __( 'Danger', 'galaxie-woo' ),
+			'warning'   => __( 'Warning', 'galaxie-woo' ),
+			'info'      => __( 'Info', 'galaxie-woo' ),
+			'light'     => __( 'Light', 'galaxie-woo' ),
+			'dark'      => __( 'Dark', 'galaxie-woo' ),
+		);
+	}
+
+	/** True inside the Elementor editor's canvas. */
+	private static function is_editing(): bool {
+		return class_exists( '\\Elementor\\Plugin' )
+			&& \Elementor\Plugin::$instance->editor->is_edit_mode();
+	}
+
 	/** @return array<string,string> */
 	private static function block_options(): array {
 		return array(
 			'price'      => __( 'Price', 'galaxie-woo' ),
 			'variations' => __( 'Variations', 'galaxie-woo' ),
+			'alert'      => __( 'Alert', 'galaxie-woo' ),
 			'quantity'   => __( 'Quantity', 'galaxie-woo' ),
 			'addcart'    => __( 'Add to Cart', 'galaxie-woo' ),
 			'buynow'     => __( 'Buy Now', 'galaxie-woo' ),

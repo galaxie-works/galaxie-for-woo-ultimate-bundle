@@ -722,6 +722,201 @@ final class PixfortControls {
 	}
 
 	/**
+	 * pixfort's Alert control set, mirrored from `Pix_Eor_Alert`.
+	 *
+	 * Two deliberate departures from that widget:
+	 *
+	 * - No Link section and no Image media type. This alert exists to say why an
+	 *   add-to-cart did not happen, in the place the shopper is already looking;
+	 *   there is nowhere for it to link to and nothing for a photograph to add.
+	 *   Icon and Character stay, because they carry severity at a glance.
+	 * - No "Alert Type" control. The type is per MESSAGE here, not per widget —
+	 *   a missing choice is a warning and a dead combination is an error, and one
+	 *   shared colour for both would be worse than pixfort's single alert, not
+	 *   better. The widget registers those; everything on this method is the
+	 *   shared skin they all wear.
+	 *
+	 * @param array<string,mixed> $defaults
+	 * @param array<string,mixed> $condition
+	 */
+	public static function alert( object $target, string $prefix, array $defaults = array(), array $condition = array(), string $scope = '{{WRAPPER}}' ): void {
+		$d = static fn( string $key, $fallback ) => $defaults[ $key ] ?? $fallback;
+
+		self::add( $target, $condition, $prefix . '_bold', array(
+			'label'        => __( 'Bold', 'galaxie-woo' ),
+			'type'         => Controls_Manager::SWITCHER,
+			'return_value' => 'font-weight-bold',
+			// pixfort's Alert ships bold ON, like its Badge.
+			'default'      => $d( 'bold', 'font-weight-bold' ),
+		) );
+
+		self::add( $target, $condition, $prefix . '_italic', array(
+			'label'        => __( 'Italic', 'galaxie-woo' ),
+			'type'         => Controls_Manager::SWITCHER,
+			'return_value' => 'font-italic',
+			'default'      => $d( 'italic', '' ),
+		) );
+
+		self::add( $target, $condition, $prefix . '_secondary_font', array(
+			'label'        => __( 'Secondary font', 'galaxie-woo' ),
+			'type'         => Controls_Manager::SWITCHER,
+			'return_value' => 'secondary-font',
+			'default'      => $d( 'secondary_font', '' ),
+		) );
+
+		// pixfort's own five radius classes, with no empty entry: its Alert has no
+		// "Default" and defaults to `rounded-lg`. An alert carrying no radius
+		// class is a square-cornered alert, which matches nothing else on the site.
+		self::add( $target, $condition, $prefix . '_rounded', array(
+			'label'   => __( 'Rounded corners', 'galaxie-woo' ),
+			'type'    => Controls_Manager::SELECT,
+			'options' => self::container_radius_options(),
+			'default' => $d( 'rounded', 'rounded-lg' ),
+		) );
+
+		// The Alert numbers its "no shadow" entry "0" where Button and Badge use
+		// an empty string. Same six shadows, different key for the first one —
+		// so the shared list is re-keyed rather than reused as-is.
+		$shadows = self::shadow_options( __( 'Default', 'galaxie-woo' ), __( 'shadow', 'galaxie-woo' ) );
+		$shadows = array( '0' => $shadows[''] ) + array_diff_key( $shadows, array( '' => '' ) );
+
+		self::add( $target, $condition, $prefix . '_shadow', array(
+			'label'   => __( 'Shadow style', 'galaxie-woo' ),
+			'type'    => Controls_Manager::SELECT,
+			'options' => $shadows,
+			'default' => $d( 'shadow', '2' ),
+		) );
+
+		self::add( $target, $condition, $prefix . '_hover_effect', array(
+			'label'   => __( 'Shadow hover style', 'galaxie-woo' ),
+			'type'    => Controls_Manager::SELECT,
+			'options' => self::shadow_options( __( 'None', 'galaxie-woo' ), __( 'hover shadow', 'galaxie-woo' ) ),
+			'default' => $d( 'hover_effect', '' ),
+		) );
+
+		self::add( $target, $condition, $prefix . '_add_hover_effect', array(
+			'label'   => __( 'Hover animation', 'galaxie-woo' ),
+			'type'    => Controls_Manager::SELECT,
+			'options' => self::hover_animations(),
+			'default' => $d( 'add_hover_effect', '' ),
+		) );
+
+		self::add( $target, $condition, $prefix . '_hide_close', array(
+			'label'        => __( 'Hide close button', 'galaxie-woo' ),
+			'type'         => Controls_Manager::SWITCHER,
+			'return_value' => 'true',
+			'default'      => $d( 'hide_close', '' ),
+		) );
+
+		self::add( $target, $condition, $prefix . '_media_type', array(
+			'label'   => __( 'Use an icon', 'galaxie-woo' ),
+			'type'    => Controls_Manager::SELECT,
+			'options' => array(
+				'none' => __( 'None', 'galaxie-woo' ),
+				'icon' => __( 'Icon', 'galaxie-woo' ),
+				'char' => __( 'Character', 'galaxie-woo' ),
+			),
+			'default' => $d( 'media_type', 'icon' ),
+		) );
+
+		if ( self::available() ) {
+			self::add( $target, $condition, $prefix . '_icon', array(
+				'label'     => __( 'pixfort icon', 'galaxie-woo' ),
+				'type'      => \Elementor\CustomControl\PixfortIconSelector_Control::PixfortIconSelector,
+				'default'   => $d( 'icon', '' ),
+				'condition' => array( $prefix . '_media_type' => 'icon' ),
+			) );
+		}
+
+		self::add( $target, $condition, $prefix . '_char', array(
+			'label'     => __( 'Character', 'galaxie-woo' ),
+			'type'      => Controls_Manager::TEXT,
+			'default'   => $d( 'char', '!' ),
+			'condition' => array( $prefix . '_media_type' => 'char' ),
+		) );
+
+		// A plain palette SELECT, not a selectors dictionary: PixAlert turns this
+		// value into a `text-{slug}` class itself, the same way its own widget does.
+		self::add( $target, $condition, $prefix . '_icon_color', array(
+			'label'     => __( 'Icon color', 'galaxie-woo' ),
+			'type'      => Controls_Manager::SELECT,
+			'groups'    => self::colors( array( 'defaultValue' => array( 'alert-default' => __( 'Default', 'galaxie-woo' ) ), 'mainLight' => true, 'gradients' => false ) ),
+			'default'   => $d( 'icon_color', 'primary' ),
+			'condition' => array( $prefix . '_media_type!' => 'none' ),
+		) );
+
+		self::add( $target, $condition, $prefix . '_custom_icon_color', array(
+			'label'     => __( 'Custom icon color', 'galaxie-woo' ),
+			'type'      => Controls_Manager::COLOR,
+			'default'   => '',
+			'condition' => array( $prefix . '_icon_color' => 'custom' ),
+		) );
+
+		self::add( $target, $condition, $prefix . '_icon_size', array(
+			'label'     => __( 'Icon size (without unit)', 'galaxie-woo' ),
+			'type'      => Controls_Manager::TEXT,
+			'default'   => $d( 'icon_size', '30' ),
+			'condition' => array( $prefix . '_media_type!' => 'none' ),
+			'selectors' => array( $scope . ' .pix-alert-icon > div' => 'font-size: {{VALUE}}px !important;' ),
+		) );
+
+		self::add( $target, $condition, $prefix . '_animation', array(
+			'label'   => __( 'Animation', 'galaxie-woo' ),
+			'type'    => Controls_Manager::SELECT,
+			'default' => '',
+			'options' => self::animations(),
+		) );
+
+		self::add( $target, $condition, $prefix . '_delay', array(
+			'label'     => __( 'Animation delay (in miliseconds)', 'galaxie-woo' ),
+			'type'      => Controls_Manager::TEXT,
+			'default'   => '0',
+			'condition' => array( $prefix . '_animation!' => '' ),
+		) );
+	}
+
+	/**
+	 * Maps a prefixed settings array onto the unprefixed keys `PixAlert::render()`
+	 * reads, for one message.
+	 *
+	 * @param array<string,mixed> $settings
+	 * @return array<string,mixed>
+	 */
+	public static function alert_attr( array $settings, string $prefix, string $title, string $type ): array {
+		$keys = array(
+			'bold', 'italic', 'secondary_font', 'shadow', 'hover_effect',
+			'add_hover_effect', 'media_type', 'icon', 'char', 'icon_color',
+			'custom_icon_color', 'icon_size', 'hide_close', 'animation', 'delay',
+		);
+
+		$attr = array(
+			'title'        => $title,
+			'alert_type_1' => '' !== $type ? $type : 'warning',
+			// PixAlert calls the radius attribute `rounded_img` even when there is
+			// no image; it is simply appended to the alert's class list.
+			'rounded_img'  => (string) ( $settings[ $prefix . '_rounded' ] ?? 'rounded-lg' ),
+			// Nothing to navigate to, so both halves of PixAlert's link branch stay
+			// empty and the alert renders as a plain block rather than an anchor.
+			'link'         => '',
+			'link_text'    => '',
+		);
+
+		foreach ( $keys as $key ) {
+			if ( isset( $settings[ $prefix . '_' . $key ] ) ) {
+				$attr[ $key ] = $settings[ $prefix . '_' . $key ];
+			}
+		}
+
+		// Asking for an icon without picking one would render an empty box.
+		// Dropping the key lets PixAlert fall back to its own default glyph.
+		if ( 'icon' === ( $attr['media_type'] ?? '' ) && empty( $attr['icon'] ) ) {
+			unset( $attr['icon'] );
+		}
+
+		return $attr;
+	}
+
+	/**
 	 * A pixfort-palette colour picker for markup pixfort's own components don't
 	 * render — the native quantity field, chiefly. Those can't take a
 	 * `text-{slug}` utility class, so the chosen palette entry is applied as the
@@ -807,6 +1002,23 @@ final class PixfortControls {
 			),
 			is_array( $scale ) ? $scale : array()
 		);
+	}
+
+	/**
+	 * pixfort's radius scale with nothing prepended — what its container-shaped
+	 * elements (Alert, Img Box) offer. `radius_options()` above is the badge
+	 * flavour of the same list, with Default and Pill in front.
+	 *
+	 * @return array<string,string>
+	 */
+	private static function container_radius_options(): array {
+		$scale = function_exists( 'pixfort_get_border_radius_options' )
+			? pixfort_get_border_radius_options()
+			: array();
+
+		return is_array( $scale ) && $scale
+			? $scale
+			: array( 'rounded-lg' => __( 'Normal', 'galaxie-woo' ) );
 	}
 
 	/**

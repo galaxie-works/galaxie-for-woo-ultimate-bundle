@@ -155,6 +155,79 @@ function initPriceAndStock(form: HTMLFormElement): void {
   })
 }
 
+/**
+ * pixfort's alert types. Only one may be on the element at a time, so showing
+ * a message means clearing the other seven before adding its own.
+ */
+const ALERT_TYPES = ['success', 'secondary', 'primary', 'danger', 'warning', 'info', 'light', 'dark']
+
+interface AlertMessage {
+  text: string
+  type: string
+}
+
+interface AlertController {
+  show(key: string, override?: string): boolean
+  hide(): void
+  has(key: string): boolean
+}
+
+/**
+ * The widget renders ONE pixfort alert, hidden, carrying every configured
+ * message as JSON. Showing one is a matter of writing its text into
+ * `.pix-alert-title` and swapping the `alert-{type}` class — the only place
+ * PixAlert puts the type — so the merchant's icon, radius, shadow and weight
+ * survive untouched whichever message is speaking.
+ *
+ * Returns null when the widget has no Alert block, and every caller treats that
+ * as "say nothing, let the form submit the way it always did".
+ */
+function initAlert(form: HTMLFormElement): AlertController | null {
+  const holder = form.querySelector<HTMLElement>('.galaxie-buybox-alert')
+  const alert = holder?.querySelector<HTMLElement>('.alert')
+  const title = holder?.querySelector<HTMLElement>('.pix-alert-title')
+  if (!holder || !alert || !title) return null
+
+  let messages: Record<string, AlertMessage> = {}
+  try {
+    messages = JSON.parse(holder.dataset.galaxieMessages || '{}')
+  } catch {
+    messages = {}
+  }
+
+  const hide = () => holder.classList.remove('is-visible')
+
+  // pixfort's close button is Bootstrap's `data-dismiss="alert"`, which removes
+  // the node from the document. This one has to survive to be shown again on
+  // the next failed attempt, so the dismissal is caught on the way down and
+  // turned into a hide.
+  holder.addEventListener(
+    'click',
+    (event) => {
+      if (!(event.target as HTMLElement).closest('[data-dismiss="alert"]')) return
+      event.preventDefault()
+      event.stopPropagation()
+      hide()
+    },
+    true,
+  )
+
+  return {
+    hide,
+    has: (key) => key in messages,
+    show(key, override) {
+      const message = messages[key]
+      if (!message) return false
+
+      title.innerHTML = override || message.text
+      ALERT_TYPES.forEach((type) => alert.classList.remove(`alert-${type}`))
+      alert.classList.add(`alert-${message.type || 'warning'}`)
+      holder.classList.add('is-visible')
+      return true
+    },
+  }
+}
+
 function currentQuantity(form: HTMLFormElement): number {
   const field = form.querySelector<HTMLInputElement | HTMLSelectElement>('.galaxie-buybox-quantity .qty')
   return field ? Number(field.value) || 1 : 1
@@ -164,13 +237,51 @@ function initButtons(form: HTMLFormElement, config?: BuyBoxConfig): void {
   const addCart = form.querySelector<HTMLButtonElement>('.galaxie-buybox-addcart')
   const buyNow = form.querySelector<HTMLButtonElement>('.galaxie-buybox-buynow')
   const variationField = form.querySelector<HTMLInputElement>('input[name="variation_id"]')
+  const productField = form.querySelector<HTMLInputElement>('input[name="add-to-cart"]')
+  const alert = initAlert(form)
+
+  // Any change to the choice makes whatever the alert is saying stale.
+  form.addEventListener('change', () => alert?.hide(), true)
+
+  /**
+   * The reason the page used to reload on a click with nothing selected: the
+   * button fell through to the native submit, WooCommerce rejected it server
+   * side, and the answer came back as a toast in the far corner after a full
+   * round trip. Checked here instead, before anything leaves the page.
+   *
+   * WooCommerce's own JS never disables this button for us — it looks for a
+   * `.woocommerce-variation-add-to-cart` wrapper that our markup does not have
+   * — so nothing else was standing in the way.
+   */
+  const blocked = (): boolean => {
+    const selects = Array.from(form.querySelectorAll<HTMLSelectElement>('.variations select'))
+    if (!selects.length) return false
+
+    if (Number(variationField?.value) > 0) {
+      alert?.hide()
+      return false
+    }
+
+    // Every attribute chosen and still no match is a combination the shop does
+    // not sell; a blank one is just an unfinished choice. Different sentence.
+    const key = selects.every((select) => select.value !== '') ? 'unavailable' : 'select'
+
+    // With no Alert block on the widget there is nowhere to say it, so the
+    // native submit is left alone and WooCommerce reports it its own way.
+    return alert?.show(key) ?? false
+  }
 
   // Buy Now navigates away regardless, so it stays a plain native submit —
   // every WooCommerce validation, stock check and third-party add-to-cart hook
   // still runs, and the server-side redirect filter reads this flag. The field
   // is cleared afterwards so a failed submit can't leave it set and send a
   // later ordinary add-to-cart straight to checkout.
-  buyNow?.addEventListener('click', () => {
+  buyNow?.addEventListener('click', (event) => {
+    if (blocked()) {
+      event.preventDefault()
+      return
+    }
+
     const flag = form.querySelector<HTMLInputElement>('input[name="galaxie_buy_now"]')
     if (flag) {
       flag.value = '1'
@@ -181,12 +292,22 @@ function initButtons(form: HTMLFormElement, config?: BuyBoxConfig): void {
   })
 
   addCart?.addEventListener('click', (event) => {
-    // No config, or a product with no variation to identify: fall through to
-    // the native submit, which is a complete working path on its own.
-    if (!config || !variationField) return
+    if (blocked()) {
+      event.preventDefault()
+      return
+    }
 
-    const variationId = Number(variationField.value) || 0
-    if (!variationId) return
+    // Without the localized config there is no endpoint to call, so the native
+    // submit stays as the fallback — it is a complete working path on its own.
+    if (!config) return
+
+    const variationId = Number(variationField?.value) || 0
+    const productId = Number(productField?.value) || 0
+
+    // A variable product with nothing resolved was already caught above.
+    // Anything else with no id at all falls through rather than posting a
+    // request the server could not act on.
+    if (!variationId && !productId) return
 
     event.preventDefault()
     addCart.disabled = true
@@ -195,6 +316,7 @@ function initButtons(form: HTMLFormElement, config?: BuyBoxConfig): void {
       action: 'galaxie_variation_add_to_cart',
       nonce: config.nonce,
       variation_id: String(variationId),
+      product_id: String(productId),
       quantity: String(currentQuantity(form)),
     })
 
@@ -202,10 +324,20 @@ function initButtons(form: HTMLFormElement, config?: BuyBoxConfig): void {
       .then((response) => response.json() as Promise<AddToCartResponse>)
       .then((json) => {
         addCart.disabled = false
+
         if (!json.success) {
-          window.alert(json.data?.message ?? 'Não foi possível adicionar ao carrinho.')
+          // The server's own sentence when it has one — a stock limit or a
+          // third-party validation filter says something the widget cannot
+          // guess — falling back to the configured wording otherwise. Only if
+          // there is no Alert block at all does this resort to a browser
+          // dialog, which is what the whole change is here to get rid of.
+          const spoken = alert?.show('error', json.data?.message) ?? false
+          if (!spoken) window.alert(json.data?.message ?? 'Não foi possível adicionar ao carrinho.')
           return
         }
+
+        if (alert?.has('added')) alert.show('added')
+
         const jq = window.jQuery
         if (jq && json.data) {
           jq(document.body).trigger('added_to_cart', [json.data.fragments, json.data.cart_hash, jq(addCart)])

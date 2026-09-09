@@ -466,6 +466,33 @@ form.galaxie-buybox .single_add_to_cart_button:hover {
   transform: translateY(calc(-1 * var(--galaxie-hover-lift, 0px))) !important;
 }
 
+/* The alert is a hidden block that becomes visible when the widget has
+   something to say, and `display: none` rather than `hidden` because the block
+   wrapper sits in a flex column with a gap — a merely invisible element still
+   spends that gap and leaves a hole between variations and quantity.
+
+   The block wrapper is `display: contents` so the alert itself is the flex
+   item: an empty wrapper would still be one, and would still spend the gap.
+   `.is-visible` is set by the script on the site, and printed by the widget
+   inside the Elementor editor so the merchant can see what they configure. */
+form.galaxie-buybox .galaxie-buybox-block--alert {
+  display: contents;
+}
+
+form.galaxie-buybox .galaxie-buybox-alert {
+  display: none;
+}
+
+form.galaxie-buybox .galaxie-buybox-alert.is-visible {
+  display: block;
+}
+
+/* pixfort's alert carries a bottom margin for standalone stacking; inside the
+   buy box the column gap already does that job. */
+form.galaxie-buybox .galaxie-buybox-alert .alert {
+  margin-bottom: 0;
+}
+
 /* Quantity and the buttons share a row when the layout asks for it. */
 form.galaxie-buybox .galaxie-buybox-row {
   display: flex;

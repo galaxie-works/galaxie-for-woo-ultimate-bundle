@@ -102,15 +102,31 @@ final class Module implements ModuleContract, ProvidesBootData, ProvidesElemento
 		check_ajax_referer( self::NONCE_ACTION, 'nonce' );
 
 		$variation_id = isset( $_POST['variation_id'] ) ? absint( $_POST['variation_id'] ) : 0;
+		$product_id   = isset( $_POST['product_id'] ) ? absint( $_POST['product_id'] ) : 0;
 		$quantity     = isset( $_POST['quantity'] ) ? wc_stock_amount( wp_unslash( $_POST['quantity'] ) ) : 1;
-		$variation    = $variation_id ? wc_get_product( $variation_id ) : null;
 
-		if ( ! $variation || 'variation' !== $variation->get_type() ) {
-			wp_send_json_error( array( 'message' => __( 'Selecione uma variação válida.', 'galaxie-woo' ) ) );
+		if ( $variation_id ) {
+			$variation = wc_get_product( $variation_id );
+
+			if ( ! $variation || 'variation' !== $variation->get_type() ) {
+				wp_send_json_error( array( 'message' => __( 'Selecione uma variação válida.', 'galaxie-woo' ) ) );
+			}
+
+			$parent_id  = $variation->get_parent_id();
+			$attributes = $variation->get_variation_attributes();
+		} else {
+			// A simple product has no variation to identify, so it used to miss this
+			// endpoint entirely and fall back to the native form post — which is a
+			// full page reload for the one case that needs no thought at all.
+			$product = $product_id ? wc_get_product( $product_id ) : null;
+
+			if ( ! $product || $product->is_type( 'variable' ) ) {
+				wp_send_json_error( array( 'message' => __( 'Selecione uma variação válida.', 'galaxie-woo' ) ) );
+			}
+
+			$parent_id  = $product_id;
+			$attributes = array();
 		}
-
-		$parent_id  = $variation->get_parent_id();
-		$attributes = $variation->get_variation_attributes();
 
 		$passed_validation = apply_filters( 'woocommerce_add_to_cart_validation', true, $parent_id, $quantity, $variation_id, $attributes );
 
