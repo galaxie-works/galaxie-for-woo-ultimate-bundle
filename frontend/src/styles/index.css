@@ -368,6 +368,52 @@ button.galaxie-spotlight-add:disabled {
   opacity: 0.6;
 }
 
+/* Wishlist toggle — both states are rendered server-side as two independently
+   configurable pixfort Buttons (see Modules/Wishlist/Widget) and swapped here,
+   the same normal/selected trick the variation badges use. Doing it in CSS is
+   what lets each state keep its own pixfort icon and global color instead of
+   JS rewriting the theme's own component markup. */
+.galaxie-wishlist-btn {
+  appearance: none;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  line-height: 0;
+}
+
+.galaxie-wishlist-btn:disabled {
+  cursor: progress;
+  opacity: 0.6;
+}
+
+.galaxie-wishlist-btn .galaxie-wishlist-saved,
+.galaxie-wishlist-btn.is-in-wishlist .galaxie-wishlist-add {
+  display: none;
+}
+
+.galaxie-wishlist-btn.is-in-wishlist .galaxie-wishlist-saved {
+  display: inline-block;
+}
+
+/* Quantity discount tiers — layout only; every bit of color and typography
+   comes from pixfort's own Text component, rendered server-side per cell. */
+.galaxie-qd-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.galaxie-qd-table td {
+  padding: 0.375rem 0.75rem 0.375rem 0;
+  vertical-align: middle;
+}
+
+.galaxie-qd-table td:last-child {
+  padding-right: 0;
+  text-align: right;
+}
+
 /* !important is load-bearing here: WooCommerce's own variation JS toggles
    this block's visibility via inline styles (jQuery .show()/.hide()) once a
    variation matches, which otherwise wins over a plain stylesheet rule. */

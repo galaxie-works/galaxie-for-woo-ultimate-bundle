@@ -9,12 +9,21 @@ import {
   onCheckoutUpdated,
   relocatePayment,
   relocateShippingMethod,
+  validateNativeFields,
   waitForCheckoutUpdate,
 } from './native-checkout'
 import { PaymentStep } from './PaymentStep'
 import { ProfileStep } from './ProfileStep'
 import { StepperNav } from './StepperNav'
 import type { AddressValues, CheckoutProps, ProfileValues, StepId } from './types'
+import {
+  ADDRESS_NATIVE_FIELDS,
+  PROFILE_NATIVE_FIELDS,
+  validateAddressStep,
+  validateProfileStep,
+  type AddressErrors,
+  type ProfileErrors,
+} from './validation'
 
 function initialStep(props: CheckoutProps): StepId {
   if (!props.loggedIn) return 'entry'
@@ -37,9 +46,12 @@ function Checkout(props: CheckoutProps) {
   const [profileValues, setProfileValues] = React.useState<Partial<ProfileValues>>(props.profile.values)
   const [addressValues, setAddressValues] = React.useState<Partial<AddressValues>>(props.address)
   const [addressSaved, setAddressSaved] = React.useState(props.address.has_address)
+  const [addressEditing, setAddressEditing] = React.useState(!props.address.has_address)
   const [shippingEverSeen, setShippingEverSeen] = React.useState(false)
   const [busy, setBusy] = React.useState(false)
   const [notice, setNotice] = React.useState<string | null>(null)
+  const [profileErrors, setProfileErrors] = React.useState<ProfileErrors>({})
+  const [addressErrors, setAddressErrors] = React.useState<AddressErrors>({})
 
   const shippingMountRef = React.useRef<HTMLDivElement>(null)
   const paymentMountRef = React.useRef<HTMLDivElement>(null)
@@ -92,8 +104,22 @@ function Checkout(props: CheckoutProps) {
 
   async function handleProfileSave(values: ProfileValues) {
     if (!cfg.checkout) return
+
+    // Mirror before asking: the effect above only runs on *committed* state,
+    // so the native fields still hold the previous values at this point and
+    // WooCommerce would be judging data the shopper has already replaced.
+    fillNativeBilling({
+      first_name: values.first_name,
+      last_name: values.last_name,
+      phone: values.phone,
+      email: props.userEmail,
+    })
+    const check = validateProfileStep(values, props.userEmail, validateNativeFields(PROFILE_NATIVE_FIELDS))
+    setProfileErrors(check.errors)
+    setNotice(check.notice)
+    if (!check.ok) return
+
     setBusy(true)
-    setNotice(null)
     const res = await post(cfg.checkout.ajaxUrl, 'galaxie_save_profile', cfg.checkout.nonce, values)
     setBusy(false)
     if (!res.success) {
@@ -106,8 +132,21 @@ function Checkout(props: CheckoutProps) {
 
   async function handleAddressSave(values: AddressValues) {
     if (!cfg.checkout) return
+
+    fillNativeBilling({
+      address_1: values.address_1,
+      address_2: values.address_2,
+      city: values.city,
+      state: values.state,
+      postcode: values.postcode,
+      country: values.country,
+    })
+    const check = validateAddressStep(values, validateNativeFields(ADDRESS_NATIVE_FIELDS))
+    setAddressErrors(check.errors)
+    setNotice(check.notice)
+    if (!check.ok) return
+
     setBusy(true)
-    setNotice(null)
     const res = await post(cfg.checkout.ajaxUrl, 'galaxie_save_address', cfg.checkout.nonce, values)
     if (!res.success) {
       setBusy(false)
@@ -116,15 +155,36 @@ function Checkout(props: CheckoutProps) {
     }
     setAddressValues(values)
     setAddressSaved(true)
+    setAddressEditing(false)
     await waitForCheckoutUpdate()
     setBusy(false)
   }
 
   function handleContinueToPayment() {
+    // Re-checked rather than trusted: the address may have been saved before
+    // a `updated_checkout` round trip rewrote a native field, and this is the
+    // last point where a rejection is still cheap to explain.
+    const values: AddressValues = {
+      address_1: addressValues.address_1 ?? '',
+      address_2: addressValues.address_2 ?? '',
+      city: addressValues.city ?? '',
+      state: addressValues.state ?? '',
+      postcode: addressValues.postcode ?? '',
+      country: addressValues.country ?? 'BR',
+    }
+    const check = validateAddressStep(values, validateNativeFields(ADDRESS_NATIVE_FIELDS))
+    if (!check.ok) {
+      setAddressErrors(check.errors)
+      setAddressEditing(true)
+      setNotice(check.notice)
+      return
+    }
+
     if (!hasChosenShippingMethod(shippingMountRef.current, shippingEverSeen)) {
       setNotice(props.i18n.noShipping)
       return
     }
+    setAddressErrors({})
     setNotice(null)
     setStep('payment')
   }
@@ -148,15 +208,18 @@ function Checkout(props: CheckoutProps) {
       </div>
 
       <div className={'profile' === step ? '' : 'hidden'}>
-        <ProfileStep initial={profileValues} busy={busy} onSave={handleProfileSave} />
+        <ProfileStep initial={profileValues} busy={busy} errors={profileErrors} onSave={handleProfileSave} />
       </div>
 
       <div className={'address' === step ? '' : 'hidden'}>
         <AddressStep
           initial={addressValues}
           saved={addressSaved}
+          editing={addressEditing}
           busy={busy}
+          errors={addressErrors}
           shippingMountRef={shippingMountRef}
+          onEdit={() => setAddressEditing(true)}
           onSave={handleAddressSave}
           onContinue={handleContinueToPayment}
         />

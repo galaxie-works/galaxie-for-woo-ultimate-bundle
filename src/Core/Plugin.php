@@ -22,6 +22,7 @@ final class Plugin {
 	private static ?Plugin $instance = null;
 	private Settings $settings;
 	private ModuleRegistry $modules;
+	private bool $booted = false;
 
 	public static function instance(): Plugin {
 		return self::$instance ??= new self();
@@ -41,6 +42,14 @@ final class Plugin {
 	}
 
 	public function boot(): void {
+		// Belt to the bootstrap's braces: `register_modules()` builds fresh module
+		// instances every call, so a second boot would register every hook again
+		// under callbacks WordPress sees as distinct and cannot dedupe.
+		if ( $this->booted ) {
+			return;
+		}
+		$this->booted = true;
+
 		$this->register_modules();
 
 		load_plugin_textdomain( 'galaxie-woo', false, dirname( plugin_basename( GALAXIE_WOO_FILE ) ) . '/languages' );
@@ -93,5 +102,6 @@ final class Plugin {
 		$this->modules->register( new \Galaxie\Woo\Modules\ToastNotices\Module() );
 		$this->modules->register( new \Galaxie\Woo\Modules\VariationSwatches\Module() );
 		$this->modules->register( new \Galaxie\Woo\Modules\VariationSpotlight\Module() );
+		$this->modules->register( new \Galaxie\Woo\Modules\QuantityDiscounts\Module() );
 	}
 }

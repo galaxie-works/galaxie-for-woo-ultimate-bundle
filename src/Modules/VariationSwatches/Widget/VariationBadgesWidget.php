@@ -398,6 +398,30 @@ final class VariationBadgesWidget extends Widget_Base {
 		);
 
 		$this->add_control(
+			'quantity_type',
+			array(
+				'label'   => __( 'Quantity field', 'galaxie-woo' ),
+				'type'    => Controls_Manager::SELECT,
+				'options' => array(
+					'input'  => __( 'Number input (+/-)', 'galaxie-woo' ),
+					'select' => __( 'Dropdown', 'galaxie-woo' ),
+				),
+				'default' => 'input',
+			)
+		);
+		$this->add_control(
+			'quantity_max',
+			array(
+				'label'     => __( 'Dropdown goes up to', 'galaxie-woo' ),
+				'type'      => Controls_Manager::NUMBER,
+				'min'       => 1,
+				'max'       => 20,
+				'default'   => 5,
+				'condition' => array( 'quantity_type' => 'select' ),
+			)
+		);
+
+		$this->add_control(
 			'order_heading',
 			array(
 				'label'     => __( 'Block order', 'galaxie-woo' ),
@@ -714,7 +738,11 @@ final class VariationBadgesWidget extends Widget_Base {
 
 			case 'spinner':
 				echo '<div class="galaxie-buybox-quantity">';
-				woocommerce_quantity_input();
+				if ( 'select' === ( $settings['quantity_type'] ?? 'input' ) ) {
+					$this->render_quantity_select( $product, (int) ( $settings['quantity_max'] ?? 5 ) );
+				} else {
+					woocommerce_quantity_input();
+				}
 				echo '</div>';
 				break;
 
@@ -731,6 +759,28 @@ final class VariationBadgesWidget extends Widget_Base {
 				echo '</div>';
 				break;
 		}
+	}
+
+	/**
+	 * Dropdown alternative to the number input. Keeps `name="quantity"` and the
+	 * `qty` class so both WooCommerce and our own JS treat it like any other
+	 * quantity field. Respects the product's min/max where it declares them.
+	 */
+	private function render_quantity_select( \WC_Product $product, int $max ): void {
+		$min = max( 1, (int) $product->get_min_purchase_quantity() );
+		$product_max = (int) $product->get_max_purchase_quantity();
+		if ( $product_max > 0 ) {
+			$max = min( $max, $product_max );
+		}
+		$max = max( $min, $max );
+
+		echo '<div class="quantity galaxie-quantity-select">';
+		echo '<select name="quantity" class="qty">';
+		for ( $i = $min; $i <= $max; $i++ ) {
+			printf( '<option value="%1$d">%1$d</option>', $i );
+		}
+		echo '</select>';
+		echo '</div>';
 	}
 
 	/** @param array<string,mixed> $settings */

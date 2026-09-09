@@ -119,7 +119,7 @@ function initWidget(picker: HTMLElement, config?: BuyBoxConfig): void {
 
   if (!config || !nativeForm) return
 
-  const quantityInput = container.querySelector<HTMLInputElement>('.galaxie-buybox-quantity .qty')
+  const quantityInput = container.querySelector<HTMLInputElement | HTMLSelectElement>('.galaxie-buybox-quantity .qty')
   const addCartButton = container.querySelector<HTMLButtonElement>('.galaxie-buybox-addcart')
   const buyNowButton = container.querySelector<HTMLButtonElement>('.galaxie-buybox-buynow')
 
@@ -159,12 +159,30 @@ function initWidget(picker: HTMLElement, config?: BuyBoxConfig): void {
     })
   })
 
+  // Buy Now goes through WooCommerce's OWN form submit rather than our AJAX
+  // endpoint: every native validation, stock check and third-party add-to-cart
+  // hook still runs, and the server-side `woocommerce_add_to_cart_redirect`
+  // filter sends the shopper to checkout. It navigates away regardless, so
+  // there's nothing AJAX would buy us here — only compatibility to lose.
   buyNowButton?.addEventListener('click', () => {
-    runAddToCart(buyNowButton, (json) => {
-      if (json.data?.checkout_url) {
-        window.location.href = json.data.checkout_url
-      }
-    })
+    const nativeSubmit = nativeForm.querySelector<HTMLButtonElement>('.single_add_to_cart_button')
+    const buyNowField = nativeForm.querySelector<HTMLInputElement>('input[name="galaxie_buy_now"]')
+    if (!nativeSubmit || nativeSubmit.classList.contains('disabled') || nativeSubmit.disabled) {
+      window.alert('Selecione uma variação antes de continuar.')
+      return
+    }
+
+    // Our visible quantity field lives outside the form, so copy it in first.
+    const nativeQty = nativeForm.querySelector<HTMLInputElement>('input.qty, select.qty')
+    if (nativeQty) nativeQty.value = String(currentQuantity())
+
+    if (buyNowField) buyNowField.value = '1'
+    nativeSubmit.click()
+    // Clear it again so a failed submit can't leave a stale flag behind that
+    // would later redirect an ordinary add-to-cart straight to checkout.
+    window.setTimeout(() => {
+      if (buyNowField) buyNowField.value = ''
+    }, 0)
   })
 }
 

@@ -8,6 +8,7 @@ import { bootToastNotices } from '@/globals/toast-notices'
 import { bootVariationSwatches } from '@/globals/variation-swatches'
 import { bootVariationSpotlight } from '@/globals/variation-spotlight'
 import { bootVariationBadgesWidget } from '@/globals/variation-badges-widget'
+import { bootWishlist } from '@/globals/wishlist'
 
 // Each module registers its island(s) here as they are ported.
 registerIsland('demo', Demo)
@@ -18,6 +19,7 @@ interface GalaxieConfig {
   toastNotices?: boolean
   variationSwatches?: { attributes?: string[]; buyBox?: { ajaxUrl: string; nonce: string } }
   variationSpotlight?: { ajaxUrl: string; nonce: string }
+  wishlist?: { ajaxUrl: string; nonce: string }
 }
 
 function boot(): void {
@@ -38,6 +40,10 @@ function boot(): void {
 
   if (config.variationSpotlight) {
     bootVariationSpotlight(config.variationSpotlight)
+  }
+
+  if (config.wishlist) {
+    bootWishlist(config.wishlist)
   }
 }
 

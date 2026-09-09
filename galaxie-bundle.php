@@ -13,6 +13,20 @@
 
 defined( 'ABSPATH' ) || exit;
 
+/*
+ * A second copy of this plugin living in another folder (a rename, a manual
+ * upload alongside an older install) is activatable, and WordPress will happily
+ * load both. Without this guard the later copy runs the whole bootstrap again:
+ * `Plugin::boot()` re-runs `register_modules()`, which builds FRESH module
+ * instances, so every `add_action`/`add_filter` is a distinct callback that
+ * WordPress cannot dedupe — every hook, AJAX handler and Elementor widget ends
+ * up registered twice, which shows up on the storefront as duplicated blocks.
+ * First folder to load wins; the rest bail out here.
+ */
+if ( defined( 'GALAXIE_WOO_VERSION' ) ) {
+	return;
+}
+
 define( 'GALAXIE_WOO_VERSION', '0.1.0' );
 define( 'GALAXIE_WOO_FILE', __FILE__ );
 define( 'GALAXIE_WOO_DIR', plugin_dir_path( __FILE__ ) );

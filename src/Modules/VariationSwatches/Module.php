@@ -64,10 +64,30 @@ final class Module implements ModuleContract, ProvidesBootData, ProvidesElemento
 		return false;
 	}
 
+	/** Hidden field the Buy Now button flips before submitting WooCommerce's own form. */
+	public const BUY_NOW_FIELD = 'galaxie_buy_now';
+
 	public function boot(): void {
 		add_action( 'wp_enqueue_scripts', array( $this, 'maybe_enqueue' ) );
 		add_action( 'wp_ajax_' . self::AJAX_ACTION, array( $this, 'ajax_add_to_cart' ) );
 		add_action( 'wp_ajax_nopriv_' . self::AJAX_ACTION, array( $this, 'ajax_add_to_cart' ) );
+
+		// Buy Now deliberately does NOT use our AJAX endpoint: it submits
+		// WooCommerce's own form so every native validation, stock check and
+		// third-party add-to-cart hook still applies, then this filter sends
+		// the shopper to checkout. Add to Cart stays on AJAX (no navigation,
+		// mini-cart refresh); Buy Now navigates away anyway, so there is
+		// nothing to gain from AJAX and a lot of compatibility to lose.
+		add_action( 'woocommerce_after_add_to_cart_button', array( $this, 'print_buy_now_field' ) );
+		add_filter( 'woocommerce_add_to_cart_redirect', array( $this, 'buy_now_redirect' ) );
+	}
+
+	public function print_buy_now_field(): void {
+		printf( '<input type="hidden" name="%s" value="" />', esc_attr( self::BUY_NOW_FIELD ) );
+	}
+
+	public function buy_now_redirect( $url ) {
+		return empty( $_REQUEST[ self::BUY_NOW_FIELD ] ) ? $url : wc_get_checkout_url(); // phpcs:ignore WordPress.Security.NonceVerification -- read-only flag; WooCommerce already validated the add-to-cart request itself.
 	}
 
 	/**

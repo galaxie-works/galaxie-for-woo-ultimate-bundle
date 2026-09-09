@@ -20,12 +20,22 @@ interface JQueryStatic {
   }
 }
 
+/**
+ * WooCommerce renders these with a matching id and name, but themes and
+ * checkout-field plugins routinely drop one or the other, so both lookups
+ * have to stay.
+ */
+function findNativeField(name: string): HTMLInputElement | HTMLSelectElement | null {
+  return (
+    document.querySelector<HTMLInputElement | HTMLSelectElement>(`#${name}`) ??
+    document.querySelector<HTMLInputElement | HTMLSelectElement>(`[name="${name}"]`)
+  )
+}
+
 /** Sets a value on a native (hidden) checkout field and fires the events WooCommerce's own scripts listen for. */
 export function setNativeField(name: string, value: string | undefined): void {
   if (value === undefined) return
-  const el =
-    document.querySelector<HTMLInputElement | HTMLSelectElement>(`#${name}`) ??
-    document.querySelector<HTMLInputElement | HTMLSelectElement>(`[name="${name}"]`)
+  const el = findNativeField(name)
   if (!el) return
   el.value = value
   el.dispatchEvent(new Event('input', { bubbles: true }))
@@ -58,6 +68,44 @@ export function fillNativeBilling(state: NativeBillingState): void {
     setNativeField('billing_state', state.state)
     setNativeField('billing_postcode', state.postcode)
   }
+}
+
+/**
+ * Asks WooCommerce to judge the named native fields and reports back the ids
+ * it rejected — empty means the step is clear to proceed.
+ *
+ * Going through WooCommerce rather than reimplementing its rules is the whole
+ * point: which billing fields are required, and under which locale, is store
+ * configuration we do not own, and its answer here is the same answer the
+ * order will get at submit time. The contract is a documented one — its
+ * `checkout.js` binds a delegated `validate` handler that stamps
+ * `woocommerce-invalid` / `woocommerce-validated` onto each field's wrapping
+ * `p.form-row` — so we fire the event and read the class back off the row.
+ *
+ * The usual idiom scopes this to `.input-text:visible, select:visible,
+ * input:checkbox:visible` inside a container. We cannot: the fields the
+ * shopper sees are our React inputs, and WooCommerce's own are the
+ * deliberately hidden ones we mirror into (see `fillNativeBilling`), which no
+ * `:visible` selector would ever reach. Hence naming the ids per step.
+ *
+ * Fails open. Without jQuery there is no `validate` handler to answer us, and
+ * an unanswerable question is no reason to strand a paying customer — let
+ * WooCommerce reject the order instead.
+ */
+export function validateNativeFields(names: string[]): string[] {
+  const $ = window.jQuery
+  if (!$) return []
+
+  const failed: string[] = []
+  for (const name of names) {
+    const el = findNativeField(name)
+    if (!el) continue
+    $(el).trigger('validate')
+    if (el.closest('.form-row')?.classList.contains('woocommerce-invalid')) {
+      failed.push(name)
+    }
+  }
+  return failed
 }
 
 /**
