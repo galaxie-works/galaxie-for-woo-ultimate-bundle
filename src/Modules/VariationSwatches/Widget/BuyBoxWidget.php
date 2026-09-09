@@ -48,6 +48,30 @@ defined( 'ABSPATH' ) || exit;
  */
 final class BuyBoxWidget extends Widget_Base {
 
+	/**
+	 * `PixAlert::render()` enqueues its own stylesheet as it renders, which is
+	 * fine on the site — the handle lands in the footer — but useless inside
+	 * Elementor, where the widget is rendered through an AJAX call that prints no
+	 * <head> and no footer. pixfort's own Alert widget solves this in its
+	 * constructor, gated on a logged-in user so visitors never pay for it, and
+	 * this does the same rather than inventing a second mechanism.
+	 *
+	 * @param array<string,mixed> $data
+	 * @param array<string,mixed>|null $args
+	 */
+	public function __construct( $data = array(), $args = null ) {
+		parent::__construct( $data, $args );
+
+		if ( is_user_logged_in() && defined( 'PIX_CORE_PLUGIN_URI' ) && defined( 'PIXFORT_PLUGIN_VERSION' ) ) {
+			wp_enqueue_style(
+				'pixfort-alert-style',
+				PIX_CORE_PLUGIN_URI . 'includes/assets/css/elements/alert.min.css',
+				false,
+				PIXFORT_PLUGIN_VERSION
+			);
+		}
+	}
+
 	public function get_name(): string {
 		return 'galaxie-buybox';
 	}
