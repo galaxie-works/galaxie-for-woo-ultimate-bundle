@@ -14,7 +14,7 @@ declare global {
 
 interface JQueryStatic {
   (selector: Document | Element | string): {
-    on: (event: string, handler: () => void) => void
+    on: (event: string, handler: (event: unknown, ...args: unknown[]) => void) => void
     off: (event: string, handler: () => void) => void
     trigger: (event: string, args?: unknown[]) => void
   }

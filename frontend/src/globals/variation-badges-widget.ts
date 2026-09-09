@@ -89,6 +89,32 @@ function initWidget(picker: HTMLElement, config?: BuyBoxConfig): void {
     syncDisabled()
   }
 
+  if (nativeForm) {
+    const priceEl = container.querySelector<HTMLElement>('.galaxie-buybox-price')
+    const stockEl = container.querySelector<HTMLElement>('.galaxie-buybox-stock')
+    const jq = window.jQuery
+
+    if (jq && (priceEl || stockEl)) {
+      const initialPriceHtml = priceEl?.innerHTML ?? ''
+      const initialStockHtml = stockEl?.innerHTML ?? ''
+
+      interface VariationPayload {
+        price_html?: string
+        availability_html?: string
+      }
+
+      jq(nativeForm).on('found_variation', (_event, variation) => {
+        const payload = variation as VariationPayload
+        if (priceEl && payload.price_html !== undefined) priceEl.innerHTML = payload.price_html
+        if (stockEl && payload.availability_html !== undefined) stockEl.innerHTML = payload.availability_html
+      })
+      jq(nativeForm).on('reset_data hide_variation', () => {
+        if (priceEl) priceEl.innerHTML = initialPriceHtml
+        if (stockEl) stockEl.innerHTML = initialStockHtml
+      })
+    }
+  }
+
   if (!config || !nativeForm) return
 
   const quantityInput = container.querySelector<HTMLInputElement>('.galaxie-buybox-quantity .qty')

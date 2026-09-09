@@ -309,17 +309,44 @@ button.galaxie-spotlight-add:disabled {
    in the DOM only for its <select> (WooCommerce's own JS requirement) and
    its price/stock/description block, so its own quantity/button/reset link
    are hidden here to avoid a duplicate, unstyled second buy box. */
+.galaxie-buybox-price {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
+.galaxie-buybox-stock {
+  font-size: 0.875rem;
+  color: var(--muted-foreground);
+  margin-bottom: 0.75rem;
+}
+
 .galaxie-buybox-quantity {
   margin-bottom: 0.75rem;
 }
 
+.galaxie-buybox-quantity .quantity {
+  display: inline-flex;
+}
+
 .galaxie-buybox-quantity .qty {
+  height: 2.75rem;
+  min-width: 4.5rem;
   border: 1px solid var(--border);
   border-radius: var(--radius-md, 0.375rem);
-  padding: 0.5rem;
+  padding: 0.5rem 0.75rem;
   font: inherit;
+  text-align: center;
   color: var(--foreground);
   background: var(--background);
+  /* Hide the browser's default number spin buttons — WooCommerce's own
+     +/- stepper buttons (if the theme adds them) replace that affordance. */
+  -moz-appearance: textfield;
+}
+.galaxie-buybox-quantity .qty::-webkit-outer-spin-button,
+.galaxie-buybox-quantity .qty::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
 
 .galaxie-buybox-actions {
@@ -342,8 +369,12 @@ button.galaxie-spotlight-add:disabled {
   opacity: 0.6;
 }
 
+/* !important is load-bearing here: WooCommerce's own variation JS toggles
+   this block's visibility via inline styles (jQuery .show()/.hide()) once a
+   variation matches, which otherwise wins over a plain stylesheet rule. */
+.galaxie-variation-native .woocommerce-variation-add-to-cart,
 .galaxie-variation-native .quantity,
 .galaxie-variation-native .single_add_to_cart_button,
 .galaxie-variation-native .reset_variations {
-  display: none;
+  display: none !important;
 }
