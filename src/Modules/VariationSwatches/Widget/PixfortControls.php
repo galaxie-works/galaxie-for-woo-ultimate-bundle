@@ -918,6 +918,42 @@ final class PixfortControls {
 	}
 
 	/**
+	 * Palette colour for a pixfort SVG icon.
+	 *
+	 * An icon is not coloured by a `text-{slug}` class like a label is — pixfort
+	 * paints it through the `--pf-icon-color` variable, so the palette entry has
+	 * to arrive as a declaration rather than as a class name. That is what the
+	 * dictionary is for, and it is the same mapping the Button's own icon colour
+	 * uses, lifted here now that a second control needs it.
+	 *
+	 * @param array<string,mixed> $condition
+	 */
+	public static function icon_color( object $target, string $id, string $label, string $selector, array $condition = array() ): void {
+		if ( ! self::available() ) {
+			return;
+		}
+
+		$colors = self::colors( array( 'defaultValue' => array( '' => __( 'Default', 'galaxie-woo' ) ), 'mainLight' => true, 'gradients' => false ) );
+
+		self::add( $target, $condition, $id, array(
+			'label'                => $label,
+			'type'                 => Controls_Manager::SELECT,
+			'groups'               => $colors,
+			'default'              => '',
+			'selectors_dictionary' => self::icon_color_dictionary( $colors ),
+			'selectors'            => array( $selector => '{{VALUE}}' ),
+		) );
+
+		self::add( $target, $condition, $id . '_custom', array(
+			'label'     => sprintf( /* translators: %s: the colour control's own label. */ __( 'Custom %s', 'galaxie-woo' ), strtolower( $label ) ),
+			'type'      => Controls_Manager::COLOR,
+			'default'   => '',
+			'selectors' => array( $selector => 'color: {{VALUE}} !important; --pf-icon-color: {{VALUE}} !important;' ),
+			'condition' => array( $id => 'custom' ),
+		) );
+	}
+
+	/**
 	 * A plain palette dropdown whose value is handed to a pixfort component as an
 	 * attribute — the component turns it into its own `text-{slug}` class.
 	 *

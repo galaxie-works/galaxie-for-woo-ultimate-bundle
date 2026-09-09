@@ -665,6 +665,29 @@ form.galaxie-buybox .galaxie-buybox-row {
   display: inline-block;
 }
 
+/* Only a heading that actually has an icon becomes a row. Without the
+   modifier the heading stays whatever the text block made it, which is what
+   every layout saved before the icon existed is relying on. */
+.galaxie-qd-heading.has-icon {
+  display: flex;
+  align-items: center;
+}
+
+/* The icon must not be squeezed by a long heading, and it carries no baseline
+   of its own to align to. */
+.galaxie-qd-heading-icon {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  line-height: 0;
+}
+
+/* pixfort's Text renders a paragraph with its own bottom margin, which inside a
+   centred row would push the icon off-centre against the text. */
+.galaxie-qd-heading.has-icon .pix-el-text p {
+  margin-bottom: 0;
+}
+
 /* Quantity discount tiers — layout only; every bit of color and typography
    comes from pixfort's own Text component, rendered server-side per cell. */
 .galaxie-qd-table {

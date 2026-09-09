@@ -66,6 +66,57 @@ final class QuantityDiscountsWidget extends Widget_Base {
 			)
 		);
 
+		if ( $this->pixfort_active() ) {
+			$this->add_control(
+				'heading_icon',
+				array(
+					'label'     => __( 'Heading icon', 'galaxie-woo' ),
+					'type'      => \Elementor\CustomControl\PixfortIconSelector_Control::PixfortIconSelector,
+					'default'   => '',
+					'condition' => array( 'heading!' => '' ),
+				)
+			);
+
+			$this->add_responsive_control(
+				'heading_icon_size',
+				array(
+					'label'      => __( 'Heading icon size', 'galaxie-woo' ),
+					'type'       => Controls_Manager::SLIDER,
+					'size_units' => array( 'px' ),
+					'range'      => array( 'px' => array( 'min' => 12, 'max' => 64 ) ),
+					'default'    => array( 'unit' => 'px', 'size' => 24 ),
+					// Width and height, not font-size: pixfort emits the icon as an
+					// SVG carrying its own width/height attributes, which a font
+					// size does not touch.
+					'selectors'  => array(
+						'{{WRAPPER}} .galaxie-qd-heading-icon svg' => 'width: {{SIZE}}{{UNIT}}; height: {{SIZE}}{{UNIT}};',
+					),
+					'condition'  => array( 'heading!' => '', 'heading_icon!' => '' ),
+				)
+			);
+
+			$this->add_responsive_control(
+				'heading_icon_gap',
+				array(
+					'label'      => __( 'Space between icon and heading', 'galaxie-woo' ),
+					'type'       => Controls_Manager::SLIDER,
+					'size_units' => array( 'px', 'rem' ),
+					'range'      => array( 'px' => array( 'min' => 0, 'max' => 48 ) ),
+					'default'    => array( 'unit' => 'px', 'size' => 8 ),
+					'selectors'  => array( '{{WRAPPER}} .galaxie-qd-heading' => 'gap: {{SIZE}}{{UNIT}};' ),
+					'condition'  => array( 'heading!' => '', 'heading_icon!' => '' ),
+				)
+			);
+
+			PixfortControls::icon_color(
+				$this,
+				'heading_icon_color',
+				__( 'Heading icon color', 'galaxie-woo' ),
+				'{{WRAPPER}} .galaxie-qd-heading-icon .pixfort-icon',
+				array( 'heading!' => '', 'heading_icon!' => '' )
+			);
+		}
+
 		$this->add_control(
 			'show_unit_price',
 			array(
@@ -354,7 +405,24 @@ final class QuantityDiscountsWidget extends Widget_Base {
 		echo '<div class="galaxie-ui galaxie-qd">';
 
 		if ( '' !== $heading ) {
-			echo '<div class="galaxie-qd-heading">' . $this->render_text( $heading, 'heading', $settings ) . '</div>'; // phpcs:ignore WordPress.Security.EscapeOutput -- escaped by render_text().
+			$heading_icon = trim( (string) ( $settings['heading_icon'] ?? '' ) );
+			$with_icon    = '' !== $heading_icon && PixfortControls::available();
+
+			// The modifier, rather than making every heading a flex row: a
+			// heading with no icon has nothing to lay out beside, and turning it
+			// into a flex container would quietly change how the text block it
+			// already contains behaves.
+			printf( '<div class="galaxie-qd-heading%s">', $with_icon ? ' has-icon' : '' );
+
+			if ( $with_icon ) {
+				// 24 is the nominal size pixfort stamps on the SVG; the control
+				// resizes it in CSS, which is the only thing that moves an SVG
+				// carrying its own width and height.
+				echo '<span class="galaxie-qd-heading-icon">' . \PixfortCore::instance()->icons->getIcon( $heading_icon, 24, '' ) . '</span>'; // phpcs:ignore WordPress.Security.EscapeOutput -- pixfort's own icon markup.
+			}
+
+			echo $this->render_text( $heading, 'heading', $settings ); // phpcs:ignore WordPress.Security.EscapeOutput -- escaped by render_text().
+			echo '</div>';
 		}
 
 		echo '<table class="galaxie-qd-table">';
