@@ -378,10 +378,14 @@ button.galaxie-spotlight-add:disabled {
    deprecated badges widget there is no native block to hide and every control
    sits inside the form where the theme's own scoped CSS reaches it. Layout
    only; the gap is an Elementor control, this is just its default. */
+/* No `align-items: flex-start` here, deliberately. It shrink-wraps every child
+   to its own content width — including a row meant to hold the quantity and the
+   buttons side by side, which could then never be wider than its single widest
+   item and so wrapped every time. Blocks stretch to the form's width instead;
+   each one lays its own contents out. */
 form.galaxie-buybox {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
   gap: 0.75rem;
 }
 
