@@ -197,10 +197,10 @@ final class BuyBoxWidget extends Widget_Base {
 		PixfortControls::text( $this, 'label', array( 'bold' => 'font-weight-bold', 'remove_pb_padding' => 'm-0' ), array( 'show_label' => 'yes' ), '{{WRAPPER}} .galaxie-variation-label' );
 
 		$this->heading( 'badge_heading', __( 'Badge', 'galaxie-woo' ) );
-		PixfortControls::badge( $this, 'badge', array( 'text_color' => 'primary', 'bg_color' => 'primary-light', 'rounded' => 'rounded-pill' ) );
+		PixfortControls::badge( $this, 'badge', array( 'text_color' => 'primary', 'bg_color' => 'primary-light', 'rounded' => 'badge-pill' ) );
 
 		$this->heading( 'badgesel_heading', __( 'Badge — selected', 'galaxie-woo' ) );
-		PixfortControls::badge( $this, 'badgesel', array( 'text_color' => 'white', 'bg_color' => 'primary', 'rounded' => 'rounded-pill' ) );
+		PixfortControls::badge( $this, 'badgesel', array( 'text_color' => 'white', 'bg_color' => 'primary', 'rounded' => 'badge-pill' ) );
 
 		$this->end_controls_section();
 	}

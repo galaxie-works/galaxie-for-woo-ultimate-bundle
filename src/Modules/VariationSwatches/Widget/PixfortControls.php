@@ -591,11 +591,16 @@ final class PixfortControls {
 			'condition' => array( $prefix . '_text_size' => 'custom' ),
 		) );
 
+		// pixfort offers a border-radius SELECT here, not a yes/no. Its scale is
+		// pulled live from `pixfort_get_border_radius_options()` rather than
+		// copied: that list is filterable and each entry maps to a theme option
+		// (pix-border-radius-small/normal/large), so reading it is what keeps the
+		// widget following the site's configured radii.
 		self::add( $target, $condition, $prefix . '_rounded', array(
-			'label'        => __( 'Rounded', 'galaxie-woo' ),
-			'type'         => Controls_Manager::SWITCHER,
-			'return_value' => 'rounded-pill',
-			'default'      => $d( 'rounded', '' ),
+			'label'   => __( 'Border radius', 'galaxie-woo' ),
+			'type'    => Controls_Manager::SELECT,
+			'options' => self::radius_options(),
+			'default' => $d( 'rounded', '' ),
 		) );
 
 		self::add( $target, $condition, $prefix . '_bold', array(
@@ -773,6 +778,29 @@ final class PixfortControls {
 		}
 
 		$target->add_control( $id, $args );
+	}
+
+	/**
+	 * Default + Pill + pixfort's own radius scale.
+	 *
+	 * The Pill class is `badge-pill`, not `rounded-pill` — the latter is
+	 * Bootstrap 5's name and appears nowhere in this theme's CSS, so emitting
+	 * it produced a control that silently did nothing.
+	 *
+	 * @return array<string,string>
+	 */
+	private static function radius_options(): array {
+		$scale = function_exists( 'pixfort_get_border_radius_options' )
+			? pixfort_get_border_radius_options()
+			: array();
+
+		return array_merge(
+			array(
+				''           => __( 'Default', 'galaxie-woo' ),
+				'badge-pill' => __( 'Pill', 'galaxie-woo' ),
+			),
+			is_array( $scale ) ? $scale : array()
+		);
 	}
 
 	/**
