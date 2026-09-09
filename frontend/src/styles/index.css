@@ -492,11 +492,18 @@ form.galaxie-buybox .single_add_to_cart_button:hover {
   margin: 0 !important;
 }
 
-/* Disabled covers the whole "cannot act on this row yet" family: no variation
-   chosen, or one chosen whose stock is under the row's quantity. */
+/* Only a tier the chosen variation cannot cover is disabled, and it is the
+   one case where fading the button is honest — it says "not this many", about
+   a choice already made.
+
+   It deliberately does NOT cover "no variation chosen yet". That state used to
+   fade every row from page load, and the first thing it produced was a bug
+   report about the text colour: a button at half opacity does not read as
+   waiting, it reads as broken. That button now stays fully painted and answers
+   on click. */
 .galaxie-qd-add[disabled] {
   cursor: not-allowed;
-  opacity: 0.5;
+  opacity: 0.45;
 }
 
 .galaxie-qd-action {

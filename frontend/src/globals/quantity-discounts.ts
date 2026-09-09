@@ -13,6 +13,9 @@
  * makes the theme's mini-cart update without us knowing anything about it.
  */
 
+/** pixfort's alert types — one at a time, so showing one clears the rest. */
+const ALERT_TYPES = ['success', 'secondary', 'primary', 'danger', 'warning', 'info', 'light', 'dark']
+
 interface FoundVariation {
   variation_id?: number
   max_qty?: number | string
@@ -52,6 +55,42 @@ function ceilingFor(variation: FoundVariation | undefined): number | null {
   return Number.isFinite(max) && max > 0 ? max : null
 }
 
+/**
+ * Point the shopper at the choice the button is waiting on.
+ *
+ * The Buy Box already renders a configured Alert for exactly this case, so it
+ * is reused when the page has one rather than inventing a second voice for the
+ * same sentence. With no alert on the page, bringing the picker into view and
+ * focusing it is the honest minimum — it says where to look without claiming
+ * anything the merchant did not write.
+ */
+function askForVariation(form: HTMLFormElement): void {
+  const holder = document.querySelector<HTMLElement>('.galaxie-buybox-alert')
+  const alert = holder?.querySelector<HTMLElement>('.alert')
+  const title = holder?.querySelector<HTMLElement>('.pix-alert-title')
+
+  if (holder && alert && title) {
+    try {
+      const messages = JSON.parse(holder.dataset.galaxieMessages || '{}')
+      const message = messages.select
+
+      if (message) {
+        title.innerHTML = message.text
+        ALERT_TYPES.forEach((type) => alert.classList.remove(`alert-${type}`))
+        alert.classList.add(`alert-${message.type || 'warning'}`)
+        holder.classList.add('is-visible')
+      }
+    } catch {
+      // A malformed payload is not worth failing the click over; the scroll
+      // below still tells the shopper where to go.
+    }
+  }
+
+  const picker = form.querySelector<HTMLElement>('.galaxie-variation-picker, .variations')
+  picker?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+  picker?.querySelector<HTMLElement>('button, select')?.focus({ preventScroll: true })
+}
+
 function initBlock(block: HTMLElement): void {
   const buttons = Array.from(
     block.querySelectorAll<HTMLButtonElement>('.galaxie-qd-add[data-galaxie-qd-needs-variation]'),
@@ -76,18 +115,38 @@ function initBlock(block: HTMLElement): void {
 
       if (usable) {
         button.dataset.product_id = String(variationId)
-        button.removeAttribute('disabled')
       } else {
         // Cleared, not left stale: WooCommerce reads this attribute straight
         // off the button, and a leftover id from a previous selection would
         // add the wrong variation.
         button.removeAttribute('data-product_id')
-        button.setAttribute('disabled', 'disabled')
       }
 
-      button.classList.toggle('is-over-stock', variationId > 0 && !affordable)
+      // Only a real refusal is dressed as one. "You have not chosen a size
+      // yet" is not a refusal — the button stays live and answers on click.
+      // A tier above the chosen variation's stock genuinely cannot be bought,
+      // and that one is disabled and says so through its own state.
+      const overStock = variationId > 0 && !affordable
+      button.classList.toggle('is-over-stock', overStock)
+      button.toggleAttribute('disabled', overStock)
     })
   }
+
+  // Runs on the button in the capture phase, so it lands before WooCommerce's
+  // own delegated handler on document.body and can stop the request outright.
+  buttons.forEach((button) => {
+    button.addEventListener(
+      'click',
+      (event) => {
+        if (button.dataset.product_id) return
+
+        event.preventDefault()
+        event.stopImmediatePropagation()
+        askForVariation(form)
+      },
+      true,
+    )
+  })
 
   const jq = window.jQuery
 

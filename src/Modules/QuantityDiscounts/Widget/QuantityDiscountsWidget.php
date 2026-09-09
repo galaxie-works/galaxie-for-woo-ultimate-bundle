@@ -449,10 +449,15 @@ final class QuantityDiscountsWidget extends Widget_Base {
 	 * uses, so the theme's own button styling applies without us restyling it.
 	 *
 	 * On a variable product there is nothing to add until a variation is chosen,
-	 * so the button ships disabled and carries no product id. The script fills
-	 * both in from whatever the shopper selects, and takes them away again when
-	 * the selection is cleared — a button that posts an unresolvable id would
-	 * fail silently on the server, which is worse than being visibly inert.
+	 * so the button carries no product id and the script fills it in from
+	 * whatever the shopper selects, clearing it again on reset — a button that
+	 * posts an unresolvable id would fail silently on the server.
+	 *
+	 * It is deliberately NOT disabled while it waits. Three greyed-out buttons
+	 * on page load read as broken, not as "choose a size first", and the first
+	 * report this shipped with was exactly that: the faded look was mistaken
+	 * for the text colour failing. It stays fully painted, and clicking it
+	 * before a choice is made asks for the choice.
 	 *
 	 * @param array<string,mixed>          $settings
 	 * @param array<string,float|int|null> $tier
@@ -469,7 +474,7 @@ final class QuantityDiscountsWidget extends Widget_Base {
 			'<button type="button" class="galaxie-qd-add add_to_cart_button ajax_add_to_cart" data-quantity="%1$d" data-galaxie-qd-qty="%1$d" data-product_id="%2$s"%3$s>',
 			$quantity,
 			$variable ? '' : (int) $product->get_id(),
-			$variable ? ' data-galaxie-qd-needs-variation="1" disabled' : ''
+			$variable ? ' data-galaxie-qd-needs-variation="1"' : ''
 		);
 
 		if ( PixfortControls::available() ) {
