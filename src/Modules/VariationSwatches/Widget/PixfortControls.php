@@ -29,8 +29,33 @@ defined( 'ABSPATH' ) || exit;
  */
 final class PixfortControls {
 
-	/** Sizes pixfort's Text component understands, mirrored from its own widget. */
-	private const TEXT_SIZES = array( '', 'lead', 'h6', 'h5', 'h4', 'h3', 'h2', 'h1' );
+	/**
+	 * Sizes pixfort's own Text widget offers, copied from it verbatim — except
+	 * for one thing. Its list carries `'text-sm' => '14px'` twice, and the
+	 * second occurrence overwrites the first; the entry clearly meant to be
+	 * 16px never made it, and no `.text-16` rule exists in the theme's CSS
+	 * either. Offering a 16px that silently does nothing would be worse than
+	 * not offering it.
+	 */
+	private const TEXT_SIZES = array(
+		''        => 'Default',
+		'text-xs' => '12px',
+		'text-sm' => '14px',
+		'text-18' => '18px',
+		'text-20' => '20px',
+		'text-24' => '24px',
+	);
+
+	/** pixfort's Heading widget vocabulary, for text that reads as a heading (the price). */
+	private const HEADING_SIZES = array(
+		'h1'     => 'H1',
+		'h2'     => 'H2',
+		'h3'     => 'H3',
+		'h4'     => 'H4',
+		'h5'     => 'H5',
+		'h6'     => 'H6',
+		'custom' => 'Custom',
+	);
 
 	public static function available(): bool {
 		return class_exists( '\PixfortCore' );
@@ -324,15 +349,26 @@ final class PixfortControls {
 	 * @param array<string,mixed> $defaults
 	 * @param array<string,mixed> $condition
 	 */
-	public static function text( object $target, string $prefix, array $defaults = array(), array $condition = array(), string $scope = '{{WRAPPER}}' ): void {
+	public static function text( object $target, string $prefix, array $defaults = array(), array $condition = array(), string $scope = '{{WRAPPER}}', string $sizes = 'text' ): void {
 		$d = static fn( string $key, $fallback ) => $defaults[ $key ] ?? $fallback;
 
 		self::add( $target, $condition, $prefix . '_size', array(
 			'label'   => __( 'Size', 'galaxie-woo' ),
 			'type'    => Controls_Manager::SELECT,
-			'options' => self::text_size_options(),
+			'options' => 'heading' === $sizes ? self::HEADING_SIZES : self::TEXT_SIZES,
 			'default' => $d( 'size', '' ),
 		) );
+
+		if ( 'heading' === $sizes ) {
+			self::add( $target, $condition, $prefix . '_custom_size', array(
+				'label'      => __( 'Custom size', 'galaxie-woo' ),
+				'type'       => Controls_Manager::SLIDER,
+				'size_units' => array( 'px', 'rem' ),
+				'range'      => array( 'px' => array( 'min' => 10, 'max' => 96 ) ),
+				'selectors'  => array( $scope . ' p' => 'font-size: {{SIZE}}{{UNIT}};' ),
+				'condition'  => array( $prefix . '_size' => 'custom' ),
+			) );
+		}
 
 		self::add( $target, $condition, $prefix . '_bold', array(
 			'label'        => __( 'Bold', 'galaxie-woo' ),
@@ -418,7 +454,9 @@ final class PixfortControls {
 		return array(
 			'content_type'         => 'simple',
 			'content'              => $content,
-			'size'                 => $settings[ $prefix . '_size' ] ?? '',
+			// `custom` is our own marker for the slider that accompanies it; it
+			// is not a pixfort class and must not be emitted as one.
+			'size'                 => 'custom' === ( $settings[ $prefix . '_size' ] ?? '' ) ? '' : ( $settings[ $prefix . '_size' ] ?? '' ),
 			'bold'                 => $settings[ $prefix . '_bold' ] ?? '',
 			'italic'               => $settings[ $prefix . '_italic' ] ?? '',
 			'secondary_font'       => $settings[ $prefix . '_secondary_font' ] ?? '',
@@ -472,7 +510,7 @@ final class PixfortControls {
 		self::add( $target, $condition, $prefix . '_text_size', array(
 			'label'   => __( 'Text size', 'galaxie-woo' ),
 			'type'    => Controls_Manager::SELECT,
-			'options' => self::text_size_options(),
+			'options' => self::TEXT_SIZES,
 			'default' => $d( 'text_size', '' ),
 		) );
 
@@ -576,14 +614,6 @@ final class PixfortControls {
 		);
 	}
 
-	/** @return array<string,string> */
-	private static function text_size_options(): array {
-		$options = array();
-		foreach ( self::TEXT_SIZES as $size ) {
-			$options[ $size ] = '' === $size ? __( 'Default', 'galaxie-woo' ) : strtoupper( $size );
-		}
-		return $options;
-	}
 
 
 	/**

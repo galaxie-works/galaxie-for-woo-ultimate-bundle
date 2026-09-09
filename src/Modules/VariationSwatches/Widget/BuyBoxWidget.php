@@ -126,7 +126,7 @@ final class BuyBoxWidget extends Widget_Base {
 		);
 
 		$this->heading( 'price_regular_heading', __( 'Regular price', 'galaxie-woo' ), false );
-		PixfortControls::text( $this, 'price_regular', array( 'size' => 'h4', 'bold' => 'font-weight-bold' ) );
+		PixfortControls::text( $this, 'price_regular', array( 'size' => 'h4', 'bold' => 'font-weight-bold' ), array(), '{{WRAPPER}} .galaxie-buybox-price-regular', 'heading' );
 
 		$this->heading( 'price_sale_heading', __( 'Sale price', 'galaxie-woo' ) );
 		$this->add_control(
@@ -141,7 +141,7 @@ final class BuyBoxWidget extends Widget_Base {
 				'default' => 'simple',
 			)
 		);
-		PixfortControls::text( $this, 'price_sale', array( 'size' => 'h4', 'bold' => 'font-weight-bold' ), array( 'sale_display' => 'simple' ) );
+		PixfortControls::text( $this, 'price_sale', array( 'size' => 'h4', 'bold' => 'font-weight-bold' ), array( 'sale_display' => 'simple' ), '{{WRAPPER}} .galaxie-buybox-price-sale', 'heading' );
 		PixfortControls::badge( $this, 'price_sale_badge', array(), array( 'sale_display' => 'advanced' ) );
 
 		$this->heading( 'stock_heading', __( 'Stock', 'galaxie-woo' ) );
@@ -154,7 +154,7 @@ final class BuyBoxWidget extends Widget_Base {
 				'default'      => 'yes',
 			)
 		);
-		PixfortControls::text( $this, 'stock', array(), array( 'show_stock' => 'yes' ) );
+		PixfortControls::text( $this, 'stock', array(), array( 'show_stock' => 'yes' ), '{{WRAPPER}} .galaxie-buybox-stock' );
 
 		$this->end_controls_section();
 	}
@@ -194,7 +194,7 @@ final class BuyBoxWidget extends Widget_Base {
 				'default'      => 'yes',
 			)
 		);
-		PixfortControls::text( $this, 'label', array( 'bold' => 'font-weight-bold' ), array( 'show_label' => 'yes' ) );
+		PixfortControls::text( $this, 'label', array( 'bold' => 'font-weight-bold' ), array( 'show_label' => 'yes' ), '{{WRAPPER}} .galaxie-variation-label' );
 
 		$this->heading( 'badge_heading', __( 'Badge', 'galaxie-woo' ) );
 		PixfortControls::badge( $this, 'badge', array( 'text_color' => 'primary', 'bg_color' => 'primary-light' ) );
