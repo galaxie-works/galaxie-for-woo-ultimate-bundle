@@ -158,14 +158,27 @@ function initBlock(block: HTMLElement): void {
 
     jq(form).on('reset_data', () => {
       ceiling = null
-      apply()
+      applyLater()
     })
   }
 
-  // Also on plain change, so the buttons still track the selection when
-  // WooCommerce's variation script is absent — the value of the hidden field is
-  // the only thing this really depends on.
-  form.addEventListener('change', apply, true)
+  /*
+   * Deferred on purpose.
+   *
+   * `variation_id` is written by WooCommerce while it handles the very change
+   * event this listens to, so reading it from a capture-phase listener reads
+   * the value from before the selection — measured on the page as
+   * `change(capture)` at 0ms with the field still "0", and WooCommerce writing
+   * 991438 two milliseconds later. Applying at that moment cleared the button
+   * and nothing put it back.
+   *
+   * Waiting a turn makes the field the single source of truth and drops the
+   * dependency on which script ran first, which is the part that was fragile:
+   * the buttons follow the state, not the narrative that produced it.
+   */
+  const applyLater = () => window.setTimeout(apply, 0)
+
+  form.addEventListener('change', applyLater, true)
 
   apply()
 }
