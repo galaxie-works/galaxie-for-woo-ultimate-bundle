@@ -363,7 +363,8 @@ final class PixfortControls {
 			'label'        => __( 'Bold', 'galaxie-woo' ),
 			'type'         => Controls_Manager::SWITCHER,
 			'return_value' => 'font-weight-bold',
-			'default'      => $d( 'bold', '' ),
+			// pixfort's own Text widget ships bold ON.
+			'default'      => $d( 'bold', 'font-weight-bold' ),
 		) );
 
 		self::add( $target, $condition, $prefix . '_italic', array(
@@ -378,6 +379,14 @@ final class PixfortControls {
 			'type'         => Controls_Manager::SWITCHER,
 			'return_value' => 'secondary-font',
 			'default'      => $d( 'secondary_font', '' ),
+		) );
+
+		self::add( $target, $condition, $prefix . '_max_width', array(
+			'label'       => __( 'Text max width (optional)', 'galaxie-woo' ),
+			'label_block' => true,
+			'type'        => Controls_Manager::TEXT,
+			'placeholder' => __( 'For example 400px', 'galaxie-woo' ),
+			'default'     => $d( 'max_width', '' ),
 		) );
 
 		if ( self::available() ) {
@@ -431,7 +440,9 @@ final class PixfortControls {
 			'label'        => __( 'Remove margin under paragraphs', 'galaxie-woo' ),
 			'type'         => Controls_Manager::SWITCHER,
 			'return_value' => 'm-0',
-			'default'      => $d( 'remove_pb_padding', 'm-0' ),
+			// pixfort defaults this off; the buy box turns it on per slot,
+			// because paragraph margins there fight the configured block gap.
+			'default'      => $d( 'remove_pb_padding', '' ),
 		) );
 	}
 
@@ -452,6 +463,7 @@ final class PixfortControls {
 			'content_color'        => $settings[ $prefix . '_content_color' ] ?? '',
 			'content_custom_color' => $settings[ $prefix . '_content_custom_color' ] ?? '',
 			'position'             => $settings[ $prefix . '_position' ] ?? '',
+			'max_width'            => $settings[ $prefix . '_max_width' ] ?? '',
 			'animation'            => $settings[ $prefix . '_animation' ] ?? '',
 			'delay'                => $settings[ $prefix . '_delay' ] ?? '',
 			'remove_pb_padding'    => $settings[ $prefix . '_remove_pb_padding' ] ?? '',
@@ -533,14 +545,15 @@ final class PixfortControls {
 			'label'        => __( 'Rounded', 'galaxie-woo' ),
 			'type'         => Controls_Manager::SWITCHER,
 			'return_value' => 'rounded-pill',
-			'default'      => $d( 'rounded', 'rounded-pill' ),
+			'default'      => $d( 'rounded', '' ),
 		) );
 
 		self::add( $target, $condition, $prefix . '_bold', array(
 			'label'        => __( 'Bold', 'galaxie-woo' ),
 			'type'         => Controls_Manager::SWITCHER,
 			'return_value' => 'font-weight-bold',
-			'default'      => $d( 'bold', '' ),
+			// pixfort's own Badge ships bold ON.
+			'default'      => $d( 'bold', 'font-weight-bold' ),
 		) );
 
 		self::add( $target, $condition, $prefix . '_italic', array(
@@ -555,6 +568,25 @@ final class PixfortControls {
 			'type'         => Controls_Manager::SWITCHER,
 			'return_value' => 'secondary-font',
 			'default'      => $d( 'secondary_font', '' ),
+		) );
+
+		self::add( $target, $condition, $prefix . '_element_div', array(
+			'label'   => __( 'Badge inside a container', 'galaxie-woo' ),
+			'type'    => Controls_Manager::SELECT,
+			'options' => array(
+				''            => __( 'Disabled', 'galaxie-woo' ),
+				'text-center' => __( 'Center align', 'galaxie-woo' ),
+				'text-left'   => __( 'Left align', 'galaxie-woo' ),
+				'text-right'  => __( 'Right align', 'galaxie-woo' ),
+			),
+			'default' => $d( 'element_div', '' ),
+		) );
+
+		self::add( $target, $condition, $prefix . '_disable_margin_after_badge', array(
+			'label'        => __( 'Remove margin after badge', 'galaxie-woo' ),
+			'type'         => Controls_Manager::SWITCHER,
+			'return_value' => 'yes',
+			'default'      => $d( 'disable_margin_after_badge', '' ),
 		) );
 
 		self::add( $target, $condition, $prefix . '_style', array(
@@ -609,7 +641,8 @@ final class PixfortControls {
 			'text_color', 'text_custom_color', 'text_size', 'text_custom_size',
 			'bold', 'italic', 'secondary_font', 'rounded', 'bg_color',
 			'custom_bg_color', 'style', 'hover_effect', 'add_hover_effect',
-			'animation', 'delay', 'extra_classes',
+			'animation', 'delay', 'extra_classes', 'element_div',
+			'disable_margin_after_badge',
 		);
 
 		// text_size seeds pixfort's own default rather than an empty string:
