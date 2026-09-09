@@ -41,7 +41,12 @@ function postAddToCart(config: BuyBoxConfig, variationId: number, quantity: numb
 }
 
 function initWidget(picker: HTMLElement, config?: BuyBoxConfig): void {
-  const container = picker.parentElement
+  // Elementor always wraps a single widget's entire render() output in its
+  // own dedicated `.elementor-widget-container` — scope to that explicitly
+  // (rather than assuming `picker.parentElement` is it) so this never
+  // accidentally reaches into a sibling widget's own variation form when
+  // more than one sits in the same section/column.
+  const container = picker.closest<HTMLElement>('.elementor-widget-container') ?? picker.parentElement
   if (!container) return
 
   const attribute = picker.dataset.galaxieAttribute

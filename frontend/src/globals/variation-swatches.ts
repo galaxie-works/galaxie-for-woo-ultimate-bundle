@@ -61,6 +61,11 @@ function buildBadges(select: HTMLSelectElement): HTMLDivElement {
 
 function enhance(select: HTMLSelectElement): void {
   if (select.dataset.galaxieSwatchesDone) return
+  // Selects inside a Galaxie Variation Badges widget's own hidden native form
+  // are already fully owned/wired by that widget's own dedicated behavior
+  // (variation-badges-widget.ts) — enhancing them here too would attach a
+  // second, conflicting set of badges/handlers to the same <select>.
+  if (select.closest('.galaxie-variation-native')) return
   select.dataset.galaxieSwatchesDone = '1'
 
   const wrapper = buildBadges(select)
