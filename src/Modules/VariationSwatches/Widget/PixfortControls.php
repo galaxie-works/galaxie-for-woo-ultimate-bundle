@@ -202,7 +202,7 @@ final class PixfortControls {
 				'default'              => '',
 				'selectors_dictionary' => self::icon_color_dictionary( $icon_colors ),
 				'selectors'            => array( $scope . ' .btn .pixfort-icon' => '{{VALUE}}' ),
-				'conditions'           => self::has_icon( $prefix ),
+				'condition'            => array( $prefix . '_icon!' => '' ),
 			) );
 
 			self::add( $target, $condition, $prefix . '_icon_custom_color', array(
@@ -210,7 +210,7 @@ final class PixfortControls {
 				'type'       => Controls_Manager::COLOR,
 				'default'    => '',
 				'selectors'  => array( $scope . ' .btn .pixfort-icon' => 'color: {{VALUE}} !important; --pf-icon-color: {{VALUE}} !important;' ),
-				'conditions' => self::has_icon( $prefix, array( 'name' => $prefix . '_icon_color', 'operator' => '==', 'value' => 'custom' ) ),
+				'condition'  => array( $prefix . '_icon!' => '', $prefix . '_icon_color' => 'custom' ),
 			) );
 
 			self::add( $target, $condition, $prefix . '_icon_position', array(
@@ -221,7 +221,7 @@ final class PixfortControls {
 					'after' => __( 'After text', 'galaxie-woo' ),
 				),
 				'default'    => $d( 'icon_position', '' ),
-				'conditions' => self::has_icon( $prefix ),
+				'condition'  => array( $prefix . '_icon!' => '' ),
 			) );
 
 			self::add( $target, $condition, $prefix . '_icon_animation', array(
@@ -229,7 +229,7 @@ final class PixfortControls {
 				'type'         => Controls_Manager::SWITCHER,
 				'return_value' => 'yes',
 				'default'      => '',
-				'conditions'   => self::has_icon( $prefix ),
+				'condition'    => array( $prefix . '_icon!' => '' ),
 			) );
 		}
 
@@ -249,9 +249,7 @@ final class PixfortControls {
 				'text-right'  => __( 'Right', 'galaxie-woo' ),
 			),
 			'default'    => '',
-			'conditions' => array(
-				'terms' => array( array( 'name' => $prefix . '_full', 'operator' => '!=', 'value' => '' ) ),
-			),
+			'condition'  => array( $prefix . '_full!' => '' ),
 		) );
 
 		self::add( $target, $condition, $prefix . '_div', array(
@@ -501,31 +499,19 @@ final class PixfortControls {
 	}
 
 	/**
-	 * Registers one control, folding the caller's blanket condition into
-	 * whichever condition form the control already uses. Elementor has two:
-	 * the simple `condition` map and the richer `conditions` terms list, and a
-	 * control carrying one must not silently gain the other.
+	 * Registers one control, folding the caller's blanket condition in.
+	 *
+	 * Deliberately only Elementor's simple `condition` map, never the richer
+	 * `conditions` terms form: the terms evaluator is a far less travelled path
+	 * inside a repeater row, and the map expresses everything needed here
+	 * anyway — `'x!' => ''` for "not empty", an array value for "one of".
 	 *
 	 * @param array<string,mixed> $condition
 	 * @param array<string,mixed> $args
 	 */
 	private static function add( object $target, array $condition, string $id, array $args ): void {
 		if ( $condition ) {
-			if ( isset( $args['conditions'] ) ) {
-				$terms = array();
-				foreach ( $condition as $name => $value ) {
-					// A list of accepted values is a membership test, not equality —
-					// `==` against an array silently never matches.
-					$terms[] = array(
-						'name'     => $name,
-						'operator' => is_array( $value ) ? 'in' : '==',
-						'value'    => $value,
-					);
-				}
-				$args['conditions']['terms'] = array_merge( $terms, $args['conditions']['terms'] ?? array() );
-			} else {
-				$args['condition'] = array_merge( $condition, $args['condition'] ?? array() );
-			}
+			$args['condition'] = array_merge( $condition, $args['condition'] ?? array() );
 		}
 
 		$target->add_control( $id, $args );
@@ -553,22 +539,6 @@ final class PixfortControls {
 		return $options;
 	}
 
-	/**
-	 * Elementor's `conditions` terms form, requiring an icon to be picked
-	 * before any icon-specific control appears — matching pixfort exactly.
-	 *
-	 * @param array<string,mixed>|null $extra
-	 * @return array<string,mixed>
-	 */
-	private static function has_icon( string $prefix, ?array $extra = null ): array {
-		$terms = array( array( 'name' => $prefix . '_icon', 'operator' => '!=', 'value' => '' ) );
-
-		if ( $extra ) {
-			$terms[] = $extra;
-		}
-
-		return array( 'terms' => $terms );
-	}
 
 	/**
 	 * pixfort colours the icon through a CSS variable rather than a class, so

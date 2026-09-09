@@ -211,17 +211,9 @@ final class BuyBoxWidget extends Widget_Base {
 			)
 		);
 
-		$repeater->add_responsive_control(
-			'qty_width',
-			array(
-				'label'      => __( 'Field width', 'galaxie-woo' ),
-				'type'       => Controls_Manager::SLIDER,
-				'size_units' => array( 'px', '%' ),
-				'range'      => array( 'px' => array( 'min' => 60, 'max' => 400 ) ),
-				'selectors'  => array( self::ROW_SCOPE . ' .quantity' => 'width: {{SIZE}}{{UNIT}};' ),
-				'condition'  => $quantity,
-			)
-		);
+		// Quantity width lives in the Layout section rather than here on purpose:
+		// a responsive control inside a repeater row is a rarely-travelled path
+		// in Elementor's editor, and there is only ever one quantity block.
 	}
 
 	/**
@@ -270,6 +262,17 @@ final class BuyBoxWidget extends Widget_Base {
 				'range'      => array( 'px' => array( 'min' => 0, 'max' => 40 ) ),
 				'default'    => array( 'unit' => 'px', 'size' => 8 ),
 				'selectors'  => array( '{{WRAPPER}} .galaxie-swatch-options' => 'row-gap: {{SIZE}}{{UNIT}};' ),
+			)
+		);
+
+		$this->add_responsive_control(
+			'qty_width',
+			array(
+				'label'      => __( 'Quantity field width', 'galaxie-woo' ),
+				'type'       => Controls_Manager::SLIDER,
+				'size_units' => array( 'px', '%' ),
+				'range'      => array( 'px' => array( 'min' => 60, 'max' => 400 ) ),
+				'selectors'  => array( '{{WRAPPER}} .galaxie-buybox-quantity .quantity' => 'width: {{SIZE}}{{UNIT}};' ),
 			)
 		);
 
