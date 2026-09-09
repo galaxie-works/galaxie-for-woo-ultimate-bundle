@@ -64,10 +64,10 @@
                 "id": ""
             },
             "choices": {
-                "Amadeirado": "Amadeirado",
-                "Cítrico": "Cítrico",
+                "Amadeirada": "Amadeirada",
+                "Cítrica": "Cítrica",
                 "Floral": "Floral",
-                "Frutado": "Frutado",
+                "Frutada": "Frutada",
                 "Herbal": "Herbal"
             },
             "default_value": [],
