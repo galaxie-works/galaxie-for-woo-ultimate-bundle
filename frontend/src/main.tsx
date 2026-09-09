@@ -5,6 +5,7 @@ import { Demo } from '@/islands/demo'
 import { Checkout } from '@/islands/checkout'
 import { MyAccount } from '@/islands/my-account'
 import { bootToastNotices } from '@/globals/toast-notices'
+import { bootVariationSwatches } from '@/globals/variation-swatches'
 
 // Each module registers its island(s) here as they are ported.
 registerIsland('demo', Demo)
@@ -13,6 +14,7 @@ registerIsland('my-account', MyAccount)
 
 interface GalaxieConfig {
   toastNotices?: boolean
+  variationSwatches?: { attributes?: string[] }
 }
 
 function boot(): void {
@@ -23,6 +25,10 @@ function boot(): void {
 
   if (config.toastNotices) {
     bootToastNotices()
+  }
+
+  if (config.variationSwatches) {
+    bootVariationSwatches(config.variationSwatches)
   }
 }
 
