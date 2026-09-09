@@ -379,6 +379,43 @@ button.galaxie-spotlight-add:disabled {
   opacity: 0.6;
 }
 
+/* Galaxie Buy Box — the widget renders its own form.cart, so unlike the
+   deprecated badges widget there is no native block to hide and every control
+   sits inside the form where the theme's own scoped CSS reaches it. Layout
+   only; the gap is an Elementor control, this is just its default. */
+form.galaxie-buybox {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+/* The real attribute dropdowns. Kept in the DOM and functional — WooCommerce's
+   own matcher reads them — but never seen: the badges above are their UI.
+   Not `display:none`, because a field the browser considers unrenderable is
+   also one it refuses to focus or report validation on. */
+.galaxie-buybox-attrs {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.galaxie-buybox-block {
+  max-width: 100%;
+}
+
+.galaxie-buybox-price-regular {
+  opacity: 0.6;
+  margin-right: 0.5rem;
+}
+
 /* Wishlist toggle — both states are rendered server-side as two independently
    configurable pixfort Buttons (see Modules/Wishlist/Widget) and swapped here,
    the same normal/selected trick the variation badges use. Doing it in CSS is

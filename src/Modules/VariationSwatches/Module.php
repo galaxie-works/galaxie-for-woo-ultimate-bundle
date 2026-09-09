@@ -13,6 +13,7 @@ use Galaxie\Woo\Core\Plugin;
 use Galaxie\Woo\Core\ProvidesBootData;
 use Galaxie\Woo\Core\ProvidesElementorWidgets;
 use Galaxie\Woo\Core\ProvidesSettings;
+use Galaxie\Woo\Modules\VariationSwatches\Widget\BuyBoxWidget;
 use Galaxie\Woo\Modules\VariationSwatches\Widget\VariationBadgesWidget;
 use Galaxie\Woo\Support\Assets;
 
@@ -142,8 +143,13 @@ final class Module implements ModuleContract, ProvidesBootData, ProvidesElemento
 		}
 	}
 
+	/**
+	 * VariationBadgesWidget stays registered only so templates already built on
+	 * it keep rendering — {@see BuyBoxWidget} replaces it. Do not add features
+	 * to the old one.
+	 */
 	public function elementor_widgets(): array {
-		return array( VariationBadgesWidget::class );
+		return array( BuyBoxWidget::class, VariationBadgesWidget::class );
 	}
 
 	public function boot_data(): array {

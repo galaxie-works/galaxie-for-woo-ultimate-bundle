@@ -45,7 +45,7 @@ final class VariationBadgesWidget extends Widget_Base {
 	}
 
 	public function get_title(): string {
-		return __( 'Galaxie Variation Badges', 'galaxie-woo' );
+		return __( 'Galaxie Variation Badges (deprecated)', 'galaxie-woo' );
 	}
 
 	public function get_icon(): string {

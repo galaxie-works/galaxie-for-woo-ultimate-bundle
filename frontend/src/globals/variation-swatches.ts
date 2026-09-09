@@ -65,7 +65,10 @@ function enhance(select: HTMLSelectElement): void {
   // are already fully owned/wired by that widget's own dedicated behavior
   // (variation-badges-widget.ts) — enhancing them here too would attach a
   // second, conflicting set of badges/handlers to the same <select>.
-  if (select.closest('.galaxie-variation-native')) return
+  // Same for a Galaxie Buy Box: its hidden attribute selects exist purely to
+  // keep WooCommerce's own matcher working, and the widget already renders
+  // visible badges of its own for them.
+  if (select.closest('.galaxie-variation-native, .galaxie-buybox')) return
   select.dataset.galaxieSwatchesDone = '1'
 
   const wrapper = buildBadges(select)

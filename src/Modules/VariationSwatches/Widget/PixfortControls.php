@@ -514,7 +514,13 @@ final class PixfortControls {
 			if ( isset( $args['conditions'] ) ) {
 				$terms = array();
 				foreach ( $condition as $name => $value ) {
-					$terms[] = array( 'name' => $name, 'operator' => '==', 'value' => $value );
+					// A list of accepted values is a membership test, not equality —
+					// `==` against an array silently never matches.
+					$terms[] = array(
+						'name'     => $name,
+						'operator' => is_array( $value ) ? 'in' : '==',
+						'value'    => $value,
+					);
 				}
 				$args['conditions']['terms'] = array_merge( $terms, $args['conditions']['terms'] ?? array() );
 			} else {
