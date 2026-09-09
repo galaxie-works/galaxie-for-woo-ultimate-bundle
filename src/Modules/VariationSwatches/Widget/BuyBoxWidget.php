@@ -422,20 +422,16 @@ final class BuyBoxWidget extends Widget_Base {
 				);
 			}
 
-			if ( PixfortControls::available() ) {
-				$this->add_control(
-					'alert_' . $key . '_icon',
-					array(
-						'label'     => __( 'Icon', 'galaxie-woo' ),
-						'type'      => \Elementor\CustomControl\PixfortIconSelector_Control::PixfortIconSelector,
-						'default'   => $message['icon'],
-						'condition' => array(
-							'alert_' . $key . '_text!' => '',
-							'alert_media_type'         => 'icon',
-						),
-					)
-				);
-			}
+			PixfortControls::icon_select(
+				$this,
+				'alert_' . $key . '_icon',
+				__( 'Icon', 'galaxie-woo' ),
+				$message['icon'],
+				array(
+					'alert_' . $key . '_text!' => '',
+					'alert_media_type'         => 'icon',
+				)
+			);
 		}
 
 		$this->add_control(
@@ -834,7 +830,7 @@ final class BuyBoxWidget extends Widget_Base {
 
 			$text = wp_kses_post( $text );
 			$type = (string) ( $settings[ 'alert_' . $key . '_type' ] ?? $message['type'] );
-			$icon = (string) ( $settings[ 'alert_' . $key . '_icon' ] ?? $message['icon'] );
+			$icon = PixfortControls::icon_value( $settings, 'alert_' . $key . '_icon' );
 			$link = $this->alert_link( $settings, $key, $message );
 
 			// Only the first configured message is visible in the editor, so the

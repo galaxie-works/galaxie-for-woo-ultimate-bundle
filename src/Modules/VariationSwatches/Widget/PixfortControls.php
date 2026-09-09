@@ -201,11 +201,7 @@ final class PixfortControls {
 		) );
 
 		if ( self::available() ) {
-			self::add( $target, $condition, $prefix . '_icon', array(
-				'label'   => __( 'Button icon', 'galaxie-woo' ),
-				'type'    => \Elementor\CustomControl\PixfortIconSelector_Control::PixfortIconSelector,
-				'default' => $d( 'icon', '' ),
-			) );
+			self::icon_select( $target, $prefix . '_icon', __( 'Button icon', 'galaxie-woo' ), (string) $d( 'icon', '' ), $condition );
 
 			$icon_colors = self::colors( array( 'defaultValue' => array( '' => __( 'Default', 'galaxie-woo' ) ), 'mainLight' => true, 'gradients' => false ) );
 
@@ -383,6 +379,10 @@ final class PixfortControls {
 		foreach ( $keys as $key ) {
 			$attr[ 'btn_' . $key ] = $settings[ $prefix . '_' . $key ] ?? '';
 		}
+
+		// The icon is a pair of controls, not one: a dropdown plus the raw
+		// identifier the Custom entry reveals.
+		$attr['btn_icon'] = self::icon_value( $settings, $prefix . '_icon' );
 
 		return $attr;
 	}
@@ -915,6 +915,129 @@ final class PixfortControls {
 		}
 
 		return $attr;
+	}
+
+	/**
+	 * Icon names verified to exist in Line, Duotone AND Solid.
+	 *
+	 * Every entry here was checked against pixfort's own
+	 * `includes/icons/pixfort-icons-list.php` and against the three SVG
+	 * directories. That matters more than it sounds: `getIcon()` treats the value
+	 * as a literal path, so a name missing from the requested style renders
+	 * nothing at all — no error, no placeholder, just an empty box. Four invented
+	 * names shipped that way once already.
+	 *
+	 * Names whose style coverage was not confirmed are deliberately absent even
+	 * where they would fit, `question-mark-circle-1` and `trash-can-1` among them.
+	 *
+	 * @var array<int,string>
+	 */
+	private const ICON_STATUS = array(
+		'alert-1', 'exclamation-mark-1', 'exclamation-mark-2', 'exclamation-mark-circle-1',
+		'exclamation-mark-circle-2', 'exclamation-mark-octagon-1', 'prohibited-circle-1',
+		'prohibited-circle-2', 'check-circle-1', 'check-circle-2', 'check-square-1', 'check-badge-1',
+		'cross-1', 'cross-circle-1', 'cross-square-1', 'information-circle-1', 'delete-1', 'shield-1',
+		'lock-1', 'clock-1', 'gift-1', 'star-1', 'heart-1', 'truck-1', 'box-1',
+	);
+
+	/**
+	 * All 61 names containing "cart", each present in all three styles.
+	 *
+	 * @var array<int,string>
+	 */
+	private const ICON_CART = array(
+		'cart-1', 'cart-2', 'cart-3', 'cart-4', 'cart-5', 'cart-6', 'cart-7', 'cart-1-check-1',
+		'cart-1-cross-1', 'cart-1-dollar-1', 'cart-1-download-1', 'cart-1-loading-1', 'cart-1-locked-1',
+		'cart-1-minus-1', 'cart-1-notification-1', 'cart-1-pin-1', 'cart-1-plus-1', 'cart-1-prohibited-1',
+		'cart-1-refresh-update-1', 'cart-1-search-1', 'cart-1-settings-gear-1', 'cart-1-shield-1',
+		'cart-1-star-1', 'cart-1-unlocked-1', 'cart-1-upload-1', 'cart-1-warning-1', 'cart-6-check-1',
+		'cart-6-check-2', 'cart-6-cross-1', 'cart-6-cross-2', 'cart-6-dollar-1', 'cart-6-dollar-2',
+		'cart-6-download-1', 'cart-6-download-2', 'cart-6-heart-1', 'cart-6-link-anchor-1',
+		'cart-6-loading-1', 'cart-6-locked-1', 'cart-6-minus-1', 'cart-6-minus-2',
+		'cart-6-notification-1', 'cart-6-person-1', 'cart-6-person-2', 'cart-6-pin-1', 'cart-6-plus-1',
+		'cart-6-plus-2', 'cart-6-prohibited-1', 'cart-6-refresh-update-1', 'cart-6-search-1',
+		'cart-6-settings-gear-1', 'cart-6-shield-1', 'cart-6-star-1', 'cart-6-unlocked-1',
+		'cart-6-upload-1', 'cart-6-upload-2', 'cart-6-warning-1', 'user-circle-cart-1', 'search-cart-1',
+		'search-cart-2', 'browser-cart-1', 'browser-cart-2',
+	);
+
+	/**
+	 * A dropdown of icons instead of pixfort's own picker.
+	 *
+	 * The picker's `content_template()` prints the ENTIRE icon library inline,
+	 * once per control. Six of them in one panel — two buttons and four alert
+	 * messages — meant roughly a minute of frozen editor every time it opened.
+	 * This is a plain SELECT: same identifiers, same `getIcon()`, same palette
+	 * around it, without two thousand icons of markup per field.
+	 *
+	 * The value is the full `Style/pixfort-icon-name`, never a bare name — a bare
+	 * name is not a filename to pixfort, it is a legacy alias resolved through
+	 * `mapping-duotone.php`, and some of those point somewhere else entirely
+	 * (a bare `cart-2` renders `cart-7`).
+	 *
+	 * Custom keeps the door open: the list is curated, not exhaustive, and no one
+	 * should be boxed in by our idea of which icons matter.
+	 *
+	 * @param array<string,mixed> $condition
+	 */
+	public static function icon_select( object $target, string $id, string $label, string $default = '', array $condition = array() ): void {
+		self::add( $target, $condition, $id, array(
+			'label'   => $label,
+			'type'    => Controls_Manager::SELECT,
+			'groups'  => self::icon_groups(),
+			'default' => $default,
+		) );
+
+		self::add( $target, $condition, $id . '_raw', array(
+			'label'       => __( 'Icon identifier', 'galaxie-woo' ),
+			'description' => __( 'Style/pixfort-icon-name, exactly as pixfort names it.', 'galaxie-woo' ),
+			'label_block' => true,
+			'type'        => Controls_Manager::TEXT,
+			'placeholder' => 'Line/pixfort-icon-cart-1',
+			'default'     => '',
+			'condition'   => array( $id => 'custom' ),
+		) );
+	}
+
+	/**
+	 * The identifier a pair of {@see icon_select()} controls resolves to.
+	 *
+	 * @param array<string,mixed> $settings
+	 */
+	public static function icon_value( array $settings, string $id ): string {
+		$value = (string) ( $settings[ $id ] ?? '' );
+
+		return 'custom' === $value
+			? trim( (string) ( $settings[ $id . '_raw' ] ?? '' ) )
+			: $value;
+	}
+
+	/** @return array<int,array<string,mixed>> */
+	private static function icon_groups(): array {
+		$groups = array(
+			array(
+				'label'   => '',
+				'options' => array(
+					''       => __( 'None', 'galaxie-woo' ),
+					'custom' => __( 'Custom…', 'galaxie-woo' ),
+				),
+			),
+		);
+
+		// Grouped by style rather than by meaning: the same icon in three styles
+		// is three different values, and a merchant picking one is choosing a look
+		// as much as a symbol.
+		foreach ( array( 'Line', 'Duotone', 'Solid' ) as $style ) {
+			$options = array();
+
+			foreach ( array_merge( self::ICON_STATUS, self::ICON_CART ) as $name ) {
+				$options[ $style . '/pixfort-icon-' . $name ] = ucfirst( str_replace( '-', ' ', $name ) );
+			}
+
+			$groups[] = array( 'label' => $style, 'options' => $options );
+		}
+
+		return $groups;
 	}
 
 	/**
