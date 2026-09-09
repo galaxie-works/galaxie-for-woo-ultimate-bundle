@@ -415,8 +415,18 @@ button.galaxie-spotlight-add:disabled {
 }
 
 /* !important is load-bearing here: WooCommerce's own variation JS toggles
-   this block's visibility via inline styles (jQuery .show()/.hide()) once a
-   variation matches, which otherwise wins over a plain stylesheet rule. */
+   these blocks' visibility via inline styles (jQuery .show()/.slideDown())
+   once a variation matches, which otherwise wins over a plain stylesheet rule.
+
+   `.single_variation_wrap` covers the whole matched-variation block — its
+   price/availability/description AND its quantity+button row. All of it is
+   duplicated by the widget's own styled controls above, so showing it reads
+   as the page repeating itself. It stays in the DOM rather than being removed
+   because our JS mirrors the price and stock text straight out of it (see
+   globals/variation-badges-widget.ts), which reading innerHTML does fine on a
+   hidden element. */
+.galaxie-variation-native .single_variation_wrap,
+.galaxie-variation-native .single_variation,
 .galaxie-variation-native .woocommerce-variation-add-to-cart,
 .galaxie-variation-native .quantity,
 .galaxie-variation-native .single_add_to_cart_button,
