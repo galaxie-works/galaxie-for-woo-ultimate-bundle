@@ -24,6 +24,10 @@ final class Widgets {
 	public function hooks(): void {
 		add_action( 'elementor/elements/categories_registered', array( $this, 'register_category' ) );
 		add_action( 'elementor/widgets/register', array( $this, 'register_widgets' ) );
+
+		// Unconditional, like the category: a control has to exist before any
+		// widget that uses it registers, and it is inert without Elementor.
+		IconPicker::hooks();
 	}
 
 	public function register_category( $categories_manager ): void {
