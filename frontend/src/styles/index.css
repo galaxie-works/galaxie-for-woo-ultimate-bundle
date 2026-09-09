@@ -514,9 +514,14 @@ form.galaxie-buybox .single_add_to_cart_button:hover {
 /* WooCommerce appends its own "View cart" anchor right after any button it
    handled. In a tier row it lands beside that row's button and shunts the line
    out of alignment, and it says the same thing the Added-to-cart alert says in
-   a place the merchant controls. Suppressed for the same reason it is
-   suppressed in the buy box row. */
-.galaxie-qd-action .added_to_cart {
+   a place the merchant controls.
+
+   The `a` is load-bearing. pixfort claims this element with
+   `.woocommerce a.added_to_cart { display: inline-block }` — two classes and an
+   element, so a two-class selector of ours loses the tie and the link stayed
+   visible even with the rule shipped. Measured on the page rather than
+   guessed. */
+.galaxie-qd .galaxie-qd-action a.added_to_cart {
   display: none;
 }
 
@@ -556,8 +561,8 @@ form.galaxie-buybox .galaxie-buybox-alert-message.is-current {
    which inside the buy box row lands between Add to Cart and Buy Now. The
    Added-to-cart alert offers the same link in a place the merchant controls,
    so this one is suppressed rather than left to wedge itself into the row. */
-form.galaxie-buybox > .added_to_cart,
-form.galaxie-buybox .galaxie-buybox-row > .added_to_cart {
+form.galaxie-buybox a.added_to_cart,
+form.galaxie-buybox .galaxie-buybox-row a.added_to_cart {
   display: none;
 }
 
