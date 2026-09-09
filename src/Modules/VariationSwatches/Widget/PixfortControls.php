@@ -196,18 +196,7 @@ final class PixfortControls {
 		self::add( $target, $condition, $prefix . '_add_hover_effect', array(
 			'label'   => __( 'Button hover animation', 'galaxie-woo' ),
 			'type'    => Controls_Manager::SELECT,
-			'options' => array(
-				''  => __( 'None', 'galaxie-woo' ),
-				'1' => __( 'Fly Small', 'galaxie-woo' ),
-				'2' => __( 'Fly Medium', 'galaxie-woo' ),
-				'3' => __( 'Fly Large', 'galaxie-woo' ),
-				'4' => __( 'Scale Small', 'galaxie-woo' ),
-				'5' => __( 'Scale Medium', 'galaxie-woo' ),
-				'6' => __( 'Scale Large', 'galaxie-woo' ),
-				'7' => __( 'Scale Inverse Small', 'galaxie-woo' ),
-				'8' => __( 'Scale Inverse Medium', 'galaxie-woo' ),
-				'9' => __( 'Scale Inverse Large', 'galaxie-woo' ),
-			),
+			'options' => self::hover_animations(),
 			'default' => $d( 'add_hover_effect', '' ),
 		) );
 
@@ -487,11 +476,25 @@ final class PixfortControls {
 				'default' => $d( 'text_color', 'primary' ),
 			) );
 
+			self::add( $target, $condition, $prefix . '_text_custom_color', array(
+				'label'     => __( 'Custom text color', 'galaxie-woo' ),
+				'type'      => Controls_Manager::COLOR,
+				'default'   => '',
+				'condition' => array( $prefix . '_text_color' => 'custom' ),
+			) );
+
 			self::add( $target, $condition, $prefix . '_bg_color', array(
 				'label'   => __( 'Background color', 'galaxie-woo' ),
 				'type'    => Controls_Manager::SELECT,
 				'groups'  => self::colors( array( 'bg' => true, 'transparent' => true ) ),
 				'default' => $d( 'bg_color', 'primary-light' ),
+			) );
+
+			self::add( $target, $condition, $prefix . '_custom_bg_color', array(
+				'label'     => __( 'Custom background color', 'galaxie-woo' ),
+				'type'      => Controls_Manager::COLOR,
+				'default'   => '',
+				'condition' => array( $prefix . '_bg_color' => 'custom' ),
 			) );
 		} else {
 			self::add( $target, $condition, $prefix . '_text_color_fallback', array(
@@ -507,11 +510,23 @@ final class PixfortControls {
 			) );
 		}
 
+		// H1-H6 + Custom, defaulting to h6 — pixfort's Badge uses the heading
+		// vocabulary, not the Text one, and both its control and PixBadge::render()
+		// default to `h6`. Offering "Default" here would be an option pixfort has
+		// no equivalent for, and passing '' emits a badge with no size class at
+		// all, which is why it did not match a Text set to Default.
 		self::add( $target, $condition, $prefix . '_text_size', array(
 			'label'   => __( 'Text size', 'galaxie-woo' ),
 			'type'    => Controls_Manager::SELECT,
-			'options' => self::TEXT_SIZES,
-			'default' => $d( 'text_size', '' ),
+			'options' => self::HEADING_SIZES,
+			'default' => $d( 'text_size', 'h6' ),
+		) );
+
+		self::add( $target, $condition, $prefix . '_text_custom_size', array(
+			'label'     => __( 'Custom text size', 'galaxie-woo' ),
+			'type'      => Controls_Manager::TEXT,
+			'default'   => '',
+			'condition' => array( $prefix . '_text_size' => 'custom' ),
 		) );
 
 		self::add( $target, $condition, $prefix . '_rounded', array(
@@ -520,6 +535,69 @@ final class PixfortControls {
 			'return_value' => 'rounded-pill',
 			'default'      => $d( 'rounded', 'rounded-pill' ),
 		) );
+
+		self::add( $target, $condition, $prefix . '_bold', array(
+			'label'        => __( 'Bold', 'galaxie-woo' ),
+			'type'         => Controls_Manager::SWITCHER,
+			'return_value' => 'font-weight-bold',
+			'default'      => $d( 'bold', '' ),
+		) );
+
+		self::add( $target, $condition, $prefix . '_italic', array(
+			'label'        => __( 'Italic', 'galaxie-woo' ),
+			'type'         => Controls_Manager::SWITCHER,
+			'return_value' => 'font-italic',
+			'default'      => $d( 'italic', '' ),
+		) );
+
+		self::add( $target, $condition, $prefix . '_secondary_font', array(
+			'label'        => __( 'Secondary font', 'galaxie-woo' ),
+			'type'         => Controls_Manager::SWITCHER,
+			'return_value' => 'secondary-font',
+			'default'      => $d( 'secondary_font', '' ),
+		) );
+
+		self::add( $target, $condition, $prefix . '_style', array(
+			'label'   => __( 'Shadow style', 'galaxie-woo' ),
+			'type'    => Controls_Manager::SELECT,
+			'options' => self::shadow_options( __( 'Default', 'galaxie-woo' ), __( 'shadow', 'galaxie-woo' ) ),
+			'default' => $d( 'style', '' ),
+		) );
+
+		self::add( $target, $condition, $prefix . '_hover_effect', array(
+			'label'   => __( 'Shadow hover style', 'galaxie-woo' ),
+			'type'    => Controls_Manager::SELECT,
+			'options' => self::shadow_options( __( 'None', 'galaxie-woo' ), __( 'hover shadow', 'galaxie-woo' ) ),
+			'default' => $d( 'hover_effect', '' ),
+		) );
+
+		self::add( $target, $condition, $prefix . '_add_hover_effect', array(
+			'label'   => __( 'Hover animation', 'galaxie-woo' ),
+			'type'    => Controls_Manager::SELECT,
+			'options' => self::hover_animations(),
+			'default' => $d( 'add_hover_effect', '' ),
+		) );
+
+		self::add( $target, $condition, $prefix . '_animation', array(
+			'label'   => __( 'Animation', 'galaxie-woo' ),
+			'type'    => Controls_Manager::SELECT,
+			'default' => '',
+			'options' => self::animations(),
+		) );
+
+		self::add( $target, $condition, $prefix . '_delay', array(
+			'label'     => __( 'Animation delay (in miliseconds)', 'galaxie-woo' ),
+			'type'      => Controls_Manager::TEXT,
+			'default'   => '0',
+			'condition' => array( $prefix . '_animation!' => '' ),
+		) );
+
+		self::add( $target, $condition, $prefix . '_extra_classes', array(
+			'label'       => __( 'Extra classes', 'galaxie-woo' ),
+			'label_block' => true,
+			'type'        => Controls_Manager::TEXT,
+			'default'     => '',
+		) );
 	}
 
 	/**
@@ -527,13 +605,25 @@ final class PixfortControls {
 	 * @return array<string,mixed>
 	 */
 	public static function badge_attr( array $settings, string $prefix, string $text ): array {
-		return array(
-			'text'       => $text,
-			'text_color' => $settings[ $prefix . '_text_color' ] ?? '',
-			'bg_color'   => $settings[ $prefix . '_bg_color' ] ?? '',
-			'text_size'  => $settings[ $prefix . '_text_size' ] ?? '',
-			'rounded'    => $settings[ $prefix . '_rounded' ] ?? '',
+		$keys = array(
+			'text_color', 'text_custom_color', 'text_size', 'text_custom_size',
+			'bold', 'italic', 'secondary_font', 'rounded', 'bg_color',
+			'custom_bg_color', 'style', 'hover_effect', 'add_hover_effect',
+			'animation', 'delay', 'extra_classes',
 		);
+
+		// text_size seeds pixfort's own default rather than an empty string:
+		// PixBadge emits it as a class, and '' produces a badge carrying no
+		// size at all — which is not what "default" means anywhere in pixfort.
+		$attr = array( 'text' => $text, 'text_size' => 'h6' );
+
+		foreach ( $keys as $key ) {
+			if ( isset( $settings[ $prefix . '_' . $key ] ) ) {
+				$attr[ $key ] = $settings[ $prefix . '_' . $key ];
+			}
+		}
+
+		return $attr;
 	}
 
 	/**
@@ -599,6 +689,27 @@ final class PixfortControls {
 		}
 
 		$target->add_control( $id, $args );
+	}
+
+	/**
+	 * Shared by Button and Badge: pixfort offers the same hover animations on
+	 * both, under the same numeric values.
+	 *
+	 * @return array<string,string>
+	 */
+	private static function hover_animations(): array {
+		return array(
+			''  => __( 'None', 'galaxie-woo' ),
+			'1' => __( 'Fly Small', 'galaxie-woo' ),
+			'2' => __( 'Fly Medium', 'galaxie-woo' ),
+			'3' => __( 'Fly Large', 'galaxie-woo' ),
+			'4' => __( 'Scale Small', 'galaxie-woo' ),
+			'5' => __( 'Scale Medium', 'galaxie-woo' ),
+			'6' => __( 'Scale Large', 'galaxie-woo' ),
+			'7' => __( 'Scale Inverse Small', 'galaxie-woo' ),
+			'8' => __( 'Scale Inverse Medium', 'galaxie-woo' ),
+			'9' => __( 'Scale Inverse Large', 'galaxie-woo' ),
+		);
 	}
 
 	/** @return array<string,string> */
