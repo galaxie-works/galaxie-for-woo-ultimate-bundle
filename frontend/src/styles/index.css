@@ -321,15 +321,26 @@ button.galaxie-spotlight-add:disabled {
   margin-bottom: 0.75rem;
 }
 
-/* Deliberately hands-off on the quantity input itself: the theme's own
-   sitewide quantity-stepper script/CSS (the one already styling every other
-   +/- input on the site) applies here too, since this is a real
-   `woocommerce_quantity_input()` — fighting it with our own height/padding
-   overrides was making it look worse, not better. If it ever needs to look
-   different specifically here, target `.galaxie-buybox-quantity .qty`. */
+/* Deliberately hands-off on the quantity input's own look: the sitewide
+   stepper script/CSS already styling every other +/- input applies here too,
+   since this is a real `woocommerce_quantity_input()` — fighting it with our
+   own height/padding overrides made it look worse, not better. If it ever
+   needs to look different specifically here, target
+   `.galaxie-buybox-quantity .qty`. */
 .galaxie-buybox-quantity {
   display: inline-block;
   margin-bottom: 0.75rem;
+}
+
+/* The one thing that IS ours to fix: this stepper sits OUTSIDE `form.cart`
+   (the native form stays hidden, so our controls live beside it), and the
+   theme stack scopes its stepper row layout to that form — leaving the
+   injected +/- buttons to fall back to inline flow, where they ride the text
+   baseline and sit above the number. Only the row axis is set here; sizing
+   and colour stay with whatever styles the buttons. */
+.galaxie-buybox-quantity .quantity {
+  display: flex;
+  align-items: center;
 }
 
 .galaxie-buybox-actions {
