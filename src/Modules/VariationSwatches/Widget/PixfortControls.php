@@ -346,7 +346,13 @@ final class PixfortControls {
 			'type'       => Controls_Manager::SLIDER,
 			'size_units' => array( 'px' ),
 			'range'      => array( 'px' => array( 'min' => 0, 'max' => 12 ) ),
-			'selectors'  => array( $scope . ':hover' => 'transform: translateY(-{{SIZE}}{{UNIT}}) !important;' ),
+			// A custom property, not the transform itself: pixfort forces its own
+			// `translate(0, -3px) !important` on `.single_add_to_cart_button:hover`,
+			// so our stylesheet has to answer with `!important` too — and that reset
+			// would outrank Elementor's generated rule. Handing the value over as a
+			// variable lets both rules coexist: ours owns the transform, this owns
+			// the distance.
+			'selectors'  => array( $scope => '--galaxie-hover-lift: {{SIZE}}{{UNIT}};' ),
 		) );
 	}
 

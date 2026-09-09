@@ -421,16 +421,49 @@ form.galaxie-buybox .galaxie-buybox-quantity {
   display: flex;
 }
 
-/* The theme lifts `.single_add_to_cart_button` on hover:
-   `transform: translate(0, -3px) !important` plus a shadow. Our button keeps
-   that class so WooCommerce's variation JS can still disable it, but it is a
-   real pixfort Button whose hover behaviour belongs to the widget's own
-   "Button hover animation" and "Button shadow hover style" controls — with
-   those set to None, it must not move. Undone here so those controls, and only
-   those, decide; `!important` because the theme's rule carries it too. */
+/* pixfort styles `.single_add_to_cart_button` as if it were the visible button:
+
+     .single_add_to_cart_button {
+       height: 2.7rem;
+       font-size: 12px !important;
+       box-shadow: var(--pix-box-shadow-sm, ...) !important;
+     }
+     .single_add_to_cart_button:hover {
+       transform: translate(0, -3px) !important;
+       box-shadow: var(--pix-box-shadow-hover-sm, ...) !important;
+     }
+
+   For us it is not the button — it is a bare click target wrapped around a real
+   pixfort Button, and we only keep the class so WooCommerce's variation JS can
+   still toggle the disabled state. Left alone, the resting shadow draws a
+   RECTANGLE around a pill-shaped button, because the shadow follows the
+   wrapper's own border-radius (0) and not the .btn inside it. The forced height
+   is just as wrong: at 2.7rem it overrides whatever the widget's Size control
+   asked for, so Small and Large came out the same 43px.
+
+   All of it is undone here so the pixfort Button inside decides its own size,
+   shape and shadow, and the widget's Size / "Button shadow hover style" /
+   "Button hover animation" controls are what actually govern. */
+form.galaxie-buybox .single_add_to_cart_button,
 form.galaxie-buybox .single_add_to_cart_button:hover {
-  transform: none !important;
+  height: auto;
+  font-size: inherit !important;
   box-shadow: none !important;
+}
+
+/* The lift is read from a custom property rather than overridden per-state.
+   A plain `transform: none !important` here would beat Elementor's own
+   `.elementor-element-xxx .galaxie-buybox-addcart:hover` rule on specificity
+   (an element name is one more than Elementor emits) and silently disable the
+   widget's Hover lift control. Writing a variable instead sidesteps the contest
+   entirely: the control sets `--galaxie-hover-lift`, this rule consumes it, and
+   with no value set the button stays exactly where it is. */
+form.galaxie-buybox .single_add_to_cart_button {
+  transform: none !important;
+}
+
+form.galaxie-buybox .single_add_to_cart_button:hover {
+  transform: translateY(calc(-1 * var(--galaxie-hover-lift, 0px))) !important;
 }
 
 /* Quantity and the buttons share a row when the layout asks for it. */
