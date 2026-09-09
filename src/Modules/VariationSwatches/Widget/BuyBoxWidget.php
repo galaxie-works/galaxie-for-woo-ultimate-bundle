@@ -247,7 +247,33 @@ final class BuyBoxWidget extends Widget_Base {
 
 		PixfortControls::palette_control( $this, 'qty_text_color', __( 'Text color', 'galaxie-woo' ), $input, 'color' );
 		PixfortControls::palette_control( $this, 'qty_bg_color', __( 'Background color', 'galaxie-woo' ), $field, 'background-color' );
-		PixfortControls::palette_control( $this, 'qty_border_color', __( 'Border color', 'galaxie-woo' ), $field, 'border-color' );
+		// The theme gives the quantity box a background, radius and shadow but
+		// no border at all, so a colour on its own lands on a zero-width border
+		// and shows nothing. Picking a colour therefore also brings a style and
+		// a 1px baseline, which the width control below can then override.
+		PixfortControls::palette_control(
+			$this,
+			'qty_border_color',
+			__( 'Border color', 'galaxie-woo' ),
+			$field,
+			'border-color',
+			array(),
+			' border-style: solid !important; border-width: 1px;'
+		);
+
+		$this->add_responsive_control(
+			'qty_border_width',
+			array(
+				'label'      => __( 'Border width', 'galaxie-woo' ),
+				'type'       => Controls_Manager::SLIDER,
+				'size_units' => array( 'px' ),
+				'range'      => array( 'px' => array( 'min' => 0, 'max' => 8 ) ),
+				// No default on purpose: an untouched slider must not paint a
+				// border on a box the theme deliberately ships without one.
+				'selectors'  => array( $field => 'border-width: {{SIZE}}{{UNIT}} !important; border-style: solid;' ),
+				'condition'  => array( 'qty_border_color!' => '' ),
+			)
+		);
 
 		$this->add_responsive_control(
 			'qty_width',

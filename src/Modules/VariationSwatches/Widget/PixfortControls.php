@@ -670,12 +670,12 @@ final class PixfortControls {
 	 *
 	 * @param array<string,mixed> $condition
 	 */
-	public static function palette_control( object $target, string $id, string $label, string $selector, string $property, array $condition = array() ): void {
+	public static function palette_control( object $target, string $id, string $label, string $selector, string $property, array $condition = array(), string $extra = '' ): void {
 		if ( ! self::available() ) {
 			self::add( $target, $condition, $id . '_fallback', array(
 				'label'     => $label,
 				'type'      => Controls_Manager::COLOR,
-				'selectors' => array( $selector => $property . ': {{VALUE}};' ),
+				'selectors' => array( $selector => $property . ': {{VALUE}};' . $extra ),
 			) );
 			return;
 		}
@@ -691,7 +691,7 @@ final class PixfortControls {
 				if ( '' === $value || 'custom' === $value ) {
 					continue;
 				}
-				$dictionary[ $value ] = $property . ': var(--pix-' . $value . ') !important;';
+				$dictionary[ $value ] = $property . ': var(--pix-' . $value . ') !important;' . $extra;
 			}
 		}
 
