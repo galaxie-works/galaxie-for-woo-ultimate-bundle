@@ -1,15 +1,16 @@
 /* Galaxie icon picker, Elementor panel only. */
 
-/* pixfort's icons are not self-contained. The Line set paints with
-   `stroke="var(--pf-icon-color)"` and `stroke-width="var(--pf-icon-stroke-width)"`,
-   and those variables are defined by the theme on the site — not in the
-   Elementor panel. Undefined, the stroke is invalid and the icon draws nothing
-   at all, which is why the first grid showed empty boxes for every outline icon
-   while the filled ones (a division sign, a couple of exclamation marks) came
-   through fine: those use `fill="currentcolor"` and never needed a variable.
+/* pixfort's icons are not self-contained. Read off the live site, the Line set
+   paints with `stroke="var(--pf-icon-color)"` plus
+   `stroke-width="var(--pf-icon-stroke-width)"`, and Solid and Duotone paint with
+   `fill="var(--pf-icon-color)"` — so nearly every icon in the library depends on
+   a variable the theme defines on the storefront and nothing defines inside the
+   Elementor panel. Undefined, the paint is invalid and the icon draws nothing,
+   which is why the first grid was a wall of empty boxes; the two or three that
+   did show up are the handful with a literal colour baked into the file.
 
-   Declaring them here is what makes the panel able to render the same markup
-   the storefront does. */
+   Declaring them here is what lets the panel render the same markup the
+   storefront does. */
 .galaxie-icon-picker {
   --pf-icon-color: currentColor;
   --pf-icon-stroke-width: 1.5;
