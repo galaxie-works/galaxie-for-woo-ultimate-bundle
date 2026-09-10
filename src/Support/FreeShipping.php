@@ -28,6 +28,15 @@ final class FreeShipping {
 	 * The store's own threshold, or 0.0 when nothing sets one.
 	 */
 	public static function threshold(): float {
+		// Ours first. The Free Shipping module is the one place a merchant sets
+		// this number, and it is the number checkout actually honours — reading
+		// the zone ahead of it would let the bar promise something else.
+		$ours = \Galaxie\Woo\Modules\FreeShipping\Module::threshold();
+
+		if ( $ours > 0 ) {
+			return $ours;
+		}
+
 		if ( ! function_exists( 'WC' ) || null === WC()->cart || ! class_exists( '\WC_Shipping_Zones' ) ) {
 			return 0.0;
 		}
