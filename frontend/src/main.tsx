@@ -13,6 +13,7 @@ import { bootWishlist } from '@/globals/wishlist'
 import { bootQuantityDiscounts } from '@/globals/quantity-discounts'
 import { bootProductData } from '@/globals/product-data'
 import { bootCart } from '@/globals/cart'
+import { bootCartCountdown } from '@/globals/countdown'
 
 // Each module registers its island(s) here as they are ported.
 registerIsland('demo', Demo)
@@ -37,6 +38,7 @@ function boot(): void {
   bootBuyBox(config.variationSwatches?.buyBox)
   bootVariationBadgesWidget(config.variationSwatches?.buyBox)
   bootQuantityDiscounts()
+  bootCartCountdown()
 
   if (config.productData) {
     bootProductData()

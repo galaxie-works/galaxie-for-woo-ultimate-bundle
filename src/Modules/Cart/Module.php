@@ -10,9 +10,11 @@ namespace Galaxie\Woo\Modules\Cart;
 use Galaxie\Woo\Core\Module as ModuleContract;
 use Galaxie\Woo\Core\ProvidesBootData;
 use Galaxie\Woo\Core\ProvidesElementorWidgets;
+use Galaxie\Woo\Modules\Cart\Widget\CartCountdownWidget;
 use Galaxie\Woo\Modules\Cart\Widget\CartTableWidget;
 use Galaxie\Woo\Modules\Cart\Widget\CartTotalsWidget;
 use Galaxie\Woo\Modules\Cart\Widget\CartWidget;
+use Galaxie\Woo\Support\CartCountdown;
 use Galaxie\Woo\Support\CartParts;
 use Galaxie\Woo\Support\Assets;
 
@@ -60,11 +62,17 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 
 		add_action( 'wp_ajax_' . self::ACTION, array( $this, 'ajax_update' ) );
 		add_action( 'wp_ajax_nopriv_' . self::ACTION, array( $this, 'ajax_update' ) );
+
+		// The countdown's anchor. Registered by the module rather than by the
+		// widget because a widget only exists while a page renders, and the
+		// clock has to start at the moment of the add — which happens on a
+		// different request entirely.
+		add_action( 'woocommerce_add_to_cart', array( CartCountdown::class, 'touch' ) );
 	}
 
 	/** @return string[] */
 	public function elementor_widgets(): array {
-		return array( CartWidget::class, CartTableWidget::class, CartTotalsWidget::class );
+		return array( CartWidget::class, CartTableWidget::class, CartTotalsWidget::class, CartCountdownWidget::class );
 	}
 
 	/**

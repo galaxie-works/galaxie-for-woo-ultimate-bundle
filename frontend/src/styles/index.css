@@ -963,3 +963,40 @@ form.galaxie-buybox .galaxie-buybox-row {
 .galaxie-cart-continue {
   margin-top: 8px;
 }
+
+/* -------------------------------------------------------------------------
+   Cart countdown — XStore's sales-booster timer, ported.
+
+   Almost everything here is a control; what is left is the layout that makes
+   the icon sit beside the message and the clock read as one object rather than
+   as three loose words.
+   ------------------------------------------------------------------------- */
+.galaxie-countdown {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 12px 16px;
+}
+
+.galaxie-countdown-icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+  line-height: 0;
+}
+
+.galaxie-countdown-body {
+  min-width: 0;
+}
+
+.galaxie-countdown-body p {
+  margin: 0;
+}
+
+/* Tabular figures: without them the clock changes width every second and the
+   whole message shuffles sideways once a second for five minutes. */
+.galaxie-countdown-time {
+  display: inline-block;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
+}
