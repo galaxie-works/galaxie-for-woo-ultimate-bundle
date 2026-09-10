@@ -958,7 +958,8 @@ form.galaxie-buybox .galaxie-buybox-row {
   margin-top: 16px;
 }
 
+/* No font-size of its own any more: it carries a pixfort button, and the
+   button's own Size control is what decides. */
 .galaxie-cart-continue {
   margin-top: 8px;
-  font-size: 0.9em;
 }

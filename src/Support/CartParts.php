@@ -260,15 +260,6 @@ final class CartParts {
 		);
 
 		$widget->add_control(
-			'checkout_text',
-			array(
-				'label'   => __( 'Checkout button', 'galaxie-woo' ),
-				'type'    => Controls_Manager::TEXT,
-				'default' => __( 'Finalizar compra', 'galaxie-woo' ),
-			)
-		);
-
-		$widget->add_control(
 			'show_continue',
 			array(
 				'label'        => __( 'Continue shopping link', 'galaxie-woo' ),
@@ -278,16 +269,43 @@ final class CartParts {
 			)
 		);
 
-		$widget->add_control(
-			'continue_text',
-			array(
-				'label'     => __( 'Continue shopping', 'galaxie-woo' ),
-				'type'      => Controls_Manager::TEXT,
-				'default'   => __( 'Continuar comprando', 'galaxie-woo' ),
-				'condition' => array( 'show_continue' => 'yes' ),
-			)
-		);
+		$widget->end_controls_section();
 
+		// Each button gets a section of its own carrying pixfort's whole Button
+		// set — text, style, colours, size, radius, shadows, hover animation,
+		// icon, full width, container, animation, extra classes and the hover
+		// group — exactly the panel the buy box's Add to Cart and Buy Now have.
+		// Shaped like the buy box's too: the text lives with the button rather
+		// than in a separate content field.
+		//
+		// `checkout_text` was declared here AND by button(), which is a
+		// duplicate control id: Elementor keeps the first and silently drops the
+		// second, so the Button text field never appeared in the styling panel.
+		// Same id, one declaration now — nothing already typed is lost.
+		$widget->start_controls_section( 'checkout_button_section', array( 'label' => __( 'Checkout button', 'galaxie-woo' ) ) );
+		PixfortControls::button(
+			$widget,
+			'checkout',
+			array( 'text' => __( 'Finalizar compra', 'galaxie-woo' ), 'color' => 'primary', 'full' => 'w-100', 'size' => 'lg' ),
+			array(),
+			'{{WRAPPER}} .galaxie-cart-checkout'
+		);
+		$widget->end_controls_section();
+
+		// A link before, which meant no styling at all. It is a button now, with
+		// the same set — an outline or link style is one of its options rather
+		// than something baked into the markup.
+		$widget->start_controls_section(
+			'continue_button_section',
+			array( 'label' => __( 'Continue shopping', 'galaxie-woo' ), 'condition' => array( 'show_continue' => 'yes' ) )
+		);
+		PixfortControls::button(
+			$widget,
+			'continue',
+			array( 'text' => __( 'Continuar comprando', 'galaxie-woo' ), 'style' => 'link', 'color' => 'secondary', 'full' => 'w-100' ),
+			array( 'show_continue' => 'yes' ),
+			'{{WRAPPER}} .galaxie-cart-continue'
+		);
 		$widget->end_controls_section();
 	}
 
@@ -509,10 +527,6 @@ final class CartParts {
 	}
 
 	public static function register_totals_style( object $widget ): void {
-		$widget->start_controls_section( 'checkout_style', array( 'label' => __( 'Checkout button', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
-		PixfortControls::button( $widget, 'checkout', array( 'full' => 'w-100', 'size' => 'lg' ) );
-		$widget->end_controls_section();
-
 		$widget->start_controls_section( 'box_style', array( 'label' => __( 'Totals box', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
 
 		// Was a hand-rolled background + padding + radius slider. The shared set
@@ -877,7 +891,7 @@ final class CartParts {
 			printf(
 				'<a class="galaxie-cart-continue" href="%s">%s</a>',
 				esc_url( wc_get_page_permalink( 'shop' ) ),
-				esc_html( (string) ( $settings['continue_text'] ?? '' ) )
+				PixfortControls::render_button( $settings, 'continue', (string) ( $settings['continue_text'] ?? '' ) ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pixfort's own component markup.
 			);
 		}
 
