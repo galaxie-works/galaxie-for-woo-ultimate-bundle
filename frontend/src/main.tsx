@@ -11,6 +11,7 @@ import { bootVariationBadgesWidget } from '@/globals/variation-badges-widget'
 import { bootBuyBox } from '@/globals/buy-box'
 import { bootWishlist } from '@/globals/wishlist'
 import { bootQuantityDiscounts } from '@/globals/quantity-discounts'
+import { bootProductData } from '@/globals/product-data'
 
 // Each module registers its island(s) here as they are ported.
 registerIsland('demo', Demo)
@@ -22,6 +23,7 @@ interface GalaxieConfig {
   variationSwatches?: { attributes?: string[]; buyBox?: { ajaxUrl: string; nonce: string } }
   variationSpotlight?: { ajaxUrl: string; nonce: string }
   wishlist?: { ajaxUrl: string; nonce: string }
+  productData?: boolean
 }
 
 function boot(): void {
@@ -33,6 +35,10 @@ function boot(): void {
   bootBuyBox(config.variationSwatches?.buyBox)
   bootVariationBadgesWidget(config.variationSwatches?.buyBox)
   bootQuantityDiscounts()
+
+  if (config.productData) {
+    bootProductData()
+  }
 
   if (config.toastNotices) {
     bootToastNotices()
