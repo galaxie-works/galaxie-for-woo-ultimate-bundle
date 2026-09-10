@@ -66,6 +66,21 @@ final class ProductAttribute extends BaseTag {
 		);
 
 		$this->add_control(
+			'order',
+			array(
+				'label'       => __( 'Order', 'galaxie-woo' ),
+				'type'        => Controls_Manager::SELECT,
+				'default'     => 'default',
+				'options'     => array(
+					'default'      => __( 'As configured in WooCommerce', 'galaxie-woo' ),
+					'natural'      => __( 'Natural, ascending', 'galaxie-woo' ),
+					'natural_desc' => __( 'Natural, descending', 'galaxie-woo' ),
+				),
+				'description' => __( 'Natural compares numbers as numbers, so 50g comes before 190g. A plain alphabetical sort would not: "1" sorts before "5".', 'galaxie-woo' ),
+			)
+		);
+
+		$this->add_control(
 			'show_label',
 			array(
 				'label'        => __( 'Prefix with attribute name', 'galaxie-woo' ),
@@ -112,6 +127,33 @@ final class ProductAttribute extends BaseTag {
 		return $options;
 	}
 
+	/**
+	 * Reorder the values, when asked.
+	 *
+	 * Natural, not alphabetical, and the difference is the whole point here:
+	 * `sort()` puts "190g" before "50g", because it compares "1" against "5"
+	 * one character at a time. `strnatcasecmp()` reads the digits as a number
+	 * and puts 50g first, which is what anyone reading a size list expects.
+	 *
+	 * The default leaves WooCommerce's own order alone — `wc_get_product_terms()`
+	 * honours the attribute's Sort order setting, and overriding that silently
+	 * would fight a merchant who set it deliberately.
+	 *
+	 * @param array<int,string> $names
+	 * @return array<int,string>
+	 */
+	private function ordered( array $names ): array {
+		$order = (string) $this->get_settings( 'order' );
+
+		if ( 'default' === $order || '' === $order ) {
+			return $names;
+		}
+
+		usort( $names, 'strnatcasecmp' );
+
+		return 'natural_desc' === $order ? array_reverse( $names ) : $names;
+	}
+
 	public function render(): void {
 		$product   = $this->product();
 		$taxonomy  = (string) $this->get_settings( 'attribute' );
@@ -127,7 +169,10 @@ final class ProductAttribute extends BaseTag {
 			return;
 		}
 
-		$value = implode( $separator, array_map( 'wp_strip_all_tags', $names ) );
+		$names = array_map( 'wp_strip_all_tags', $names );
+		$names = $this->ordered( $names );
+
+		$value = implode( $separator, $names );
 
 		if ( 'yes' === $this->get_settings( 'show_label' ) ) {
 			$label = wc_attribute_label( $taxonomy, $product );
