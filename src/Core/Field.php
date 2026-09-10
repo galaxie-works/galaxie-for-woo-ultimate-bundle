@@ -22,6 +22,7 @@ final class Field {
 	public const TYPE_NUMBER   = 'number';
 	public const TYPE_TOGGLE   = 'toggle';
 	public const TYPE_SELECT   = 'select';
+	public const TYPE_MULTI    = 'multiselect';
 
 	/**
 	 * @param string               $key         Storage key within the module's settings array.
@@ -48,6 +49,13 @@ final class Field {
 			self::TYPE_TOGGLE => ! empty( $raw ),
 			self::TYPE_NUMBER => is_numeric( $raw ) ? (float) $raw : $this->default,
 			self::TYPE_SELECT => array_key_exists( (string) $raw, $this->options ) ? (string) $raw : $this->default,
+			// Anything not on the list is dropped rather than kept: these
+			// choices name shipping zones and carriers, and a stale id that
+			// survived a store's reorganisation would silently widen who gets
+			// free shipping.
+			self::TYPE_MULTI => array_values(
+				array_intersect( array_map( 'strval', (array) $raw ), array_map( 'strval', array_keys( $this->options ) ) )
+			),
 			default => sanitize_text_field( (string) $raw ),
 		};
 	}
@@ -63,7 +71,13 @@ final class Field {
 	public static function sanitize_all( array $fields, array $submitted ): array {
 		$out = array();
 		foreach ( $fields as $field ) {
-			$out[ $field->key ] = $field->sanitize( $submitted[ $field->key ] ?? ( self::TYPE_TOGGLE === $field->type ? false : '' ) );
+			$empty = match ( $field->type ) {
+				self::TYPE_TOGGLE => false,
+				self::TYPE_MULTI  => array(),
+				default           => '',
+			};
+
+			$out[ $field->key ] = $field->sanitize( $submitted[ $field->key ] ?? $empty );
 		}
 		return $out;
 	}
