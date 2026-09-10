@@ -844,3 +844,54 @@ form.galaxie-buybox .galaxie-buybox-row {
     display: none;
   }
 }
+
+/* The totals rows are ours now, not WooCommerce's cart-totals template — see
+   CartParts::totals_markup() for why. Label left, amount right, one line each. */
+.galaxie-cart-totals-rows {
+  display: flex;
+  flex-direction: column;
+}
+
+.galaxie-cart-total-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 8px 0;
+}
+
+.galaxie-cart-total-row + .galaxie-cart-total-row {
+  border-top: 1px solid rgb(0 0 0 / 6%);
+}
+
+.galaxie-cart-total-order-total {
+  font-weight: 600;
+}
+
+.galaxie-cart-total-value {
+  text-align: right;
+}
+
+/* wc_cart_totals_shipping_html() prints its own <tr>s — the shipping methods
+   and the calculator link expect that markup — so the row it lands in stacks
+   rather than trying to lay a table out as flex. */
+.galaxie-cart-total-shipping {
+  display: block;
+}
+
+.galaxie-cart-total-shipping table,
+.galaxie-cart-total-shipping ul {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.galaxie-cart-checkout {
+  margin-top: 16px;
+}
+
+.galaxie-cart-continue {
+  margin-top: 8px;
+  font-size: 0.9em;
+}

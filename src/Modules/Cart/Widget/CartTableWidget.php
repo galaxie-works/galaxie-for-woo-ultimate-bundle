@@ -1,6 +1,6 @@
 <?php
 /**
- * "Galaxie Cart" — the table and the totals in one widget.
+ * "Galaxie Cart Table" — the item lines on their own.
  *
  * @package Galaxie\Woo
  */
@@ -13,27 +13,25 @@ use Galaxie\Woo\Support\CartParts;
 defined( 'ABSPATH' ) || exit;
 
 /**
- * The whole cart in one block: drop it in, configure it, done.
+ * For the layout the combined widget cannot give you: table here, totals in a
+ * container of their own.
  *
- * Use the separate {@see CartTableWidget} and {@see CartTotalsWidget} instead
- * when the two need to sit in different containers — a sticky right-hand column
- * for the totals, say. Layout stays the builder's job either way; that is
- * exactly why this widget has no "columns" control.
- *
- * Every part it renders comes from {@see CartParts}, shared with the other two.
+ * This one owns the empty cart. When the cart empties, something has to say so,
+ * and if both widgets did it a shopper would read the same message twice —
+ * {@see CartTotalsWidget} renders nothing at all in that state.
  */
-final class CartWidget extends Widget_Base {
+final class CartTableWidget extends Widget_Base {
 
 	public function get_name(): string {
-		return 'galaxie-cart';
+		return 'galaxie-cart-table';
 	}
 
 	public function get_title(): string {
-		return __( 'Galaxie Cart', 'galaxie-woo' );
+		return __( 'Galaxie Cart Table', 'galaxie-woo' );
 	}
 
 	public function get_icon(): string {
-		return 'eicon-cart';
+		return 'eicon-table';
 	}
 
 	/** @return array<int,string> */
@@ -49,10 +47,8 @@ final class CartWidget extends Widget_Base {
 	protected function register_controls(): void {
 		CartParts::register_line_controls( $this );
 		CartParts::register_behaviour_controls( $this );
-		CartParts::register_totals_controls( $this );
 		CartParts::register_empty_controls( $this );
 		CartParts::register_table_style( $this );
-		CartParts::register_totals_style( $this );
 	}
 
 	protected function render(): void {
@@ -67,9 +63,8 @@ final class CartWidget extends Widget_Base {
 			return;
 		}
 
-		echo '<div class="galaxie-cart">';
+		echo '<div class="galaxie-cart galaxie-cart--table">';
 		CartParts::render_table( $settings );
-		echo CartParts::totals_markup( $settings ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built from escaped parts.
 		echo '</div>';
 	}
 }

@@ -10,7 +10,10 @@ namespace Galaxie\Woo\Modules\Cart;
 use Galaxie\Woo\Core\Module as ModuleContract;
 use Galaxie\Woo\Core\ProvidesBootData;
 use Galaxie\Woo\Core\ProvidesElementorWidgets;
+use Galaxie\Woo\Modules\Cart\Widget\CartTableWidget;
+use Galaxie\Woo\Modules\Cart\Widget\CartTotalsWidget;
 use Galaxie\Woo\Modules\Cart\Widget\CartWidget;
+use Galaxie\Woo\Support\CartParts;
 use Galaxie\Woo\Support\Assets;
 
 defined( 'ABSPATH' ) || exit;
@@ -61,7 +64,7 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 
 	/** @return string[] */
 	public function elementor_widgets(): array {
-		return array( CartWidget::class );
+		return array( CartWidget::class, CartTableWidget::class, CartTotalsWidget::class );
 	}
 
 	/**
@@ -112,9 +115,9 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 				'subtotal'  => $item ? WC()->cart->get_product_subtotal( $item['data'], $item['quantity'] ) : '',
 				'count'     => WC()->cart->get_cart_contents_count(),
 				'empty'     => WC()->cart->is_empty(),
-				// The totals block is markup the widget owns, so the widget is
-				// what re-renders it — the script only swaps what it is given.
-				'totals'    => CartWidget::totals_markup(),
+				// Re-rendered from the shared parts, so the block that comes
+				// back is the same one any of the three widgets printed.
+				'totals'    => CartParts::totals_markup(),
 				// WooCommerce's own fragments, so a mini cart in the header
 				// updates from the same response instead of going stale.
 				'fragments' => apply_filters( 'woocommerce_add_to_cart_fragments', array() ),

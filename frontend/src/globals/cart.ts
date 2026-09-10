@@ -73,7 +73,7 @@ function lineOf(el: Element): HTMLElement | null {
   return el.closest<HTMLElement>('.galaxie-cart-line[data-galaxie-key]')
 }
 
-function apply(root: HTMLElement, line: HTMLElement, data: NonNullable<CartResponse['data']>): void {
+function apply(line: HTMLElement, data: NonNullable<CartResponse['data']>): void {
   // An empty cart is a different page — a saved template, possibly — and this
   // script has no business rebuilding it. The server already knows.
   if (data.empty) {
@@ -89,7 +89,11 @@ function apply(root: HTMLElement, line: HTMLElement, data: NonNullable<CartRespo
   }
 
   if (data.totals) {
-    const totals = root.querySelector('.galaxie-cart-totals')
+    // Searched on the DOCUMENT, not inside the form's own block. With the
+    // split widgets the totals live in a container of their own — often a
+    // sticky column on the other side of the page — and scoping the lookup to
+    // the table's root would silently stop updating them there.
+    const totals = document.querySelector('.galaxie-cart-totals')
     if (totals) totals.outerHTML = data.totals
   }
 
@@ -104,9 +108,8 @@ function apply(root: HTMLElement, line: HTMLElement, data: NonNullable<CartRespo
 export function bootCart(config?: CartConfig): void {
   if (!config?.ajaxUrl) return
 
-  const root = document.querySelector<HTMLElement>('.galaxie-cart')
   const form = document.querySelector<HTMLFormElement>('.galaxie-cart-form[data-galaxie-auto="1"]')
-  if (!root || !form) return
+  if (!form) return
 
   form.classList.add('is-galaxie-auto')
 
@@ -118,7 +121,7 @@ export function bootCart(config?: CartConfig): void {
 
     try {
       const json = await send(config, key, quantity)
-      if (json.success && json.data) apply(root, line, json.data)
+      if (json.success && json.data) apply(line, json.data)
     } catch {
       // A failed request must not leave a cart showing a quantity the server
       // never accepted. Reloading shows what is actually there.
