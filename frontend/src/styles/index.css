@@ -798,6 +798,21 @@ form.galaxie-buybox .galaxie-buybox-row {
   text-align: right;
 }
 
+/* A flex line places an item by its MARGIN box, and pixfort's Text renders a
+   <p> that keeps its own bottom margin unless "Remove padding" is on. So a
+   price set to Bottom stopped one margin short of the cell's floor and read as
+   centred — measured at 10px, which is exactly the h6 margin. Only the remove
+   icon looked right, because an <a> has no margin to stop short by.
+
+   Inside a cell the alignment decides, and the spacing between cells is the
+   row's padding and the cell's — a paragraph margin in a table cell is not
+   spacing anyone asked for, it is a paragraph being a paragraph. */
+.galaxie-cart-cell > *,
+.galaxie-cart-cell p {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
 /* Vertical, per column. The cell is a flex COLUMN, so what places its content
    along the line's height is justify-content, not align-items. */
 .galaxie-cart-cell--v-top {
