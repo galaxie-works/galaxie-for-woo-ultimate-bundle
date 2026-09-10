@@ -1210,8 +1210,53 @@ final class PixfortControls {
 	 * @param array<string,mixed> $defaults
 	 * @param array<string,mixed> $condition
 	 */
-	public static function quantity( object $target, string $prefix, string $field, string $input, array $defaults = array(), array $condition = array() ): void {
-		$d = static fn( string $key, $fallback ) => $defaults[ $key ] ?? $fallback;
+	public static function quantity( object $target, string $prefix, string $field, string $input, array $defaults = array(), array $condition = array(), string $wrapper = '' ): void {
+		$d   = static fn( string $key, $fallback ) => $defaults[ $key ] ?? $fallback;
+		$box = '' !== $wrapper ? $wrapper : $field;
+
+		// Style and the dropdown ceiling used to live in the buy box widget
+		// rather than here, which is exactly why the cart's Quantity panel was
+		// not the buy box's Quantity panel however often the rest was shared.
+		// The ids are unchanged, so a buy box already set to Dropdown stays one.
+		self::add( $target, $condition, $prefix . '_style', array(
+			'label'   => __( 'Style', 'galaxie-woo' ),
+			'type'    => Controls_Manager::SELECT,
+			'options' => array(
+				'input'  => __( 'Number input (+/-)', 'galaxie-woo' ),
+				'select' => __( 'Dropdown', 'galaxie-woo' ),
+			),
+			'default' => $d( 'style', 'input' ),
+		) );
+
+		self::add( $target, $condition, $prefix . '_max', array(
+			'label'     => __( 'Dropdown goes up to', 'galaxie-woo' ),
+			'type'      => Controls_Manager::NUMBER,
+			'min'       => 1,
+			'max'       => 50,
+			'default'   => $d( 'max', 5 ),
+			'condition' => array( $prefix . '_style' => 'select' ),
+		) );
+
+		// On the wrapper, which is made a flex row here rather than in the
+		// stylesheet so the control works wherever the set is used without
+		// each caller having to remember a CSS rule.
+		self::add( $target, $condition, $prefix . '_align', array(
+			'label'                => __( 'Alignment', 'galaxie-woo' ),
+			'type'                 => Controls_Manager::CHOOSE,
+			'toggle'               => false,
+			'default'              => $d( 'align', 'left' ),
+			'options'              => array(
+				'left'   => array( 'title' => __( 'Left', 'galaxie-woo' ), 'icon' => 'eicon-text-align-left' ),
+				'center' => array( 'title' => __( 'Center', 'galaxie-woo' ), 'icon' => 'eicon-text-align-center' ),
+				'right'  => array( 'title' => __( 'Right', 'galaxie-woo' ), 'icon' => 'eicon-text-align-right' ),
+			),
+			'selectors'            => array( $box => 'display: flex; justify-content: {{VALUE}};' ),
+			'selectors_dictionary' => array(
+				'left'   => 'flex-start',
+				'center' => 'center',
+				'right'  => 'flex-end',
+			),
+		) );
 
 		self::palette_control( $target, $prefix . '_text_color', __( 'Text color', 'galaxie-woo' ), $input, 'color', $condition );
 		self::palette_control( $target, $prefix . '_bg_color', __( 'Background color', 'galaxie-woo' ), $field, 'background-color', $condition );
@@ -1458,41 +1503,126 @@ final class PixfortControls {
 	 * @param array<string,mixed> $defaults
 	 * @param array<string,mixed> $condition
 	 */
-	public static function thumb( object $target, string $prefix, string $selector, array $defaults = array(), array $condition = array() ): void {
-		$d = static fn( string $key, $fallback ) => $defaults[ $key ] ?? $fallback;
+	public static function thumb( object $target, string $prefix, string $selector, array $defaults = array(), array $condition = array(), string $wrapper = '' ): void {
+		$d   = static fn( string $key, $fallback ) => $defaults[ $key ] ?? $fallback;
+		$box = '' !== $wrapper ? $wrapper : $selector;
 
+		self::add( $target, $condition, $prefix . '_size_mode', array(
+			'label'   => __( 'Sizing', 'galaxie-woo' ),
+			'type'    => Controls_Manager::SELECT,
+			'options' => array(
+				'square' => __( 'Fixed square (cropped)', 'galaxie-woo' ),
+				'width'  => __( 'Width only (height follows)', 'galaxie-woo' ),
+				'auto'   => __( 'Original size', 'galaxie-woo' ),
+			),
+			'default' => $d( 'size_mode', 'square' ),
+		) );
+
+		// Two sliders, one visible at a time, because the two modes need
+		// different declarations and a single control cannot switch what it
+		// writes. `_size` keeps its id and its default, so a thumbnail already
+		// set to 88px stays at 88px.
 		self::add_responsive( $target, $condition, $prefix . '_size', array(
 			'label'      => __( 'Size', 'galaxie-woo' ),
 			'type'       => Controls_Manager::SLIDER,
-			'size_units' => array( 'px' ),
-			'range'      => array( 'px' => array( 'min' => 32, 'max' => 240 ) ),
+			'size_units' => array( 'px', '%', 'em', 'vw' ),
+			'range'      => array(
+				'px' => array( 'min' => 32, 'max' => 400 ),
+				'%'  => array( 'min' => 5, 'max' => 100 ),
+				'em' => array( 'min' => 1, 'max' => 20 ),
+				'vw' => array( 'min' => 1, 'max' => 50 ),
+			),
 			'default'    => array( 'unit' => 'px', 'size' => $d( 'size', 88 ) ),
-			// Width and height together, because a product thumbnail that keeps
-			// its aspect ratio makes rows of different heights, and a cart is a
+			// Width and height together: a product thumbnail that keeps its
+			// aspect ratio makes rows of different heights, and a cart is a
 			// list — the eye needs one baseline down the left edge.
 			'selectors'  => array(
-				$selector => 'width: {{SIZE}}{{UNIT}}; height: {{SIZE}}{{UNIT}}; object-fit: cover;',
+				$selector => 'width: {{SIZE}}{{UNIT}}; height: {{SIZE}}{{UNIT}}; max-width: 100%; object-fit: cover;',
+			),
+		), array( $prefix . '_size_mode' => 'square' ) );
+
+		self::add_responsive( $target, $condition, $prefix . '_width', array(
+			'label'      => __( 'Size', 'galaxie-woo' ),
+			'type'       => Controls_Manager::SLIDER,
+			'size_units' => array( 'px', '%', 'em', 'vw' ),
+			'range'      => array(
+				'px' => array( 'min' => 32, 'max' => 400 ),
+				'%'  => array( 'min' => 5, 'max' => 100 ),
+				'em' => array( 'min' => 1, 'max' => 20 ),
+				'vw' => array( 'min' => 1, 'max' => 50 ),
+			),
+			'default'    => array( 'unit' => '%', 'size' => 100 ),
+			'selectors'  => array(
+				$selector => 'width: {{SIZE}}{{UNIT}}; height: auto; max-width: 100%; object-fit: contain;',
+			),
+		), array( $prefix . '_size_mode' => 'width' ) );
+
+		self::add( $target, $condition, $prefix . '_align', array(
+			'label'     => __( 'Alignment', 'galaxie-woo' ),
+			'type'      => Controls_Manager::CHOOSE,
+			'toggle'    => false,
+			'default'   => $d( 'align', 'left' ),
+			'options'   => array(
+				'left'   => array( 'title' => __( 'Left', 'galaxie-woo' ), 'icon' => 'eicon-text-align-left' ),
+				'center' => array( 'title' => __( 'Center', 'galaxie-woo' ), 'icon' => 'eicon-text-align-center' ),
+				'right'  => array( 'title' => __( 'Right', 'galaxie-woo' ), 'icon' => 'eicon-text-align-right' ),
+			),
+			// `align-self` rather than `text-align`: the cell is a flex column
+			// whose alignment comes from the column setting, and this is the
+			// image saying it wants something else.
+			'selectors' => array(
+				$box => 'align-self: {{VALUE}};',
+			),
+			'selectors_dictionary' => array(
+				'left'   => 'flex-start',
+				'center' => 'center',
+				'right'  => 'flex-end',
 			),
 		) );
 
-		self::add( $target, $condition, $prefix . '_radius', array(
-			'label'      => __( 'Border radius', 'galaxie-woo' ),
+		// pixfort's own radius scale, not a number: a thumbnail rounded with
+		// `rounded-lg` follows the site when the theme's scale is retuned.
+		// Custom keeps the old slider, so an 8px already chosen is one click
+		// away rather than lost.
+		self::add( $target, $condition, $prefix . '_rounded', array(
+			'label'   => __( 'Rounded corners', 'galaxie-woo' ),
+			'type'    => Controls_Manager::SELECT,
+			'options' => array( '' => __( 'None', 'galaxie-woo' ) )
+				+ self::container_radius_options()
+				+ array( 'custom' => __( 'Custom', 'galaxie-woo' ) ),
+			'default' => $d( 'rounded', 'rounded-lg' ),
+		) );
+
+		self::add_responsive( $target, $condition, $prefix . '_radius', array(
+			'label'      => __( 'Custom radius', 'galaxie-woo' ),
 			'type'       => Controls_Manager::SLIDER,
 			'size_units' => array( 'px', '%' ),
 			'range'      => array( 'px' => array( 'min' => 0, 'max' => 80 ) ),
 			'default'    => array( 'unit' => 'px', 'size' => $d( 'radius', 8 ) ),
-			'selectors'  => array( $selector => 'border-radius: {{SIZE}}{{UNIT}};' ),
-		) );
+			'selectors'  => array( $box => 'border-radius: {{SIZE}}{{UNIT}};' ),
+		), array( $prefix . '_rounded' => 'custom' ) );
 
-		self::palette_control( $target, $prefix . '_border_color', __( 'Border color', 'galaxie-woo' ), $selector, 'border-color', $condition, ' border-style: solid; border-width: 1px;' );
+		self::palette_control( $target, $prefix . '_border_color', __( 'Border color', 'galaxie-woo' ), $box, 'border-color', $condition, ' border-style: solid; border-width: 1px;' );
 
 		self::add_responsive( $target, $condition, $prefix . '_border_width', array(
 			'label'      => __( 'Border width', 'galaxie-woo' ),
 			'type'       => Controls_Manager::SLIDER,
 			'size_units' => array( 'px' ),
 			'range'      => array( 'px' => array( 'min' => 0, 'max' => 8 ) ),
-			'selectors'  => array( $selector => 'border-width: {{SIZE}}{{UNIT}}; border-style: solid;' ),
+			'selectors'  => array( $box => 'border-width: {{SIZE}}{{UNIT}}; border-style: solid;' ),
 			'condition'  => array( $prefix . '_border_color!' => '' ),
 		) );
+	}
+
+	/**
+	 * The radius class a {@see thumb()} wrapper carries.
+	 *
+	 * @param array<string,mixed> $settings
+	 */
+	public static function thumb_classes( array $settings, string $prefix ): string {
+		$rounded = (string) ( $settings[ $prefix . '_rounded' ] ?? 'rounded-lg' );
+
+		// `custom` marks the slider beside it; it is not one of pixfort's classes.
+		return '' !== $rounded && 'custom' !== $rounded ? $rounded : '';
 	}
 }

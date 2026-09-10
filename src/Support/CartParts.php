@@ -374,22 +374,32 @@ final class CartParts {
 
 	public static function register_table_style( object $widget ): void {
 		$widget->start_controls_section( 'thumb_style', array( 'label' => __( 'Image', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
-		PixfortControls::thumb( $widget, 'thumb', '{{WRAPPER}} .galaxie-cart-thumb img' );
+		PixfortControls::thumb( $widget, 'thumb', '{{WRAPPER}} .galaxie-cart-thumb img', array(), array(), '{{WRAPPER}} .galaxie-cart-thumb' );
 		$widget->end_controls_section();
 
 		$widget->start_controls_section( 'quantity_style', array( 'label' => __( 'Quantity', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
 		// The buy box's own set, so a spinner cannot look like two things.
-		PixfortControls::quantity( $widget, 'qty', '{{WRAPPER}} .galaxie-cart-qty .quantity', '{{WRAPPER}} .galaxie-cart-qty .qty' );
+		PixfortControls::quantity( $widget, 'qty', '{{WRAPPER}} .galaxie-cart-qty .quantity', '{{WRAPPER}} .galaxie-cart-qty .qty', array(), array(), '{{WRAPPER}} .galaxie-cart-qty' );
 		$widget->end_controls_section();
 
 		$widget->start_controls_section( 'name_style', array( 'label' => __( 'Product name', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
 		PixfortControls::text( $widget, 'name', array( 'bold' => 'font-weight-bold', 'remove_pb_padding' => 'm-0' ), array(), '{{WRAPPER}} .galaxie-cart-cell-name' );
 		$widget->end_controls_section();
 
-		$widget->start_controls_section( 'price_style', array( 'label' => __( 'Prices', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
+		// Two sections, not one "Prices". A unit price and a line total read
+		// differently — the total is usually the heavier of the two — and one
+		// set of controls driving both cannot express that.
+		//
+		// `price` keeps its id, so whatever the old shared section was set to
+		// stays on the unit price; Subtotal starts from the defaults.
+		$widget->start_controls_section( 'price_style', array( 'label' => __( 'Price', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
 		// The same `heading` vocabulary the buy box gives the product page's
 		// price, so a price is sized the same way in both places.
-		PixfortControls::text( $widget, 'price', array( 'size' => 'h6', 'remove_pb_padding' => 'm-0' ), array(), '{{WRAPPER}} .galaxie-cart-cell-price, {{WRAPPER}} .galaxie-cart-cell-subtotal', 'heading' );
+		PixfortControls::text( $widget, 'price', array( 'size' => 'h6', 'remove_pb_padding' => 'm-0' ), array(), '{{WRAPPER}} .galaxie-cart-cell-price', 'heading' );
+		$widget->end_controls_section();
+
+		$widget->start_controls_section( 'subtotal_style', array( 'label' => __( 'Subtotal', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
+		PixfortControls::text( $widget, 'subtotal', array( 'size' => 'h6', 'bold' => 'font-weight-bold', 'remove_pb_padding' => 'm-0' ), array(), '{{WRAPPER}} .galaxie-cart-cell-subtotal', 'heading' );
 		$widget->end_controls_section();
 
 		$widget->start_controls_section( 'remove_style', array( 'label' => __( 'Remove', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
@@ -571,7 +581,10 @@ final class CartParts {
 				$link = $product->is_visible() ? $product->get_permalink( $item ) : '';
 				$img  = $product->get_image( 'woocommerce_thumbnail' );
 				printf(
-					'<span class="galaxie-cart-thumb">%s</span>',
+					// The radius is a pixfort class on the wrapper, which clips
+					// the image to it — putting it on the <img> would mean
+					// rewriting the attributes WooCommerce built.
+					'<span class="galaxie-cart-thumb ' . esc_attr( PixfortControls::thumb_classes( $settings, 'thumb' ) ) . '">%s</span>',
 					$link
 						? sprintf( '<a href="%s">%s</a>', esc_url( $link ), $img ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- get_image() returns escaped markup.
 						: $img // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- same.
@@ -610,7 +623,7 @@ final class CartParts {
 				break;
 
 			case 'quantity':
-				self::render_quantity( $key, $item, $product );
+				self::render_quantity( $key, $item, $product, $settings );
 				break;
 
 			case 'subtotal':
@@ -620,7 +633,7 @@ final class CartParts {
 				// discarded the first time a quantity changed.
 				echo PixfortControls::render_text( // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pixfort's own element around escaped markup.
 					$settings,
-					'price',
+					'subtotal',
 					sprintf(
 						'<span class="galaxie-cart-subtotal">%s</span>',
 						wp_kses_post( apply_filters( 'woocommerce_cart_item_subtotal', WC()->cart->get_product_subtotal( $product, $item['quantity'] ), $item, $key ) )
@@ -643,23 +656,26 @@ final class CartParts {
 	/**
 	 * @param array<string,mixed> $item
 	 */
-	private static function render_quantity( string $key, array $item, \WC_Product $product ): void {
+	private static function render_quantity( string $key, array $item, \WC_Product $product, array $settings ): void {
 		echo '<span class="galaxie-cart-qty">';
 
 		if ( $product->is_sold_individually() ) {
 			printf( '<input type="hidden" name="cart[%s][qty]" value="1" />', esc_attr( $key ) );
 			echo '<span class="galaxie-cart-qty-fixed">1</span>';
 		} else {
-			woocommerce_quantity_input(
+			QuantityField::render(
+				$settings,
+				'qty',
+				$product,
 				array(
 					'input_name'   => "cart[{$key}][qty]",
 					'input_value'  => $item['quantity'],
 					'max_value'    => $product->get_max_purchase_quantity(),
+					// Zero is WooCommerce's own "remove this line", which is how
+					// the stepper and the trash icon end up on one path.
 					'min_value'    => '0',
 					'product_name' => $product->get_name(),
-				),
-				$product,
-				true
+				)
 			);
 		}
 

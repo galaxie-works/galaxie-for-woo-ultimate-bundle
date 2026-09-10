@@ -9,6 +9,7 @@ namespace Galaxie\Woo\Modules\VariationSwatches\Widget;
 
 use Elementor\Controls_Manager;
 use Galaxie\Woo\Support\PixfortControls;
+use Galaxie\Woo\Support\QuantityField;
 use Elementor\Repeater;
 use Elementor\Widget_Base;
 use Galaxie\Woo\Modules\VariationSwatches\Module;
@@ -244,38 +245,17 @@ final class BuyBoxWidget extends Widget_Base {
 			array( 'label' => __( 'Quantity', 'galaxie-woo' ) )
 		);
 
-		$this->add_control(
-			'qty_style',
-			array(
-				'label'   => __( 'Style', 'galaxie-woo' ),
-				'type'    => Controls_Manager::SELECT,
-				'options' => array(
-					'input'  => __( 'Number input (+/-)', 'galaxie-woo' ),
-					'select' => __( 'Dropdown', 'galaxie-woo' ),
-				),
-				'default' => 'input',
-			)
-		);
-
-		$this->add_control(
-			'qty_max',
-			array(
-				'label'     => __( 'Dropdown goes up to', 'galaxie-woo' ),
-				'type'      => Controls_Manager::NUMBER,
-				'min'       => 1,
-				'max'       => 50,
-				'default'   => 5,
-				'condition' => array( 'qty_style' => 'select' ),
-			)
-		);
-
-		// The same control set the Cart uses. Defined once in the registrar so a
-		// spinner cannot look like one thing here and another on the cart page.
+		// The whole set, Style and the dropdown ceiling included — they were
+		// registered here once, which is how the cart ended up with a Quantity
+		// panel that was missing two controls this one had.
 		PixfortControls::quantity(
 			$this,
 			'qty',
 			'{{WRAPPER}} .galaxie-buybox-quantity .quantity',
-			'{{WRAPPER}} .galaxie-buybox-quantity .qty'
+			'{{WRAPPER}} .galaxie-buybox-quantity .qty',
+			array(),
+			array(),
+			'{{WRAPPER}} .galaxie-buybox-quantity'
 		);
 
 		$this->end_controls_section();
@@ -911,38 +891,10 @@ final class BuyBoxWidget extends Widget_Base {
 	 */
 	private function render_quantity( array $settings, \WC_Product $product ): void {
 		echo '<div class="galaxie-buybox-quantity">';
-
-		if ( 'select' === ( $settings['qty_style'] ?? 'input' ) ) {
-			$this->render_quantity_select( $product, (int) ( $settings['qty_max'] ?? 5 ) );
-		} else {
-			woocommerce_quantity_input( array(), $product );
-		}
-
+		QuantityField::render( $settings, 'qty', $product );
 		echo '</div>';
 	}
 
-	/**
-	 * Dropdown alternative to the number input. Carries `.quantity` and `.qty`
-	 * so it inherits exactly the same styling — ours and the theme's — as the
-	 * number input it replaces, rather than arriving unstyled.
-	 */
-	private function render_quantity_select( \WC_Product $product, int $max ): void {
-		$min         = max( 1, (int) $product->get_min_purchase_quantity() );
-		$product_max = (int) $product->get_max_purchase_quantity();
-
-		if ( $product_max > 0 ) {
-			$max = min( $max, $product_max );
-		}
-		$max = max( $min, $max );
-
-		echo '<div class="quantity galaxie-quantity-select">';
-		echo '<select name="quantity" class="qty">';
-		for ( $i = $min; $i <= $max; $i++ ) {
-			printf( '<option value="%1$d">%1$d</option>', $i );
-		}
-		echo '</select>';
-		echo '</div>';
-	}
 
 	/**
 	 * @param array<string,mixed> $settings

@@ -798,6 +798,18 @@ form.galaxie-buybox .galaxie-buybox-row {
   text-align: right;
 }
 
+/* The pixfort radius class lands on this wrapper, so it has to be the thing
+   that clips — the <img> keeps the attributes WooCommerce built for it. */
+.galaxie-cart-thumb {
+  display: inline-block;
+  overflow: hidden;
+  line-height: 0;
+}
+
+.galaxie-cart-thumb > a {
+  display: block;
+}
+
 .galaxie-cart-thumb img {
   display: block;
 }

@@ -10,6 +10,7 @@ namespace Galaxie\Woo\Modules\VariationSwatches\Widget;
 use Elementor\Controls_Manager;
 use Elementor\Group_Control_Typography;
 use Elementor\Widget_Base;
+use Galaxie\Woo\Support\QuantityField;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -738,11 +739,17 @@ final class VariationBadgesWidget extends Widget_Base {
 
 			case 'spinner':
 				echo '<div class="galaxie-buybox-quantity">';
-				if ( 'select' === ( $settings['quantity_type'] ?? 'input' ) ) {
-					$this->render_quantity_select( $product, (int) ( $settings['quantity_max'] ?? 5 ) );
-				} else {
-					woocommerce_quantity_input();
-				}
+				// The third copy of this markup, now gone. The ids here predate
+				// the shared set (`quantity_type` rather than `_style`), so they
+				// are translated rather than renamed — nothing configured moves.
+				QuantityField::render(
+					array(
+						'quantity_style' => $settings['quantity_type'] ?? 'input',
+						'quantity_max'   => $settings['quantity_max'] ?? 5,
+					),
+					'quantity',
+					$product
+				);
 				echo '</div>';
 				break;
 
@@ -761,27 +768,6 @@ final class VariationBadgesWidget extends Widget_Base {
 		}
 	}
 
-	/**
-	 * Dropdown alternative to the number input. Keeps `name="quantity"` and the
-	 * `qty` class so both WooCommerce and our own JS treat it like any other
-	 * quantity field. Respects the product's min/max where it declares them.
-	 */
-	private function render_quantity_select( \WC_Product $product, int $max ): void {
-		$min = max( 1, (int) $product->get_min_purchase_quantity() );
-		$product_max = (int) $product->get_max_purchase_quantity();
-		if ( $product_max > 0 ) {
-			$max = min( $max, $product_max );
-		}
-		$max = max( $min, $max );
-
-		echo '<div class="quantity galaxie-quantity-select">';
-		echo '<select name="quantity" class="qty">';
-		for ( $i = $min; $i <= $max; $i++ ) {
-			printf( '<option value="%1$d">%1$d</option>', $i );
-		}
-		echo '</select>';
-		echo '</div>';
-	}
 
 	/** @param array<string,mixed> $settings */
 	private function render_button( string $prefix, array $settings ): string {
