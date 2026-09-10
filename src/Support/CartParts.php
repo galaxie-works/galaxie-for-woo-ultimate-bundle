@@ -383,17 +383,12 @@ final class CartParts {
 			)
 		);
 
-		$widget->add_control(
-			'head_opacity',
-			array(
-				'label'      => __( 'Opacity', 'galaxie-woo' ),
-				'type'       => Controls_Manager::SLIDER,
-				'range'      => array( 'px' => array( 'min' => 0.1, 'max' => 1, 'step' => 0.05 ) ),
-				'default'    => array( 'size' => 0.6 ),
-				'selectors'  => array( '{{WRAPPER}} .galaxie-cart-head' => 'opacity: {{SIZE}};' ),
-			)
-		);
-
+		// There was an Opacity slider here, defaulted to the 0.6 the stylesheet
+		// used to hard-code. It is gone rather than re-defaulted: it dimmed the
+		// whole row, so a Content color picked from the palette arrived washed
+		// out and no colour could ever be shown as chosen. A quieter header is
+		// a lighter colour from the palette, which is also the one that follows
+		// the site into dark mode.
 		$widget->end_controls_section();
 	}
 
