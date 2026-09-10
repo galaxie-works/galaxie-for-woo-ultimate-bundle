@@ -129,7 +129,12 @@ final class CartParts {
 			array(
 				'type'        => Controls_Manager::REPEATER,
 				'fields'      => $repeater->get_controls(),
-				'title_field' => '{{{ field }}}',
+				// The row is labelled with the field's LABEL, not the value
+				// stored under it: a list reading "thumb / name / price" makes
+				// the merchant translate their own table back into our slugs.
+				// `title_field` is a JS template, so the options map goes in as
+				// a literal and the row looks up its own name.
+				'title_field' => '{{{ (' . wp_json_encode( self::field_options() ) . ')[ field ] || field }}}',
 				'default'     => array(
 					array( 'field' => 'thumb', 'heading' => '', 'align' => 'center' ),
 					array( 'field' => 'name', 'heading' => __( 'Produto', 'galaxie-woo' ), 'align' => 'left' ),
@@ -344,12 +349,19 @@ final class CartParts {
 			array( 'label' => __( 'Labels', 'galaxie-woo' ), 'type' => Controls_Manager::HEADING, 'separator' => 'before' )
 		);
 
+		// No Position here. The column's own Alignment, in Line fields, moves
+		// the heading and the values under it together — which is the only
+		// place that can keep them over each other. A Position control in this
+		// section could only aim every heading the same way, and would win over
+		// the per-column setting while doing it.
 		PixfortControls::text(
 			$widget,
 			'head',
-			array( 'size' => 'text-sm', 'bold' => '', 'remove_pb_padding' => 'm-0', 'position' => '' ),
+			array( 'size' => 'text-sm', 'bold' => '', 'remove_pb_padding' => 'm-0' ),
 			array(),
-			'{{WRAPPER}} .galaxie-cart-head'
+			'{{WRAPPER}} .galaxie-cart-head',
+			'text',
+			array( 'position' )
 		);
 
 		// The stylesheet used to hard-code uppercase, letter-spacing and a 60%
@@ -403,7 +415,7 @@ final class CartParts {
 		$widget->end_controls_section();
 
 		$widget->start_controls_section( 'name_style', array( 'label' => __( 'Product name', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
-		PixfortControls::text( $widget, 'name', array( 'bold' => 'font-weight-bold', 'remove_pb_padding' => 'm-0', 'position' => '' ), array(), '{{WRAPPER}} .galaxie-cart-line:not(.galaxie-cart-head) .galaxie-cart-cell-name' );
+		PixfortControls::text( $widget, 'name', array( 'bold' => 'font-weight-bold', 'remove_pb_padding' => 'm-0' ), array(), '{{WRAPPER}} .galaxie-cart-line:not(.galaxie-cart-head) .galaxie-cart-cell-name', 'text', array( 'position' ) );
 		$widget->end_controls_section();
 
 		// Two sections, not one "Prices". A unit price and a line total read
@@ -415,11 +427,11 @@ final class CartParts {
 		$widget->start_controls_section( 'price_style', array( 'label' => __( 'Price', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
 		// The same `heading` vocabulary the buy box gives the product page's
 		// price, so a price is sized the same way in both places.
-		PixfortControls::text( $widget, 'price', array( 'size' => 'h6', 'remove_pb_padding' => 'm-0', 'position' => '' ), array(), '{{WRAPPER}} .galaxie-cart-line:not(.galaxie-cart-head) .galaxie-cart-cell-price', 'heading' );
+		PixfortControls::text( $widget, 'price', array( 'size' => 'h6', 'remove_pb_padding' => 'm-0' ), array(), '{{WRAPPER}} .galaxie-cart-line:not(.galaxie-cart-head) .galaxie-cart-cell-price', 'heading', array( 'position' ) );
 		$widget->end_controls_section();
 
 		$widget->start_controls_section( 'subtotal_style', array( 'label' => __( 'Subtotal', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
-		PixfortControls::text( $widget, 'subtotal', array( 'size' => 'h6', 'bold' => 'font-weight-bold', 'remove_pb_padding' => 'm-0', 'position' => '' ), array(), '{{WRAPPER}} .galaxie-cart-line:not(.galaxie-cart-head) .galaxie-cart-cell-subtotal', 'heading' );
+		PixfortControls::text( $widget, 'subtotal', array( 'size' => 'h6', 'bold' => 'font-weight-bold', 'remove_pb_padding' => 'm-0' ), array(), '{{WRAPPER}} .galaxie-cart-line:not(.galaxie-cart-head) .galaxie-cart-cell-subtotal', 'heading', array( 'position' ) );
 		$widget->end_controls_section();
 
 		$widget->start_controls_section( 'remove_style', array( 'label' => __( 'Remove', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
@@ -537,6 +549,14 @@ final class CartParts {
 	 */
 	public static function render_table( array $settings ): void {
 		$fields = self::fields( $settings );
+
+		// Widgets saved before Position was withdrawn still carry `text-left`
+		// under these ids, and pixfort would still print it. Unregistering a
+		// control does not unsave it, so the values are cleared here — the
+		// column is the only thing that aims a cart cell now.
+		foreach ( array( 'head', 'name', 'price', 'subtotal' ) as $prefix ) {
+			$settings[ $prefix . '_position' ] = '';
+		}
 
 		printf(
 			'<form class="woocommerce-cart-form galaxie-cart-form" action="%s" method="post" data-galaxie-auto="%s" style="--galaxie-cart-cols: %s;">',

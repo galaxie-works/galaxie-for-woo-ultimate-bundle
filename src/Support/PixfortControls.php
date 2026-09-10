@@ -395,7 +395,7 @@ final class PixfortControls {
 	 * @param array<string,mixed> $defaults
 	 * @param array<string,mixed> $condition
 	 */
-	public static function text( object $target, string $prefix, array $defaults = array(), array $condition = array(), string $scope = '{{WRAPPER}}', string $sizes = 'text' ): void {
+	public static function text( object $target, string $prefix, array $defaults = array(), array $condition = array(), string $scope = '{{WRAPPER}}', string $sizes = 'text', array $skip = array() ): void {
 		$d = static fn( string $key, $fallback ) => $defaults[ $key ] ?? $fallback;
 
 		self::add( $target, $condition, $prefix . '_size', array(
@@ -470,10 +470,12 @@ final class PixfortControls {
 		}
 
 		// pixfort prints this as a class on the <p> AND on its wrapper, so
-		// whatever it says beats any text-align inherited from the cell. With
-		// `text-left` as the only possible answer, a column set to Center got a
-		// centred heading over left-aligned values — the table looked shuffled.
-		// The empty entry hands the decision back to whoever owns the column.
+		// whatever it says beats any text-align inherited from the cell. Where
+		// something else already owns alignment — a table column, say — this
+		// control can only disagree with it for every row at once, so callers
+		// in that position leave it out entirely rather than offering a second
+		// answer that overrides the first.
+		if ( ! in_array( 'position', $skip, true ) ) {
 		self::add( $target, $condition, $prefix . '_position', array(
 			'label'   => __( 'Position', 'galaxie-woo' ),
 			'type'    => Controls_Manager::SELECT,
@@ -485,6 +487,7 @@ final class PixfortControls {
 			),
 			'default' => $d( 'position', 'text-left' ),
 		) );
+		}
 
 		self::add( $target, $condition, $prefix . '_animation', array(
 			'label'   => __( 'Animation', 'galaxie-woo' ),
