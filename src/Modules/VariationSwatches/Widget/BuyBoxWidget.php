@@ -961,28 +961,21 @@ final class BuyBoxWidget extends Widget_Base {
 			'addcart' === $prefix ? ' single_add_to_cart_button' : ''
 		);
 
-		if ( PixfortControls::available() ) {
-			echo \PixfortCore::instance()->elementsManager->renderElement( 'Button', PixfortControls::button_attr( $settings, $prefix, $text ) ); // phpcs:ignore WordPress.Security.EscapeOutput -- pixfort's own component markup.
-		} else {
-			echo '<span class="btn">' . esc_html( $text ) . '</span>';
-		}
+		echo PixfortControls::render_button( $settings, $prefix, $text ); // phpcs:ignore WordPress.Security.EscapeOutput -- pixfort's own component markup.
 
 		echo '</button>';
 	}
 
 	/**
-	 * `PixText::render()` reads the text from its SECOND argument and ignores
-	 * `$attr['content']` entirely — passing it only in the attributes renders
-	 * an empty paragraph.
+	 * Moved to {@see PixfortControls::render_text()} once the cart needed the
+	 * same thing: registering pixfort's text controls and then printing our own
+	 * markup gives the merchant a panel where nothing moves, and that is a trap
+	 * worth having in one place rather than two.
 	 *
 	 * @param array<string,mixed> $settings
 	 */
 	private function text( array $settings, string $prefix, string $content ): string {
-		if ( PixfortControls::available() ) {
-			return \PixfortCore::instance()->elementsManager->renderElement( 'Text', PixfortControls::text_attr( $settings, $prefix, $content ), $content );
-		}
-
-		return '<span>' . wp_kses_post( $content ) . '</span>';
+		return PixfortControls::render_text( $settings, $prefix, $content );
 	}
 
 	/**

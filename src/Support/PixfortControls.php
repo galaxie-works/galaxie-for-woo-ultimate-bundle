@@ -44,6 +44,7 @@ final class PixfortControls {
 		'text-18' => '18px',
 		'text-20' => '20px',
 		'text-24' => '24px',
+		'custom'  => 'Custom',
 	);
 
 	/** pixfort's Heading widget vocabulary, for text that reads as a heading (the price). */
@@ -404,16 +405,17 @@ final class PixfortControls {
 			'default' => $d( 'size', '' ),
 		) );
 
-		if ( 'heading' === $sizes ) {
-			self::add( $target, $condition, $prefix . '_custom_size', array(
-				'label'      => __( 'Custom size', 'galaxie-woo' ),
-				'type'       => Controls_Manager::SLIDER,
-				'size_units' => array( 'px', 'rem' ),
-				'range'      => array( 'px' => array( 'min' => 10, 'max' => 96 ) ),
-				'selectors'  => array( $scope . ' p' => 'font-size: {{SIZE}}{{UNIT}};' ),
-				'condition'  => array( $prefix . '_size' => 'custom' ),
-			) );
-		}
+		// Registered in both vocabularies, not just the heading one: a size in
+		// px is the first thing asked for once a control set is shared between
+		// two places, and the control only appears when Custom is chosen anyway.
+		self::add( $target, $condition, $prefix . '_custom_size', array(
+			'label'      => __( 'Custom size', 'galaxie-woo' ),
+			'type'       => Controls_Manager::SLIDER,
+			'size_units' => array( 'px', 'rem' ),
+			'range'      => array( 'px' => array( 'min' => 10, 'max' => 96 ) ),
+			'selectors'  => array( $scope . ' p' => 'font-size: {{SIZE}}{{UNIT}};' ),
+			'condition'  => array( $prefix . '_size' => 'custom' ),
+		) );
 
 		self::add( $target, $condition, $prefix . '_bold', array(
 			'label'        => __( 'Bold', 'galaxie-woo' ),
@@ -1275,6 +1277,152 @@ final class PixfortControls {
 			'range'      => array( 'px' => array( 'min' => 0, 'max' => 60 ) ),
 			'selectors'  => array( $field => 'border-radius: {{SIZE}}{{UNIT}}; overflow: hidden;' ),
 		) );
+	}
+
+	/**
+	 * The box set every pixfort container shares — background, corner radius,
+	 * shadow, padding, border — for markup that is ours rather than pixfort's.
+	 *
+	 * Radius and shadow are pixfort CLASSES, not numbers, and that is the whole
+	 * point of the helper: a header rounded with `rounded-lg` keeps following
+	 * the site's radius scale when the theme's scale is retuned, while a
+	 * hand-typed 8px quietly stops matching everything around it. Both lists
+	 * come from pixfort itself. "Custom" is our own escape hatch, is never
+	 * emitted as a class, and reveals the slider beside it instead.
+	 *
+	 * {@see surface_classes()} turns the two choices back into the class string
+	 * the element has to carry.
+	 *
+	 * @param array<string,mixed> $defaults
+	 * @param array<string,mixed> $condition
+	 */
+	public static function surface( object $target, string $prefix, string $selector, array $defaults = array(), array $condition = array() ): void {
+		$d = static fn( string $key, $fallback ) => $defaults[ $key ] ?? $fallback;
+
+		self::palette_control( $target, $prefix . '_bg', __( 'Background', 'galaxie-woo' ), $selector, 'background-color', $condition );
+
+		self::add( $target, $condition, $prefix . '_rounded', array(
+			'label'   => __( 'Rounded corners', 'galaxie-woo' ),
+			'type'    => Controls_Manager::SELECT,
+			'options' => array( '' => __( 'None', 'galaxie-woo' ) )
+				+ self::container_radius_options()
+				+ array( 'custom' => __( 'Custom', 'galaxie-woo' ) ),
+			'default' => $d( 'rounded', '' ),
+		) );
+
+		self::add_responsive( $target, $condition, $prefix . '_radius', array(
+			'label'      => __( 'Custom radius', 'galaxie-woo' ),
+			'type'       => Controls_Manager::SLIDER,
+			'size_units' => array( 'px' ),
+			'range'      => array( 'px' => array( 'min' => 0, 'max' => 60 ) ),
+			'selectors'  => array( $selector => 'border-radius: {{SIZE}}{{UNIT}};' ),
+		), array( $prefix . '_rounded' => 'custom' ) );
+
+		self::add( $target, $condition, $prefix . '_shadow', array(
+			'label'   => __( 'Shadow style', 'galaxie-woo' ),
+			'type'    => Controls_Manager::SELECT,
+			'options' => self::shadow_options( __( 'None', 'galaxie-woo' ), __( 'shadow', 'galaxie-woo' ) ),
+			'default' => $d( 'shadow', '' ),
+		) );
+
+		self::add_responsive( $target, $condition, $prefix . '_padding', array(
+			'label'      => __( 'Padding', 'galaxie-woo' ),
+			'type'       => Controls_Manager::DIMENSIONS,
+			'size_units' => array( 'px', 'rem', 'em' ),
+			'selectors'  => array( $selector => 'padding: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};' ),
+		) );
+
+		// Same trap as the quantity box: pixfort's containers ship with no
+		// border at all, so a colour on its own lands on a zero-width border
+		// and shows nothing. Picking one therefore also establishes a style and
+		// a 1px baseline, which the widths below can then override — including
+		// down to a single bottom rule, which is what a table header wants.
+		self::palette_control(
+			$target,
+			$prefix . '_border_color',
+			__( 'Border color', 'galaxie-woo' ),
+			$selector,
+			'border-color',
+			$condition,
+			' border-style: solid; border-width: 1px;'
+		);
+
+		self::add_responsive( $target, $condition, $prefix . '_border_width', array(
+			'label'      => __( 'Border width', 'galaxie-woo' ),
+			'type'       => Controls_Manager::DIMENSIONS,
+			'size_units' => array( 'px' ),
+			'selectors'  => array( $selector => 'border-style: solid; border-width: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};' ),
+		), array( $prefix . '_border_color!' => '' ) );
+	}
+
+	/**
+	 * The class string a {@see surface()} element carries.
+	 *
+	 * The shadow number is handed to pixfort's own `getEffectsClasses()` rather
+	 * than mapped here, so our boxes and pixfort's widgets can never drift onto
+	 * different shadow classes for the same choice.
+	 *
+	 * @param array<string,mixed> $settings
+	 */
+	public static function surface_classes( array $settings, string $prefix ): string {
+		$rounded = (string) ( $settings[ $prefix . '_rounded' ] ?? '' );
+		$shadow  = (string) ( $settings[ $prefix . '_shadow' ] ?? '' );
+
+		$classes = array();
+
+		// `custom` marks the slider above; it is not one of pixfort's classes.
+		if ( '' !== $rounded && 'custom' !== $rounded ) {
+			$classes[] = $rounded;
+		}
+
+		if ( '' !== $shadow && self::available() ) {
+			$classes[] = (string) \PixfortCore::instance()->coreFunctions->getEffectsClasses( $shadow );
+		}
+
+		return trim( implode( ' ', array_filter( $classes ) ) );
+	}
+
+	/**
+	 * A button rendered by pixfort's own Button element, for the same reason
+	 * {@see render_text()} exists: every control {@see button()} registers is a
+	 * class pixfort's element prints, so markup of our own carries none of them.
+	 *
+	 * The caller wraps it — a `<button>` in a form, an `<a>` with an href — and
+	 * `PixButton::render()` emits a plain `<span>` while `btn_link` is empty,
+	 * which is exactly what a wrapper needs.
+	 *
+	 * @param array<string,mixed> $settings
+	 */
+	public static function render_button( array $settings, string $prefix, string $text ): string {
+		if ( self::available() ) {
+			return (string) \PixfortCore::instance()->elementsManager->renderElement( 'Button', self::button_attr( $settings, $prefix, $text ) );
+		}
+
+		return '<span class="btn">' . esc_html( $text ) . '</span>';
+	}
+
+	/**
+	 * Text rendered by pixfort's own Text element.
+	 *
+	 * Every control {@see text()} registers is a pixfort CLASS — size, bold,
+	 * secondary font, content colour — and a class only exists on the page if
+	 * pixfort's element printed it. Our own `<span>` carries none of them, so a
+	 * widget that registers the set and then prints its own markup shows the
+	 * merchant a full styling panel where nothing moves. That is the whole
+	 * reason this is shared rather than private to the buy box.
+	 *
+	 * `PixText::render()` reads the text from its SECOND argument and ignores
+	 * `$attr['content']` entirely — passing it only in the attributes renders an
+	 * empty paragraph.
+	 *
+	 * @param array<string,mixed> $settings
+	 */
+	public static function render_text( array $settings, string $prefix, string $content ): string {
+		if ( self::available() ) {
+			return (string) \PixfortCore::instance()->elementsManager->renderElement( 'Text', self::text_attr( $settings, $prefix, $content ), $content );
+		}
+
+		return '<span>' . wp_kses_post( $content ) . '</span>';
 	}
 
 	/**

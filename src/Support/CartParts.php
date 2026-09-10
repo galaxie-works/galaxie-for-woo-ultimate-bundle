@@ -78,6 +78,29 @@ final class CartParts {
 			)
 		);
 
+		// Per column rather than per table, because a cart is not aligned one
+		// way: the product reads from the left, the money from the right, and
+		// the stepper sits in the middle of its own column. One control for the
+		// whole table would force all three to agree.
+		//
+		// The heading and the value share this setting on purpose — a heading
+		// that does not sit over its own column is the thing a merchant would
+		// have to fix twice.
+		$repeater->add_control(
+			'align',
+			array(
+				'label'   => __( 'Alignment', 'galaxie-woo' ),
+				'type'    => Controls_Manager::CHOOSE,
+				'toggle'  => false,
+				'default' => 'left',
+				'options' => array(
+					'left'   => array( 'title' => __( 'Left', 'galaxie-woo' ), 'icon' => 'eicon-text-align-left' ),
+					'center' => array( 'title' => __( 'Center', 'galaxie-woo' ), 'icon' => 'eicon-text-align-center' ),
+					'right'  => array( 'title' => __( 'Right', 'galaxie-woo' ), 'icon' => 'eicon-text-align-right' ),
+				),
+			)
+		);
+
 		$widget->add_control(
 			'lines',
 			array(
@@ -85,12 +108,12 @@ final class CartParts {
 				'fields'      => $repeater->get_controls(),
 				'title_field' => '{{{ field }}}',
 				'default'     => array(
-					array( 'field' => 'thumb', 'heading' => '' ),
-					array( 'field' => 'name', 'heading' => __( 'Produto', 'galaxie-woo' ) ),
-					array( 'field' => 'price', 'heading' => __( 'Preço', 'galaxie-woo' ) ),
-					array( 'field' => 'quantity', 'heading' => __( 'Quantidade', 'galaxie-woo' ) ),
-					array( 'field' => 'subtotal', 'heading' => __( 'Subtotal', 'galaxie-woo' ) ),
-					array( 'field' => 'remove', 'heading' => '' ),
+					array( 'field' => 'thumb', 'heading' => '', 'align' => 'left' ),
+					array( 'field' => 'name', 'heading' => __( 'Produto', 'galaxie-woo' ), 'align' => 'left' ),
+					array( 'field' => 'price', 'heading' => __( 'Preço', 'galaxie-woo' ), 'align' => 'center' ),
+					array( 'field' => 'quantity', 'heading' => __( 'Quantidade', 'galaxie-woo' ), 'align' => 'center' ),
+					array( 'field' => 'subtotal', 'heading' => __( 'Subtotal', 'galaxie-woo' ), 'align' => 'right' ),
+					array( 'field' => 'remove', 'heading' => '', 'align' => 'right' ),
 				),
 			)
 		);
@@ -272,6 +295,83 @@ final class CartParts {
 		$widget->end_controls_section();
 	}
 
+	/**
+	 * The column headings: their own box, and their own text.
+	 *
+	 * Split from {@see register_table_style()} so the heading row can be turned
+	 * into a real header — a filled bar with pixfort's corner radius — without
+	 * that being buried under the controls for the lines beneath it.
+	 */
+	public static function register_head_style( object $widget ): void {
+		$widget->start_controls_section(
+			'head_style',
+			array(
+				'label'     => __( 'Table header', 'galaxie-woo' ),
+				'tab'       => Controls_Manager::TAB_STYLE,
+				'condition' => array( 'show_headings' => 'yes' ),
+			)
+		);
+
+		PixfortControls::surface( $widget, 'head', '{{WRAPPER}} .galaxie-cart-head' );
+
+		$widget->add_control(
+			'head_text_heading',
+			array( 'label' => __( 'Labels', 'galaxie-woo' ), 'type' => Controls_Manager::HEADING, 'separator' => 'before' )
+		);
+
+		PixfortControls::text(
+			$widget,
+			'head',
+			array( 'size' => 'text-sm', 'bold' => '', 'remove_pb_padding' => 'm-0' ),
+			array(),
+			'{{WRAPPER}} .galaxie-cart-head'
+		);
+
+		// The stylesheet used to hard-code uppercase, letter-spacing and a 60%
+		// opacity on this row. They are controls now, defaulted to exactly what
+		// they were, so the header looks the same until it is changed.
+		$widget->add_control(
+			'head_transform',
+			array(
+				'label'     => __( 'Letter case', 'galaxie-woo' ),
+				'type'      => Controls_Manager::SELECT,
+				'default'   => 'uppercase',
+				'options'   => array(
+					'none'       => __( 'As typed', 'galaxie-woo' ),
+					'uppercase'  => __( 'UPPERCASE', 'galaxie-woo' ),
+					'capitalize' => __( 'Capitalized', 'galaxie-woo' ),
+					'lowercase'  => __( 'lowercase', 'galaxie-woo' ),
+				),
+				'selectors' => array( '{{WRAPPER}} .galaxie-cart-head' => 'text-transform: {{VALUE}};' ),
+			)
+		);
+
+		$widget->add_responsive_control(
+			'head_letter_spacing',
+			array(
+				'label'      => __( 'Letter spacing', 'galaxie-woo' ),
+				'type'       => Controls_Manager::SLIDER,
+				'size_units' => array( 'em' ),
+				'range'      => array( 'em' => array( 'min' => -0.05, 'max' => 0.4, 'step' => 0.01 ) ),
+				'default'    => array( 'unit' => 'em', 'size' => 0.04 ),
+				'selectors'  => array( '{{WRAPPER}} .galaxie-cart-head' => 'letter-spacing: {{SIZE}}{{UNIT}};' ),
+			)
+		);
+
+		$widget->add_control(
+			'head_opacity',
+			array(
+				'label'      => __( 'Opacity', 'galaxie-woo' ),
+				'type'       => Controls_Manager::SLIDER,
+				'range'      => array( 'px' => array( 'min' => 0.1, 'max' => 1, 'step' => 0.05 ) ),
+				'default'    => array( 'size' => 0.6 ),
+				'selectors'  => array( '{{WRAPPER}} .galaxie-cart-head' => 'opacity: {{SIZE}};' ),
+			)
+		);
+
+		$widget->end_controls_section();
+	}
+
 	public static function register_table_style( object $widget ): void {
 		$widget->start_controls_section( 'thumb_style', array( 'label' => __( 'Image', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
 		PixfortControls::thumb( $widget, 'thumb', '{{WRAPPER}} .galaxie-cart-thumb img' );
@@ -283,11 +383,13 @@ final class CartParts {
 		$widget->end_controls_section();
 
 		$widget->start_controls_section( 'name_style', array( 'label' => __( 'Product name', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
-		PixfortControls::text( $widget, 'name', array( 'bold' => 'font-weight-bold', 'remove_pb_padding' => 'm-0' ), array(), '{{WRAPPER}} .galaxie-cart-name' );
+		PixfortControls::text( $widget, 'name', array( 'bold' => 'font-weight-bold', 'remove_pb_padding' => 'm-0' ), array(), '{{WRAPPER}} .galaxie-cart-cell-name' );
 		$widget->end_controls_section();
 
 		$widget->start_controls_section( 'price_style', array( 'label' => __( 'Prices', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
-		PixfortControls::text( $widget, 'price', array( 'remove_pb_padding' => 'm-0' ), array(), '{{WRAPPER}} .galaxie-cart-price, {{WRAPPER}} .galaxie-cart-subtotal' );
+		// The same `heading` vocabulary the buy box gives the product page's
+		// price, so a price is sized the same way in both places.
+		PixfortControls::text( $widget, 'price', array( 'size' => 'h6', 'remove_pb_padding' => 'm-0' ), array(), '{{WRAPPER}} .galaxie-cart-cell-price, {{WRAPPER}} .galaxie-cart-cell-subtotal', 'heading' );
 		$widget->end_controls_section();
 
 		$widget->start_controls_section( 'remove_style', array( 'label' => __( 'Remove', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
@@ -337,26 +439,13 @@ final class CartParts {
 		$widget->end_controls_section();
 
 		$widget->start_controls_section( 'box_style', array( 'label' => __( 'Totals box', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
-		PixfortControls::palette_control( $widget, 'box_bg', __( 'Background', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-cart-totals', 'background-color' );
-		$widget->add_responsive_control(
-			'box_padding',
-			array(
-				'label'      => __( 'Padding', 'galaxie-woo' ),
-				'type'       => Controls_Manager::DIMENSIONS,
-				'size_units' => array( 'px', 'rem' ),
-				'selectors'  => array( '{{WRAPPER}} .galaxie-cart-totals' => 'padding: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};' ),
-			)
-		);
-		$widget->add_control(
-			'box_radius',
-			array(
-				'label'      => __( 'Border radius', 'galaxie-woo' ),
-				'type'       => Controls_Manager::SLIDER,
-				'size_units' => array( 'px' ),
-				'range'      => array( 'px' => array( 'min' => 0, 'max' => 48 ) ),
-				'selectors'  => array( '{{WRAPPER}} .galaxie-cart-totals' => 'border-radius: {{SIZE}}{{UNIT}};' ),
-			)
-		);
+
+		// Was a hand-rolled background + padding + radius slider. The shared set
+		// keeps all three control ids (`box_bg`, `box_padding`, `box_radius`),
+		// so nothing already configured is lost — but the radius now sits
+		// behind pixfort's own scale, with the slider as the Custom entry.
+		PixfortControls::surface( $widget, 'box', '{{WRAPPER}} .galaxie-cart-totals' );
+
 		$widget->end_controls_section();
 	}
 
@@ -412,14 +501,23 @@ final class CartParts {
 		);
 
 		if ( 'yes' === ( $settings['show_headings'] ?? 'yes' ) ) {
-			echo '<div class="galaxie-cart-head galaxie-cart-line">';
+			printf(
+				'<div class="galaxie-cart-head galaxie-cart-line %s">',
+				esc_attr( PixfortControls::surface_classes( $settings, 'head' ) )
+			);
+
 			foreach ( $fields as $row ) {
-				printf(
-					'<div class="galaxie-cart-cell galaxie-cart-cell-%s">%s</div>',
-					esc_attr( $row['field'] ),
-					esc_html( (string) ( $row['heading'] ?? '' ) )
-				);
+				printf( '<div class="%s">', esc_attr( self::cell_class( $row ) ) );
+
+				$label = (string) ( $row['heading'] ?? '' );
+
+				if ( '' !== $label ) {
+					echo PixfortControls::render_text( $settings, 'head', esc_html( $label ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pixfort's own element around escaped text.
+				}
+
+				echo '</div>';
 			}
+
 			echo '</div>';
 		}
 
@@ -433,7 +531,7 @@ final class CartParts {
 			printf( '<div class="galaxie-cart-line" data-galaxie-key="%s">', esc_attr( $key ) );
 
 			foreach ( $fields as $row ) {
-				printf( '<div class="galaxie-cart-cell galaxie-cart-cell-%s">', esc_attr( $row['field'] ) );
+				printf( '<div class="%s">', esc_attr( self::cell_class( $row ) ) );
 				self::render_field( (string) $row['field'], $key, $item, $product, $settings );
 				echo '</div>';
 			}
@@ -445,6 +543,22 @@ final class CartParts {
 
 		wp_nonce_field( 'woocommerce-cart', 'woocommerce-cart-nonce' );
 		echo '</form>';
+	}
+
+	/**
+	 * A cell's classes: which field it is, and how that column is aligned.
+	 *
+	 * @param array<string,mixed> $row
+	 */
+	private static function cell_class( array $row ): string {
+		$field = (string) ( $row['field'] ?? '' );
+		$align = (string) ( $row['align'] ?? 'left' );
+
+		if ( ! in_array( $align, array( 'left', 'center', 'right' ), true ) ) {
+			$align = 'left';
+		}
+
+		return sprintf( 'galaxie-cart-cell galaxie-cart-cell-%s galaxie-cart-cell--%s', $field, $align );
 	}
 
 	/**
@@ -467,11 +581,15 @@ final class CartParts {
 			case 'name':
 				$name = apply_filters( 'woocommerce_cart_item_name', $product->get_name(), $item, $key );
 				$link = $product->is_visible() ? $product->get_permalink( $item ) : '';
-				printf(
-					'<span class="galaxie-cart-name">%s</span>',
-					$link
-						? sprintf( '<a href="%s">%s</a>', esc_url( $link ), esc_html( wp_strip_all_tags( $name ) ) )
-						: esc_html( wp_strip_all_tags( $name ) )
+				echo PixfortControls::render_text( // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pixfort's own element around escaped text.
+					$settings,
+					'name',
+					sprintf(
+						'<span class="galaxie-cart-name">%s</span>',
+						$link
+							? sprintf( '<a href="%s">%s</a>', esc_url( $link ), esc_html( wp_strip_all_tags( $name ) ) )
+							: esc_html( wp_strip_all_tags( $name ) )
+					)
 				);
 
 				$meta = wc_get_formatted_cart_item_data( $item, true );
@@ -481,9 +599,13 @@ final class CartParts {
 				break;
 
 			case 'price':
-				printf(
-					'<span class="galaxie-cart-price">%s</span>',
-					wp_kses_post( apply_filters( 'woocommerce_cart_item_price', WC()->cart->get_product_price( $product ), $item, $key ) )
+				echo PixfortControls::render_text( // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pixfort's own element around escaped markup.
+					$settings,
+					'price',
+					sprintf(
+						'<span class="galaxie-cart-price">%s</span>',
+						wp_kses_post( apply_filters( 'woocommerce_cart_item_price', WC()->cart->get_product_price( $product ), $item, $key ) )
+					)
 				);
 				break;
 
@@ -492,9 +614,17 @@ final class CartParts {
 				break;
 
 			case 'subtotal':
-				printf(
-					'<span class="galaxie-cart-subtotal">%s</span>',
-					wp_kses_post( apply_filters( 'woocommerce_cart_item_subtotal', WC()->cart->get_product_subtotal( $product, $item['quantity'] ), $item, $key ) )
+				// The pixfort element wraps the span rather than living inside
+				// it: `cart.ts` replaces that span's contents with the amount
+				// the server sends back, and any styling kept inside would be
+				// discarded the first time a quantity changed.
+				echo PixfortControls::render_text( // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pixfort's own element around escaped markup.
+					$settings,
+					'price',
+					sprintf(
+						'<span class="galaxie-cart-subtotal">%s</span>',
+						wp_kses_post( apply_filters( 'woocommerce_cart_item_subtotal', WC()->cart->get_product_subtotal( $product, $item['quantity'] ), $item, $key ) )
+					)
 				);
 				break;
 
@@ -584,12 +714,54 @@ final class CartParts {
 		$checkout = (string) ( $settings['checkout_text'] ?? __( 'Finalizar compra', 'galaxie-woo' ) );
 
 		ob_start();
-		echo '<div class="galaxie-cart-totals">';
+		printf(
+			'<div class="galaxie-cart-totals %s">',
+			esc_attr( PixfortControls::surface_classes( $settings, 'box' ) )
+		);
 
 		if ( '' !== $heading ) {
 			printf( '<h3 class="galaxie-cart-totals-heading">%s</h3>', esc_html( $heading ) );
 		}
 
+		echo self::rows_markup( $settings ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built from escaped parts.
+
+		printf(
+			'<a class="galaxie-cart-checkout" href="%s">%s</a>',
+			esc_url( wc_get_checkout_url() ),
+			PixfortControls::render_button( $settings, 'checkout', $checkout ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pixfort's own component markup.
+		);
+
+		if ( 'yes' === ( $settings['show_continue'] ?? '' ) ) {
+			printf(
+				'<a class="galaxie-cart-continue" href="%s">%s</a>',
+				esc_url( wc_get_page_permalink( 'shop' ) ),
+				esc_html( (string) ( $settings['continue_text'] ?? '' ) )
+			);
+		}
+
+		echo '</div>';
+
+		return (string) ob_get_clean();
+	}
+
+	/**
+	 * Just the amounts — the block a quantity change actually invalidates.
+	 *
+	 * Kept separate from {@see totals_markup()} because the AJAX update has no
+	 * widget settings to render with: replacing the whole box from there would
+	 * hand back a totals block stripped of the background, radius and checkout
+	 * button the merchant configured. Replacing only these rows cannot.
+	 *
+	 * @param array<string,mixed> $settings
+	 */
+	public static function rows_markup( array $settings = array() ): string {
+		if ( ! self::available() ) {
+			return '';
+		}
+
+		$cart = WC()->cart;
+
+		ob_start();
 		echo '<div class="galaxie-cart-totals-rows">';
 
 		self::row( __( 'Subtotal', 'woocommerce' ), self::capture( 'wc_cart_totals_subtotal_html' ), 'subtotal' );
@@ -624,22 +796,6 @@ final class CartParts {
 		}
 
 		self::row( __( 'Total', 'woocommerce' ), self::capture( 'wc_cart_totals_order_total_html' ), 'order-total' );
-
-		echo '</div>';
-
-		printf(
-			'<a class="galaxie-cart-checkout" href="%s">%s</a>',
-			esc_url( wc_get_checkout_url() ),
-			esc_html( $checkout )
-		);
-
-		if ( 'yes' === ( $settings['show_continue'] ?? '' ) ) {
-			printf(
-				'<a class="galaxie-cart-continue" href="%s">%s</a>',
-				esc_url( wc_get_page_permalink( 'shop' ) ),
-				esc_html( (string) ( $settings['continue_text'] ?? '' ) )
-			);
-		}
 
 		echo '</div>';
 

@@ -765,11 +765,37 @@ form.galaxie-buybox .galaxie-buybox-row {
   width: max-content;
 }
 
-.galaxie-cart-head {
-  font-size: 0.85em;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  opacity: 0.6;
+/* Every declaration this row used to carry — size, letter-spacing, uppercase,
+   opacity — is a control now, defaulted to exactly these values. What is left
+   here is only what the controls cannot express. */
+.galaxie-cart-head .galaxie-cart-cell > p {
+  margin: 0;
+}
+
+/* Alignment is per column, set on the repeater row. The cell is a flex box so
+   the setting reaches BOTH kinds of content: text lines up through
+   `text-align`, while the stepper, the thumbnail and the remove glyph are
+   boxes and line up through `justify-content`. */
+.galaxie-cart-cell {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+}
+
+.galaxie-cart-cell--left {
+  align-items: flex-start;
+  text-align: left;
+}
+
+.galaxie-cart-cell--center {
+  align-items: center;
+  text-align: center;
+}
+
+.galaxie-cart-cell--right {
+  align-items: flex-end;
+  text-align: right;
 }
 
 .galaxie-cart-thumb img {

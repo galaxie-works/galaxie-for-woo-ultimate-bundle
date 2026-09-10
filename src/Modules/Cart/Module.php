@@ -115,9 +115,11 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 				'subtotal'  => $item ? WC()->cart->get_product_subtotal( $item['data'], $item['quantity'] ) : '',
 				'count'     => WC()->cart->get_cart_contents_count(),
 				'empty'     => WC()->cart->is_empty(),
-				// Re-rendered from the shared parts, so the block that comes
-				// back is the same one any of the three widgets printed.
-				'totals'    => CartParts::totals_markup(),
+				// Only the amounts. This endpoint has no widget settings, so
+				// re-rendering the whole totals box from here would hand back
+				// one stripped of the background, radius and checkout button
+				// the merchant configured — see CartParts::rows_markup().
+				'totals'    => CartParts::rows_markup(),
 				// WooCommerce's own fragments, so a mini cart in the header
 				// updates from the same response instead of going stale.
 				'fragments' => apply_filters( 'woocommerce_add_to_cart_fragments', array() ),

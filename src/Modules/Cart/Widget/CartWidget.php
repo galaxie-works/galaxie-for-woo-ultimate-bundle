@@ -51,6 +51,7 @@ final class CartWidget extends Widget_Base {
 		CartParts::register_behaviour_controls( $this );
 		CartParts::register_totals_controls( $this );
 		CartParts::register_empty_controls( $this );
+		CartParts::register_head_style( $this );
 		CartParts::register_table_style( $this );
 		CartParts::register_totals_style( $this );
 	}

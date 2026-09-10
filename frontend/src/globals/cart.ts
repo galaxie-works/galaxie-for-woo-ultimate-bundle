@@ -93,8 +93,13 @@ function apply(line: HTMLElement, data: NonNullable<CartResponse['data']>): void
     // split widgets the totals live in a container of their own — often a
     // sticky column on the other side of the page — and scoping the lookup to
     // the table's root would silently stop updating them there.
-    const totals = document.querySelector('.galaxie-cart-totals')
-    if (totals) totals.outerHTML = data.totals
+    //
+    // Only the ROWS are replaced. The server has no widget settings when it
+    // answers this request, so what it can render is the amounts and nothing
+    // else; swapping the whole box would trade the merchant's background,
+    // radius and checkout button for a bare one on the first quantity change.
+    const rows = document.querySelector('.galaxie-cart-totals-rows')
+    if (rows) rows.outerHTML = data.totals
   }
 
   // The mini cart in the header listens for this, and WooCommerce's own
