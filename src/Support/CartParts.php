@@ -619,10 +619,10 @@ final class CartParts {
 		// spans — see PixfortControls::text_classes() — and the AJAX update
 		// carries the widget's id so the rows it re-renders keep them.
 		$parts = array(
-			'sum_heading' => array( __( 'Heading', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-cart-totals-heading', array( 'size' => 'text-20', 'bold' => 'font-weight-bold' ) ),
-			'sum_label'   => array( __( 'Row label', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-cart-total-label', array( 'size' => '', 'bold' => '' ) ),
-			'sum_value'   => array( __( 'Row amount', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-cart-total-value', array( 'size' => '', 'bold' => 'font-weight-bold' ) ),
-			'sum_total'   => array( __( 'Order total', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-cart-total-order-total', array( 'size' => 'text-18', 'bold' => 'font-weight-bold' ) ),
+			'sumh' => array( __( 'Heading', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-cart-totals-heading', array( 'size' => 'text-20', 'bold' => 'font-weight-bold' ) ),
+			'suml'   => array( __( 'Row label', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-cart-total-label', array( 'size' => '', 'bold' => '' ) ),
+			'sumv'   => array( __( 'Row amount', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-cart-total-value', array( 'size' => '', 'bold' => 'font-weight-bold' ) ),
+			'sumt'   => array( __( 'Order total', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-cart-total-order-total', array( 'size' => 'text-18', 'bold' => 'font-weight-bold' ) ),
 		);
 
 		$first = true;
@@ -1187,13 +1187,13 @@ final class CartParts {
 		ob_start();
 		printf(
 			'<div class="galaxie-cart-totals-rows" data-label-class="%s" data-value-class="%s" data-total-class="%s">',
-			esc_attr( PixfortControls::text_classes( $settings, 'sum_label' ) ),
-			esc_attr( PixfortControls::text_classes( $settings, 'sum_value' ) ),
-			esc_attr( PixfortControls::text_classes( $settings, 'sum_total' ) )
+			esc_attr( PixfortControls::text_classes( $settings, 'suml' ) ),
+			esc_attr( PixfortControls::text_classes( $settings, 'sumv' ) ),
+			esc_attr( PixfortControls::text_classes( $settings, 'sumt' ) )
 		);
 
-		self::$row_label_class = PixfortControls::text_classes( $settings, 'sum_label' );
-		self::$row_value_class = PixfortControls::text_classes( $settings, 'sum_value' );
+		self::$row_label_class = PixfortControls::text_classes( $settings, 'suml' );
+		self::$row_value_class = PixfortControls::text_classes( $settings, 'sumv' );
 
 		self::row( __( 'Subtotal', 'woocommerce' ), self::capture( 'wc_cart_totals_subtotal_html' ), 'subtotal' );
 

@@ -1491,16 +1491,26 @@ final class PixfortControls {
 	 * @param array<string,mixed> $settings
 	 */
 	public static function text_classes( array $settings, string $prefix ): string {
-		$size   = (string) ( $settings[ $prefix . '_size' ] ?? '' );
-		$colour = (string) ( $settings[ $prefix . '_content_color' ] ?? '' );
+		// Only strings become classes. A control id that once held a slider
+		// still holds `['unit' => 'px', 'size' => 15]` until the widget is
+		// saved again, and casting that to a string writes the word "Array"
+		// into the class attribute — which is exactly what shipped for an hour.
+		$value = static function ( string $key ) use ( $settings, $prefix ): string {
+			$raw = $settings[ $prefix . '_' . $key ] ?? '';
+
+			return is_string( $raw ) ? $raw : '';
+		};
+
+		$size   = $value( 'size' );
+		$colour = $value( 'content_color' );
 
 		$classes = array(
 			// `custom` marks the slider that accompanies it, and is not a class.
 			'custom' === $size ? '' : $size,
-			(string) ( $settings[ $prefix . '_bold' ] ?? '' ),
-			(string) ( $settings[ $prefix . '_italic' ] ?? '' ),
-			(string) ( $settings[ $prefix . '_secondary_font' ] ?? '' ),
-			(string) ( $settings[ $prefix . '_position' ] ?? '' ),
+			$value( 'bold' ),
+			$value( 'italic' ),
+			$value( 'secondary_font' ),
+			$value( 'position' ),
 			// pixfort prefixes the palette name itself — `text-primary` — which
 			// is what its own Text element does with the same stored value.
 			'' !== $colour && 'custom' !== $colour ? 'text-' . $colour : '',
