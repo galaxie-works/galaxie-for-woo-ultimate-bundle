@@ -65,7 +65,7 @@ final class ProductDimension extends BaseTag {
 				'type'        => Controls_Manager::SELECT,
 				'default'     => 'range',
 				'options'     => array(
-					'range' => __( 'Show the range', 'galaxie-woo' ),
+					'range' => __( 'List every size', 'galaxie-woo' ),
 					'blank' => __( 'Show nothing', 'galaxie-woo' ),
 				),
 				'description' => __( 'Only applies to variable products, whose dimensions are stored per variation.', 'galaxie-woo' ),
@@ -151,50 +151,85 @@ final class ProductDimension extends BaseTag {
 	}
 
 	/**
-	 * The spread across variations, per axis.
+	 * What to show before a variation is chosen.
 	 *
-	 * Ranged side by side rather than as two whole boxes — "5 – 8 × 5 – 8 ×
-	 * 6.5 – 8.5" says which measurement varies and by how much, where
-	 * "5 × 5 × 6.5 – 8 × 8 × 8.5" reads as one number sequence and has to be
-	 * decoded. An axis that is the same on every variation prints once.
+	 * The whole set is listed — "5 × 5 × 6.5 cm, 8 × 8 × 8.5 cm" — rather than
+	 * ranged per axis. This first shipped the other way, as "5 – 8 × 5 – 8 ×
+	 * 6.5 – 8.5 cm", on the reasoning that it shows which measurement varies.
+	 * On screen that is unreadable: six numbers and two kinds of dash in one
+	 * line, and not one of them is a box you can picture. Each entry here is a
+	 * real product you could hold.
+	 *
+	 * A single axis is still a range, because two numbers with a dash between
+	 * them is exactly what a range should look like.
 	 */
 	private function range( \WC_Product $product, string $which, string $unit ): string {
-		$axes    = 'formatted' === $which ? array( 'length', 'width', 'height' ) : array( $which );
-		$spreads = array();
-
-		foreach ( $axes as $axis ) {
-			$values = array();
-
-			foreach ( $product->get_children() as $child_id ) {
-				$child  = wc_get_product( $child_id );
-				$getter = 'get_' . $axis;
-
-				if ( $child && method_exists( $child, $getter ) && '' !== (string) $child->{$getter}() ) {
-					$values[] = (float) $child->{$getter}();
-				}
-			}
-
-			if ( empty( $values ) ) {
-				return '';
-			}
-
-			$low  = min( $values );
-			$high = max( $values );
-
-			$spreads[] = $low === $high
-				? (string) wc_format_localized_decimal( $low )
-				: wc_format_localized_decimal( $low ) . ' – ' . wc_format_localized_decimal( $high );
+		if ( 'formatted' !== $which ) {
+			return $this->axis_range( $product, $which, $unit );
 		}
 
-		// wc_format_dimensions() joins with the HTML entity `&times;`. Written as
-		// the character instead, because this string is escaped on the way out and
-		// the JS writes its own through textContent - both of which would print an
-		// entity literally, as "5 &times; 5".
-		$value = implode( ' × ', $spreads );
-		$show  = 'formatted' === $which
-			? (string) get_option( 'woocommerce_dimension_unit' )
-			: $unit;
+		$unit  = (string) get_option( 'woocommerce_dimension_unit' );
+		$boxes = array();
 
-		return '' === $show ? $value : $value . ' ' . $show;
+		foreach ( $product->get_children() as $child_id ) {
+			$child = wc_get_product( $child_id );
+
+			if ( ! $child ) {
+				continue;
+			}
+
+			$sides = array_filter(
+				array(
+					(string) $child->get_length(),
+					(string) $child->get_width(),
+					(string) $child->get_height(),
+				),
+				static fn( string $side ): bool => '' !== $side
+			);
+
+			if ( empty( $sides ) ) {
+				continue;
+			}
+
+			// wc_format_dimensions() joins with the HTML entity `&times;`, and
+			// this string is escaped on the way out — an entity would print
+			// literally, as "5 &times; 5". The character, therefore.
+			$box = implode( ' × ', $sides ) . ( '' === $unit ? '' : ' ' . $unit );
+
+			// Variations often share a size; listing it twice says nothing.
+			if ( ! in_array( $box, $boxes, true ) ) {
+				$boxes[] = $box;
+			}
+		}
+
+		return implode( ', ', $boxes );
+	}
+
+	/**
+	 * Low to high on one axis.
+	 */
+	private function axis_range( \WC_Product $product, string $axis, string $unit ): string {
+		$values = array();
+		$getter = 'get_' . $axis;
+
+		foreach ( $product->get_children() as $child_id ) {
+			$child = wc_get_product( $child_id );
+
+			if ( $child && method_exists( $child, $getter ) && '' !== (string) $child->{$getter}() ) {
+				$values[] = (float) $child->{$getter}();
+			}
+		}
+
+		if ( empty( $values ) ) {
+			return '';
+		}
+
+		$low   = min( $values );
+		$high  = max( $values );
+		$value = $low === $high
+			? (string) wc_format_localized_decimal( $low )
+			: wc_format_localized_decimal( $low ) . ' – ' . wc_format_localized_decimal( $high );
+
+		return '' === $unit ? $value : $value . ' ' . $unit;
 	}
 }
