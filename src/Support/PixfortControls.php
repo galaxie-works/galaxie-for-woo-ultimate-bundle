@@ -1068,6 +1068,13 @@ final class PixfortControls {
 			}
 		}
 
+		// pixfort's list ends with a "Custom" entry, and the loop above skips it
+		// because it is not a palette variable. Left at that it was a dead
+		// option: choosing it emitted `background-color: custom`, which is not a
+		// colour, so the picker offered a choice that did nothing. It maps to
+		// nothing here and the companion control below does the painting.
+		$dictionary['custom'] = '';
+
 		self::add( $target, $condition, $id, array(
 			'label'                => $label,
 			'type'                 => Controls_Manager::SELECT,
@@ -1075,6 +1082,13 @@ final class PixfortControls {
 			'default'              => '',
 			'selectors_dictionary' => $dictionary,
 			'selectors'            => array( $selector => '{{VALUE}}' ),
+		) );
+
+		self::add( $target, $condition, $id . '_custom', array(
+			'label'     => __( 'Custom color', 'galaxie-woo' ),
+			'type'      => Controls_Manager::COLOR,
+			'selectors' => array( $selector => $property . ': {{VALUE}} !important;' . $extra ),
+			'condition' => array( $id => 'custom' ),
 		) );
 	}
 
