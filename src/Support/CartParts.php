@@ -335,7 +335,9 @@ final class CartParts {
 			)
 		);
 
-		PixfortControls::surface( $widget, 'head', '{{WRAPPER}} .galaxie-cart-head' );
+		// No padding of its own: see the Layout section's cell padding, which
+		// pads the header and the lines alike so their columns keep matching.
+		PixfortControls::surface( $widget, 'head', '{{WRAPPER}} .galaxie-cart-head', array(), array(), false );
 
 		$widget->add_control(
 			'head_text_heading',
@@ -452,6 +454,20 @@ final class CartParts {
 				'selectors'  => array( '{{WRAPPER}} .galaxie-cart-line' => 'padding-top: {{SIZE}}{{UNIT}}; padding-bottom: {{SIZE}}{{UNIT}};' ),
 			)
 		);
+		// On the CELLS, not on the rows. Padding a row narrows its content box
+		// and with it every flexible column in that row, so a padded header
+		// lays out narrower tracks than the lines beneath it — which is exactly
+		// how the headings ended up sitting over the wrong columns.
+		$widget->add_responsive_control(
+			'cell_padding',
+			array(
+				'label'      => __( 'Cell padding', 'galaxie-woo' ),
+				'type'       => Controls_Manager::DIMENSIONS,
+				'size_units' => array( 'px', 'rem', 'em' ),
+				'selectors'  => array( '{{WRAPPER}} .galaxie-cart-cell' => 'padding: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};' ),
+			)
+		);
+
 		$widget->add_responsive_control(
 			'field_gap',
 			array(

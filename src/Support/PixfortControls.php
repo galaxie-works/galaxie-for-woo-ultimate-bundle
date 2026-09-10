@@ -1353,7 +1353,7 @@ final class PixfortControls {
 	 * @param array<string,mixed> $defaults
 	 * @param array<string,mixed> $condition
 	 */
-	public static function surface( object $target, string $prefix, string $selector, array $defaults = array(), array $condition = array() ): void {
+	public static function surface( object $target, string $prefix, string $selector, array $defaults = array(), array $condition = array(), bool $padding = true ): void {
 		$d = static fn( string $key, $fallback ) => $defaults[ $key ] ?? $fallback;
 
 		self::palette_control( $target, $prefix . '_bg', __( 'Background', 'galaxie-woo' ), $selector, 'background-color', $condition );
@@ -1382,12 +1382,18 @@ final class PixfortControls {
 			'default' => $d( 'shadow', '' ),
 		) );
 
-		self::add_responsive( $target, $condition, $prefix . '_padding', array(
-			'label'      => __( 'Padding', 'galaxie-woo' ),
-			'type'       => Controls_Manager::DIMENSIONS,
-			'size_units' => array( 'px', 'rem', 'em' ),
-			'selectors'  => array( $selector => 'padding: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};' ),
-		) );
+		// Skippable, because padding on a grid row narrows its content box and
+		// therefore its columns — a header padded 40px either side lays out
+		// tracks 80px narrower than the lines below it, and nothing under it
+		// lines up. Where that matters the caller pads the cells instead.
+		if ( $padding ) {
+			self::add_responsive( $target, $condition, $prefix . '_padding', array(
+				'label'      => __( 'Padding', 'galaxie-woo' ),
+				'type'       => Controls_Manager::DIMENSIONS,
+				'size_units' => array( 'px', 'rem', 'em' ),
+				'selectors'  => array( $selector => 'padding: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};' ),
+			) );
+		}
 
 		// Same trap as the quantity box: pixfort's containers ship with no
 		// border at all, so a colour on its own lands on a zero-width border

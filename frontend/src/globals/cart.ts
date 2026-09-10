@@ -34,8 +34,13 @@ interface CartResponse {
 
 const PENDING = 'is-galaxie-updating'
 
-function jq(): { (el: unknown): { trigger: (e: string, args?: unknown[]) => void } } | undefined {
-  return (window as unknown as { jQuery?: never }).jQuery
+interface JQueryLike {
+  trigger: (e: string, args?: unknown[]) => void
+  on: (events: string, selector: string, handler: (event: { target: unknown }) => void) => void
+}
+
+function jq(): ((el: unknown) => JQueryLike) | undefined {
+  return (window as unknown as { jQuery?: (el: unknown) => JQueryLike }).jQuery
 }
 
 /**
@@ -150,8 +155,20 @@ export function bootCart(config?: CartConfig): void {
     void update(line, quantity)
   }, 400)
 
-  form.addEventListener('input', onQuantity)
-  form.addEventListener('change', onQuantity)
+  // Through jQuery when it is there, and this is the whole reason the stepper
+  // appeared to do nothing: the theme's − and + are anchors that write
+  // `input.value` and then `$input.trigger('change')`. jQuery's trigger runs
+  // jQuery's handlers, not listeners registered with `addEventListener`, so a
+  // native listener hears absolutely nothing — no `input`, no `change`. Typing
+  // a number worked, which is why this survived a check that typed one.
+  const $ = jq()
+
+  if ($) {
+    $(form).on('change input', '.qty', (event) => onQuantity(event as unknown as Event))
+  } else {
+    form.addEventListener('input', onQuantity)
+    form.addEventListener('change', onQuantity)
+  }
 
   // Removal is a quantity of zero, which is WooCommerce's own convention — so
   // the link and the stepper reach the cart by the same path, and there is one
