@@ -5,8 +5,15 @@
  * deprecated variation-badges widget there is no second native form to mirror
  * or hide. WooCommerce's own `wc-add-to-cart-variation.js` still runs on that
  * form — the real attribute `<select>`s are in it, just visually hidden — so
- * variation matching, option narrowing and every `found_variation` /
- * `reset_data` listener third-party plugins register keep working untouched.
+ * variation matching and option narrowing are still WooCommerce's, and so are
+ * the events third-party plugins listen for. Nothing here emits them.
+ *
+ * That claim used to be made loosely, and it was half wrong: measured on the
+ * page, `found_variation` and `reset_data` fired but `show_variation` and
+ * `hide_variation` did not, because WooCommerce triggers those two on a
+ * `.single_variation` element this widget did not render. It does now — see
+ * BuyBoxWidget::render_single_variation_slot() for why the fix belongs in the
+ * markup rather than in a `trigger()` call here.
  *
  * This script only does the three things WooCommerce cannot know about:
  * drive those selects from our badges, paint price and stock into our own

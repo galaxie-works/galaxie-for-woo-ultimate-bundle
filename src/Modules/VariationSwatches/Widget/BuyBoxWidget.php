@@ -584,6 +584,7 @@ final class BuyBoxWidget extends Widget_Base {
 			// variations at all: no price update, no narrowing of options.
 			wp_enqueue_script( 'wc-add-to-cart-variation' );
 			$this->render_attribute_selects( $product );
+			$this->render_single_variation_slot();
 		}
 
 		$this->render_blocks( $rows, $product, $settings );
@@ -629,6 +630,40 @@ final class BuyBoxWidget extends Widget_Base {
 			}
 			echo '</div>';
 		}
+	}
+
+	/**
+	 * The element WooCommerce needs in order to announce a chosen variation.
+	 *
+	 * Of the four events a variation form is expected to emit, this widget was
+	 * only ever getting two. Measured on the page: `found_variation` and
+	 * `reset_data` fired, `show_variation` and `hide_variation` never did.
+	 *
+	 * The reason is one line of WooCommerce's own script:
+	 *
+	 *     self.$singleVariation = $form.find( '.single_variation' );
+	 *
+	 * It is resolved ONCE, when the form object is constructed, and those two
+	 * events are triggered on that selection. No `.single_variation` in our
+	 * markup meant an empty jQuery set, and triggering on an empty set is a
+	 * silent no-op — which is also why injecting the element afterwards fixes
+	 * nothing: by then the empty selection is already cached.
+	 *
+	 * So it is rendered server side, before the script ever runs. WooCommerce
+	 * writes its own price/availability template into it and animates it; the
+	 * wrapper keeps all of that out of sight, and our own blocks stay the only
+	 * thing on screen.
+	 *
+	 * The trade this accepts: WooCommerce binds its own handlers to those two
+	 * events, and they toggle `disabled wc-variation-selection-needed` on
+	 * `.single_add_to_cart_button` — which is our button. Checked on the live
+	 * page before committing to it: with those classes applied, computed
+	 * opacity, cursor and pointer-events are unchanged and the click still
+	 * reaches our handler, because the rules this widget already uses to
+	 * neutralise the theme cover that state too. The alert flow is untouched.
+	 */
+	private function render_single_variation_slot(): void {
+		echo '<div class="galaxie-buybox-wc-variation" aria-hidden="true"><div class="single_variation_wrap"><div class="single_variation"></div></div></div>';
 	}
 
 	/**

@@ -393,6 +393,16 @@ form.galaxie-buybox {
    own matcher reads them — but never seen: the badges above are their UI.
    Not `display:none`, because a field the browser considers unrenderable is
    also one it refuses to focus or report validation on. */
+/* WooCommerce needs a `.single_variation` to exist in order to emit
+   `show_variation` / `hide_variation` — see render_single_variation_slot().
+   It writes its own price and availability template in there and animates it,
+   so the WRAPPER is what gets hidden: slideDown/slideUp write an inline
+   `display` onto `.single_variation` itself, and an inline style would win
+   against a rule placed there. WooCommerce never touches this wrapper. */
+.galaxie-buybox .galaxie-buybox-wc-variation {
+  display: none;
+}
+
 .galaxie-buybox-attrs {
   position: absolute;
   width: 1px;
