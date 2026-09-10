@@ -101,6 +101,25 @@ final class CartParts {
 			)
 		);
 
+		// Vertical, on the same row as its horizontal twin. A cart line is as
+		// tall as its tallest cell — usually the thumbnail or the stepper — so
+		// every other cell has room to sit somewhere in it, and a wrapped
+		// product name reads better against the top than floating in the middle.
+		$repeater->add_control(
+			'valign',
+			array(
+				'label'   => __( 'Vertical alignment', 'galaxie-woo' ),
+				'type'    => Controls_Manager::CHOOSE,
+				'toggle'  => false,
+				'default' => 'middle',
+				'options' => array(
+					'top'    => array( 'title' => __( 'Top', 'galaxie-woo' ), 'icon' => 'eicon-v-align-top' ),
+					'middle' => array( 'title' => __( 'Middle', 'galaxie-woo' ), 'icon' => 'eicon-v-align-middle' ),
+					'bottom' => array( 'title' => __( 'Bottom', 'galaxie-woo' ), 'icon' => 'eicon-v-align-bottom' ),
+				),
+			)
+		);
+
 		// The column's own width, and the reason the table lines up at all: the
 		// header row and every line share ONE template built from these, so a
 		// heading always sits over the values beneath it.
@@ -650,10 +669,17 @@ final class CartParts {
 	 * @param array<string,mixed> $row
 	 */
 	private static function cell_class( array $row ): string {
+		$valign = (string) ( $row['valign'] ?? 'middle' );
+
+		if ( ! in_array( $valign, array( 'top', 'middle', 'bottom' ), true ) ) {
+			$valign = 'middle';
+		}
+
 		return sprintf(
-			'galaxie-cart-cell galaxie-cart-cell-%s galaxie-cart-cell--%s',
+			'galaxie-cart-cell galaxie-cart-cell-%s galaxie-cart-cell--%s galaxie-cart-cell--v-%s',
 			(string) ( $row['field'] ?? '' ),
-			self::align_of( $row )
+			self::align_of( $row ),
+			$valign
 		);
 	}
 

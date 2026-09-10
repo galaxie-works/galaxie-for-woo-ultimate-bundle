@@ -758,7 +758,10 @@ form.galaxie-buybox .galaxie-buybox-row {
      own values. The fallback keeps a widget rendered before this shipped
      looking like a table rather than a pile. */
   grid-template-columns: var(--galaxie-cart-cols, 100px repeat(4, 1fr) 48px);
-  align-items: center;
+  /* Cells fill the line's height rather than being centred in it, which is
+     what leaves each column free to place its own content vertically. The
+     default below keeps that looking exactly like the centring it replaced. */
+  align-items: stretch;
   border-bottom: 1px solid rgb(0 0 0 / 8%);
 }
 
@@ -793,6 +796,20 @@ form.galaxie-buybox .galaxie-buybox-row {
 .galaxie-cart-cell--right {
   align-items: flex-end;
   text-align: right;
+}
+
+/* Vertical, per column. The cell is a flex COLUMN, so what places its content
+   along the line's height is justify-content, not align-items. */
+.galaxie-cart-cell--v-top {
+  justify-content: flex-start;
+}
+
+.galaxie-cart-cell--v-middle {
+  justify-content: center;
+}
+
+.galaxie-cart-cell--v-bottom {
+  justify-content: flex-end;
 }
 
 /* The pixfort radius class lands on this wrapper, so it has to be the thing
