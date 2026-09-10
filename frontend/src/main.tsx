@@ -14,6 +14,7 @@ import { bootQuantityDiscounts } from '@/globals/quantity-discounts'
 import { bootProductData } from '@/globals/product-data'
 import { bootCart } from '@/globals/cart'
 import { bootCartCountdown } from '@/globals/countdown'
+import { bootAddressAutocomplete } from '@/globals/address-autocomplete'
 
 // Each module registers its island(s) here as they are ported.
 registerIsland('demo', Demo)
@@ -27,6 +28,7 @@ interface GalaxieConfig {
   wishlist?: { ajaxUrl: string; nonce: string }
   productData?: boolean
   cart?: { ajaxUrl: string; nonce: string }
+  addressAutocomplete?: { country: string; placeholder: string }
 }
 
 function boot(): void {
@@ -39,6 +41,7 @@ function boot(): void {
   bootVariationBadgesWidget(config.variationSwatches?.buyBox)
   bootQuantityDiscounts()
   bootCartCountdown()
+  bootAddressAutocomplete(config.addressAutocomplete)
 
   if (config.productData) {
     bootProductData()

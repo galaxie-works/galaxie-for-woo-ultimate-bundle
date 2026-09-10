@@ -13,9 +13,11 @@ use Galaxie\Woo\Core\ProvidesElementorWidgets;
 use Galaxie\Woo\Modules\Cart\Widget\CartCountdownWidget;
 use Galaxie\Woo\Modules\Cart\Widget\CartTableWidget;
 use Galaxie\Woo\Modules\Cart\Widget\CartTotalsWidget;
+use Galaxie\Woo\Modules\Cart\Widget\ShippingCalculatorWidget;
 use Galaxie\Woo\Modules\Cart\Widget\CartWidget;
 use Galaxie\Woo\Support\CartCountdown;
 use Galaxie\Woo\Support\CartParts;
+use Galaxie\Woo\Support\FreeShipping;
 use Galaxie\Woo\Support\Assets;
 
 defined( 'ABSPATH' ) || exit;
@@ -72,7 +74,7 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 
 	/** @return string[] */
 	public function elementor_widgets(): array {
-		return array( CartWidget::class, CartTableWidget::class, CartTotalsWidget::class, CartCountdownWidget::class );
+		return array( CartWidget::class, CartTableWidget::class, CartTotalsWidget::class, CartCountdownWidget::class, ShippingCalculatorWidget::class );
 	}
 
 	/**
@@ -98,6 +100,27 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 	 * Removing is a quantity of zero, which is also WooCommerce's own
 	 * convention, so the button and the stepper share one path.
 	 */
+	/**
+	 * @return array<string,mixed>|null
+	 */
+	private static function free_shipping_state(): ?array {
+		$threshold = isset( $_POST['free_shipping_threshold'] ) // phpcs:ignore WordPress.Security.NonceVerification.Missing -- the request is nonce-checked by the caller.
+			? (float) wp_unslash( $_POST['free_shipping_threshold'] ) // phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- cast to float.
+			: FreeShipping::threshold();
+
+		if ( $threshold <= 0 ) {
+			return null;
+		}
+
+		$state = FreeShipping::state( $threshold );
+
+		return array(
+			'percent'   => round( $state['percent'], 2 ),
+			'achieved'  => $state['achieved'],
+			'remaining' => wp_strip_all_tags( wc_price( $state['remaining'] ) ),
+		);
+	}
+
 	public function ajax_update(): void {
 		check_ajax_referer( self::NONCE, 'nonce' );
 
@@ -128,6 +151,12 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 				// one stripped of the background, radius and checkout button
 				// the merchant configured — see CartParts::rows_markup().
 				'totals'    => CartParts::rows_markup(),
+				// Numbers only, for the free shipping line the widget already
+				// rendered — the sentence and the styling stay on the page,
+				// because this request has no widget settings to rebuild them
+				// from. Threshold comes from WooCommerce here; a widget set to
+				// a typed one sends its own along with the request.
+				'freeShipping' => self::free_shipping_state(),
 				// WooCommerce's own fragments, so a mini cart in the header
 				// updates from the same response instead of going stale.
 				'fragments' => apply_filters( 'woocommerce_add_to_cart_fragments', array() ),

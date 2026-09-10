@@ -28,6 +28,7 @@ interface CartResponse {
     count?: number
     empty?: boolean
     totals?: string
+    freeShipping?: { percent: number; achieved: boolean; remaining: string } | null
     fragments?: Record<string, string>
   }
 }
@@ -107,12 +108,58 @@ function apply(line: HTMLElement, data: NonNullable<CartResponse['data']>): void
     if (rows) rows.outerHTML = data.totals
   }
 
+  applyFreeShipping(data.freeShipping)
+
   // The mini cart in the header listens for this, and WooCommerce's own
   // fragments arrive in the same response — so the two never disagree.
   const $ = jq()
   if ($ && data.fragments) {
     $(document.body).trigger('wc_fragments_refreshed')
   }
+}
+
+/**
+ * Refill the free shipping line from the numbers the server sent.
+ *
+ * The line itself, its styling and both sentences were rendered by the widget
+ * and stay on the page — the endpoint has no widget settings, so it sends what
+ * only it can know (how much is missing) and the sentence the merchant wrote is
+ * the one that gets refilled.
+ */
+function applyFreeShipping(state: CartResponse['data'] extends undefined ? never : NonNullable<CartResponse['data']>['freeShipping']): void {
+  if (!state) return
+
+  const el = document.querySelector<HTMLElement>('[data-galaxie-free-shipping]')
+  if (!el) return
+
+  const text = el.querySelector<HTMLElement>('.galaxie-free-shipping-text')
+  const fill = el.querySelector<HTMLElement>('.galaxie-free-shipping-fill')
+
+  el.classList.toggle('is-achieved', state.achieved)
+  el.classList.toggle('is-pending', !state.achieved)
+
+  if (fill) fill.style.width = `${state.percent}%`
+
+  if (!text) return
+
+  if (state.achieved) {
+    text.textContent = el.dataset.done ?? ''
+    return
+  }
+
+  const template = el.dataset.template ?? ''
+  const amount = document.createElement('span')
+  amount.className = 'galaxie-free-shipping-amount'
+  amount.textContent = state.remaining
+
+  // Rebuilt from a text node and one element rather than by writing a string
+  // into innerHTML: the template is merchant text and the amount is money, and
+  // neither has any business being parsed as markup.
+  text.textContent = ''
+  const [before, after] = template.split('{amount}')
+  text.appendChild(document.createTextNode(before ?? ''))
+  if (template.includes('{amount}')) text.appendChild(amount)
+  text.appendChild(document.createTextNode(after ?? ''))
 }
 
 export function bootCart(config?: CartConfig): void {

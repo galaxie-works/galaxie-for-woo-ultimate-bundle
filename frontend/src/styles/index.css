@@ -1000,3 +1000,43 @@ form.galaxie-buybox .galaxie-buybox-row {
   font-variant-numeric: tabular-nums;
   font-feature-settings: 'tnum';
 }
+
+/* -------------------------------------------------------------------------
+   Free shipping progress, and the shipping calculator.
+   ------------------------------------------------------------------------- */
+.galaxie-free-shipping {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.galaxie-free-shipping-track {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  height: 6px;
+  background: rgb(0 0 0 / 8%);
+}
+
+.galaxie-free-shipping-fill {
+  height: 100%;
+  background: currentcolor;
+  /* Animated because the number it represents changes under the shopper's
+     hand — a bar that jumps has not told them anything happened. */
+  transition: width 0.3s ease;
+}
+
+/* "Always open" is a class rather than an argument, because WooCommerce's own
+   template answers with a toggle link and a hidden section. */
+.galaxie-shipping-calculator.is-open .shipping-calculator-form {
+  display: block !important;
+}
+
+.galaxie-shipping-calculator.is-open .shipping-calculator-button {
+  display: none;
+}
+
+.galaxie-places-row .galaxie-places-input {
+  width: 100%;
+}

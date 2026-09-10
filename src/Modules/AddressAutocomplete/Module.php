@@ -9,7 +9,9 @@ namespace Galaxie\Woo\Modules\AddressAutocomplete;
 
 use Galaxie\Woo\Core\Field;
 use Galaxie\Woo\Core\Module as ModuleContract;
+use Galaxie\Woo\Core\ProvidesBootData;
 use Galaxie\Woo\Core\ProvidesSettings;
+use Galaxie\Woo\Core\Plugin;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -19,7 +21,7 @@ defined( 'ABSPATH' ) || exit;
  * (sign-in): a Maps API key, not an OAuth client, and used regardless of how
  * the customer logged in.
  */
-final class Module implements ModuleContract, ProvidesSettings {
+final class Module implements ModuleContract, ProvidesSettings, ProvidesBootData {
 
 	public function id(): string {
 		return 'address-autocomplete';
@@ -39,11 +41,65 @@ final class Module implements ModuleContract, ProvidesSettings {
 	}
 
 	public function boot(): void {
-		// TODO: enqueue the Maps Places script + wire the autocomplete handlers
-		// once the Checkout and Cart modules land (ported from
-		// eir-my-account-ux assets/js/checkout-auth.js initPlacesAutocomplete()
-		// and assets/js/cart-shipping.js). Reads maps_api_key/country from this
-		// module's settings.
+		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue' ), 5 );
+	}
+
+	/**
+	 * Google's script, and only where an address is actually being typed.
+	 *
+	 * Loading Maps on every page of a shop is a billable request per view for a
+	 * feature two pages use. `loading=async` is Google's own recommendation and
+	 * the reason the frontend polls for `google.maps` rather than assuming a
+	 * declared dependency has finished.
+	 */
+	public function enqueue(): void {
+		$settings = Plugin::instance()->settings()->module_settings( $this->id() );
+		$key      = (string) ( $settings['maps_api_key'] ?? '' );
+
+		if ( '' === $key ) {
+			return;
+		}
+
+		if ( ! function_exists( 'is_cart' ) || ! ( is_cart() || is_checkout() ) ) {
+			return;
+		}
+
+		wp_enqueue_script(
+			'google-maps-places',
+			add_query_arg(
+				array(
+					'key'       => rawurlencode( $key ),
+					'libraries' => 'places',
+					'loading'   => 'async',
+					'language'  => substr( get_locale(), 0, 2 ),
+				),
+				'https://maps.googleapis.com/maps/api/js'
+			),
+			array(),
+			null, // phpcs:ignore WordPress.WP.EnqueuedResourceParameters.MissingVersion -- Google versions its own endpoint.
+			true
+		);
+	}
+
+	/**
+	 * @return array<string,mixed>
+	 */
+	public function boot_data(): array {
+		$settings = Plugin::instance()->settings()->module_settings( $this->id() );
+
+		if ( '' === (string) ( $settings['maps_api_key'] ?? '' ) ) {
+			return array();
+		}
+
+		return array(
+			'addressAutocomplete' => array(
+				// The key itself never travels: the script tag carries it, and
+				// repeating it in a JSON blob would only widen where it leaks
+				// from.
+				'country'     => (string) ( $settings['country'] ?? 'BR' ),
+				'placeholder' => __( 'Digite seu endereço', 'galaxie-woo' ),
+			),
+		);
 	}
 
 	public function settings_tab_label(): string {

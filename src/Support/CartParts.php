@@ -260,6 +260,77 @@ final class CartParts {
 		);
 
 		$widget->add_control(
+			'show_free_shipping',
+			array(
+				'label'        => __( 'Free shipping progress', 'galaxie-woo' ),
+				'type'         => Controls_Manager::SWITCHER,
+				'default'      => 'yes',
+				'return_value' => 'yes',
+				'separator'    => 'before',
+			)
+		);
+
+		$widget->add_control(
+			'free_shipping_source',
+			array(
+				'label'       => __( 'Threshold', 'galaxie-woo' ),
+				'type'        => Controls_Manager::SELECT,
+				'default'     => 'auto',
+				'options'     => array(
+					'auto'  => __( 'From the Free Shipping method', 'galaxie-woo' ),
+					'fixed' => __( 'A number I type', 'galaxie-woo' ),
+				),
+				'description' => __( 'Read from the shipping zone that matches the customer, so it cannot promise a number the store no longer honours.', 'galaxie-woo' ),
+				'condition'   => array( 'show_free_shipping' => 'yes' ),
+			)
+		);
+
+		$widget->add_control(
+			'free_shipping_amount',
+			array(
+				'label'     => __( 'Free shipping from', 'galaxie-woo' ),
+				'type'      => Controls_Manager::NUMBER,
+				'min'       => 0,
+				'default'   => 0,
+				'condition' => array( 'show_free_shipping' => 'yes', 'free_shipping_source' => 'fixed' ),
+			)
+		);
+
+		$widget->add_control(
+			'free_shipping_message',
+			array(
+				'label'       => __( 'While there is a way to go', 'galaxie-woo' ),
+				'type'        => Controls_Manager::TEXT,
+				'label_block' => true,
+				'default'     => __( 'Faltam {amount} para o frete grátis', 'galaxie-woo' ),
+				'description' => __( '{amount} becomes what is missing.', 'galaxie-woo' ),
+				'condition'   => array( 'show_free_shipping' => 'yes' ),
+			)
+		);
+
+		$widget->add_control(
+			'free_shipping_done',
+			array(
+				'label'       => __( 'Once it is reached', 'galaxie-woo' ),
+				'type'        => Controls_Manager::TEXT,
+				'label_block' => true,
+				'default'     => __( 'Você ganhou frete grátis!', 'galaxie-woo' ),
+				'condition'   => array( 'show_free_shipping' => 'yes' ),
+			)
+		);
+
+		$widget->add_control(
+			'free_shipping_bar',
+			array(
+				'label'        => __( 'Show the bar', 'galaxie-woo' ),
+				'type'         => Controls_Manager::SWITCHER,
+				'default'      => 'yes',
+				'return_value' => 'yes',
+				'condition'    => array( 'show_free_shipping' => 'yes' ),
+			)
+		);
+
+		$widget->add_control(
 			'show_continue',
 			array(
 				'label'        => __( 'Continue shopping link', 'galaxie-woo' ),
@@ -617,8 +688,75 @@ final class CartParts {
 		$widget->end_controls_section();
 	}
 
+	/**
+	 * The free shipping line: its text, and the bar under it.
+	 */
+	private static function register_free_shipping_style( object $widget ): void {
+		$widget->start_controls_section(
+			'free_shipping_style',
+			array(
+				'label'     => __( 'Free shipping progress', 'galaxie-woo' ),
+				'tab'       => Controls_Manager::TAB_STYLE,
+				'condition' => array( 'show_free_shipping' => 'yes' ),
+			)
+		);
+
+		PixfortControls::palette_control( $widget, 'fs_color', __( 'Text color', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-free-shipping-text', 'color' );
+		PixfortControls::palette_control( $widget, 'fs_amount_color', __( 'Amount color', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-free-shipping-amount', 'color' );
+
+		$widget->add_responsive_control(
+			'fs_size',
+			array(
+				'label'      => __( 'Text size', 'galaxie-woo' ),
+				'type'       => Controls_Manager::SLIDER,
+				'size_units' => array( 'px', 'rem' ),
+				'range'      => array( 'px' => array( 'min' => 10, 'max' => 32 ) ),
+				'default'    => array( 'unit' => 'px', 'size' => 14 ),
+				'selectors'  => array( '{{WRAPPER}} .galaxie-free-shipping-text' => 'font-size: {{SIZE}}{{UNIT}};' ),
+			)
+		);
+
+		$widget->add_control(
+			'fs_bar_heading',
+			array( 'label' => __( 'Bar', 'galaxie-woo' ), 'type' => Controls_Manager::HEADING, 'separator' => 'before', 'condition' => array( 'free_shipping_bar' => 'yes' ) )
+		);
+
+		PixfortControls::palette_control( $widget, 'fs_track', __( 'Track', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-free-shipping-track', 'background-color', array( 'free_shipping_bar' => 'yes' ) );
+		PixfortControls::palette_control( $widget, 'fs_fill', __( 'Fill', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-free-shipping-fill', 'background-color', array( 'free_shipping_bar' => 'yes' ) );
+		PixfortControls::palette_control( $widget, 'fs_fill_done', __( 'Fill once reached', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-free-shipping.is-achieved .galaxie-free-shipping-fill', 'background-color', array( 'free_shipping_bar' => 'yes' ) );
+
+		$widget->add_responsive_control(
+			'fs_bar_height',
+			array(
+				'label'      => __( 'Height', 'galaxie-woo' ),
+				'type'       => Controls_Manager::SLIDER,
+				'size_units' => array( 'px' ),
+				'range'      => array( 'px' => array( 'min' => 2, 'max' => 32 ) ),
+				'default'    => array( 'unit' => 'px', 'size' => 6 ),
+				'selectors'  => array( '{{WRAPPER}} .galaxie-free-shipping-track' => 'height: {{SIZE}}{{UNIT}};' ),
+				'condition'  => array( 'free_shipping_bar' => 'yes' ),
+			)
+		);
+
+		$widget->add_responsive_control(
+			'fs_bar_radius',
+			array(
+				'label'      => __( 'Border radius', 'galaxie-woo' ),
+				'type'       => Controls_Manager::SLIDER,
+				'size_units' => array( 'px' ),
+				'range'      => array( 'px' => array( 'min' => 0, 'max' => 20 ) ),
+				'default'    => array( 'unit' => 'px', 'size' => 999 ),
+				'selectors'  => array( '{{WRAPPER}} .galaxie-free-shipping-track, {{WRAPPER}} .galaxie-free-shipping-fill' => 'border-radius: {{SIZE}}{{UNIT}};' ),
+				'condition'  => array( 'free_shipping_bar' => 'yes' ),
+			)
+		);
+
+		$widget->end_controls_section();
+	}
+
 	public static function register_totals_style( object $widget ): void {
 		self::register_totals_type( $widget );
+		self::register_free_shipping_style( $widget );
 
 		$widget->start_controls_section( 'box_style', array( 'label' => __( 'Totals box', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
 
@@ -972,6 +1110,8 @@ final class CartParts {
 			printf( '<h3 class="galaxie-cart-totals-heading">%s</h3>', esc_html( $heading ) );
 		}
 
+		self::render_free_shipping( $settings );
+
 		echo self::rows_markup( $settings ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built from escaped parts.
 
 		printf(
@@ -991,6 +1131,61 @@ final class CartParts {
 		echo '</div>';
 
 		return (string) ob_get_clean();
+	}
+
+	/**
+	 * How far the cart is from free shipping.
+	 *
+	 * Rendered OUTSIDE the rows on purpose. The rows are what the AJAX update
+	 * replaces, and that request has no widget settings — so a line rendered in
+	 * there would come back stripped of its message and its styling on the
+	 * first quantity change. Here it stays put, and the update only feeds it
+	 * new numbers: the templates travel in data attributes, so the sentence the
+	 * merchant wrote is the one that gets refilled.
+	 *
+	 * @param array<string,mixed> $settings
+	 */
+	public static function render_free_shipping( array $settings ): void {
+		if ( 'yes' !== ( $settings['show_free_shipping'] ?? 'yes' ) ) {
+			return;
+		}
+
+		$threshold = 'fixed' === ( $settings['free_shipping_source'] ?? 'auto' )
+			? (float) ( $settings['free_shipping_amount'] ?? 0 )
+			: FreeShipping::threshold();
+
+		// Nothing to aim at — no free shipping rule, or one with no minimum.
+		// Saying nothing beats inventing a goal.
+		if ( $threshold <= 0 ) {
+			return;
+		}
+
+		$state    = FreeShipping::state( $threshold );
+		$template = (string) ( $settings['free_shipping_message'] ?? '' );
+		$done     = (string) ( $settings['free_shipping_done'] ?? '' );
+
+		printf(
+			'<div class="galaxie-free-shipping %1$s" data-galaxie-free-shipping="1" data-template="%2$s" data-done="%3$s">',
+			esc_attr( $state['achieved'] ? 'is-achieved' : 'is-pending' ),
+			esc_attr( $template ),
+			esc_attr( $done )
+		);
+
+		printf(
+			'<div class="galaxie-free-shipping-text">%s</div>',
+			$state['achieved'] // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped inside.
+				? esc_html( $done )
+				: FreeShipping::message( $template, $state['remaining'] )
+		);
+
+		if ( 'yes' === ( $settings['free_shipping_bar'] ?? 'yes' ) ) {
+			printf(
+				'<div class="galaxie-free-shipping-track"><div class="galaxie-free-shipping-fill" style="width: %s%%;"></div></div>',
+				esc_attr( (string) round( $state['percent'], 2 ) )
+			);
+		}
+
+		echo '</div>';
 	}
 
 	/**
