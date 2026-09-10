@@ -12,7 +12,7 @@ use Elementor\Group_Control_Typography;
 use Elementor\Widget_Base;
 use Galaxie\Woo\Core\Plugin;
 use Galaxie\Woo\Modules\QuantityDiscounts\Module;
-use Galaxie\Woo\Modules\VariationSwatches\Widget\PixfortControls;
+use Galaxie\Woo\Support\PixfortControls;
 
 defined( 'ABSPATH' ) || exit;
 

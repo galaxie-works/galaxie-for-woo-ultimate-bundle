@@ -5,7 +5,7 @@
  * @package Galaxie\Woo
  */
 
-namespace Galaxie\Woo\Modules\VariationSwatches\Widget;
+namespace Galaxie\Woo\Support;
 
 use Elementor\Controls_Manager;
 
@@ -1194,5 +1194,86 @@ final class PixfortControls {
 		return function_exists( 'pix_get_animations' )
 			? pix_get_animations( true )
 			: array( '' => __( 'None', 'galaxie-woo' ) );
+	}
+
+	/**
+	 * The quantity control, so a spinner is the same object everywhere.
+	 *
+	 * This lived inside BuyBoxWidget until the Cart needed one too. Copying it
+	 * would have been the obvious move and the wrong one: two copies drift, and
+	 * a shopper who sees one spinner on the product page and a different one in
+	 * the cart is looking at two products, not one shop. The set is defined once
+	 * here and each widget passes only its own selectors.
+	 *
+	 * @param array<string,mixed> $defaults
+	 * @param array<string,mixed> $condition
+	 */
+	public static function quantity( object $target, string $prefix, string $field, string $input, array $defaults = array(), array $condition = array() ): void {
+		$d = static fn( string $key, $fallback ) => $defaults[ $key ] ?? $fallback;
+
+		self::palette_control( $target, $prefix . '_text_color', __( 'Text color', 'galaxie-woo' ), $input, 'color', $condition );
+		self::palette_control( $target, $prefix . '_bg_color', __( 'Background color', 'galaxie-woo' ), $field, 'background-color', $condition );
+
+		// The theme gives the quantity box a background, radius and shadow but
+		// no border at all, so a colour on its own lands on a zero-width border
+		// and shows nothing. Picking a colour therefore also brings a style and
+		// a 1px baseline, which the width control below can then override.
+		self::palette_control(
+			$target,
+			$prefix . '_border_color',
+			__( 'Border color', 'galaxie-woo' ),
+			$field,
+			'border-color',
+			$condition,
+			' border-style: solid !important; border-width: 1px;'
+		);
+
+		self::add_responsive( $target, $condition, $prefix . '_border_width', array(
+			'label'      => __( 'Border width', 'galaxie-woo' ),
+			'type'       => Controls_Manager::SLIDER,
+			'size_units' => array( 'px' ),
+			'range'      => array( 'px' => array( 'min' => 0, 'max' => 8 ) ),
+			// No default on purpose: an untouched slider must not paint a
+			// border on a box the theme deliberately ships without one.
+			'selectors'  => array( $field => 'border-width: {{SIZE}}{{UNIT}} !important; border-style: solid;' ),
+		), array( $prefix . '_border_color!' => '' ) );
+
+		self::add_responsive( $target, $condition, $prefix . '_width', array(
+			'label'      => __( 'Width', 'galaxie-woo' ),
+			'type'       => Controls_Manager::SLIDER,
+			'size_units' => array( 'px', '%' ),
+			'range'      => array( 'px' => array( 'min' => 60, 'max' => 400 ) ),
+			'default'    => $d( 'width', array() ),
+			'selectors'  => array( $field => 'width: {{SIZE}}{{UNIT}};' ),
+		) );
+
+		self::add_responsive( $target, $condition, $prefix . '_radius', array(
+			'label'      => __( 'Border radius', 'galaxie-woo' ),
+			'type'       => Controls_Manager::SLIDER,
+			'size_units' => array( 'px' ),
+			'range'      => array( 'px' => array( 'min' => 0, 'max' => 60 ) ),
+			'selectors'  => array( $field => 'border-radius: {{SIZE}}{{UNIT}}; overflow: hidden;' ),
+		) );
+	}
+
+	/**
+	 * `add_responsive_control()` with the same condition-merging `add()` does.
+	 *
+	 * @param array<string,mixed> $condition
+	 * @param array<string,mixed> $args
+	 * @param array<string,mixed> $extra_condition
+	 */
+	private static function add_responsive( object $target, array $condition, string $id, array $args, array $extra_condition = array() ): void {
+		$all = array_merge( $condition, $extra_condition );
+
+		if ( $all ) {
+			$args['condition'] = array_merge( $args['condition'] ?? array(), $all );
+		}
+
+		if ( isset( $args['default'] ) && array() === $args['default'] ) {
+			unset( $args['default'] );
+		}
+
+		$target->add_responsive_control( $id, $args );
 	}
 }

@@ -8,6 +8,7 @@
 namespace Galaxie\Woo\Modules\VariationSwatches\Widget;
 
 use Elementor\Controls_Manager;
+use Galaxie\Woo\Support\PixfortControls;
 use Elementor\Repeater;
 use Elementor\Widget_Base;
 use Galaxie\Woo\Modules\VariationSwatches\Module;
@@ -268,59 +269,13 @@ final class BuyBoxWidget extends Widget_Base {
 			)
 		);
 
-		$field = '{{WRAPPER}} .galaxie-buybox-quantity .quantity';
-		$input = '{{WRAPPER}} .galaxie-buybox-quantity .qty';
-
-		PixfortControls::palette_control( $this, 'qty_text_color', __( 'Text color', 'galaxie-woo' ), $input, 'color' );
-		PixfortControls::palette_control( $this, 'qty_bg_color', __( 'Background color', 'galaxie-woo' ), $field, 'background-color' );
-		// The theme gives the quantity box a background, radius and shadow but
-		// no border at all, so a colour on its own lands on a zero-width border
-		// and shows nothing. Picking a colour therefore also brings a style and
-		// a 1px baseline, which the width control below can then override.
-		PixfortControls::palette_control(
+		// The same control set the Cart uses. Defined once in the registrar so a
+		// spinner cannot look like one thing here and another on the cart page.
+		PixfortControls::quantity(
 			$this,
-			'qty_border_color',
-			__( 'Border color', 'galaxie-woo' ),
-			$field,
-			'border-color',
-			array(),
-			' border-style: solid !important; border-width: 1px;'
-		);
-
-		$this->add_responsive_control(
-			'qty_border_width',
-			array(
-				'label'      => __( 'Border width', 'galaxie-woo' ),
-				'type'       => Controls_Manager::SLIDER,
-				'size_units' => array( 'px' ),
-				'range'      => array( 'px' => array( 'min' => 0, 'max' => 8 ) ),
-				// No default on purpose: an untouched slider must not paint a
-				// border on a box the theme deliberately ships without one.
-				'selectors'  => array( $field => 'border-width: {{SIZE}}{{UNIT}} !important; border-style: solid;' ),
-				'condition'  => array( 'qty_border_color!' => '' ),
-			)
-		);
-
-		$this->add_responsive_control(
-			'qty_width',
-			array(
-				'label'      => __( 'Width', 'galaxie-woo' ),
-				'type'       => Controls_Manager::SLIDER,
-				'size_units' => array( 'px', '%' ),
-				'range'      => array( 'px' => array( 'min' => 60, 'max' => 400 ) ),
-				'selectors'  => array( $field => 'width: {{SIZE}}{{UNIT}};' ),
-			)
-		);
-
-		$this->add_responsive_control(
-			'qty_radius',
-			array(
-				'label'      => __( 'Border radius', 'galaxie-woo' ),
-				'type'       => Controls_Manager::SLIDER,
-				'size_units' => array( 'px' ),
-				'range'      => array( 'px' => array( 'min' => 0, 'max' => 60 ) ),
-				'selectors'  => array( $field => 'border-radius: {{SIZE}}{{UNIT}}; overflow: hidden;' ),
-			)
+			'qty',
+			'{{WRAPPER}} .galaxie-buybox-quantity .quantity',
+			'{{WRAPPER}} .galaxie-buybox-quantity .qty'
 		);
 
 		$this->end_controls_section();
