@@ -101,6 +101,29 @@ final class CartParts {
 			)
 		);
 
+		// The column's own width, and the reason the table lines up at all: the
+		// header row and every line share ONE template built from these, so a
+		// heading always sits over the values beneath it.
+		//
+		// Auto means an equal share of what is left (`1fr`). Image and Remove
+		// default to a fixed width instead, because a column that sizes itself
+		// to its content resolves separately in every row — which is exactly
+		// how "Imagem" ended up sitting over the product name.
+		$repeater->add_control(
+			'col_width',
+			array(
+				'label'       => __( 'Column width', 'galaxie-woo' ),
+				'type'        => Controls_Manager::SLIDER,
+				'size_units'  => array( 'px', '%', 'fr' ),
+				'range'       => array(
+					'px' => array( 'min' => 24, 'max' => 600 ),
+					'%'  => array( 'min' => 5, 'max' => 100 ),
+					'fr' => array( 'min' => 1, 'max' => 6 ),
+				),
+				'description' => __( 'Leave empty for an equal share of the row.', 'galaxie-woo' ),
+			)
+		);
+
 		$widget->add_control(
 			'lines',
 			array(
@@ -108,7 +131,7 @@ final class CartParts {
 				'fields'      => $repeater->get_controls(),
 				'title_field' => '{{{ field }}}',
 				'default'     => array(
-					array( 'field' => 'thumb', 'heading' => '', 'align' => 'left' ),
+					array( 'field' => 'thumb', 'heading' => '', 'align' => 'center' ),
 					array( 'field' => 'name', 'heading' => __( 'Produto', 'galaxie-woo' ), 'align' => 'left' ),
 					array( 'field' => 'price', 'heading' => __( 'Preço', 'galaxie-woo' ), 'align' => 'center' ),
 					array( 'field' => 'quantity', 'heading' => __( 'Quantidade', 'galaxie-woo' ), 'align' => 'center' ),
@@ -322,7 +345,7 @@ final class CartParts {
 		PixfortControls::text(
 			$widget,
 			'head',
-			array( 'size' => 'text-sm', 'bold' => '', 'remove_pb_padding' => 'm-0' ),
+			array( 'size' => 'text-sm', 'bold' => '', 'remove_pb_padding' => 'm-0', 'position' => '' ),
 			array(),
 			'{{WRAPPER}} .galaxie-cart-head'
 		);
@@ -383,7 +406,7 @@ final class CartParts {
 		$widget->end_controls_section();
 
 		$widget->start_controls_section( 'name_style', array( 'label' => __( 'Product name', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
-		PixfortControls::text( $widget, 'name', array( 'bold' => 'font-weight-bold', 'remove_pb_padding' => 'm-0' ), array(), '{{WRAPPER}} .galaxie-cart-line:not(.galaxie-cart-head) .galaxie-cart-cell-name' );
+		PixfortControls::text( $widget, 'name', array( 'bold' => 'font-weight-bold', 'remove_pb_padding' => 'm-0', 'position' => '' ), array(), '{{WRAPPER}} .galaxie-cart-line:not(.galaxie-cart-head) .galaxie-cart-cell-name' );
 		$widget->end_controls_section();
 
 		// Two sections, not one "Prices". A unit price and a line total read
@@ -395,11 +418,11 @@ final class CartParts {
 		$widget->start_controls_section( 'price_style', array( 'label' => __( 'Price', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
 		// The same `heading` vocabulary the buy box gives the product page's
 		// price, so a price is sized the same way in both places.
-		PixfortControls::text( $widget, 'price', array( 'size' => 'h6', 'remove_pb_padding' => 'm-0' ), array(), '{{WRAPPER}} .galaxie-cart-line:not(.galaxie-cart-head) .galaxie-cart-cell-price', 'heading' );
+		PixfortControls::text( $widget, 'price', array( 'size' => 'h6', 'remove_pb_padding' => 'm-0', 'position' => '' ), array(), '{{WRAPPER}} .galaxie-cart-line:not(.galaxie-cart-head) .galaxie-cart-cell-price', 'heading' );
 		$widget->end_controls_section();
 
 		$widget->start_controls_section( 'subtotal_style', array( 'label' => __( 'Subtotal', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
-		PixfortControls::text( $widget, 'subtotal', array( 'size' => 'h6', 'bold' => 'font-weight-bold', 'remove_pb_padding' => 'm-0' ), array(), '{{WRAPPER}} .galaxie-cart-line:not(.galaxie-cart-head) .galaxie-cart-cell-subtotal', 'heading' );
+		PixfortControls::text( $widget, 'subtotal', array( 'size' => 'h6', 'bold' => 'font-weight-bold', 'remove_pb_padding' => 'm-0', 'position' => '' ), array(), '{{WRAPPER}} .galaxie-cart-line:not(.galaxie-cart-head) .galaxie-cart-cell-subtotal', 'heading' );
 		$widget->end_controls_section();
 
 		$widget->start_controls_section( 'remove_style', array( 'label' => __( 'Remove', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
@@ -505,9 +528,10 @@ final class CartParts {
 		$fields = self::fields( $settings );
 
 		printf(
-			'<form class="woocommerce-cart-form galaxie-cart-form" action="%s" method="post" data-galaxie-auto="%s">',
+			'<form class="woocommerce-cart-form galaxie-cart-form" action="%s" method="post" data-galaxie-auto="%s" style="--galaxie-cart-cols: %s;">',
 			esc_url( wc_get_cart_url() ),
-			esc_attr( 'yes' === ( $settings['auto_update'] ?? 'yes' ) ? '1' : '0' )
+			esc_attr( 'yes' === ( $settings['auto_update'] ?? 'yes' ) ? '1' : '0' ),
+			esc_attr( self::columns( $fields ) )
 		);
 
 		if ( 'yes' === ( $settings['show_headings'] ?? 'yes' ) ) {
@@ -522,7 +546,7 @@ final class CartParts {
 				$label = (string) ( $row['heading'] ?? '' );
 
 				if ( '' !== $label ) {
-					echo PixfortControls::render_text( $settings, 'head', esc_html( $label ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pixfort's own element around escaped text.
+					echo PixfortControls::render_text( $settings, 'head', esc_html( $label ), self::align_of( $row ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pixfort's own element around escaped text.
 				}
 
 				echo '</div>';
@@ -542,7 +566,7 @@ final class CartParts {
 
 			foreach ( $fields as $row ) {
 				printf( '<div class="%s">', esc_attr( self::cell_class( $row ) ) );
-				self::render_field( (string) $row['field'], $key, $item, $product, $settings );
+				self::render_field( (string) $row['field'], $key, $item, $product, $settings, self::align_of( $row ) );
 				echo '</div>';
 			}
 
@@ -556,26 +580,68 @@ final class CartParts {
 	}
 
 	/**
+	 * The one `grid-template-columns` the header and every line share.
+	 *
+	 * Each row used to be its own grid with `grid-auto-columns: 1fr` and
+	 * `width: max-content` on Image and Remove, so every row measured its own
+	 * content and reached its own answer: the header's word "Imagem" is narrow,
+	 * an 88px photograph is not, and from the second column on nothing sat over
+	 * anything. One explicit template, identical on every row, is what makes
+	 * this a table rather than a stack of independent rows.
+	 *
+	 * Content-sized keywords (`auto`, `max-content`) cannot appear here for the
+	 * same reason: they too resolve per grid, which means per row.
+	 *
+	 * @param array<int,array<string,mixed>> $fields
+	 */
+	private static function columns( array $fields ): string {
+		$parts = array();
+
+		foreach ( $fields as $row ) {
+			$width = is_array( $row['col_width'] ?? null ) ? $row['col_width'] : array();
+			$size  = $width['size'] ?? '';
+
+			if ( '' === $size || null === $size ) {
+				$field   = (string) ( $row['field'] ?? '' );
+				$parts[] = 'thumb' === $field ? '100px' : ( 'remove' === $field ? '48px' : '1fr' );
+				continue;
+			}
+
+			$parts[] = (float) $size . ( (string) ( $width['unit'] ?? 'fr' ) );
+		}
+
+		return implode( ' ', $parts );
+	}
+
+	/**
 	 * A cell's classes: which field it is, and how that column is aligned.
 	 *
 	 * @param array<string,mixed> $row
 	 */
 	private static function cell_class( array $row ): string {
-		$field = (string) ( $row['field'] ?? '' );
+		return sprintf(
+			'galaxie-cart-cell galaxie-cart-cell-%s galaxie-cart-cell--%s',
+			(string) ( $row['field'] ?? '' ),
+			self::align_of( $row )
+		);
+	}
+
+	/**
+	 * A column's alignment, which the heading and every value in it follow.
+	 *
+	 * @param array<string,mixed> $row
+	 */
+	private static function align_of( array $row ): string {
 		$align = (string) ( $row['align'] ?? 'left' );
 
-		if ( ! in_array( $align, array( 'left', 'center', 'right' ), true ) ) {
-			$align = 'left';
-		}
-
-		return sprintf( 'galaxie-cart-cell galaxie-cart-cell-%s galaxie-cart-cell--%s', $field, $align );
+		return in_array( $align, array( 'left', 'center', 'right' ), true ) ? $align : 'left';
 	}
 
 	/**
 	 * @param array<string,mixed> $item
 	 * @param array<string,mixed> $settings
 	 */
-	private static function render_field( string $field, string $key, array $item, \WC_Product $product, array $settings ): void {
+	private static function render_field( string $field, string $key, array $item, \WC_Product $product, array $settings, string $align = 'left' ): void {
 		switch ( $field ) {
 			case 'thumb':
 				$link = $product->is_visible() ? $product->get_permalink( $item ) : '';
@@ -602,7 +668,8 @@ final class CartParts {
 						$link
 							? sprintf( '<a href="%s">%s</a>', esc_url( $link ), esc_html( wp_strip_all_tags( $name ) ) )
 							: esc_html( wp_strip_all_tags( $name ) )
-					)
+					),
+					$align
 				);
 
 				$meta = wc_get_formatted_cart_item_data( $item, true );
@@ -618,7 +685,8 @@ final class CartParts {
 					sprintf(
 						'<span class="galaxie-cart-price">%s</span>',
 						wp_kses_post( apply_filters( 'woocommerce_cart_item_price', WC()->cart->get_product_price( $product ), $item, $key ) )
-					)
+					),
+					$align
 				);
 				break;
 
@@ -637,7 +705,8 @@ final class CartParts {
 					sprintf(
 						'<span class="galaxie-cart-subtotal">%s</span>',
 						wp_kses_post( apply_filters( 'woocommerce_cart_item_subtotal', WC()->cart->get_product_subtotal( $product, $item['quantity'] ), $item, $key ) )
-					)
+					),
+					$align
 				);
 				break;
 

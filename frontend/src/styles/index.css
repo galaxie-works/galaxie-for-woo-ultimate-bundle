@@ -751,18 +751,15 @@ form.galaxie-buybox .galaxie-buybox-row {
    ------------------------------------------------------------------------- */
 .galaxie-cart-line {
   display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: 1fr;
+  /* ONE template, written on the form from the repeater and inherited by the
+     header row and every line alike — see CartParts::columns(). It used to be
+     `grid-auto-flow: column` with `grid-auto-columns: 1fr`, which makes each
+     row its own grid measuring its own content, so no heading sat over its
+     own values. The fallback keeps a widget rendered before this shipped
+     looking like a table rather than a pile. */
+  grid-template-columns: var(--galaxie-cart-cols, 100px repeat(4, 1fr) 48px);
   align-items: center;
   border-bottom: 1px solid rgb(0 0 0 / 8%);
-}
-
-/* The image and the remove control are the two that must NOT stretch: one is a
-   fixed square, the other a single glyph. Everything else shares the rest. */
-.galaxie-cart-line .galaxie-cart-cell-thumb,
-.galaxie-cart-line .galaxie-cart-cell-remove {
-  grid-column: auto;
-  width: max-content;
 }
 
 /* Every declaration this row used to carry — size, letter-spacing, uppercase,

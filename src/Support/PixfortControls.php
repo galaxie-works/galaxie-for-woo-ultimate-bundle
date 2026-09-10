@@ -469,10 +469,16 @@ final class PixfortControls {
 			) );
 		}
 
+		// pixfort prints this as a class on the <p> AND on its wrapper, so
+		// whatever it says beats any text-align inherited from the cell. With
+		// `text-left` as the only possible answer, a column set to Center got a
+		// centred heading over left-aligned values — the table looked shuffled.
+		// The empty entry hands the decision back to whoever owns the column.
 		self::add( $target, $condition, $prefix . '_position', array(
 			'label'   => __( 'Position', 'galaxie-woo' ),
 			'type'    => Controls_Manager::SELECT,
 			'options' => array(
+				''            => __( 'Follow the column', 'galaxie-woo' ),
 				'text-left'   => __( 'Start', 'galaxie-woo' ),
 				'text-center' => __( 'Center', 'galaxie-woo' ),
 				'text-right'  => __( 'End', 'galaxie-woo' ),
@@ -508,7 +514,13 @@ final class PixfortControls {
 	 * @param array<string,mixed> $settings
 	 * @return array<string,mixed>
 	 */
-	public static function text_attr( array $settings, string $prefix, string $content ): array {
+	public static function text_attr( array $settings, string $prefix, string $content, string $align = '' ): array {
+		$position = (string) ( $settings[ $prefix . '_position' ] ?? '' );
+
+		if ( '' === $position && '' !== $align ) {
+			$position = 'text-' . $align;
+		}
+
 		return array(
 			'content_type'         => 'simple',
 			'content'              => $content,
@@ -520,7 +532,7 @@ final class PixfortControls {
 			'secondary_font'       => $settings[ $prefix . '_secondary_font' ] ?? '',
 			'content_color'        => $settings[ $prefix . '_content_color' ] ?? '',
 			'content_custom_color' => $settings[ $prefix . '_content_custom_color' ] ?? '',
-			'position'             => $settings[ $prefix . '_position' ] ?? '',
+			'position'             => $position,
 			'max_width'            => $settings[ $prefix . '_max_width' ] ?? '',
 			'animation'            => $settings[ $prefix . '_animation' ] ?? '',
 			'delay'                => $settings[ $prefix . '_delay' ] ?? '',
@@ -1243,8 +1255,8 @@ final class PixfortControls {
 		self::add( $target, $condition, $prefix . '_align', array(
 			'label'                => __( 'Alignment', 'galaxie-woo' ),
 			'type'                 => Controls_Manager::CHOOSE,
-			'toggle'               => false,
-			'default'              => $d( 'align', 'left' ),
+			'toggle'               => true,
+			'default'              => $d( 'align', '' ),
 			'options'              => array(
 				'left'   => array( 'title' => __( 'Left', 'galaxie-woo' ), 'icon' => 'eicon-text-align-left' ),
 				'center' => array( 'title' => __( 'Center', 'galaxie-woo' ), 'icon' => 'eicon-text-align-center' ),
@@ -1462,9 +1474,9 @@ final class PixfortControls {
 	 *
 	 * @param array<string,mixed> $settings
 	 */
-	public static function render_text( array $settings, string $prefix, string $content ): string {
+	public static function render_text( array $settings, string $prefix, string $content, string $align = '' ): string {
 		if ( self::available() ) {
-			return (string) \PixfortCore::instance()->elementsManager->renderElement( 'Text', self::text_attr( $settings, $prefix, $content ), $content );
+			return (string) \PixfortCore::instance()->elementsManager->renderElement( 'Text', self::text_attr( $settings, $prefix, $content, $align ), $content );
 		}
 
 		return '<span>' . wp_kses_post( $content ) . '</span>';
@@ -1557,11 +1569,14 @@ final class PixfortControls {
 			),
 		), array( $prefix . '_size_mode' => 'width' ) );
 
+		// Deselectable, and empty by default: the column decides, and this is
+		// the image saying it wants something else. Two controls that both
+		// always answer is how a table ends up misaligned with itself.
 		self::add( $target, $condition, $prefix . '_align', array(
 			'label'     => __( 'Alignment', 'galaxie-woo' ),
 			'type'      => Controls_Manager::CHOOSE,
-			'toggle'    => false,
-			'default'   => $d( 'align', 'left' ),
+			'toggle'    => true,
+			'default'   => $d( 'align', '' ),
 			'options'   => array(
 				'left'   => array( 'title' => __( 'Left', 'galaxie-woo' ), 'icon' => 'eicon-text-align-left' ),
 				'center' => array( 'title' => __( 'Center', 'galaxie-woo' ), 'icon' => 'eicon-text-align-center' ),
