@@ -59,7 +59,7 @@ final class ProductDimension extends BaseTag {
 		);
 
 		$this->add_control(
-			'fallback',
+			'variable_fallback',
 			array(
 				'label'       => __( 'Before a variation is chosen', 'galaxie-woo' ),
 				'type'        => Controls_Manager::SELECT,
@@ -119,7 +119,7 @@ final class ProductDimension extends BaseTag {
 			return $own;
 		}
 
-		if ( ! $product->is_type( 'variable' ) || 'range' !== $this->get_settings( 'fallback' ) ) {
+		if ( ! $product->is_type( 'variable' ) || 'range' !== $this->get_settings( 'variable_fallback' ) ) {
 			return '';
 		}
 
