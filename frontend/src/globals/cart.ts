@@ -57,12 +57,32 @@ function debounce<T extends (...args: never[]) => void>(fn: T, ms: number): T {
   }) as T
 }
 
+/**
+ * Which Elementor widget drew the totals, read off the page.
+ *
+ * The endpoint re-renders the totals rows and has no idea which widget's
+ * settings to render them with. These two ids are already in the DOM — Elementor
+ * puts them there — so sending them costs nothing and means the rows come back
+ * looking like the ones they replace instead of unstyled.
+ */
+function totalsOrigin(): Record<string, string> {
+  const totals = document.querySelector<HTMLElement>('.galaxie-cart-totals')
+  const element = totals?.closest<HTMLElement>('.elementor-element[data-id]')
+  const document_ = totals?.closest<HTMLElement>('[data-elementor-id]')
+
+  const elementId = element?.dataset.id
+  const postId = document_?.dataset.elementorId
+
+  return elementId && postId ? { element_id: elementId, elementor_post: postId } : {}
+}
+
 async function send(config: CartConfig, key: string, quantity: number): Promise<CartResponse> {
   const body = new URLSearchParams({
     action: 'galaxie_cart_update',
     nonce: config.nonce,
     cart_item_key: key,
     quantity: String(quantity),
+    ...totalsOrigin(),
   })
 
   const response = await fetch(config.ajaxUrl, {

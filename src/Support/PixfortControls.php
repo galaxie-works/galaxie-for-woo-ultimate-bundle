@@ -1476,6 +1476,40 @@ final class PixfortControls {
 	}
 
 	/**
+	 * The class string pixfort's Text element would have put on its paragraph.
+	 *
+	 * For text that cannot be a pixfort element: a word inside someone else's
+	 * sentence, a value in markup WooCommerce printed. There is nothing magic
+	 * about those classes — they are CSS, and the element is simply the usual
+	 * thing that prints them — so an inline `<span>` can carry them and get the
+	 * same size, weight, font and palette colour as a paragraph rendered the
+	 * ordinary way.
+	 *
+	 * This is what lets every text control in the plugin be pixfort's set
+	 * rather than a home-made Size and Weight beside it.
+	 *
+	 * @param array<string,mixed> $settings
+	 */
+	public static function text_classes( array $settings, string $prefix ): string {
+		$size   = (string) ( $settings[ $prefix . '_size' ] ?? '' );
+		$colour = (string) ( $settings[ $prefix . '_content_color' ] ?? '' );
+
+		$classes = array(
+			// `custom` marks the slider that accompanies it, and is not a class.
+			'custom' === $size ? '' : $size,
+			(string) ( $settings[ $prefix . '_bold' ] ?? '' ),
+			(string) ( $settings[ $prefix . '_italic' ] ?? '' ),
+			(string) ( $settings[ $prefix . '_secondary_font' ] ?? '' ),
+			(string) ( $settings[ $prefix . '_position' ] ?? '' ),
+			// pixfort prefixes the palette name itself — `text-primary` — which
+			// is what its own Text element does with the same stored value.
+			'' !== $colour && 'custom' !== $colour ? 'text-' . $colour : '',
+		);
+
+		return trim( implode( ' ', array_filter( $classes ) ) );
+	}
+
+	/**
 	 * A button rendered by pixfort's own Button element, for the same reason
 	 * {@see render_text()} exists: every control {@see button()} registers is a
 	 * class pixfort's element prints, so markup of our own carries none of them.

@@ -971,10 +971,14 @@ form.galaxie-buybox .galaxie-buybox-row {
    the icon sit beside the message and the clock read as one object rather than
    as three loose words.
    ------------------------------------------------------------------------- */
+/* `justify-content: center` used to sit here, and it is why Position did
+   nothing: the message was shrunk to its own width and centred as a block, so
+   text-align inside it had no room left to move anything. The row starts from
+   the left and the message takes the rest, which is what leaves the pixfort
+   text-left / text-center / text-right class something to decide. */
 .galaxie-countdown {
   display: flex;
   align-items: center;
-  justify-content: center;
   gap: 10px;
   padding: 12px 16px;
 }
@@ -986,6 +990,7 @@ form.galaxie-buybox .galaxie-buybox-row {
 }
 
 .galaxie-countdown-body {
+  flex: 1 1 auto;
   min-width: 0;
 }
 

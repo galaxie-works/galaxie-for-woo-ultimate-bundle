@@ -614,22 +614,21 @@ final class CartParts {
 			array( 'label' => __( 'Totals type', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE )
 		);
 
+		// pixfort's own text set for each, rather than a Size and a Weight
+		// invented here. They reach WooCommerce's markup as classes on the
+		// spans — see PixfortControls::text_classes() — and the AJAX update
+		// carries the widget's id so the rows it re-renders keep them.
 		$parts = array(
-			'sum_heading' => array( __( 'Heading', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-cart-totals-heading', 20, 600 ),
-			'sum_label'   => array( __( 'Row label', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-cart-total-label', 15, 400 ),
-			'sum_value'   => array( __( 'Row amount', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-cart-total-value', 15, 600 ),
-			'sum_total'   => array(
-				__( 'Order total', 'galaxie-woo' ),
-				'{{WRAPPER}} .galaxie-cart-total-order-total .galaxie-cart-total-label, {{WRAPPER}} .galaxie-cart-total-order-total .galaxie-cart-total-value',
-				17,
-				700,
-			),
+			'sum_heading' => array( __( 'Heading', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-cart-totals-heading', array( 'size' => 'text-20', 'bold' => 'font-weight-bold' ) ),
+			'sum_label'   => array( __( 'Row label', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-cart-total-label', array( 'size' => '', 'bold' => '' ) ),
+			'sum_value'   => array( __( 'Row amount', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-cart-total-value', array( 'size' => '', 'bold' => 'font-weight-bold' ) ),
+			'sum_total'   => array( __( 'Order total', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-cart-total-order-total', array( 'size' => 'text-18', 'bold' => 'font-weight-bold' ) ),
 		);
 
 		$first = true;
 
 		foreach ( $parts as $prefix => $part ) {
-			list( $label, $selector, $size, $weight ) = $part;
+			list( $label, $selector, $defaults ) = $part;
 
 			$widget->add_control(
 				$prefix . '_heading',
@@ -642,34 +641,14 @@ final class CartParts {
 
 			$first = false;
 
-			PixfortControls::palette_control( $widget, $prefix . '_color', __( 'Color', 'galaxie-woo' ), $selector, 'color' );
-
-			$widget->add_responsive_control(
-				$prefix . '_size',
-				array(
-					'label'      => __( 'Size', 'galaxie-woo' ),
-					'type'       => Controls_Manager::SLIDER,
-					'size_units' => array( 'px', 'rem' ),
-					'range'      => array( 'px' => array( 'min' => 10, 'max' => 48 ) ),
-					'default'    => array( 'unit' => 'px', 'size' => $size ),
-					'selectors'  => array( $selector => 'font-size: {{SIZE}}{{UNIT}};' ),
-				)
-			);
-
-			$widget->add_control(
-				$prefix . '_weight',
-				array(
-					'label'     => __( 'Weight', 'galaxie-woo' ),
-					'type'      => Controls_Manager::SELECT,
-					'options'   => array(
-						'400' => __( 'Normal', 'galaxie-woo' ),
-						'500' => __( 'Medium', 'galaxie-woo' ),
-						'600' => __( 'Bold', 'galaxie-woo' ),
-						'700' => __( 'Bolder', 'galaxie-woo' ),
-					),
-					'default'   => (string) $weight,
-					'selectors' => array( $selector => 'font-weight: {{VALUE}};' ),
-				)
+			PixfortControls::text(
+				$widget,
+				$prefix,
+				array_merge( $defaults, array( 'remove_pb_padding' => 'm-0' ) ),
+				array(),
+				$selector,
+				'text',
+				array( 'position' )
 			);
 		}
 
@@ -1206,7 +1185,15 @@ final class CartParts {
 		$cart = WC()->cart;
 
 		ob_start();
-		echo '<div class="galaxie-cart-totals-rows">';
+		printf(
+			'<div class="galaxie-cart-totals-rows" data-label-class="%s" data-value-class="%s" data-total-class="%s">',
+			esc_attr( PixfortControls::text_classes( $settings, 'sum_label' ) ),
+			esc_attr( PixfortControls::text_classes( $settings, 'sum_value' ) ),
+			esc_attr( PixfortControls::text_classes( $settings, 'sum_total' ) )
+		);
+
+		self::$row_label_class = PixfortControls::text_classes( $settings, 'sum_label' );
+		self::$row_value_class = PixfortControls::text_classes( $settings, 'sum_value' );
 
 		self::row( __( 'Subtotal', 'woocommerce' ), self::capture( 'wc_cart_totals_subtotal_html' ), 'subtotal' );
 
@@ -1247,13 +1234,68 @@ final class CartParts {
 	}
 
 	/** One label/value pair in the totals block. */
+	/** Set by {@see rows_markup()}, read by {@see row()}, which it calls. */
+	private static string $row_label_class = '';
+	private static string $row_value_class = '';
+
 	private static function row( string $label, string $value, string $modifier ): void {
 		printf(
-			'<div class="galaxie-cart-total-row galaxie-cart-total-%s"><span class="galaxie-cart-total-label">%s</span><span class="galaxie-cart-total-value">%s</span></div>',
+			'<div class="galaxie-cart-total-row galaxie-cart-total-%1$s"><span class="galaxie-cart-total-label %2$s">%3$s</span><span class="galaxie-cart-total-value %4$s">%5$s</span></div>',
 			esc_attr( $modifier ),
+			esc_attr( self::$row_label_class ),
 			esc_html( wp_strip_all_tags( $label ) ),
+			esc_attr( self::$row_value_class ),
 			$value // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WooCommerce's own formatted amount.
 		);
+	}
+
+	/**
+	 * One widget's saved settings, found by the ids the page already carries.
+	 *
+	 * The AJAX update re-renders the totals rows, and until now it did so with
+	 * no settings at all — which is why those rows were styled by selectors
+	 * while everything else in the cart used pixfort's classes. The browser
+	 * sends the Elementor post and element ids it can read off the DOM, and the
+	 * rows come back looking like the ones they replace.
+	 *
+	 * Raw saved values, not `get_settings_for_display()`: this only needs the
+	 * class-producing choices, and rendering a whole widget to read four of
+	 * them would be a lot of work to arrive at the same strings.
+	 *
+	 * @return array<string,mixed>
+	 */
+	public static function element_settings( int $post_id, string $element_id ): array {
+		if ( $post_id <= 0 || '' === $element_id || ! class_exists( '\Elementor\Plugin' ) ) {
+			return array();
+		}
+
+		$document = \Elementor\Plugin::$instance->documents->get( $post_id );
+
+		if ( ! $document ) {
+			return array();
+		}
+
+		return self::find_element( (array) $document->get_elements_data(), $element_id );
+	}
+
+	/**
+	 * @param array<int,array<string,mixed>> $elements
+	 * @return array<string,mixed>
+	 */
+	private static function find_element( array $elements, string $id ): array {
+		foreach ( $elements as $element ) {
+			if ( ( $element['id'] ?? '' ) === $id ) {
+				return (array) ( $element['settings'] ?? array() );
+			}
+
+			$found = self::find_element( (array) ( $element['elements'] ?? array() ), $id );
+
+			if ( $found ) {
+				return $found;
+			}
+		}
+
+		return array();
 	}
 
 	/**

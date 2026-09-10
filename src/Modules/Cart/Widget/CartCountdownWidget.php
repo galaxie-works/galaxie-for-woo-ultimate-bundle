@@ -136,33 +136,25 @@ final class CartCountdownWidget extends Widget_Base {
 			'countdown_time_style',
 			array( 'label' => __( 'Clock', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE )
 		);
-		PixfortControls::palette_control( $this, 'time_color', __( 'Color', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-countdown-time', 'color' );
+		// pixfort's own text vocabulary, not a Size and a Weight of our own.
+		// The clock sits inside the message rather than beside it, so it cannot
+		// be a pixfort Text element — but those classes are just CSS, and a
+		// span can carry them. {@see PixfortControls::text_classes()}.
+		//
+		// The home-made Weight select is gone with them. Its 400 and 700 did
+		// reach the page — measured — but the theme's font ships 500 and 600,
+		// so two of its four options quietly did nothing. pixfort offers Bold
+		// or not for exactly that reason.
+		PixfortControls::text(
+			$this,
+			'time',
+			array( 'bold' => 'font-weight-bold', 'remove_pb_padding' => 'm-0', 'position' => '' ),
+			array(),
+			'{{WRAPPER}} .galaxie-countdown-time'
+		);
+
 		PixfortControls::palette_control( $this, 'time_bg', __( 'Background', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-countdown-time', 'background-color' );
-		$this->add_responsive_control(
-			'time_size',
-			array(
-				'label'      => __( 'Size', 'galaxie-woo' ),
-				'type'       => Controls_Manager::SLIDER,
-				'size_units' => array( 'px', 'em' ),
-				'range'      => array( 'px' => array( 'min' => 10, 'max' => 64 ) ),
-				'selectors'  => array( '{{WRAPPER}} .galaxie-countdown-time' => 'font-size: {{SIZE}}{{UNIT}};' ),
-			)
-		);
-		$this->add_control(
-			'time_weight',
-			array(
-				'label'     => __( 'Weight', 'galaxie-woo' ),
-				'type'      => Controls_Manager::SELECT,
-				'options'   => array(
-					'400' => __( 'Normal', 'galaxie-woo' ),
-					'500' => __( 'Medium', 'galaxie-woo' ),
-					'600' => __( 'Bold', 'galaxie-woo' ),
-					'700' => __( 'Bolder', 'galaxie-woo' ),
-				),
-				'default'   => '600',
-				'selectors' => array( '{{WRAPPER}} .galaxie-countdown-time' => 'font-weight: {{VALUE}};' ),
-			)
-		);
+
 		$this->add_responsive_control(
 			'time_padding',
 			array(
@@ -172,6 +164,7 @@ final class CartCountdownWidget extends Widget_Base {
 				'selectors'  => array( '{{WRAPPER}} .galaxie-countdown-time' => 'padding: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};' ),
 			)
 		);
+
 		$this->add_responsive_control(
 			'time_radius',
 			array(
@@ -182,6 +175,7 @@ final class CartCountdownWidget extends Widget_Base {
 				'selectors'  => array( '{{WRAPPER}} .galaxie-countdown-time' => 'border-radius: {{SIZE}}{{UNIT}};' ),
 			)
 		);
+
 		$this->end_controls_section();
 	}
 
@@ -190,8 +184,9 @@ final class CartCountdownWidget extends Widget_Base {
 			return;
 		}
 
-		$settings = $this->get_settings_for_display();
-		$loop     = 'yes' === ( $settings['loop'] ?? '' );
+		$settings            = $this->get_settings_for_display();
+		self::$time_classes  = PixfortControls::text_classes( $settings, 'time' );
+		$loop                = 'yes' === ( $settings['loop'] ?? '' );
 		$state    = CartCountdown::state( (int) ( $settings['minutes'] ?? 5 ), $loop );
 
 		printf(
@@ -235,11 +230,14 @@ final class CartCountdownWidget extends Widget_Base {
 	/**
 	 * XStore's two placeholders, kept because merchants already write them.
 	 */
+	/** Set before {@see message()} runs, which is a static callee of render(). */
+	private static string $time_classes = '';
+
 	private static function message( string $template, int $remaining ): string {
 		return str_replace(
 			array( '{timer}', '{fire}' ),
 			array(
-				'<span class="galaxie-countdown-time">' . esc_html( CartCountdown::format( $remaining ) ) . '</span>',
+				'<span class="galaxie-countdown-time ' . esc_attr( self::$time_classes ) . '">' . esc_html( CartCountdown::format( $remaining ) ) . '</span>',
 				'&#128293;',
 			),
 			esc_html( $template )

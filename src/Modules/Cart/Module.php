@@ -101,6 +101,25 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 	 * convention, so the button and the stepper share one path.
 	 */
 	/**
+	 * The settings of the widget that drew the totals, found from the ids the
+	 * browser read off the page.
+	 *
+	 * Without this the rows came back from an update styled by nothing, which
+	 * is why they used to be driven by CSS selectors while the rest of the cart
+	 * used pixfort's classes.
+	 *
+	 * @return array<string,mixed>
+	 */
+	private static function widget_settings(): array {
+		// phpcs:disable WordPress.Security.NonceVerification.Missing -- the request is nonce-checked at the top of ajax_update().
+		$post_id    = isset( $_POST['elementor_post'] ) ? (int) $_POST['elementor_post'] : 0;
+		$element_id = isset( $_POST['element_id'] ) ? sanitize_key( wp_unslash( $_POST['element_id'] ) ) : '';
+		// phpcs:enable WordPress.Security.NonceVerification.Missing
+
+		return CartParts::element_settings( $post_id, $element_id );
+	}
+
+	/**
 	 * @return array<string,mixed>|null
 	 */
 	private static function free_shipping_state(): ?array {
@@ -150,7 +169,7 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 				// re-rendering the whole totals box from here would hand back
 				// one stripped of the background, radius and checkout button
 				// the merchant configured — see CartParts::rows_markup().
-				'totals'    => CartParts::rows_markup(),
+				'totals'    => CartParts::rows_markup( self::widget_settings() ),
 				// Numbers only, for the free shipping line the widget already
 				// rendered — the sentence and the styling stay on the page,
 				// because this request has no widget settings to rebuild them
