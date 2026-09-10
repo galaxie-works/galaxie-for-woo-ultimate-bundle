@@ -383,7 +383,7 @@ final class CartParts {
 		$widget->end_controls_section();
 
 		$widget->start_controls_section( 'name_style', array( 'label' => __( 'Product name', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
-		PixfortControls::text( $widget, 'name', array( 'bold' => 'font-weight-bold', 'remove_pb_padding' => 'm-0' ), array(), '{{WRAPPER}} .galaxie-cart-cell-name' );
+		PixfortControls::text( $widget, 'name', array( 'bold' => 'font-weight-bold', 'remove_pb_padding' => 'm-0' ), array(), '{{WRAPPER}} .galaxie-cart-line:not(.galaxie-cart-head) .galaxie-cart-cell-name' );
 		$widget->end_controls_section();
 
 		// Two sections, not one "Prices". A unit price and a line total read
@@ -395,11 +395,11 @@ final class CartParts {
 		$widget->start_controls_section( 'price_style', array( 'label' => __( 'Price', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
 		// The same `heading` vocabulary the buy box gives the product page's
 		// price, so a price is sized the same way in both places.
-		PixfortControls::text( $widget, 'price', array( 'size' => 'h6', 'remove_pb_padding' => 'm-0' ), array(), '{{WRAPPER}} .galaxie-cart-cell-price', 'heading' );
+		PixfortControls::text( $widget, 'price', array( 'size' => 'h6', 'remove_pb_padding' => 'm-0' ), array(), '{{WRAPPER}} .galaxie-cart-line:not(.galaxie-cart-head) .galaxie-cart-cell-price', 'heading' );
 		$widget->end_controls_section();
 
 		$widget->start_controls_section( 'subtotal_style', array( 'label' => __( 'Subtotal', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
-		PixfortControls::text( $widget, 'subtotal', array( 'size' => 'h6', 'bold' => 'font-weight-bold', 'remove_pb_padding' => 'm-0' ), array(), '{{WRAPPER}} .galaxie-cart-cell-subtotal', 'heading' );
+		PixfortControls::text( $widget, 'subtotal', array( 'size' => 'h6', 'bold' => 'font-weight-bold', 'remove_pb_padding' => 'm-0' ), array(), '{{WRAPPER}} .galaxie-cart-line:not(.galaxie-cart-head) .galaxie-cart-cell-subtotal', 'heading' );
 		$widget->end_controls_section();
 
 		$widget->start_controls_section( 'remove_style', array( 'label' => __( 'Remove', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
