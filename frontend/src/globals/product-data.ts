@@ -121,7 +121,13 @@ export function bootProductData(): void {
   const anyForm = document.querySelector<HTMLElement>('form.cart.variations_form')
   const target = forms.size === 1 ? Array.from(forms)[0] : (anyForm ?? document.body)
 
-  jq(target).on('found_variation', (...args: unknown[]) => {
+  // The event object comes FIRST and has to be named, or `args[0]` is the
+  // Event and every field read off it is undefined. That failure is quiet and
+  // asymmetric, which is what made it readable from the page: weight,
+  // dimensions and SKU went blank (an Event has no `weight`), while the
+  // attribute row kept its old text (no `attributes` either, so the code
+  // correctly decided it had nothing to say).
+  jq(target).on('found_variation', (_event: unknown, ...args: unknown[]) => {
     const variation = args[0] as VariationPayload | undefined
     if (!variation) return
 
