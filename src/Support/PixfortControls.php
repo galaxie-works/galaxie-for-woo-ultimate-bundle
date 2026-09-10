@@ -1276,6 +1276,19 @@ final class PixfortControls {
 		self::palette_control( $target, $prefix . '_text_color', __( 'Text color', 'galaxie-woo' ), $input, 'color', $condition );
 		self::palette_control( $target, $prefix . '_bg_color', __( 'Background color', 'galaxie-woo' ), $field, 'background-color', $condition );
 
+		// Every other text in the cart has a Bold switch and this one did not,
+		// because the field is WooCommerce's markup rather than a pixfort Text
+		// element — so there is nowhere to hang `font-weight-bold`. It writes
+		// the weight instead, and 600 is what that class resolves to in
+		// pixfort-core-style.css, so a bold number matches a bold price.
+		self::add( $target, $condition, $prefix . '_bold', array(
+			'label'        => __( 'Bold', 'galaxie-woo' ),
+			'type'         => Controls_Manager::SWITCHER,
+			'return_value' => 'yes',
+			'default'      => $d( 'bold', '' ),
+			'selectors'    => array( $input => 'font-weight: 600;' ),
+		) );
+
 		// The theme gives the quantity box a background, radius and shadow but
 		// no border at all, so a colour on its own lands on a zero-width border
 		// and shows nothing. Picking a colour therefore also brings a style and
