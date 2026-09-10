@@ -27,6 +27,27 @@
 		SOLID_ICONS: 'Solid',
 	};
 
+	/*
+	 * pixfort's .svg files are NOT SVG documents — each one holds the shapes
+	 * alone, a bare `<path>` with no `<svg>` around it. Injected as-is the
+	 * browser draws nothing at all, which is exactly what the grid did: cells
+	 * you could hover, name, and click, with nothing inside them.
+	 *
+	 * `PixfortIcons::loadSvgContentWithCache()` is what supplies the element,
+	 * and the wrapper it writes is fixed — same class, same `viewBox`, only the
+	 * size varying. This reproduces it so the panel shows what the storefront
+	 * shows.
+	 */
+	function wrap( identifier, shapes ) {
+		return (
+			'<svg class="pixfort-icon" width="22" height="22" data-name="' +
+			identifier +
+			'" viewBox="2 2 20 20">' +
+			shapes +
+			'</svg>'
+		);
+	}
+
 	// One request per editor session, however many controls ask for it.
 	var loading = null;
 
@@ -57,7 +78,9 @@
 
 				icons.forEach( function ( icon ) {
 					if ( icon && icon.name && icon.icon ) {
-						library[ style ][ style + '/' + icon.name ] = icon.icon;
+						var identifier = style + '/' + icon.name;
+
+						library[ style ][ identifier ] = wrap( identifier, icon.icon );
 					}
 				} );
 			} );
