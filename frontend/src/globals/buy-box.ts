@@ -182,6 +182,13 @@ function initPriceAndStock(form: HTMLFormElement): void {
    * Stripping the classes is the narrow fix: they carry no meaning for us (the
    * button is deliberately always clickable, and the Alert does the explaining),
    * and without them WooCommerce's handler finds nothing to complain about.
+   *
+   * Doing it on the NEXT TICK is the rest of the fix, and it is not defensive
+   * padding. jQuery runs handlers in binding order, and measuring the live form
+   * showed ours sitting first on `hide_variation` and WooCommerce's second — so
+   * a plain listener cleared the classes a moment before `onHide` put them
+   * back, and the button reached the shopper disabled anyway. A timeout lands
+   * after every handler for that event whichever order they were bound in.
    */
   const clearDisabled = (): void => {
     form
@@ -191,10 +198,15 @@ function initPriceAndStock(form: HTMLFormElement): void {
       )
   }
 
+  const clearDisabledSoon = (): void => {
+    clearDisabled()
+    window.setTimeout(clearDisabled, 0)
+  }
+
   // On boot too: WooCommerce runs its own check when the form initialises,
   // before any of these listeners exist.
-  clearDisabled()
-  jq(form).on('hide_variation reset_data show_variation found_variation', clearDisabled)
+  clearDisabledSoon()
+  jq(form).on('hide_variation reset_data show_variation found_variation', clearDisabledSoon)
 }
 
 function currentQuantity(form: HTMLFormElement): number {
