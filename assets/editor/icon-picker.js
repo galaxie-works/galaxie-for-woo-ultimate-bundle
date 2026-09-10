@@ -111,9 +111,39 @@
 			.replace( /-/g, ' ' );
 	}
 
-	if ( ! window.elementor || ! elementor.modules || ! elementor.modules.controls ) {
-		return;
+	/*
+	 * Registration is deferred rather than done at parse time, for two reasons.
+	 *
+	 * `elementor.modules.controls.BaseData` has to exist before a view can
+	 * extend it, and at the moment this file runs it may not — pixfort's own
+	 * selector guards the same way, which is the hint that it can happen.
+	 *
+	 * And ordering decides the outcome: `addControlView()` is a plain map
+	 * assignment, so the LAST registration for a type wins. Overriding
+	 * pixfort's selector means registering after theirs. Ours is enqueued on
+	 * `elementor/editor/after_enqueue_scripts`, after Elementor has walked the
+	 * controls calling `enqueue()`, so this file prints and runs later; adding
+	 * the listener later then puts our handler after theirs. The delayed second
+	 * pass covers pixfort's own 200ms fallback path, which registers outside
+	 * the event entirely.
+	 */
+	function register() {
+		if ( ! window.elementor || ! elementor.modules || ! elementor.modules.controls ) {
+			return false;
+		}
+
+		build();
+
+		return true;
 	}
+
+	if ( ! register() ) {
+		window.addEventListener( 'elementor/init', register );
+	}
+
+	window.setTimeout( register, 400 );
+
+	function build() {
 
 	var View = elementor.modules.controls.BaseData.extend( {
 
@@ -223,4 +253,118 @@
 	} );
 
 	elementor.addControlView( 'galaxie_icon', View );
+
+	/*
+	 * The same library, driving pixfort's own control.
+	 *
+	 * pixfort renders the markup below and fills the grid from its own script,
+	 * which builds all 6,327 icons the moment the pointer enters a repeater row
+	 * — three times over in a Comparison Table row. Its script is dequeued
+	 * server side, so this view is the only one registered for the type, and it
+	 * fills the same grid with at most LIMIT icons at a time.
+	 *
+	 * Nothing about the control changes on the server: same type, same markup,
+	 * same `.elementor-control-icon-value` input, same stored `Style/name`
+	 * value. Only the filling is different.
+	 */
+	var PIXFORT_STYLES = { line: 'Line', duotone: 'Duotone', solid: 'Solid' }
+
+	var PixfortView = elementor.modules.controls.BaseData.extend( {
+
+		onReady: function () {
+			this.$value = this.$el.find( '.elementor-control-icon-value:first' )
+			this.$grid = this.$el.find( '.pixfort-icons-selector-icons' )
+			this.$search = this.$el.find( '.pixfort-selector-search' )
+
+			// pixfort's markup is the contract here. If a future version
+			// changes it, do nothing rather than half-render: the text input
+			// alone still holds and saves a value.
+			if ( ! this.$value.length || ! this.$grid.length ) {
+				return;
+			}
+
+			this.style = styleOf( this.$value.val() );
+			this.paintTabs();
+
+			this.$el.on( 'click', '.pixfort-icons-filter-tab', this.onTab.bind( this ) );
+			this.$el.on( 'input focus', '.pixfort-selector-search', this.onSearch.bind( this ) );
+			this.$el.on( 'click', '.icon-item', this.onPick.bind( this ) );
+
+			// Deliberately NOT on mouseenter — that is the behaviour being
+			// replaced. The grid fills once, lazily, when the row is opened.
+			load().then( this.paint.bind( this ) );
+		},
+
+		paintTabs: function () {
+			var current = this.style;
+
+			this.$el.find( '.pixfort-icons-filter-tab' ).each( function () {
+				var style = PIXFORT_STYLES[ $( this ).data( 'type' ) ];
+
+				$( this ).toggleClass( 'is-selected', style === current );
+			} );
+		},
+
+		paint: function () {
+			var term = String( this.$search.val() || '' ).trim().toLowerCase().replace( /-/g, ' ' );
+			var map = styleMap( this.style );
+			var current = String( this.$value.val() || '' );
+			var html = '';
+			var shown = 0;
+			var total = 0;
+
+			Object.keys( map ).forEach( function ( identifier ) {
+				if ( term && labelOf( identifier ).indexOf( term ) === -1 ) {
+					return;
+				}
+
+				total++;
+
+				if ( shown >= LIMIT ) {
+					return;
+				}
+
+				shown++;
+				html +=
+					'<span class="icon-item' + ( identifier === current ? ' icon-selected' : '' ) +
+					'" data-id="' + identifier + '" data-name="' + identifier +
+					'" title="' + labelOf( identifier ) + '">' + map[ identifier ] + '</span>';
+			} );
+
+			if ( ! total ) {
+				html = '<p class="galaxie-icon-picker__empty">Nada encontrado.</p>';
+			} else if ( total > shown ) {
+				html += '<p class="galaxie-icon-picker__more">+' + ( total - shown ) + ' — refine a busca.</p>';
+			}
+
+			this.$grid.html( html );
+		},
+
+		onTab: function ( event ) {
+			event.preventDefault();
+			this.style = PIXFORT_STYLES[ $( event.currentTarget ).data( 'type' ) ] || 'Line';
+			this.paintTabs();
+			load().then( this.paint.bind( this ) );
+		},
+
+		onSearch: function () {
+			load().then( this.paint.bind( this ) );
+		},
+
+		onPick: function ( event ) {
+			this.$value.val( $( event.currentTarget ).data( 'id' ) );
+			this.saveValue();
+			this.paint();
+		},
+
+		// pixfort's own saveValue, kept verbatim: the input is what the control
+		// stores, and other pixfort code reads it.
+		saveValue: function () {
+			this.setValue( this.$el.find( '.elementor-control-icon-value:first' ).val() );
+		},
+	} );
+
+	elementor.addControlView( 'pixfort_icon_selector', PixfortView );
+
+	}
 }( jQuery ) );
