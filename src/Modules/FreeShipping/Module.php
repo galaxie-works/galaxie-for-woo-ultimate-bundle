@@ -377,7 +377,138 @@ final class Module implements ModuleContract, ProvidesSettings {
 		);
 	}
 
-	public function render_extra_settings( array $values ): void {}
+	/**
+	 * What the store's shipping actually looks like, said out loud.
+	 *
+	 * This exists because of a real afternoon: a zone was created for Sul e
+	 * Sudeste with a Free Shipping method in it, and the method was left at
+	 * "No requirement" with a minimum of zero — so every order in half the
+	 * country shipped free, including a R$ 20 one. Nothing warned anybody. The
+	 * WooCommerce screen shows a method called Free shipping and a green tick;
+	 * you have to open it to learn what it means.
+	 *
+	 * So the plugin reads the zones and says what will happen, in the words a
+	 * merchant would use. Three traps, all of them silent in WooCommerce:
+	 *
+	 *   - A Free Shipping method with no requirement: everything ships free.
+	 *   - A zone whose only method is Free Shipping: the moment it requires a
+	 *     minimum, orders below that have NO shipping option and checkout stops
+	 *     dead. WooCommerce lets you build this and says nothing.
+	 *   - A zone doing free shipping twice, once here and once in WooCommerce.
+	 *     Two rules for one promise is how they start disagreeing.
+	 *
+	 * @param array<string,mixed> $values
+	 */
+	public function render_extra_settings( array $values ): void {
+		if ( ! class_exists( '\WC_Shipping_Zones' ) ) {
+			return;
+		}
+
+		$ours    = array_map( 'strval', (array) ( $values['zones'] ?? array() ) );
+		$minimum = (float) ( $values['minimum'] ?? 0 );
+		$active  = Plugin::instance()->settings()->is_enabled( $this->id(), false );
+		$zones   = \WC_Shipping_Zones::get_zones();
+
+		$zones[] = array(
+			'zone_id'   => 0,
+			'zone_name' => __( 'Everywhere else', 'galaxie-woo' ),
+		);
+
+		echo '<h2>' . esc_html__( 'What the store will actually do', 'galaxie-woo' ) . '</h2>';
+		echo '<table class="widefat striped" style="max-width:900px"><thead><tr>';
+		echo '<th>' . esc_html__( 'Zone', 'galaxie-woo' ) . '</th>';
+		echo '<th>' . esc_html__( 'Shipping methods', 'galaxie-woo' ) . '</th>';
+		echo '<th>' . esc_html__( 'What happens', 'galaxie-woo' ) . '</th>';
+		echo '</tr></thead><tbody>';
+
+		$conflicts = array();
+
+		foreach ( $zones as $zone ) {
+			$instance = \WC_Shipping_Zones::get_zone( (int) $zone['zone_id'] );
+
+			if ( ! $instance ) {
+				continue;
+			}
+
+			$paid = array();
+			$free = null;
+
+			foreach ( $instance->get_shipping_methods( true ) as $method ) {
+				if ( 'free_shipping' === $method->id ) {
+					$free = $method;
+					continue;
+				}
+
+				$paid[] = $method->get_title();
+			}
+
+			$notes    = array();
+			$selected = in_array( (string) $zone['zone_id'], $ours, true );
+
+			if ( $free ) {
+				$requires = (string) $free->get_option( 'requires' );
+				$amount   = (float) $free->get_option( 'min_amount' );
+
+				if ( '' === $requires ) {
+					$notes[] = array( 'bad', __( 'WooCommerce\'s own Free shipping here has NO requirement — every order in this zone ships free, however small.', 'galaxie-woo' ) );
+				} elseif ( in_array( $requires, array( 'min_amount', 'either', 'both' ), true ) && $amount > 0 ) {
+					/* translators: %s: formatted amount. */
+					$notes[] = array( 'ok', sprintf( __( 'WooCommerce ships free above %s here.', 'galaxie-woo' ), wp_strip_all_tags( wc_price( $amount ) ) ) );
+
+					if ( ! $paid ) {
+						$notes[] = array( 'bad', __( 'And it is the only method in this zone, so an order below that amount has NO shipping option at all and checkout stops. Add a carrier or a flat rate here.', 'galaxie-woo' ) );
+					}
+				}
+
+				if ( $active && $selected && $minimum > 0 ) {
+					$conflicts[] = (int) $zone['zone_id'];
+					$notes[]     = array( 'bad', __( 'This zone is also ticked above, so free shipping is being decided in two places. Turn one of them off.', 'galaxie-woo' ) );
+				}
+			}
+
+			if ( $active && $selected && $minimum > 0 && ! $free ) {
+				if ( $paid ) {
+					/* translators: %s: formatted amount. */
+					$notes[] = array( 'ok', sprintf( __( 'This module ships free above %s here, by zeroing what the carriers quote.', 'galaxie-woo' ), wp_strip_all_tags( wc_price( $minimum ) ) ) );
+				} else {
+					$notes[] = array( 'bad', __( 'Ticked above, but this zone quotes nothing — there is no carrier price to zero. Add a carrier or a flat rate here.', 'galaxie-woo' ) );
+				}
+			}
+
+			if ( ! $notes ) {
+				$notes[] = array( 'plain', $paid ? __( 'Paid shipping only.', 'galaxie-woo' ) : __( 'No shipping methods — nobody in this zone can check out.', 'galaxie-woo' ) );
+			}
+
+			echo '<tr>';
+			echo '<td><strong>' . esc_html( (string) $zone['zone_name'] ) . '</strong></td>';
+			echo '<td>' . esc_html( $paid ? implode( ', ', $paid ) : __( '—', 'galaxie-woo' ) ) . ( $free ? '<br><em>' . esc_html__( 'Free shipping (WooCommerce)', 'galaxie-woo' ) . '</em>' : '' ) . '</td>';
+			echo '<td>';
+
+			foreach ( $notes as $note ) {
+				list( $kind, $text ) = $note;
+				$colour              = 'bad' === $kind ? '#b32d2e' : ( 'ok' === $kind ? '#1e7e34' : 'inherit' );
+
+				printf( '<p style="margin:0 0 6px;color:%s">%s</p>', esc_attr( $colour ), esc_html( $text ) );
+			}
+
+			echo '</td></tr>';
+		}
+
+		echo '</tbody></table>';
+
+		if ( $conflicts ) {
+			// Namespaced under `fields[...]` because that is the only part of
+			// the form the settings page hands to sanitize_settings — a
+			// top-level name would post fine and never be read, which is the
+			// same silent nothing as a control with no selector.
+			echo '<p><label><input type="checkbox" name="fields[galaxie_disable_wc_free_shipping]" value="1" /> ';
+			echo esc_html__( 'On save, switch off WooCommerce\'s own Free shipping in the zones flagged above, leaving this module as the only rule.', 'galaxie-woo' );
+			echo '</label></p>';
+		}
+
+		echo '<p class="description">' . esc_html__( 'Carriers are not something this plugin can create — a zone with no price to quote needs a real shipping method, from Melhor Envio or a flat rate.', 'galaxie-woo' ) . '</p>';
+	}
+
 
 	/**
 	 * @param array<string,mixed> $submitted
@@ -395,6 +526,39 @@ final class Module implements ModuleContract, ProvidesSettings {
 			$sanitized['label'] = __( 'Frete grátis', 'galaxie-woo' );
 		}
 
+		// The one thing the panel below offers to change in WooCommerce, and
+		// only when ticked. Switching a method off is reversible from the
+		// WooCommerce screen in one click, which is why it is offered at all —
+		// deleting it would not be.
+		if ( ! empty( $submitted['galaxie_disable_wc_free_shipping'] ) ) {
+			self::disable_wc_free_shipping( array_map( 'intval', (array) $sanitized['zones'] ) );
+		}
+
 		return $sanitized;
+	}
+
+	/**
+	 * Switch off WooCommerce's own Free shipping in the given zones.
+	 *
+	 * @param array<int,int> $zones
+	 */
+	private static function disable_wc_free_shipping( array $zones ): void {
+		if ( ! class_exists( '\WC_Shipping_Zones' ) ) {
+			return;
+		}
+
+		foreach ( $zones as $zone_id ) {
+			$zone = \WC_Shipping_Zones::get_zone( $zone_id );
+
+			if ( ! $zone ) {
+				continue;
+			}
+
+			foreach ( $zone->get_shipping_methods( true ) as $method ) {
+				if ( 'free_shipping' === $method->id ) {
+					$zone->get_data_store()->update_method_status( $zone_id, (int) $method->instance_id, false );
+				}
+			}
+		}
 	}
 }
