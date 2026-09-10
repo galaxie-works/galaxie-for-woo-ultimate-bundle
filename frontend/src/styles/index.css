@@ -739,3 +739,108 @@ form.galaxie-buybox .galaxie-buybox-row {
 .galaxie-variation-native .reset_variations {
   display: none !important;
 }
+
+/* ---------------------------------------------------------------------------
+   Galaxie Cart
+
+   The lines are a grid rather than a table, because the fields are a repeater:
+   a merchant can remove Image or reorder Price and Quantity, and a <table>
+   would need its columns declared up front. `auto-flow: column` lets the row
+   take whatever fields it was given, in whatever order, without the widget
+   having to know how many there are.
+   ------------------------------------------------------------------------- */
+.galaxie-cart-line {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  align-items: center;
+  border-bottom: 1px solid rgb(0 0 0 / 8%);
+}
+
+/* The image and the remove control are the two that must NOT stretch: one is a
+   fixed square, the other a single glyph. Everything else shares the rest. */
+.galaxie-cart-line .galaxie-cart-cell-thumb,
+.galaxie-cart-line .galaxie-cart-cell-remove {
+  grid-column: auto;
+  width: max-content;
+}
+
+.galaxie-cart-head {
+  font-size: 0.85em;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.6;
+}
+
+.galaxie-cart-thumb img {
+  display: block;
+}
+
+.galaxie-cart-name {
+  display: block;
+}
+
+.galaxie-cart-meta {
+  display: block;
+  font-size: 0.85em;
+  opacity: 0.7;
+}
+
+.galaxie-cart-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  text-decoration: none;
+}
+
+/* pixfort's icons paint through this variable — see the icon-picker notes. In
+   the cart nothing else defines it, so the anchor's own colour becomes the
+   icon's, and the colour control then works on the anchor as one would expect. */
+.galaxie-cart-remove {
+  --pf-icon-color: currentColor;
+  --pf-icon-stroke-width: 1.5;
+}
+
+/* Kept in the markup, not dropped: a shopper whose JavaScript failed still has
+   a way to commit a quantity change. It is only hidden when the script is
+   actually running, which is the one moment it is genuinely redundant. */
+.galaxie-cart-form.is-galaxie-auto .galaxie-cart-update {
+  display: none;
+}
+
+.galaxie-cart-line.is-galaxie-updating {
+  opacity: 0.55;
+  transition: opacity 120ms ease;
+}
+
+.galaxie-cart-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.galaxie-cart-coupon {
+  display: flex;
+  gap: 8px;
+}
+
+.galaxie-cart-checkout,
+.galaxie-cart-continue {
+  display: block;
+  text-align: center;
+}
+
+@media (max-width: 640px) {
+  /* On a narrow screen a row of columns stops being a row. Each line becomes a
+     small card: the image beside the name, and the rest stacked under it. */
+  .galaxie-cart-line {
+    grid-auto-flow: row;
+    grid-template-columns: max-content 1fr;
+  }
+
+  .galaxie-cart-head {
+    display: none;
+  }
+}

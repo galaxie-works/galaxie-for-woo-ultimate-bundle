@@ -1276,4 +1276,54 @@ final class PixfortControls {
 
 		$target->add_responsive_control( $id, $args );
 	}
+
+	/**
+	 * A product thumbnail, styled the same wherever one appears.
+	 *
+	 * pixfort publishes no image control set of its own — only the button and
+	 * effects helpers — so this is ours. It lives here rather than in the Cart
+	 * widget because the cart is simply the first place that needs it: a mini
+	 * cart, an order summary and a wishlist all show the same little picture,
+	 * and they should not each invent a radius.
+	 *
+	 * @param array<string,mixed> $defaults
+	 * @param array<string,mixed> $condition
+	 */
+	public static function thumb( object $target, string $prefix, string $selector, array $defaults = array(), array $condition = array() ): void {
+		$d = static fn( string $key, $fallback ) => $defaults[ $key ] ?? $fallback;
+
+		self::add_responsive( $target, $condition, $prefix . '_size', array(
+			'label'      => __( 'Size', 'galaxie-woo' ),
+			'type'       => Controls_Manager::SLIDER,
+			'size_units' => array( 'px' ),
+			'range'      => array( 'px' => array( 'min' => 32, 'max' => 240 ) ),
+			'default'    => array( 'unit' => 'px', 'size' => $d( 'size', 88 ) ),
+			// Width and height together, because a product thumbnail that keeps
+			// its aspect ratio makes rows of different heights, and a cart is a
+			// list — the eye needs one baseline down the left edge.
+			'selectors'  => array(
+				$selector => 'width: {{SIZE}}{{UNIT}}; height: {{SIZE}}{{UNIT}}; object-fit: cover;',
+			),
+		) );
+
+		self::add( $target, $condition, $prefix . '_radius', array(
+			'label'      => __( 'Border radius', 'galaxie-woo' ),
+			'type'       => Controls_Manager::SLIDER,
+			'size_units' => array( 'px', '%' ),
+			'range'      => array( 'px' => array( 'min' => 0, 'max' => 80 ) ),
+			'default'    => array( 'unit' => 'px', 'size' => $d( 'radius', 8 ) ),
+			'selectors'  => array( $selector => 'border-radius: {{SIZE}}{{UNIT}};' ),
+		) );
+
+		self::palette_control( $target, $prefix . '_border_color', __( 'Border color', 'galaxie-woo' ), $selector, 'border-color', $condition, ' border-style: solid; border-width: 1px;' );
+
+		self::add_responsive( $target, $condition, $prefix . '_border_width', array(
+			'label'      => __( 'Border width', 'galaxie-woo' ),
+			'type'       => Controls_Manager::SLIDER,
+			'size_units' => array( 'px' ),
+			'range'      => array( 'px' => array( 'min' => 0, 'max' => 8 ) ),
+			'selectors'  => array( $selector => 'border-width: {{SIZE}}{{UNIT}}; border-style: solid;' ),
+			'condition'  => array( $prefix . '_border_color!' => '' ),
+		) );
+	}
 }

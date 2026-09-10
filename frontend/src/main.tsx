@@ -12,6 +12,7 @@ import { bootBuyBox } from '@/globals/buy-box'
 import { bootWishlist } from '@/globals/wishlist'
 import { bootQuantityDiscounts } from '@/globals/quantity-discounts'
 import { bootProductData } from '@/globals/product-data'
+import { bootCart } from '@/globals/cart'
 
 // Each module registers its island(s) here as they are ported.
 registerIsland('demo', Demo)
@@ -24,6 +25,7 @@ interface GalaxieConfig {
   variationSpotlight?: { ajaxUrl: string; nonce: string }
   wishlist?: { ajaxUrl: string; nonce: string }
   productData?: boolean
+  cart?: { ajaxUrl: string; nonce: string }
 }
 
 function boot(): void {
@@ -38,6 +40,10 @@ function boot(): void {
 
   if (config.productData) {
     bootProductData()
+  }
+
+  if (config.cart) {
+    bootCart(config.cart)
   }
 
   if (config.toastNotices) {
