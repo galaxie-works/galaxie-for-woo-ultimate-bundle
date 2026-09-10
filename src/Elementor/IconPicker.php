@@ -62,6 +62,26 @@ final class IconPicker extends Base_Data_Control {
 	 * picker is needed and never otherwise.
 	 */
 	public function enqueue(): void {
+		self::enqueue_editor_assets();
+	}
+
+	/**
+	 * The editor script, style and config — loadable without this control.
+	 *
+	 * Split out because the same script also replaces pixfort's own icon
+	 * selector ({@see \Galaxie\Woo\Modules\PixfortIconPicker\Module}), which
+	 * has to happen whether or not a widget of ours is on the page. Guarded so
+	 * that both callers can ask for it and only the first does the work.
+	 */
+	public static function enqueue_editor_assets(): void {
+		static $done = false;
+
+		if ( $done ) {
+			return;
+		}
+
+		$done = true;
+
 		wp_enqueue_script(
 			'galaxie-icon-picker',
 			GALAXIE_WOO_URL . 'assets/editor/icon-picker.js',
