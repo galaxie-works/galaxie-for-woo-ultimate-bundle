@@ -58,6 +58,20 @@ final class ProductDimension extends BaseTag {
 			)
 		);
 
+		$this->add_control(
+			'fallback',
+			array(
+				'label'       => __( 'Before a variation is chosen', 'galaxie-woo' ),
+				'type'        => Controls_Manager::SELECT,
+				'default'     => 'range',
+				'options'     => array(
+					'range' => __( 'Show the range', 'galaxie-woo' ),
+					'blank' => __( 'Show nothing', 'galaxie-woo' ),
+				),
+				'description' => __( 'Only applies to variable products, whose dimensions are stored per variation.', 'galaxie-woo' ),
+			)
+		);
+
 		$this->add_follow_control();
 	}
 
@@ -79,24 +93,51 @@ final class ProductDimension extends BaseTag {
 			return;
 		}
 
+		// The unit the SCRIPT should append, which is not always the one used
+		// above: "formatted" ignores the Show unit switch because WooCommerce's
+		// own formatting always carries the unit, and the script rebuilds that
+		// string from the raw sides rather than reusing `dimensions_html`.
+		$script_unit = 'formatted' === $which
+			? (string) get_option( 'woocommerce_dimension_unit' )
+			: $unit;
+
 		// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- wrap() escapes its attributes; the value is escaped here.
 		echo $this->wrap(
 			esc_html( $value ),
 			'dimension',
 			array(
 				'dimension' => $which,
-				'unit'      => $unit,
+				'unit'      => $script_unit,
 			)
 		);
 	}
 
 	private function value_for( \WC_Product $product, string $which, string $unit ): string {
+		$own = $this->own_value( $product, $which, $unit );
+
+		if ( '' !== $own ) {
+			return $own;
+		}
+
+		if ( ! $product->is_type( 'variable' ) || 'range' !== $this->get_settings( 'fallback' ) ) {
+			return '';
+		}
+
+		return $this->range( $product, $which, $unit );
+	}
+
+	private function own_value( \WC_Product $product, string $which, string $unit ): string {
 		if ( 'formatted' === $which ) {
 			$formatted = wc_format_dimensions( $product->get_dimensions( false ) );
 
 			// WooCommerce returns its own "N/A" string when every side is empty,
 			// which is a placeholder for a table cell, not a value to print.
-			return __( 'N/A', 'woocommerce' ) === $formatted ? '' : $formatted;
+			if ( __( 'N/A', 'woocommerce' ) === $formatted ) {
+				return '';
+			}
+
+			// Same reason: turn `&times;` into the character before it is escaped.
+			return html_entity_decode( $formatted, ENT_QUOTES, 'UTF-8' );
 		}
 
 		$getter = 'get_' . $which;
@@ -107,5 +148,53 @@ final class ProductDimension extends BaseTag {
 		}
 
 		return '' === $unit ? $raw : $raw . ' ' . $unit;
+	}
+
+	/**
+	 * The spread across variations, per axis.
+	 *
+	 * Ranged side by side rather than as two whole boxes — "5 – 8 × 5 – 8 ×
+	 * 6.5 – 8.5" says which measurement varies and by how much, where
+	 * "5 × 5 × 6.5 – 8 × 8 × 8.5" reads as one number sequence and has to be
+	 * decoded. An axis that is the same on every variation prints once.
+	 */
+	private function range( \WC_Product $product, string $which, string $unit ): string {
+		$axes    = 'formatted' === $which ? array( 'length', 'width', 'height' ) : array( $which );
+		$spreads = array();
+
+		foreach ( $axes as $axis ) {
+			$values = array();
+
+			foreach ( $product->get_children() as $child_id ) {
+				$child  = wc_get_product( $child_id );
+				$getter = 'get_' . $axis;
+
+				if ( $child && method_exists( $child, $getter ) && '' !== (string) $child->{$getter}() ) {
+					$values[] = (float) $child->{$getter}();
+				}
+			}
+
+			if ( empty( $values ) ) {
+				return '';
+			}
+
+			$low  = min( $values );
+			$high = max( $values );
+
+			$spreads[] = $low === $high
+				? (string) wc_format_localized_decimal( $low )
+				: wc_format_localized_decimal( $low ) . ' – ' . wc_format_localized_decimal( $high );
+		}
+
+		// wc_format_dimensions() joins with the HTML entity `&times;`. Written as
+		// the character instead, because this string is escaped on the way out and
+		// the JS writes its own through textContent - both of which would print an
+		// entity literally, as "5 &times; 5".
+		$value = implode( ' × ', $spreads );
+		$show  = 'formatted' === $which
+			? (string) get_option( 'woocommerce_dimension_unit' )
+			: $unit;
+
+		return '' === $show ? $value : $value . ' ' . $show;
 	}
 }

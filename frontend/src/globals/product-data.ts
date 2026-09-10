@@ -14,6 +14,7 @@
  */
 
 interface VariationPayload {
+  sku?: string
   weight?: string
   weight_html?: string
   dimensions_html?: string
@@ -63,10 +64,24 @@ function valueFor(el: HTMLElement, variation: VariationPayload): string | null {
 
   if (kind === 'dimension') {
     const which = el.dataset.galaxieDimension ?? 'formatted'
-    if (which === 'formatted') return variation.dimensions_html ?? ''
+
+    if (which === 'formatted') {
+      // Built from the raw sides rather than from `dimensions_html`, which
+      // joins with the HTML entity `&times;` — and this is written through
+      // textContent, so an entity would appear on screen as "5 &times; 5".
+      const d = variation.dimensions
+      if (!d) return ''
+
+      const sides = [d.length, d.width, d.height].filter((side): side is string => !!side)
+      return sides.length ? withUnit(sides.join(' × '), unit) : ''
+    }
 
     const side = variation.dimensions?.[which as 'length' | 'width' | 'height']
     return side ? withUnit(side, unit) : ''
+  }
+
+  if (kind === 'sku') {
+    return variation.sku ?? ''
   }
 
   if (kind === 'attribute') {

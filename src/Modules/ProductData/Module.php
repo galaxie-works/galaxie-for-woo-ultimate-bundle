@@ -91,6 +91,7 @@ final class Module implements ModuleContract, ProvidesBootData {
 				$tags->register( new Tags\ProductAttribute() );
 				$tags->register( new Tags\ProductWeight() );
 				$tags->register( new Tags\ProductDimension() );
+				$tags->register( new Tags\ProductSku() );
 			}
 		);
 
