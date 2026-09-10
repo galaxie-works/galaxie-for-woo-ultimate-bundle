@@ -12,6 +12,7 @@ use Elementor\Group_Control_Typography;
 use Elementor\Widget_Base;
 use Galaxie\Woo\Core\Plugin;
 use Galaxie\Woo\Modules\QuantityDiscounts\Module;
+use Galaxie\Woo\Modules\VariationSwatches\Widget\PixfortControls;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -65,6 +66,57 @@ final class QuantityDiscountsWidget extends Widget_Base {
 			)
 		);
 
+		if ( $this->pixfort_active() ) {
+			$this->add_control(
+				'heading_icon',
+				array(
+					'label'     => __( 'Heading icon', 'galaxie-woo' ),
+					'type'      => \Elementor\CustomControl\PixfortIconSelector_Control::PixfortIconSelector,
+					'default'   => '',
+					'condition' => array( 'heading!' => '' ),
+				)
+			);
+
+			$this->add_responsive_control(
+				'heading_icon_size',
+				array(
+					'label'      => __( 'Heading icon size', 'galaxie-woo' ),
+					'type'       => Controls_Manager::SLIDER,
+					'size_units' => array( 'px' ),
+					'range'      => array( 'px' => array( 'min' => 12, 'max' => 64 ) ),
+					'default'    => array( 'unit' => 'px', 'size' => 24 ),
+					// Width and height, not font-size: pixfort emits the icon as an
+					// SVG carrying its own width/height attributes, which a font
+					// size does not touch.
+					'selectors'  => array(
+						'{{WRAPPER}} .galaxie-qd-heading-icon svg' => 'width: {{SIZE}}{{UNIT}}; height: {{SIZE}}{{UNIT}};',
+					),
+					'condition'  => array( 'heading!' => '', 'heading_icon!' => '' ),
+				)
+			);
+
+			$this->add_responsive_control(
+				'heading_icon_gap',
+				array(
+					'label'      => __( 'Space between icon and heading', 'galaxie-woo' ),
+					'type'       => Controls_Manager::SLIDER,
+					'size_units' => array( 'px', 'rem' ),
+					'range'      => array( 'px' => array( 'min' => 0, 'max' => 48 ) ),
+					'default'    => array( 'unit' => 'px', 'size' => 8 ),
+					'selectors'  => array( '{{WRAPPER}} .galaxie-qd-heading' => 'gap: {{SIZE}}{{UNIT}};' ),
+					'condition'  => array( 'heading!' => '', 'heading_icon!' => '' ),
+				)
+			);
+
+			PixfortControls::icon_color(
+				$this,
+				'heading_icon_color',
+				__( 'Heading icon color', 'galaxie-woo' ),
+				'{{WRAPPER}} .galaxie-qd-heading-icon .pixfort-icon',
+				array( 'heading!' => '', 'heading_icon!' => '' )
+			);
+		}
+
 		$this->add_control(
 			'show_unit_price',
 			array(
@@ -77,10 +129,67 @@ final class QuantityDiscountsWidget extends Widget_Base {
 			)
 		);
 
+		$this->add_control(
+			'show_button',
+			array(
+				'label'        => __( 'Add button on each row', 'galaxie-woo' ),
+				'description'  => __( 'A tier the shopper cannot act on is a poster, not an offer — this puts that quantity in the cart in one click.', 'galaxie-woo' ),
+				'type'         => Controls_Manager::SWITCHER,
+				'label_on'     => __( 'Yes', 'galaxie-woo' ),
+				'label_off'    => __( 'No', 'galaxie-woo' ),
+				'return_value' => 'yes',
+				'default'      => 'yes',
+			)
+		);
+
+		$this->add_control(
+			'hide_unavailable',
+			array(
+				'label'        => __( 'Hide tiers stock cannot honour', 'galaxie-woo' ),
+				'description'  => __( 'With 4 in stock, a "6 to 10 units" row is a promise the cart breaks. Off shows every tier regardless.', 'galaxie-woo' ),
+				'type'         => Controls_Manager::SWITCHER,
+				'label_on'     => __( 'Yes', 'galaxie-woo' ),
+				'label_off'    => __( 'No', 'galaxie-woo' ),
+				'return_value' => 'yes',
+				'default'      => 'yes',
+			)
+		);
+
 		$this->end_controls_section();
 
+		$this->register_button_section();
 		$this->register_text_controls( 'heading', 'heading_style_section', __( 'Heading', 'galaxie-woo' ) );
 		$this->register_text_controls( 'row', 'row_style_section', __( 'Table text', 'galaxie-woo' ) );
+	}
+
+	/**
+	 * The row button, with pixfort's own Button control set behind it — the same
+	 * registrar the Buy Box uses, so a merchant configures this button exactly
+	 * the way they configure that one.
+	 */
+	private function register_button_section(): void {
+		$this->start_controls_section(
+			'button_section',
+			array(
+				'label'     => __( 'Add button', 'galaxie-woo' ),
+				'condition' => array( 'show_button' => 'yes' ),
+			)
+		);
+
+		PixfortControls::button(
+			$this,
+			'btn',
+			array(
+				'text'  => __( 'Adicionar', 'galaxie-woo' ),
+				'style' => 'outline',
+				'color' => 'primary',
+				'size'  => 'sm',
+			),
+			array( 'show_button' => 'yes' ),
+			'{{WRAPPER}} .galaxie-qd-add'
+		);
+
+		$this->end_controls_section();
 	}
 
 	/**
@@ -264,7 +373,11 @@ final class QuantityDiscountsWidget extends Widget_Base {
 			? $this->module()->tiers_for_product( $product )
 			: array( 'tiers' => array(), 'type' => Module::TYPE_PERCENTAGE, 'rules' => Module::RULES_INTERVALS );
 
-		if ( ! $product || ! $resolved['tiers'] ) {
+		$tiers = $product
+			? $this->applicable_tiers( $resolved, $product, 'yes' === ( $this->get_settings_for_display()['hide_unavailable'] ?? 'yes' ) )
+			: array();
+
+		if ( ! $product || ! $tiers ) {
 			if ( \Elementor\Plugin::$instance->editor->is_edit_mode() ) {
 				echo '<div style="padding:2rem;text-align:center;border:1px dashed #ccc;border-radius:8px;">';
 				esc_html_e( 'Galaxie Quantity Discounts — place inside a single product template whose product has quantity tiers (its own, or the module\'s global ones).', 'galaxie-woo' );
@@ -276,17 +389,46 @@ final class QuantityDiscountsWidget extends Widget_Base {
 		$settings = $this->get_settings_for_display();
 		$heading  = trim( (string) ( $settings['heading'] ?? '' ) );
 		$base     = 'yes' === ( $settings['show_unit_price'] ?? 'yes' ) ? $this->base_price( $product ) : null;
+		$button   = 'yes' === ( $settings['show_button'] ?? 'yes' );
+		$variable = $product->is_type( 'variable' );
+
+		if ( $button ) {
+			// WooCommerce's own handler is what these buttons ride on: it binds
+			// `.add_to_cart_button`, posts `data-product_id` + `data-quantity` to
+			// its `add_to_cart` endpoint, refreshes the cart fragments and fires
+			// `added_to_cart`. Registering our own endpoint would mean
+			// re-implementing all of that, badly. On a page where the theme has
+			// not already enqueued it, this is what makes the click work.
+			wp_enqueue_script( 'wc-add-to-cart' );
+		}
 
 		echo '<div class="galaxie-ui galaxie-qd">';
 
 		if ( '' !== $heading ) {
-			echo '<div class="galaxie-qd-heading">' . $this->render_text( $heading, 'heading', $settings ) . '</div>'; // phpcs:ignore WordPress.Security.EscapeOutput -- escaped by render_text().
+			$heading_icon = trim( (string) ( $settings['heading_icon'] ?? '' ) );
+			$with_icon    = '' !== $heading_icon && PixfortControls::available();
+
+			// The modifier, rather than making every heading a flex row: a
+			// heading with no icon has nothing to lay out beside, and turning it
+			// into a flex container would quietly change how the text block it
+			// already contains behaves.
+			printf( '<div class="galaxie-qd-heading%s">', $with_icon ? ' has-icon' : '' );
+
+			if ( $with_icon ) {
+				// 24 is the nominal size pixfort stamps on the SVG; the control
+				// resizes it in CSS, which is the only thing that moves an SVG
+				// carrying its own width and height.
+				echo '<span class="galaxie-qd-heading-icon">' . \PixfortCore::instance()->icons->getIcon( $heading_icon, 24, '' ) . '</span>'; // phpcs:ignore WordPress.Security.EscapeOutput -- pixfort's own icon markup.
+			}
+
+			echo $this->render_text( $heading, 'heading', $settings ); // phpcs:ignore WordPress.Security.EscapeOutput -- escaped by render_text().
+			echo '</div>';
 		}
 
 		echo '<table class="galaxie-qd-table">';
 		echo '<tbody>';
 
-		foreach ( $resolved['tiers'] as $tier ) {
+		foreach ( $tiers as $tier ) {
 			echo '<tr class="galaxie-qd-row">';
 
 			echo '<td class="galaxie-qd-qty">' . $this->render_text( $this->quantity_label( $tier, $resolved['rules'] ), 'row', $settings ) . '</td>'; // phpcs:ignore WordPress.Security.EscapeOutput -- escaped by render_text().
@@ -300,12 +442,116 @@ final class QuantityDiscountsWidget extends Widget_Base {
 				echo '<td class="galaxie-qd-unit">' . $this->render_text( $this->unit_label( $unit, $product ), 'row', $settings ) . '</td>'; // phpcs:ignore WordPress.Security.EscapeOutput -- escaped by render_text().
 			}
 
+			if ( $button ) {
+				echo '<td class="galaxie-qd-action">';
+				$this->render_add_button( $settings, $tier, $resolved['rules'], $product, $variable );
+				echo '</td>';
+			}
+
 			echo '</tr>';
 		}
 
 		echo '</tbody>';
 		echo '</table>';
 		echo '</div>';
+	}
+
+	/**
+	 * The tiers this product can actually honour, with any ceiling brought down
+	 * to the stock that exists.
+	 *
+	 * A "6 to 10 units" row on a product with 4 left is a promise the cart
+	 * breaks at the fifth, so the row is dropped rather than shown and denied.
+	 * `has_enough_stock()` answers correctly for every stock mode — unmanaged
+	 * stock says yes, backorders say yes — so this only removes rows that are
+	 * genuinely unbuyable.
+	 *
+	 * Note the limit: on a variable product this runs against the parent, which
+	 * usually manages no stock of its own. The per-variation quantity is only
+	 * known once the shopper picks one, and the script narrows the rows then.
+	 *
+	 * @param array{tiers:array<int,array<string,float|int|null>>,type:string,rules:string} $resolved
+	 * @return array<int,array<string,float|int|null>>
+	 */
+	private function applicable_tiers( array $resolved, \WC_Product $product, bool $hide_unavailable ): array {
+		$steps = Module::RULES_STEPS === $resolved['rules'];
+
+		// Stock constrains nothing unless the product is actually counting it.
+		// With "Manage stock" off there is no number to compare against, and
+		// with backorders on the number is not a limit — in both cases the
+		// tiers stand as written. This is deliberately the same test
+		// WooCommerce uses in `get_max_purchase_quantity()` to decide whether a
+		// purchase ceiling exists at all, so the table and the quantity field
+		// on the page can never disagree about what is buyable.
+		$counts_stock = $product->managing_stock() && ! $product->backorders_allowed();
+		$stock        = $counts_stock ? $product->get_stock_quantity() : null;
+		$out          = array();
+
+		foreach ( $resolved['tiers'] as $tier ) {
+			$needed = (int) ( $steps ? ( $tier['every'] ?? 0 ) : ( $tier['min'] ?? 0 ) );
+
+			if ( $hide_unavailable && $counts_stock && $needed > 0 && ! $product->has_enough_stock( $needed ) ) {
+				continue;
+			}
+
+			if ( ! $steps && null !== $stock && isset( $tier['max'] ) && null !== $tier['max'] && $stock < (int) $tier['max'] ) {
+				$tier['max'] = $stock;
+			}
+
+			// An open-ended row on a stock-managed product still has a real
+			// ceiling; saying "3+" when only 7 exist is the same broken promise
+			// in a different shape.
+			if ( ! $steps && null !== $stock && ( ! isset( $tier['max'] ) || null === $tier['max'] ) ) {
+				$tier['max'] = $stock;
+			}
+
+			$out[] = $tier;
+		}
+
+		return $out;
+	}
+
+	/**
+	 * One row's Add button: our own element as the click target, a real pixfort
+	 * Button inside it as the visible control — the same split the Buy Box
+	 * uses, so the theme's own button styling applies without us restyling it.
+	 *
+	 * On a variable product there is nothing to add until a variation is chosen,
+	 * so the button carries no product id and the script fills it in from
+	 * whatever the shopper selects, clearing it again on reset — a button that
+	 * posts an unresolvable id would fail silently on the server.
+	 *
+	 * It is deliberately NOT disabled while it waits. Three greyed-out buttons
+	 * on page load read as broken, not as "choose a size first", and the first
+	 * report this shipped with was exactly that: the faded look was mistaken
+	 * for the text colour failing. It stays fully painted, and clicking it
+	 * before a choice is made asks for the choice.
+	 *
+	 * @param array<string,mixed>          $settings
+	 * @param array<string,float|int|null> $tier
+	 */
+	private function render_add_button( array $settings, array $tier, string $rules, \WC_Product $product, bool $variable ): void {
+		$quantity = (int) ( Module::RULES_STEPS === $rules ? ( $tier['every'] ?? 0 ) : ( $tier['min'] ?? 0 ) );
+		if ( $quantity < 1 ) {
+			return;
+		}
+
+		$text = (string) ( $settings['btn_text'] ?? __( 'Adicionar', 'galaxie-woo' ) );
+
+		printf(
+			'<button type="button" class="galaxie-qd-add add_to_cart_button ajax_add_to_cart" data-quantity="%1$d" data-galaxie-qd-qty="%1$d" data-product_id="%2$s"%3$s>',
+			$quantity,
+			$variable ? '' : (int) $product->get_id(),
+			$variable ? ' data-galaxie-qd-needs-variation="1"' : ''
+		);
+
+		if ( PixfortControls::available() ) {
+			echo \PixfortCore::instance()->elementsManager->renderElement( 'Button', PixfortControls::button_attr( $settings, 'btn', $text ) ); // phpcs:ignore WordPress.Security.EscapeOutput -- pixfort's own component markup.
+		} else {
+			echo '<span class="btn">' . esc_html( $text ) . '</span>';
+		}
+
+		echo '</button>';
 	}
 
 	/**

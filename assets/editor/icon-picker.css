@@ -1,0 +1,145 @@
+/* Galaxie icon picker, Elementor panel only. */
+
+/* pixfort's icons are not self-contained. Read off the live site, the Line set
+   paints with `stroke="var(--pf-icon-color)"` plus
+   `stroke-width="var(--pf-icon-stroke-width)"`, and Solid and Duotone paint with
+   `fill="var(--pf-icon-color)"` — so nearly every icon in the library depends on
+   a variable the theme defines on the storefront and nothing defines inside the
+   Elementor panel. Undefined, the paint is invalid and the icon draws nothing,
+   which is why the first grid was a wall of empty boxes; the two or three that
+   did show up are the handful with a literal colour baked into the file.
+
+   Declaring them here is what lets the panel render the same markup the
+   storefront does. */
+.galaxie-icon-picker {
+  --pf-icon-color: currentColor;
+  --pf-icon-stroke-width: 1.5;
+
+  color: #556068;
+}
+
+/* The SVG carries width and height attributes of its own; the grid cell decides
+   the real size, and without this the Duotone set in particular can arrive
+   larger than its box. */
+.galaxie-icon-picker svg {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+}
+
+.galaxie-icon-picker__bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+
+.galaxie-icon-picker__style {
+  flex: 0 0 auto;
+  padding: 3px 8px;
+  font-size: 11px;
+  line-height: 1.6;
+  cursor: pointer;
+  color: #556068;
+  background: #f1f2f3;
+  border: 1px solid #d5d8dc;
+  border-radius: 3px;
+}
+
+.galaxie-icon-picker__style.is-current {
+  color: #fff;
+  background: #556068;
+  border-color: #556068;
+}
+
+.galaxie-icon-picker__search {
+  flex: 1 1 100%;
+  min-width: 0;
+}
+
+.galaxie-icon-picker__current {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px;
+  background: #f1f2f3;
+  border-radius: 3px;
+}
+
+.galaxie-icon-picker__preview {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  cursor: pointer;
+  background: #fff;
+  border: 1px solid #d5d8dc;
+  border-radius: 3px;
+}
+
+.galaxie-icon-picker__value {
+  flex: 1 1 auto;
+  overflow: hidden;
+  font-size: 10px;
+  color: #6d7882;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.galaxie-icon-picker__clear {
+  flex: 0 0 auto;
+  font-size: 11px;
+  color: #6d7882;
+  cursor: pointer;
+  background: none;
+  border: 0;
+}
+
+/* Closed until asked for — see the note in icon-picker.js about why the grid
+   does not fill itself on render. */
+.galaxie-icon-picker__grid {
+  display: none;
+}
+
+.galaxie-icon-picker.is-open .galaxie-icon-picker__grid,
+.is-open .galaxie-icon-picker__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(34px, 1fr));
+  gap: 2px;
+  max-height: 260px;
+  margin-top: 6px;
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid #d5d8dc;
+  border-radius: 3px;
+  padding: 4px;
+}
+
+.galaxie-icon-picker__item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1;
+  cursor: pointer;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 3px;
+}
+
+.galaxie-icon-picker__item:hover {
+  background: #f1f2f3;
+}
+
+.galaxie-icon-picker__item.is-current {
+  border-color: #556068;
+  background: #e6e9ec;
+}
+
+.galaxie-icon-picker__empty,
+.galaxie-icon-picker__more {
+  grid-column: 1 / -1;
+  margin: 4px;
+  font-size: 11px;
+  color: #6d7882;
+}

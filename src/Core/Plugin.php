@@ -9,6 +9,7 @@ namespace Galaxie\Woo\Core;
 
 use Galaxie\Woo\Core\Admin\SettingsPage;
 use Galaxie\Woo\Elementor\Widgets;
+use Galaxie\Woo\Integrations\Acf;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -53,6 +54,12 @@ final class Plugin {
 		$this->register_modules();
 
 		load_plugin_textdomain( 'galaxie-woo', false, dirname( plugin_basename( GALAXIE_WOO_FILE ) ) . '/languages' );
+
+		// Unconditional: the filter is inert when ACF is not installed, and
+		// registering it here means the field groups are available as soon as
+		// ACF is, with no module toggle standing between a deploy and the
+		// definitions the storefront reads.
+		Acf::hooks();
 
 		if ( is_admin() ) {
 			( new SettingsPage( $this->modules, $this->settings ) )->hooks();

@@ -24,6 +24,18 @@ final class Widgets {
 	public function hooks(): void {
 		add_action( 'elementor/elements/categories_registered', array( $this, 'register_category' ) );
 		add_action( 'elementor/widgets/register', array( $this, 'register_widgets' ) );
+
+		// Registered through a closure on purpose. Naming the class here would
+		// autoload it during `plugins_loaded`, and a class that extends an
+		// Elementor base has no business being loaded before Elementor is up —
+		// any problem in it becomes a fatal for the whole site rather than a
+		// broken control. Inside the callback, Elementor is guaranteed present.
+		add_action(
+			'elementor/controls/register',
+			static function ( $controls_manager ) {
+				IconPicker::register( $controls_manager );
+			}
+		);
 	}
 
 	public function register_category( $categories_manager ): void {

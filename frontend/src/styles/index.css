@@ -216,8 +216,13 @@ button.galaxie-spotlight-add:disabled {
    add-to-cart button, price) wherever that form appears — e.g. rendered by
    Elementor Pro's own native "Add To Cart" widget, which is what actually
    needs to sit on a product template for this module's badges to have a
-   `<select>` to enhance in the first place (see Modules/VariationSwatches). */
-.woocommerce div.product form.cart .quantity .qty {
+   `<select>` to enhance in the first place (see Modules/VariationSwatches).
+
+   The Buy Box widget is excluded: its form IS a `form.cart`, but its controls
+   are already pixfort components, so these rules painted a second background
+   and padding around the real button and a second border around a quantity
+   field the theme had already styled. */
+.woocommerce div.product form.cart:not(.galaxie-buybox) .quantity .qty {
   border: 1px solid var(--border);
   border-radius: var(--radius-md, 0.375rem);
   padding: 0.5rem;
@@ -226,7 +231,7 @@ button.galaxie-spotlight-add:disabled {
   background: var(--background);
 }
 
-.woocommerce div.product form.cart .single_add_to_cart_button {
+.woocommerce div.product form.cart:not(.galaxie-buybox) .single_add_to_cart_button {
   appearance: none;
   cursor: pointer;
   border: none;
@@ -238,12 +243,12 @@ button.galaxie-spotlight-add:disabled {
   padding: 0.625rem 1.25rem;
 }
 
-.woocommerce div.product form.cart .single_add_to_cart_button.disabled {
+.woocommerce div.product form.cart:not(.galaxie-buybox) .single_add_to_cart_button.disabled {
   cursor: not-allowed;
   opacity: 0.5;
 }
 
-.woocommerce div.product form.cart .reset_variations {
+.woocommerce div.product form.cart:not(.galaxie-buybox) .reset_variations {
   display: inline-block;
   margin-top: 0.5rem;
   font-size: 0.8125rem;
@@ -332,16 +337,6 @@ button.galaxie-spotlight-add:disabled {
   margin-bottom: 0.75rem;
 }
 
-/* The one thing that IS ours to fix: this stepper sits OUTSIDE `form.cart`
-   (the native form stays hidden, so our controls live beside it), and the
-   theme stack scopes its stepper row layout to that form — leaving the
-   injected +/- buttons to fall back to inline flow, where they ride the text
-   baseline and sit above the number. Only the row axis is set here; sizing
-   and colour stay with whatever styles the buttons. */
-.galaxie-buybox-quantity .quantity {
-  display: flex;
-  align-items: center;
-}
 
 .galaxie-buybox-actions {
   display: flex;
@@ -379,6 +374,273 @@ button.galaxie-spotlight-add:disabled {
   opacity: 0.6;
 }
 
+/* Galaxie Buy Box — the widget renders its own form.cart, so unlike the
+   deprecated badges widget there is no native block to hide and every control
+   sits inside the form where the theme's own scoped CSS reaches it. Layout
+   only; the gap is an Elementor control, this is just its default. */
+/* No `align-items: flex-start` here, deliberately. It shrink-wraps every child
+   to its own content width — including a row meant to hold the quantity and the
+   buttons side by side, which could then never be wider than its single widest
+   item and so wrapped every time. Blocks stretch to the form's width instead;
+   each one lays its own contents out. */
+form.galaxie-buybox {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+/* The real attribute dropdowns. Kept in the DOM and functional — WooCommerce's
+   own matcher reads them — but never seen: the badges above are their UI.
+   Not `display:none`, because a field the browser considers unrenderable is
+   also one it refuses to focus or report validation on. */
+.galaxie-buybox-attrs {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.galaxie-buybox-block {
+  max-width: 100%;
+  margin: 0;
+}
+
+/* Inside the buy box the quantity wrapper must not be inline-level. As an
+   inline-block it sits on the text baseline, so the browser reserves descender
+   space under it and the wrapping block ends up ~9px taller than the field
+   itself. A row centring its items on that inflated height then pushed the
+   button several pixels below the quantity — the misalignment was the gap, not
+   the button. */
+form.galaxie-buybox .galaxie-buybox-quantity {
+  display: flex;
+}
+
+/* pixfort styles `.single_add_to_cart_button` as if it were the visible button:
+
+     .single_add_to_cart_button {
+       height: 2.7rem;
+       font-size: 12px !important;
+       box-shadow: var(--pix-box-shadow-sm, ...) !important;
+     }
+     .single_add_to_cart_button:hover {
+       transform: translate(0, -3px) !important;
+       box-shadow: var(--pix-box-shadow-hover-sm, ...) !important;
+     }
+
+   For us it is not the button — it is a bare click target wrapped around a real
+   pixfort Button, and we only keep the class so WooCommerce's variation JS can
+   still toggle the disabled state. Left alone, the resting shadow draws a
+   RECTANGLE around a pill-shaped button, because the shadow follows the
+   wrapper's own border-radius (0) and not the .btn inside it. The forced height
+   is just as wrong: at 2.7rem it overrides whatever the widget's Size control
+   asked for, so Small and Large came out the same 43px.
+
+   All of it is undone here so the pixfort Button inside decides its own size,
+   shape and shadow, and the widget's Size / "Button shadow hover style" /
+   "Button hover animation" controls are what actually govern. */
+form.galaxie-buybox .single_add_to_cart_button,
+form.galaxie-buybox .single_add_to_cart_button:hover {
+  height: auto;
+  font-size: inherit !important;
+  box-shadow: none !important;
+}
+
+/* The lift is read from a custom property rather than overridden per-state.
+   A plain `transform: none !important` here would beat Elementor's own
+   `.elementor-element-xxx .galaxie-buybox-addcart:hover` rule on specificity
+   (an element name is one more than Elementor emits) and silently disable the
+   widget's Hover lift control. Writing a variable instead sidesteps the contest
+   entirely: the control sets `--galaxie-hover-lift`, this rule consumes it, and
+   with no value set the button stays exactly where it is. */
+form.galaxie-buybox .single_add_to_cart_button {
+  transform: none !important;
+}
+
+form.galaxie-buybox .single_add_to_cart_button:hover {
+  transform: translateY(calc(-1 * var(--galaxie-hover-lift, 0px))) !important;
+}
+
+/* The Add button on a quantity-discount row.
+
+   Same split as the Buy Box: our element is only the click target and pixfort's
+   own .btn inside it is the visible control, so the wrapper is reset to nothing
+   and the button keeps whatever the theme gives it. The shadow reset is not
+   speculative — pixfort paints `.single_add_to_cart_button` at rest, and a
+   shadow on a square wrapper around a rounded button draws a rectangle. Anything
+   it does to `.add_to_cart_button` would land here the same way. */
+.galaxie-qd-add {
+  display: inline-flex;
+  appearance: none;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  height: auto;
+  font: inherit;
+  box-shadow: none !important;
+}
+
+.galaxie-qd-add > *,
+.galaxie-qd-add .btn {
+  margin: 0 !important;
+}
+
+/* Only a tier the chosen variation cannot cover is disabled, and it is the
+   one case where fading the button is honest — it says "not this many", about
+   a choice already made.
+
+   It deliberately does NOT cover "no variation chosen yet". That state used to
+   fade every row from page load, and the first thing it produced was a bug
+   report about the text colour: a button at half opacity does not read as
+   waiting, it reads as broken. That button now stays fully painted and answers
+   on click. */
+.galaxie-qd-add[disabled] {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.galaxie-qd-action {
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* WooCommerce appends its own "View cart" anchor right after any button it
+   handled. In a tier row it lands beside that row's button and shunts the line
+   out of alignment, and it says the same thing the Added-to-cart alert says in
+   a place the merchant controls.
+
+   The `a` is load-bearing. pixfort claims this element with
+   `.woocommerce a.added_to_cart { display: inline-block }` — two classes and an
+   element, so a two-class selector of ours loses the tie and the link stayed
+   visible even with the rule shipped. Measured on the page rather than
+   guessed. */
+.galaxie-qd .galaxie-qd-action a.added_to_cart {
+  display: none;
+}
+
+/* The alert is a hidden block that becomes visible when the widget has
+   something to say, and `display: none` rather than `hidden` because the block
+   wrapper sits in a flex column with a gap — a merely invisible element still
+   spends that gap and leaves a hole between variations and quantity.
+
+   The block wrapper is `display: contents` so the alert itself is the flex
+   item: an empty wrapper would still be one, and would still spend the gap.
+   `.is-visible` is set by the script on the site, and printed by the widget
+   inside the Elementor editor so the merchant can see what they configure. */
+form.galaxie-buybox .galaxie-buybox-block--alert {
+  display: contents;
+}
+
+form.galaxie-buybox .galaxie-buybox-alert {
+  display: none;
+}
+
+form.galaxie-buybox .galaxie-buybox-alert.is-visible {
+  display: block;
+}
+
+/* One element per configured message, only the current one on screen. Showing
+   a message is showing its element, so its icon, its type and its link are the
+   ones pixfort rendered for that message and not a repaint of another's. */
+form.galaxie-buybox .galaxie-buybox-alert-message {
+  display: none;
+}
+
+form.galaxie-buybox .galaxie-buybox-alert-message.is-current {
+  display: block;
+}
+
+/* WooCommerce appends its own "View cart" anchor beside any button it handled,
+   which inside the buy box row lands between Add to Cart and Buy Now. The
+   Added-to-cart alert offers the same link in a place the merchant controls,
+   so this one is suppressed rather than left to wedge itself into the row. */
+form.galaxie-buybox a.added_to_cart,
+form.galaxie-buybox .galaxie-buybox-row a.added_to_cart {
+  display: none;
+}
+
+/* pixfort's alert carries a bottom margin for standalone stacking; inside the
+   buy box the column gap already does that job. */
+form.galaxie-buybox .galaxie-buybox-alert .alert {
+  margin-bottom: 0;
+}
+
+/* Quantity and the buttons share a row when the layout asks for it. */
+form.galaxie-buybox .galaxie-buybox-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0;
+}
+
+/* Our <button> is only a click target; pixfort's own .btn inside it is the
+   visible control. The reset stops the browser's button styling from showing
+   through, and the margin override kills the spacing pixfort's button carries
+   for standalone use — which is what pushed it down and to the right of the
+   quantity field. */
+.galaxie-buybox-btn {
+  display: inline-flex;
+  appearance: none;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+}
+
+.galaxie-buybox-btn > *,
+.galaxie-buybox-btn .btn {
+  margin: 0 !important;
+}
+
+.galaxie-buybox-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* The dropdown replaces the number input, so it inherits the same box rather
+   than arriving as a bare browser select. */
+.galaxie-quantity-select .qty {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  padding: 0.5rem 1.75rem 0.5rem 0.75rem;
+  cursor: pointer;
+  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
+    linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position:
+    calc(100% - 15px) calc(50% + 2px),
+    calc(100% - 10px) calc(50% + 2px);
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+}
+
+
+/* The regular-price slot only reads as an "old" price once a sale price sits
+   beside it — on its own it IS the price, at full weight. */
+.galaxie-buybox-price {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.galaxie-buybox-price-regular.is-struck {
+  opacity: 0.6;
+  text-decoration: line-through;
+}
+
 /* Wishlist toggle — both states are rendered server-side as two independently
    configurable pixfort Buttons (see Modules/Wishlist/Widget) and swapped here,
    the same normal/selected trick the variation badges use. Doing it in CSS is
@@ -406,6 +668,29 @@ button.galaxie-spotlight-add:disabled {
 
 .galaxie-wishlist-btn.is-in-wishlist .galaxie-wishlist-saved {
   display: inline-block;
+}
+
+/* Only a heading that actually has an icon becomes a row. Without the
+   modifier the heading stays whatever the text block made it, which is what
+   every layout saved before the icon existed is relying on. */
+.galaxie-qd-heading.has-icon {
+  display: flex;
+  align-items: center;
+}
+
+/* The icon must not be squeezed by a long heading, and it carries no baseline
+   of its own to align to. */
+.galaxie-qd-heading-icon {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  line-height: 0;
+}
+
+/* pixfort's Text renders a paragraph with its own bottom margin, which inside a
+   centred row would push the icon off-centre against the text. */
+.galaxie-qd-heading.has-icon .pix-el-text p {
+  margin-bottom: 0;
 }
 
 /* Quantity discount tiers — layout only; every bit of color and typography

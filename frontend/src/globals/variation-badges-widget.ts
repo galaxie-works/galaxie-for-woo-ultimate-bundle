@@ -41,6 +41,11 @@ function postAddToCart(config: BuyBoxConfig, variationId: number, quantity: numb
 }
 
 function initWidget(picker: HTMLElement, config?: BuyBoxConfig): void {
+  // A picker inside a Galaxie Buy Box belongs to that widget, which owns its
+  // own form and wires its own handlers (globals/buy-box.ts). Enhancing it here
+  // too would attach a second, conflicting set to the same <select>.
+  if (picker.closest('.galaxie-buybox')) return
+
   // Elementor always wraps a single widget's entire render() output in its
   // own dedicated `.elementor-widget-container` — scope to that explicitly
   // (rather than assuming `picker.parentElement` is it) so this never
