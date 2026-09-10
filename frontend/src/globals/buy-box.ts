@@ -162,6 +162,39 @@ function initPriceAndStock(form: HTMLFormElement): void {
     }
     if (stockTarget) stockTarget.innerHTML = initialStock
   })
+
+  /**
+   * Keep WooCommerce's "disabled" classes off our button.
+   *
+   * Giving WooCommerce a `.single_variation` so it would emit `show_variation`
+   * and `hide_variation` also handed it two handlers of its own, and `onHide`
+   * puts `disabled wc-variation-selection-needed` on `.single_add_to_cart_button`
+   * — our button. Checked at the time that this changed nothing visible and did
+   * not block the click, and both were true. What was NOT checked is that
+   * WooCommerce binds its own click handler which reads that same class:
+   *
+   *     onAddToCart: if ( $( event.currentTarget ).is( '.disabled' ) ) {
+   *         window.alert( …i18n_make_a_selection_text );
+   *
+   * So a shopper clicking with nothing chosen got a browser alert before our
+   * own in-page one — the very dialog this widget was built to replace.
+   *
+   * Stripping the classes is the narrow fix: they carry no meaning for us (the
+   * button is deliberately always clickable, and the Alert does the explaining),
+   * and without them WooCommerce's handler finds nothing to complain about.
+   */
+  const clearDisabled = (): void => {
+    form
+      .querySelectorAll('.single_add_to_cart_button')
+      .forEach((button) =>
+        button.classList.remove('disabled', 'wc-variation-selection-needed', 'wc-variation-is-unavailable')
+      )
+  }
+
+  // On boot too: WooCommerce runs its own check when the form initialises,
+  // before any of these listeners exist.
+  clearDisabled()
+  jq(form).on('hide_variation reset_data show_variation found_variation', clearDisabled)
 }
 
 function currentQuantity(form: HTMLFormElement): number {

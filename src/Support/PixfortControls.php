@@ -1238,6 +1238,27 @@ final class PixfortControls {
 			'selectors'  => array( $field => 'border-width: {{SIZE}}{{UNIT}} !important; border-style: solid;' ),
 		), array( $prefix . '_border_color!' => '' ) );
 
+		// The FIELD's own width, which is what makes a spinner the same object in
+		// two places. Left to itself an `input[size=4]` is about 51px wide, but
+		// only where there is room: on the product page the stepper shares a flex
+		// row with Add to Cart and gets squeezed to 28px, while in a cart cell it
+		// keeps its natural size. Same markup, same CSS, two different boxes —
+		// and with `justify-content: space-between` the wider one pushes the minus
+		// and plus to the edges and strands the number in the middle, which is
+		// exactly what it looked like.
+		//
+		// The default is the product page's current 28px, so nothing already
+		// approved moves. A cart holding double digits will want more; that is
+		// this slider.
+		self::add_responsive( $target, $condition, $prefix . '_field_width', array(
+			'label'      => __( 'Number field width', 'galaxie-woo' ),
+			'type'       => Controls_Manager::SLIDER,
+			'size_units' => array( 'px' ),
+			'range'      => array( 'px' => array( 'min' => 20, 'max' => 120 ) ),
+			'default'    => array( 'unit' => 'px', 'size' => $d( 'field_width', 28 ) ),
+			'selectors'  => array( $input => 'width: {{SIZE}}{{UNIT}}; flex: 0 0 {{SIZE}}{{UNIT}};' ),
+		) );
+
 		self::add_responsive( $target, $condition, $prefix . '_width', array(
 			'label'      => __( 'Width', 'galaxie-woo' ),
 			'type'       => Controls_Manager::SLIDER,
