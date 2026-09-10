@@ -526,7 +526,100 @@ final class CartParts {
 		$widget->end_controls_section();
 	}
 
+	/**
+	 * Type inside the totals box: the heading, the row labels, the amounts, and
+	 * the order total on its own.
+	 *
+	 * Driven by SELECTORS rather than by pixfort's text classes, which is the
+	 * one place in this widget where that is the right way round: the AJAX
+	 * update re-renders these rows without any widget settings to render them
+	 * from, so a class printed at page load would be gone the first time a
+	 * quantity changed. A rule in the page's stylesheet applies to whatever
+	 * markup is there, including markup that arrived a second ago.
+	 */
+	private static function register_totals_type( object $widget ): void {
+		$widget->start_controls_section(
+			'totals_type_style',
+			array( 'label' => __( 'Totals type', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE )
+		);
+
+		$parts = array(
+			'sum_heading' => array( __( 'Heading', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-cart-totals-heading', 20, 600 ),
+			'sum_label'   => array( __( 'Row label', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-cart-total-label', 15, 400 ),
+			'sum_value'   => array( __( 'Row amount', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-cart-total-value', 15, 600 ),
+			'sum_total'   => array(
+				__( 'Order total', 'galaxie-woo' ),
+				'{{WRAPPER}} .galaxie-cart-total-order-total .galaxie-cart-total-label, {{WRAPPER}} .galaxie-cart-total-order-total .galaxie-cart-total-value',
+				17,
+				700,
+			),
+		);
+
+		$first = true;
+
+		foreach ( $parts as $prefix => $part ) {
+			list( $label, $selector, $size, $weight ) = $part;
+
+			$widget->add_control(
+				$prefix . '_heading',
+				array(
+					'label'     => $label,
+					'type'      => Controls_Manager::HEADING,
+					'separator' => $first ? '' : 'before',
+				)
+			);
+
+			$first = false;
+
+			PixfortControls::palette_control( $widget, $prefix . '_color', __( 'Color', 'galaxie-woo' ), $selector, 'color' );
+
+			$widget->add_responsive_control(
+				$prefix . '_size',
+				array(
+					'label'      => __( 'Size', 'galaxie-woo' ),
+					'type'       => Controls_Manager::SLIDER,
+					'size_units' => array( 'px', 'rem' ),
+					'range'      => array( 'px' => array( 'min' => 10, 'max' => 48 ) ),
+					'default'    => array( 'unit' => 'px', 'size' => $size ),
+					'selectors'  => array( $selector => 'font-size: {{SIZE}}{{UNIT}};' ),
+				)
+			);
+
+			$widget->add_control(
+				$prefix . '_weight',
+				array(
+					'label'     => __( 'Weight', 'galaxie-woo' ),
+					'type'      => Controls_Manager::SELECT,
+					'options'   => array(
+						'400' => __( 'Normal', 'galaxie-woo' ),
+						'500' => __( 'Medium', 'galaxie-woo' ),
+						'600' => __( 'Bold', 'galaxie-woo' ),
+						'700' => __( 'Bolder', 'galaxie-woo' ),
+					),
+					'default'   => (string) $weight,
+					'selectors' => array( $selector => 'font-weight: {{VALUE}};' ),
+				)
+			);
+		}
+
+		$widget->add_responsive_control(
+			'sum_row_gap',
+			array(
+				'label'      => __( 'Space between rows', 'galaxie-woo' ),
+				'type'       => Controls_Manager::SLIDER,
+				'size_units' => array( 'px' ),
+				'range'      => array( 'px' => array( 'min' => 0, 'max' => 40 ) ),
+				'separator'  => 'before',
+				'selectors'  => array( '{{WRAPPER}} .galaxie-cart-totals-rows' => 'gap: {{SIZE}}{{UNIT}};' ),
+			)
+		);
+
+		$widget->end_controls_section();
+	}
+
 	public static function register_totals_style( object $widget ): void {
+		self::register_totals_type( $widget );
+
 		$widget->start_controls_section( 'box_style', array( 'label' => __( 'Totals box', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
 
 		// Was a hand-rolled background + padding + radius slider. The shared set
