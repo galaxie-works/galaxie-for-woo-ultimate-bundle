@@ -68,7 +68,7 @@ final class MyAccountWidget extends AbstractIslandWidget {
 		$endpoint = ( function_exists( 'WC' ) && WC()->query ) ? WC()->query->get_current_endpoint() : '';
 		$is_custom = in_array( $endpoint, array( '', 'edit-account' ), true );
 
-		echo '<div class="galaxie-myaccount">';
+		echo '<div class="galaxie-myaccount galaxie-ui">';
 
 		echo '<div data-galaxie-native-myaccount hidden>';
 		echo do_shortcode( '[woocommerce_my_account]' );
