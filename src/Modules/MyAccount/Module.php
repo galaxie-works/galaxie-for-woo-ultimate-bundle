@@ -12,9 +12,16 @@ use Galaxie\Woo\Core\ProvidesBootData;
 use Galaxie\Woo\Core\ProvidesElementorWidgets;
 use Galaxie\Woo\Core\ProvidesSettings;
 use Galaxie\Woo\Integrations\FluentCRM as FluentCRMApi;
+use Galaxie\Woo\Modules\MyAccount\Widget\AccountAddressesWidget;
+use Galaxie\Woo\Modules\MyAccount\Widget\AccountCommunicationWidget;
 use Galaxie\Woo\Modules\MyAccount\Widget\AccountContentWidget;
+use Galaxie\Woo\Modules\MyAccount\Widget\AccountDeleteWidget;
+use Galaxie\Woo\Modules\MyAccount\Widget\AccountDetailsWidget;
+use Galaxie\Woo\Modules\MyAccount\Widget\AccountInterestsWidget;
 use Galaxie\Woo\Modules\MyAccount\Widget\AccountLayoutWidget;
 use Galaxie\Woo\Modules\MyAccount\Widget\AccountMenuWidget;
+use Galaxie\Woo\Modules\MyAccount\Widget\AccountOrderWidget;
+use Galaxie\Woo\Modules\MyAccount\Widget\AccountOrdersWidget;
 use Galaxie\Woo\Modules\MyAccount\Widget\AccountUserWidget;
 use Galaxie\Woo\Modules\MyAccount\Widget\MyAccountWidget;
 use Galaxie\Woo\Support\AccountEndpoints;
@@ -68,6 +75,13 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 			AccountMenuWidget::class,
 			AccountContentWidget::class,
 			AccountUserWidget::class,
+			AccountOrdersWidget::class,
+			AccountOrderWidget::class,
+			AccountAddressesWidget::class,
+			AccountDetailsWidget::class,
+			AccountInterestsWidget::class,
+			AccountCommunicationWidget::class,
+			AccountDeleteWidget::class,
 			MyAccountWidget::class,
 		);
 	}
@@ -94,7 +108,7 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 		?>
 		<h2><?php esc_html_e( 'Screens', 'galaxie-woo' ); ?></h2>
 		<p class="description" style="max-width:760px">
-			<?php esc_html_e( 'Every screen of My Account. A hidden screen leaves the menu, and its address sends the customer back to the dashboard. The address of WooCommerce\'s own screens is the same setting as WooCommerce → Settings → Advanced. A template replaces the screen\'s content with an Elementor template built from the Galaxie account widgets; without one, WooCommerce\'s own screen is shown.', 'galaxie-woo' ); ?>
+			<?php esc_html_e( 'Every screen of My Account. A hidden screen leaves the menu, and its address sends the customer back to the dashboard. The address of WooCommerce\'s own screens is the same setting as WooCommerce → Settings → Advanced. Each screen shows the Galaxie account widgets by default; pick an Elementor template to compose it yourself, or WooCommerce\'s own screen to go back to WooCommerce\'s markup.', 'galaxie-woo' ); ?>
 		</p>
 
 		<table class="widefat striped" style="max-width:1100px;margin-top:12px">
@@ -122,6 +136,8 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 						<br /><code style="font-size:11px"><?php echo esc_html( $key ); ?></code>
 						<?php if ( 'external' === $screen['type'] ) : ?>
 							<br /><span class="description"><?php esc_html_e( 'Added by another plugin', 'galaxie-woo' ); ?></span>
+						<?php elseif ( 'galaxie' === $screen['type'] ) : ?>
+							<br /><span class="description"><?php esc_html_e( 'A Galaxie screen', 'galaxie-woo' ); ?></span>
 						<?php elseif ( 'view-order' === $key ) : ?>
 							<br /><span class="description"><?php esc_html_e( 'One order, opened from Orders', 'galaxie-woo' ); ?></span>
 						<?php endif; ?>
@@ -138,7 +154,7 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 						<input type="text" style="width:100%" name="<?php echo esc_attr( $name ); ?>[label]" value="<?php echo esc_attr( $screen['label'] !== $screen['default_label'] ? $screen['label'] : '' ); ?>" placeholder="<?php echo esc_attr( $screen['default_label'] ); ?>" />
 					</td>
 					<td>
-						<?php if ( 'core' === $screen['type'] ) : ?>
+						<?php if ( in_array( $screen['type'], array( 'core', 'galaxie' ), true ) ) : ?>
 							<code style="font-size:11px"><?php echo esc_html( $path ); ?></code>
 							<?php if ( 'dashboard' !== $key ) : ?>
 								<input type="text" style="width:50%" name="<?php echo esc_attr( $name ); ?>[slug]" value="<?php echo esc_attr( $screen['slug'] ); ?>" />
@@ -151,7 +167,7 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 						<?php if ( 'customer-logout' === $key ) : ?>
 							<span class="description"><?php esc_html_e( 'Signs the customer out', 'galaxie-woo' ); ?></span>
 						<?php else : ?>
-							<?php $this->template_select( $name . '[template]', $screen['template'], $templates ); ?>
+							<?php $this->template_select( $name . '[template]', $screen['template'], $templates, $key, $screen['type'] ); ?>
 						<?php endif; ?>
 					</td>
 				</tr>
@@ -229,22 +245,32 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 				<code style="font-size:11px"><?php echo esc_html( $path ); ?></code>
 				<input type="text" style="width:50%" name="<?php echo esc_attr( $name ); ?>[slug]" value="<?php echo esc_attr( $row['slug'] ); ?>" placeholder="<?php esc_attr_e( 'interesses', 'galaxie-woo' ); ?>" />
 			</td>
-			<td><?php $this->template_select( $name . '[template]', $row['template'], $templates ); ?></td>
+			<td><?php $this->template_select( $name . '[template]', $row['template'], $templates, (string) $row['key'], 'custom' ); ?></td>
 			<td><a href="#" class="button-link-delete" data-role="remove"><?php esc_html_e( 'Remove', 'galaxie-woo' ); ?></a></td>
 		</tr>
 		<?php
 	}
 
 	/** @param array<int,string> $templates */
-	private function template_select( string $name, int $current, array $templates ): void {
+	private function template_select( string $name, int $current, array $templates, string $key = '', string $type = 'core' ): void {
+		$galaxie = AccountEndpoints::has_galaxie_default( $key );
 		?>
 		<select name="<?php echo esc_attr( $name ); ?>" style="max-width:80%">
-			<option value="0"><?php esc_html_e( 'WooCommerce\'s own screen', 'galaxie-woo' ); ?></option>
+			<?php if ( $galaxie ) : ?>
+				<option value="0" <?php selected( $current, 0 ); ?>><?php esc_html_e( 'Galaxie screen', 'galaxie-woo' ); ?></option>
+				<?php if ( 'core' === $type ) : ?>
+					<option value="<?php echo esc_attr( (string) AccountEndpoints::NATIVE ); ?>" <?php selected( $current, AccountEndpoints::NATIVE ); ?>><?php esc_html_e( 'WooCommerce\'s own screen', 'galaxie-woo' ); ?></option>
+				<?php endif; ?>
+			<?php elseif ( 'custom' === $type ) : ?>
+				<option value="0"><?php esc_html_e( 'Choose a template…', 'galaxie-woo' ); ?></option>
+			<?php else : ?>
+				<option value="0"><?php esc_html_e( 'WooCommerce\'s own screen', 'galaxie-woo' ); ?></option>
+			<?php endif; ?>
 			<?php foreach ( $templates as $id => $title ) : ?>
 				<option value="<?php echo esc_attr( (string) $id ); ?>" <?php selected( $current, $id ); ?>><?php echo esc_html( $title ); ?></option>
 			<?php endforeach; ?>
 		</select>
-		<?php if ( $current ) : ?>
+		<?php if ( $current > 0 ) : ?>
 			<a href="<?php echo esc_url( add_query_arg( array( 'post' => $current, 'action' => 'elementor' ), admin_url( 'post.php' ) ) ); ?>" target="_blank" rel="noopener" style="margin-left:4px"><?php esc_html_e( 'Edit', 'galaxie-woo' ); ?></a>
 		<?php endif; ?>
 		<?php

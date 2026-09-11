@@ -61,7 +61,7 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 	}
 
 	public function elementor_widgets(): array {
-		return array( WishlistButtonWidget::class );
+		return array( WishlistButtonWidget::class, \Galaxie\Woo\Modules\Wishlist\Widget\AccountWishlistWidget::class );
 	}
 
 	public function boot_data(): array {
@@ -124,6 +124,15 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 		update_user_meta( $user->ID, self::META_KEY, array_values( array_unique( array_merge( $stored, $guest ) ) ) );
 
 		$session->set( self::SESSION_KEY, array() );
+	}
+
+	/**
+	 * The product ids on the current visitor's list, newest last.
+	 *
+	 * @return int[]
+	 */
+	public static function items(): array {
+		return self::get_items();
 	}
 
 	/** Public because the Elementor widget renders the button's initial state. */

@@ -753,4 +753,161 @@ final class AccountParts {
 			$html
 		);
 	}
+
+	// ================================================================ helpers
+
+	/** WooCommerce's order statuses, with the colours each starts with. */
+	private const STATUS_COLOURS = array(
+		'pending'    => array( 'orange', 'orange-light' ),
+		'on-hold'    => array( 'orange', 'yellow-light' ),
+		'processing' => array( 'blue', 'blue-light' ),
+		'completed'  => array( 'green', 'green-light' ),
+		'cancelled'  => array( 'red', 'red-light' ),
+		'refunded'   => array( 'purple', 'purple-light' ),
+		'failed'     => array( 'red', 'red-light' ),
+	);
+
+	/**
+	 * One of the screen widgets, drawn with its own defaults: what a screen shows
+	 * when no template was picked for it. Going through Elementor rather than
+	 * calling the markup directly is what makes "defaults" mean the widget's
+	 * control defaults, the same ones a merchant sees when dropping it in.
+	 *
+	 * @param array<string,mixed> $settings Overrides, for the dashboard's short order list.
+	 */
+	public static function render_widget( string $name, array $settings = array() ): string {
+		if ( ! class_exists( '\Elementor\Plugin' ) ) {
+			return '';
+		}
+
+		$element = \Elementor\Plugin::$instance->elements_manager->create_element_instance(
+			array(
+				'id'         => substr( md5( 'galaxie-default-' . $name ), 0, 7 ),
+				'elType'     => 'widget',
+				'widgetType' => $name,
+				'settings'   => $settings,
+			)
+		);
+
+		if ( ! $element ) {
+			return '';
+		}
+
+		ob_start();
+		$element->print_element();
+
+		return (string) ob_get_clean();
+	}
+
+	/**
+	 * Status names and colours, shared by the order list and the order page.
+	 *
+	 * The base badge is pixfort's Badge set; each status then brings its own text
+	 * and background from the palette, because "cancelled" and "completed" in
+	 * one colour is a list nobody can scan.
+	 */
+	public static function register_status_controls( object $widget ): void {
+		$widget->start_controls_section( 'status_names_section', array( 'label' => __( 'Status names', 'galaxie-woo' ) ) );
+
+		foreach ( array_keys( self::STATUS_COLOURS ) as $status ) {
+			$widget->add_control(
+				'status_' . str_replace( '-', '_', $status ) . '_label',
+				array(
+					'label'       => wc_get_order_status_name( $status ),
+					'type'        => Controls_Manager::TEXT,
+					'placeholder' => wc_get_order_status_name( $status ),
+					'default'     => self::status_default_label( $status ),
+				)
+			);
+		}
+
+		$widget->end_controls_section();
+
+		$widget->start_controls_section( 'status_badge_style', array( 'label' => __( 'Status badge', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
+
+		foreach ( self::STATUS_COLOURS as $status => $colours ) {
+			$id = 'status_' . str_replace( '-', '_', $status );
+
+			$widget->add_control( $id . '_heading', array( 'label' => self::status_default_label( $status ), 'type' => Controls_Manager::HEADING, 'separator' => 'before' ) );
+			PixfortControls::palette_select( $widget, $id . '_text', __( 'Text color', 'galaxie-woo' ), $colours[0] );
+			PixfortControls::palette_select( $widget, $id . '_bg', __( 'Background', 'galaxie-woo' ), $colours[1] );
+		}
+
+		$widget->add_control( 'status_base_heading', array( 'label' => __( 'Badge (other statuses and shared look)', 'galaxie-woo' ), 'type' => Controls_Manager::HEADING, 'separator' => 'before' ) );
+		PixfortControls::badge( $widget, 'status', array( 'text_size' => 'h6', 'rounded' => 'rounded-lg', 'bold' => 'font-weight-bold', 'disable_margin_after_badge' => 'yes' ) );
+
+		$widget->end_controls_section();
+	}
+
+	private static function status_default_label( string $status ): string {
+		$labels = array(
+			'pending'    => __( 'Aguardando pagamento', 'galaxie-woo' ),
+			'on-hold'    => __( 'Em espera', 'galaxie-woo' ),
+			'processing' => __( 'Em preparação', 'galaxie-woo' ),
+			'completed'  => __( 'Concluído', 'galaxie-woo' ),
+			'cancelled'  => __( 'Cancelado', 'galaxie-woo' ),
+			'refunded'   => __( 'Reembolsado', 'galaxie-woo' ),
+			'failed'     => __( 'Falhou', 'galaxie-woo' ),
+		);
+
+		return $labels[ $status ] ?? wc_get_order_status_name( $status );
+	}
+
+	/** @param array<string,mixed> $settings */
+	public static function status_badge( array $settings, \WC_Order $order ): string {
+		$status = $order->get_status();
+		$id     = 'status_' . str_replace( '-', '_', $status );
+		$label  = trim( (string) ( $settings[ $id . '_label' ] ?? '' ) );
+		$label  = '' !== $label ? $label : ( isset( self::STATUS_COLOURS[ $status ] ) ? self::status_default_label( $status ) : wc_get_order_status_name( $status ) );
+
+		if ( ! PixfortControls::available() ) {
+			return sprintf( '<span class="badge galaxie-order-status is-%1$s">%2$s</span>', esc_attr( $status ), esc_html( $label ) );
+		}
+
+		$attr = PixfortControls::badge_attr( $settings, 'status', $label );
+
+		if ( isset( self::STATUS_COLOURS[ $status ] ) ) {
+			$attr['text_color'] = (string) ( $settings[ $id . '_text' ] ?? self::STATUS_COLOURS[ $status ][0] );
+			$attr['bg_color']   = (string) ( $settings[ $id . '_bg' ] ?? self::STATUS_COLOURS[ $status ][1] );
+		}
+
+		return sprintf(
+			'<span class="galaxie-order-status is-%1$s">%2$s</span>',
+			esc_attr( $status ),
+			(string) \PixfortCore::instance()->elementsManager->renderElement( 'Badge', $attr )
+		);
+	}
+
+	/**
+	 * A pixfort button that is a link: our `<a>` around pixfort's `<span class="btn">`.
+	 *
+	 * @param array<string,mixed> $settings
+	 */
+	public static function link_button( array $settings, string $prefix, string $text, string $url, string $class = '' ): string {
+		return sprintf(
+			'<a class="galaxie-account-button %1$s" href="%2$s">%3$s</a>',
+			esc_attr( $class ),
+			esc_url( $url ),
+			PixfortControls::render_button( $settings, $prefix, $text )
+		);
+	}
+
+	/** The order a screen is about, if this customer may see it. */
+	public static function order_for( string $value ): ?\WC_Order {
+		$order = wc_get_order( absint( $value ) );
+
+		if ( ! $order instanceof \WC_Order ) {
+			return null;
+		}
+
+		return current_user_can( 'view_order', $order->get_id() ) ? $order : null;
+	}
+
+	/**
+	 * A message for the editor when a screen widget has nothing to show there,
+	 * and nothing at all on the site.
+	 */
+	public static function editor_note( string $text ): string {
+		return self::editing() ? sprintf( '<p class="galaxie-account-empty">%s</p>', esc_html( $text ) ) : '';
+	}
 }

@@ -19,6 +19,7 @@ import { bootCartFragments } from '@/globals/cart-fragments'
 import { bootCoupon } from '@/globals/coupon'
 import { bootFreeProgress } from '@/globals/free-progress'
 import { bootAccountMenu } from '@/globals/account-menu'
+import { bootAccountScreens } from '@/globals/account-screens'
 
 // Each module registers its island(s) here as they are ported.
 registerIsland('demo', Demo)
@@ -50,6 +51,7 @@ function boot(): void {
   bootCoupon()
   bootFreeProgress()
   bootAccountMenu()
+  bootAccountScreens(config.wishlist)
 
   if (config.productData) {
     bootProductData()

@@ -24,6 +24,8 @@ defined( 'ABSPATH' ) || exit;
  * - `external`: added to the account menu by another plugin. Its URL and content
  *   stay that plugin's business; here it can be hidden, renamed or given a
  *   template.
+ * - `galaxie`: screens this plugin brings (Interests, Communication, Wishlist),
+ *   each drawn by its widget, offered only when what it needs is switched on.
  * - `custom`: created here. It becomes a real WooCommerce endpoint, so
  *   `/my-account/{slug}/` resolves, `is_wc_endpoint_url()` knows it and the page
  *   title follows its label. Its content is the Elementor template picked for it.
@@ -59,7 +61,32 @@ final class AccountEndpoints {
 		'payment-methods' => 'Line/pixfort-icon-credit-card-1',
 		'edit-account'    => 'Line/pixfort-icon-user-circle-1',
 		'customer-logout' => 'Line/pixfort-icon-logout-1',
+		'galaxie-interests'     => 'Line/pixfort-icon-check-badge-1',
+		'galaxie-communication' => 'Line/pixfort-icon-mail-1',
+		'galaxie-wishlist'      => 'Line/pixfort-icon-heart-1',
 	);
+
+	/**
+	 * What a screen shows when no template was picked: Galaxie's widgets, drawn
+	 * with their own defaults. Pick "WooCommerce's own screen" to go back to
+	 * WooCommerce's markup.
+	 */
+	private const DEFAULT_WIDGETS = array(
+		'dashboard'             => array(
+			array( 'galaxie-account-user', array() ),
+			array( 'galaxie-account-orders', array( 'orders_source' => 'recent', 'orders_per_page' => 3, 'orders_heading' => 'Pedidos recentes' ) ),
+		),
+		'orders'                => array( array( 'galaxie-account-orders', array() ) ),
+		'view-order'            => array( array( 'galaxie-account-order', array() ) ),
+		'edit-address'          => array( array( 'galaxie-account-addresses', array() ) ),
+		'edit-account'          => array( array( 'galaxie-account-details', array() ), array( 'galaxie-account-delete', array() ) ),
+		'galaxie-interests'     => array( array( 'galaxie-account-interests', array() ) ),
+		'galaxie-communication' => array( array( 'galaxie-account-communication', array() ) ),
+		'galaxie-wishlist'      => array( array( 'galaxie-account-wishlist', array() ) ),
+	);
+
+	/** A template value meaning "WooCommerce's own screen, not Galaxie's". */
+	public const NATIVE = -1;
 
 	/** True while WooCommerce's menu is being read raw, past our own filter. */
 	private static bool $capturing = false;
@@ -84,6 +111,35 @@ final class AccountEndpoints {
 		);
 	}
 
+	/**
+	 * Our own screens, those whose requirements are met: key => [label, slug].
+	 *
+	 * @return array<string,array{0:string,1:string}>
+	 */
+	private static function galaxie_screens(): array {
+		$modules = Plugin::instance()->modules();
+		$screens = array();
+
+		$fluent = Plugin::instance()->settings()->module_settings( 'fluentcrm' );
+
+		if ( $modules->is_enabled_by_id( 'fluentcrm' ) && ! empty( $fluent['interests_enabled'] ) && ! empty( $fluent['interest_options'] ) ) {
+			$screens['galaxie-interests'] = array( __( 'Interesses', 'galaxie-woo' ), 'interesses' );
+		}
+
+		$screens['galaxie-communication'] = array( __( 'Comunicação', 'galaxie-woo' ), 'comunicacao' );
+
+		if ( $modules->is_enabled_by_id( 'wishlist' ) ) {
+			$screens['galaxie-wishlist'] = array( __( 'Lista de desejos', 'galaxie-woo' ), 'lista-de-desejos' );
+		}
+
+		return $screens;
+	}
+
+	/** Whether a screen has Galaxie widgets to show without a template. */
+	public static function has_galaxie_default( string $key ): bool {
+		return isset( self::DEFAULT_WIDGETS[ $key ] );
+	}
+
 	/** @return array<string,mixed> */
 	private static function settings(): array {
 		return Plugin::instance()->settings()->module_settings( self::MODULE );
@@ -106,6 +162,13 @@ final class AccountEndpoints {
 			}
 
 			$out[ $key ] = self::entry( $key, 'core', $defaults[ $key ], self::core_slug( $key ), (array) ( $saved[ $key ] ?? array() ) );
+		}
+
+		foreach ( self::galaxie_screens() as $key => $screen ) {
+			$row  = (array) ( $saved[ $key ] ?? array() );
+			$slug = sanitize_title( (string) ( $row['slug'] ?? '' ) );
+
+			$out[ $key ] = self::entry( $key, 'galaxie', $screen[0], '' !== $slug ? $slug : $screen[1], $row );
 		}
 
 		foreach ( $with_external ? self::external_items() : array() as $key => $label ) {
@@ -137,7 +200,7 @@ final class AccountEndpoints {
 			// The dashboard is where the account opens, and an order's own page
 			// belongs to the orders list; neither is switched off on its own.
 			'enabled'       => in_array( $key, array( 'dashboard', 'view-order' ), true ) || ! array_key_exists( 'enabled', $saved ) || ! empty( $saved['enabled'] ),
-			'template'      => absint( $saved['template'] ?? 0 ),
+			'template'      => max( self::NATIVE, (int) ( $saved['template'] ?? 0 ) ),
 		);
 	}
 
@@ -213,7 +276,7 @@ final class AccountEndpoints {
 		self::$external = array();
 
 		foreach ( $items as $key => $label ) {
-			if ( ! array_key_exists( (string) $key, self::CORE ) && ! in_array( (string) $key, $custom, true ) ) {
+			if ( ! array_key_exists( (string) $key, self::CORE ) && ! in_array( (string) $key, $custom, true ) && 0 !== strpos( (string) $key, 'galaxie-' ) ) {
 				self::$external[ (string) $key ] = wp_strip_all_tags( (string) $label );
 			}
 		}
@@ -272,15 +335,27 @@ final class AccountEndpoints {
 			$entry    = self::get( $key );
 			$template = $entry ? $entry['template'] : 0;
 
-			if ( $template && class_exists( '\Elementor\Plugin' ) && 'publish' === get_post_status( $template ) ) {
+			if ( $template > 0 && class_exists( '\Elementor\Plugin' ) && 'publish' === get_post_status( $template ) ) {
 				return (string) \Elementor\Plugin::$instance->frontend->get_builder_content_for_display( $template, true );
+			}
+
+			if ( self::NATIVE !== $template && isset( self::DEFAULT_WIDGETS[ $key ] ) && class_exists( '\Elementor\Plugin' ) ) {
+				$html = '';
+
+				foreach ( self::DEFAULT_WIDGETS[ $key ] as $widget ) {
+					$html .= AccountParts::render_widget( $widget[0], $widget[1] );
+				}
+
+				if ( '' !== trim( $html ) ) {
+					return '<div class="galaxie-account-screen">' . $html . '</div>';
+				}
 			}
 
 			ob_start();
 
 			if ( 'dashboard' === $key ) {
 				wc_get_template( 'myaccount/dashboard.php', array( 'current_user' => wp_get_current_user() ) );
-			} elseif ( $entry && 'custom' === $entry['type'] ) {
+			} elseif ( $entry && in_array( $entry['type'], array( 'custom', 'galaxie' ), true ) ) {
 				if ( current_user_can( 'edit_posts' ) ) {
 					printf(
 						'<p class="galaxie-account-empty">%s</p>',
@@ -347,6 +422,13 @@ final class AccountEndpoints {
 	 * @return array<string,string>
 	 */
 	public static function query_vars( array $vars ): array {
+		$saved = (array) ( self::settings()['endpoints'] ?? array() );
+
+		foreach ( self::galaxie_screens() as $key => $screen ) {
+			$slug         = sanitize_title( (string) ( $saved[ $key ]['slug'] ?? '' ) );
+			$vars[ $key ] = '' !== $slug ? $slug : $screen[1];
+		}
+
 		foreach ( self::custom_rows() as $row ) {
 			$vars[ $row['key'] ] = $row['slug'];
 		}
@@ -376,7 +458,7 @@ final class AccountEndpoints {
 
 			// WooCommerce leaves some out on its own (no payment method to
 			// manage, a blank slug). Those stay out.
-			if ( 'custom' !== $entry['type'] && ! isset( $items[ $key ] ) ) {
+			if ( ! in_array( $entry['type'], array( 'custom', 'galaxie' ), true ) && ! isset( $items[ $key ] ) ) {
 				continue;
 			}
 
@@ -391,7 +473,7 @@ final class AccountEndpoints {
 		// Without other plugins' items: reading those means building the whole
 		// account menu, payment gateways included, on every request of the site.
 		foreach ( self::all( false ) as $key => $entry ) {
-			if ( 'custom' === $entry['type'] ) {
+			if ( in_array( $entry['type'], array( 'custom', 'galaxie' ), true ) ) {
 				add_action(
 					'woocommerce_account_' . $key . '_endpoint',
 					static function ( $value ) use ( $key ): void {
@@ -400,7 +482,7 @@ final class AccountEndpoints {
 				);
 			}
 
-			if ( 'custom' === $entry['type'] || $entry['label'] !== $entry['default_label'] ) {
+			if ( in_array( $entry['type'], array( 'custom', 'galaxie' ), true ) || $entry['label'] !== $entry['default_label'] ) {
 				add_filter(
 					'woocommerce_endpoint_' . $key . '_title',
 					static fn( $title ) => 'view-order' === $key ? $title : $entry['label']
@@ -449,11 +531,25 @@ final class AccountEndpoints {
 			$key = sanitize_key( (string) $key );
 			$row = (array) $row;
 
+			$template = (int) ( $row['template'] ?? 0 );
+
 			$endpoints[ $key ] = array(
 				'enabled'  => ! empty( $row['enabled'] ),
 				'label'    => sanitize_text_field( (string) ( $row['label'] ?? '' ) ),
-				'template' => isset( $templates[ absint( $row['template'] ?? 0 ) ] ) ? absint( $row['template'] ) : 0,
+				'template' => self::NATIVE === $template || isset( $templates[ $template ] ) ? $template : 0,
 			);
+
+			// Our own screens keep their address with their other settings.
+			if ( 0 === strpos( $key, 'galaxie-' ) && isset( $row['slug'] ) ) {
+				$slug    = sanitize_title( (string) $row['slug'] );
+				$current = sanitize_title( (string) ( self::settings()['endpoints'][ $key ]['slug'] ?? '' ) );
+
+				$endpoints[ $key ]['slug'] = $slug;
+
+				if ( $slug !== $current ) {
+					$flush = true;
+				}
+			}
 
 			// WooCommerce's slugs live in WooCommerce's options.
 			$option = self::CORE[ $key ] ?? '';

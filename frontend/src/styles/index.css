@@ -1607,3 +1607,665 @@ form.galaxie-buybox .galaxie-buybox-row {
 .galaxie-account-user-text {
   min-width: 0;
 }
+
+/* -------------------------------------------------------------------------
+   Galaxie Account screens: orders, order, addresses, profile, wishlist
+   ------------------------------------------------------------------------- */
+
+.galaxie-account-screen {
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+}
+
+/* A pixfort button inside our own <a> or <button>: the element is only the
+   hit area, pixfort's `.btn` inside draws everything. */
+.galaxie-account-button,
+.galaxie-account-submit {
+  display: inline-flex;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-decoration: none !important;
+  cursor: pointer;
+}
+
+.galaxie-account-submit[disabled],
+.is-busy .galaxie-account-submit {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.galaxie-account-button .btn,
+.galaxie-account-submit .btn {
+  margin: 0 !important;
+}
+
+.galaxie-account-message:not([hidden]) {
+  display: block;
+  margin-top: 10px;
+}
+
+/* Orders */
+.galaxie-account-orders {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.galaxie-orders-list {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+}
+
+.galaxie-order-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px;
+  border: 1px solid rgb(0 0 0 / 6%);
+}
+
+.galaxie-order-card-head,
+.galaxie-order-card-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+}
+
+.galaxie-order-card-foot {
+  padding-top: 14px;
+  border-top: 1px solid rgb(0 0 0 / 6%);
+}
+
+.galaxie-order-card-title,
+.galaxie-order-card-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.galaxie-order-card-summary {
+  flex-direction: row;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.galaxie-order-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.galaxie-order-status .badge {
+  margin: 0 !important;
+}
+
+.galaxie-order-thumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.galaxie-order-thumb {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  width: 48px;
+  height: 48px;
+  background-color: rgb(0 0 0 / 4%);
+  line-height: 0;
+}
+
+.galaxie-order-thumb img {
+  width: 48px;
+  height: 48px;
+  object-fit: cover;
+}
+
+.galaxie-order-thumb.is-more {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.galaxie-orders-table-wrap {
+  overflow-x: auto;
+}
+
+.galaxie-orders-table {
+  width: 100%;
+  margin: 0;
+  border-collapse: collapse;
+}
+
+.galaxie-orders-table td {
+  padding: 14px 16px;
+  border-top: 1px solid rgb(0 0 0 / 6%);
+  vertical-align: middle;
+}
+
+.galaxie-orders-table tr:first-child td {
+  border-top: 0;
+}
+
+.galaxie-orders-table td.is-total .galaxie-order-items {
+  display: block;
+}
+
+.galaxie-orders-table td.is-actions .galaxie-order-card-actions {
+  justify-content: flex-end;
+}
+
+.galaxie-account-orders-pages,
+.galaxie-account-orders-more {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.galaxie-account-orders-pages .is-next {
+  margin-left: auto;
+}
+
+.galaxie-account-orders-empty-box {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+/* One order */
+.galaxie-account-order {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.galaxie-order-header {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.galaxie-order-header-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+}
+
+.galaxie-order-header-title {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.galaxie-order-section {
+  padding: 20px;
+  border: 1px solid rgb(0 0 0 / 6%);
+}
+
+.galaxie-order-section-heading {
+  margin-bottom: 12px;
+}
+
+.galaxie-order-line {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 0;
+}
+
+.galaxie-order-line + .galaxie-order-line,
+.galaxie-order-total-row + .galaxie-order-total-row {
+  border-top: 1px solid rgb(0 0 0 / 6%);
+}
+
+.galaxie-order-line-thumb {
+  flex: none;
+  overflow: hidden;
+  line-height: 0;
+}
+
+.galaxie-order-line-thumb img {
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+}
+
+.galaxie-order-line-text {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.galaxie-order-line-name a {
+  color: inherit;
+}
+
+.galaxie-order-line-total {
+  flex: none;
+  text-align: right;
+}
+
+.galaxie-order-line-extra {
+  padding: 0 0 12px 78px;
+}
+
+.galaxie-order-total-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 8px 0;
+}
+
+.galaxie-order-total-row.is-order_total {
+  font-size: 1.125rem;
+}
+
+.galaxie-order-addresses {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 20px;
+}
+
+.galaxie-order-body address,
+address.galaxie-order-body {
+  margin: 0;
+  font-style: normal;
+}
+
+.galaxie-order-updates {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.galaxie-order-update time {
+  display: block;
+  font-size: 0.8125rem;
+  opacity: 0.7;
+}
+
+.galaxie-order-update p:last-child {
+  margin-bottom: 0;
+}
+
+/* Addresses */
+.galaxie-account-addresses {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.galaxie-address-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+
+@media (max-width: 767px) {
+  .galaxie-address-cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.galaxie-address-card,
+.galaxie-address-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+  border: 1px solid rgb(0 0 0 / 6%);
+}
+
+.galaxie-address-body {
+  margin: 0;
+  font-style: normal;
+}
+
+.galaxie-address-body.is-empty {
+  opacity: 0.7;
+}
+
+.galaxie-address-card-actions {
+  margin-top: auto;
+}
+
+.galaxie-address-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.galaxie-address-fields .form-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: auto !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  float: none !important;
+  grid-column: 1 / -1;
+}
+
+.galaxie-address-fields .form-row-first,
+.galaxie-address-fields .form-row-last {
+  grid-column: auto;
+}
+
+@media (max-width: 767px) {
+  .galaxie-address-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.galaxie-address-fields .form-row label {
+  margin: 0;
+}
+
+.galaxie-address-fields .select2-container {
+  width: 100% !important;
+}
+
+.galaxie-address-form-actions,
+.galaxie-details-actions,
+.galaxie-delete-actions,
+.galaxie-delete-dialog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Personal details */
+.galaxie-details-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.galaxie-details-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.galaxie-details-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+}
+
+.galaxie-details-field.is-wide {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 767px) {
+  .galaxie-details-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.galaxie-details-field label {
+  margin: 0;
+}
+
+.galaxie-details-field input[readonly] {
+  opacity: 0.7;
+}
+
+.galaxie-details-actions .galaxie-account-message {
+  margin-top: 0;
+}
+
+/* Interests */
+.galaxie-account-interests {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.galaxie-interests-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.galaxie-interest {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border: 1px solid rgb(0 0 0 / 12%);
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.galaxie-interest.is-selected {
+  border-color: var(--pix-primary, #333);
+  background-color: var(--pix-primary, #333);
+  color: var(--pix-white, #fff);
+}
+
+.galaxie-interest[disabled] {
+  cursor: progress;
+}
+
+.galaxie-interest-image {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  object-fit: cover;
+}
+
+.galaxie-interest .galaxie-particle {
+  position: absolute;
+  font-size: 10px;
+  pointer-events: none;
+  animation: galaxie-particle var(--gx-duration, 600ms) ease-out forwards;
+}
+
+/* Communication */
+.galaxie-account-communication {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.galaxie-comm-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin: 0;
+  padding: 18px 20px;
+  border: 1px solid rgb(0 0 0 / 6%);
+  cursor: pointer;
+}
+
+.galaxie-comm-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.galaxie-switch {
+  position: relative;
+  flex: none;
+  display: inline-flex;
+}
+
+.galaxie-switch input {
+  position: absolute;
+  opacity: 0;
+  inset: 0;
+  margin: 0;
+  cursor: pointer;
+}
+
+.galaxie-switch-track {
+  position: relative;
+  display: block;
+  width: 44px;
+  height: 24px;
+  border-radius: 999px;
+  background-color: rgb(0 0 0 / 18%);
+  transition: background-color 0.2s ease;
+}
+
+.galaxie-switch-track::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background-color: #fff;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 20%);
+  transition: transform 0.2s ease;
+}
+
+.galaxie-switch input:checked + .galaxie-switch-track {
+  background-color: var(--pix-primary, #333);
+}
+
+.galaxie-switch input:checked + .galaxie-switch-track::after {
+  transform: translateX(20px);
+}
+
+.galaxie-switch input:focus-visible + .galaxie-switch-track {
+  outline: 2px solid var(--pix-primary, #333);
+  outline-offset: 2px;
+}
+
+/* Delete account */
+.galaxie-account-delete {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 20px;
+  border: 1px solid rgb(220 38 38 / 25%);
+}
+
+.galaxie-delete-dialog {
+  width: min(460px, calc(100vw - 32px));
+  padding: 24px;
+  border: 0;
+  background-color: var(--pix-body-bg-color, #fff);
+  color: inherit;
+}
+
+.galaxie-delete-dialog[open] {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.galaxie-delete-dialog::backdrop {
+  background: rgb(0 0 0 / 45%);
+}
+
+.galaxie-delete-dialog-actions {
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
+/* Wishlist */
+.galaxie-account-wishlist {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.galaxie-wishlist-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+}
+
+@media (max-width: 767px) {
+  .galaxie-wishlist-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.galaxie-wishlist-item {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid rgb(0 0 0 / 6%);
+  transition: opacity 0.2s ease;
+}
+
+.galaxie-wishlist-item.is-removing {
+  opacity: 0.4;
+}
+
+.galaxie-wishlist-thumb {
+  display: block;
+  overflow: hidden;
+  line-height: 0;
+}
+
+.galaxie-wishlist-thumb img {
+  width: 100%;
+  height: auto;
+}
+
+.galaxie-wishlist-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.galaxie-wishlist-name a {
+  color: inherit;
+}
+
+.galaxie-wishlist-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: auto;
+}
+
+.galaxie-wishlist-remove {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-decoration: underline;
+  opacity: 0.7;
+  cursor: pointer;
+}
+
+.galaxie-wishlist-empty-box {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+}
