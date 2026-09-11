@@ -183,7 +183,11 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 		return array(
 			'percent'   => round( $state['percent'], 2 ),
 			'achieved'  => $state['achieved'],
-			'remaining' => wp_strip_all_tags( wc_price( $state['remaining'] ) ),
+			// wc_price() encodes the currency symbol (R$ arrives as &#82;&#36;)
+			// and the browser writes this with textContent, which prints
+			// entities literally. Stripping the tags alone left "Faltam
+			// &#82;&#36;290,20" on the page after the first quantity change.
+			'remaining' => html_entity_decode( wp_strip_all_tags( wc_price( $state['remaining'] ) ), ENT_QUOTES | ENT_HTML5, get_bloginfo( 'charset' ) ),
 		);
 	}
 
