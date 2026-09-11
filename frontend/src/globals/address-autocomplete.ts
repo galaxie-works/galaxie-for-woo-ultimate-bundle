@@ -147,7 +147,16 @@ function mountAll(config: PlacesConfig): void {
     calculator?.querySelector<HTMLElement>('#calc_shipping_postcode_field') ??
     calculator?.querySelector<HTMLElement>('.form-row')
 
-  if (calculator && calcAnchor) {
+  // The calculator widget prints its own search field. Attach to that one
+  // instead of inserting a second.
+  const printed = calculator?.querySelector<HTMLInputElement>('input.galaxie-places-input')
+
+  if (calculator && printed) {
+    if (!printed.hasAttribute(MOUNTED)) {
+      printed.setAttribute(MOUNTED, '1')
+      attach(printed, calculator, config)
+    }
+  } else if (calculator && calcAnchor) {
     mount(calcAnchor, calculator, config)
   }
 

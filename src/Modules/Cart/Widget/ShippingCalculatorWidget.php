@@ -43,7 +43,6 @@ final class ShippingCalculatorWidget extends Widget_Base {
 		'country'  => array( 'show_country', '' ),
 		'state'    => array( 'show_state', '' ),
 		'city'     => array( 'show_city', '' ),
-		'postcode' => array( 'show_postcode', 'yes' ),
 	);
 
 	public function get_name(): string {
@@ -88,7 +87,6 @@ final class ShippingCalculatorWidget extends Widget_Base {
 		);
 
 		foreach ( array(
-			'show_postcode' => __( 'Postcode (CEP) field', 'galaxie-woo' ),
 			'show_country'  => __( 'Country field', 'galaxie-woo' ),
 			'show_state'    => __( 'State field', 'galaxie-woo' ),
 			'show_city'     => __( 'City field', 'galaxie-woo' ),
@@ -110,7 +108,7 @@ final class ShippingCalculatorWidget extends Widget_Base {
 			'fields_note',
 			array(
 				'type'            => Controls_Manager::RAW_HTML,
-				'raw'             => __( 'In Brazil the CEP alone is enough: the state is read from it, and a State field left visible cannot override it.', 'galaxie-woo' ),
+				'raw'             => __( 'The CEP field is always shown: every carrier quotes by CEP, and the state is read from it. A State field left visible cannot override it.', 'galaxie-woo' ),
 				'content_classes' => 'elementor-descriptor',
 			)
 		);
@@ -122,7 +120,6 @@ final class ShippingCalculatorWidget extends Widget_Base {
 				'type'      => Controls_Manager::TEXT,
 				'default'   => __( 'CEP', 'galaxie-woo' ),
 				'separator' => 'before',
-				'condition' => array( 'show_postcode' => 'yes' ),
 			)
 		);
 
@@ -132,7 +129,38 @@ final class ShippingCalculatorWidget extends Widget_Base {
 				'label'     => __( 'CEP placeholder', 'galaxie-woo' ),
 				'type'      => Controls_Manager::TEXT,
 				'default'   => __( '00000-000', 'galaxie-woo' ),
-				'condition' => array( 'show_postcode' => 'yes' ),
+			)
+		);
+
+		$this->add_control(
+			'show_address_search',
+			array(
+				'label'        => __( 'Address search (Google)', 'galaxie-woo' ),
+				'type'         => Controls_Manager::SWITCHER,
+				'default'      => 'yes',
+				'return_value' => 'yes',
+				'separator'    => 'before',
+				'description'  => __( 'The shopper types a street and picks it from Google\'s suggestions, and the CEP is filled in. Needs the Address Autocomplete module on, with a Maps key.', 'galaxie-woo' ),
+			)
+		);
+
+		$this->add_control(
+			'address_label',
+			array(
+				'label'     => __( 'Search label', 'galaxie-woo' ),
+				'type'      => Controls_Manager::TEXT,
+				'default'   => '',
+				'condition' => array( 'show_address_search' => 'yes' ),
+			)
+		);
+
+		$this->add_control(
+			'address_placeholder',
+			array(
+				'label'     => __( 'Search placeholder', 'galaxie-woo' ),
+				'type'      => Controls_Manager::TEXT,
+				'default'   => __( 'Digite seu endereço', 'galaxie-woo' ),
+				'condition' => array( 'show_address_search' => 'yes' ),
 			)
 		);
 
@@ -220,6 +248,18 @@ final class ShippingCalculatorWidget extends Widget_Base {
 		);
 
 		$this->end_controls_section();
+	}
+
+	/**
+	 * Is Google's address search set up at all? Without the module or its key
+	 * there is no script to drive the field, and an input that suggests nothing
+	 * is worse than no input.
+	 */
+	private static function address_search_available(): bool {
+		$settings = \Galaxie\Woo\Core\Plugin::instance()->settings();
+
+		return $settings->is_enabled( 'address-autocomplete', false )
+			&& '' !== (string) ( $settings->module_settings( 'address-autocomplete' )['maps_api_key'] ?? '' );
 	}
 
 	protected function render(): void {
@@ -329,15 +369,32 @@ final class ShippingCalculatorWidget extends Widget_Base {
 			);
 		}
 
-		if ( $show['postcode'] ) {
+		// The search field is printed here rather than injected by the script,
+		// so it sits where the merchant expects, above the CEP it fills, and
+		// takes this widget's label and field styling. It used to be inserted
+		// next to the CEP field, so turning that field off removed the search too.
+		if ( 'yes' === ( $settings['show_address_search'] ?? 'yes' ) && self::address_search_available() ) {
+			$search_id    = 'galaxie_places_' . $this->get_id();
+			$search_label = (string) ( $settings['address_label'] ?? '' );
+
 			printf(
-				'<p class="form-row form-row-wide" id="calc_shipping_postcode_field"><label for="calc_shipping_postcode" class="%1$s">%2$s</label><input type="text" class="input-text form-control" value="%3$s" name="calc_shipping_postcode" id="calc_shipping_postcode" placeholder="%4$s" inputmode="numeric" autocomplete="postal-code" /></p>',
-				esc_attr( $label ),
-				esc_html( (string) ( $settings['postcode_label'] ?? '' ) ),
-				esc_attr( $customer->get_shipping_postcode() ),
-				esc_attr( (string) ( $settings['postcode_placeholder'] ?? '' ) )
+				'<p class="form-row form-row-wide galaxie-places-row" id="calc_shipping_address_search_field">%1$s<input type="text" class="input-text form-control galaxie-places-input" id="%2$s" placeholder="%3$s" autocomplete="off" /></p>',
+				'' !== $search_label ? '<label for="' . esc_attr( $search_id ) . '" class="' . esc_attr( $label ) . '">' . esc_html( $search_label ) . '</label>' : '', // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped inside.
+				esc_attr( $search_id ),
+				esc_attr( (string) ( $settings['address_placeholder'] ?? '' ) )
 			);
 		}
+
+		// Always printed. Every carrier quotes by CEP and the handler refuses a
+		// calculation without one, so a switch that hid it could only produce a
+		// calculator that never calculates.
+		printf(
+			'<p class="form-row form-row-wide" id="calc_shipping_postcode_field"><label for="calc_shipping_postcode" class="%1$s">%2$s</label><input type="text" class="input-text form-control" value="%3$s" name="calc_shipping_postcode" id="calc_shipping_postcode" placeholder="%4$s" inputmode="numeric" autocomplete="postal-code" /></p>',
+			esc_attr( $label ),
+			esc_html( (string) ( $settings['postcode_label'] ?? '' ) ),
+			esc_attr( $customer->get_shipping_postcode() ),
+			esc_attr( (string) ( $settings['postcode_placeholder'] ?? '' ) )
+		);
 
 		printf(
 			'<p class="galaxie-shipping-calculator-actions"><button type="submit" name="calc_shipping" value="1" class="galaxie-shipping-calculator-submit">%s</button></p>',
