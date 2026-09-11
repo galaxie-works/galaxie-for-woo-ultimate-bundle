@@ -18,6 +18,7 @@ import { bootAddressAutocomplete } from '@/globals/address-autocomplete'
 import { bootCartFragments } from '@/globals/cart-fragments'
 import { bootCoupon } from '@/globals/coupon'
 import { bootFreeProgress } from '@/globals/free-progress'
+import { bootAccountMenu } from '@/globals/account-menu'
 
 // Each module registers its island(s) here as they are ported.
 registerIsland('demo', Demo)
@@ -48,6 +49,7 @@ function boot(): void {
   bootCartFragments()
   bootCoupon()
   bootFreeProgress()
+  bootAccountMenu()
 
   if (config.productData) {
     bootProductData()

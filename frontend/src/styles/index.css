@@ -1388,3 +1388,222 @@ form.galaxie-buybox .galaxie-buybox-row {
   background-color: currentcolor;
   transition: width 0.4s ease;
 }
+
+/* -------------------------------------------------------------------------
+   Galaxie Account: menu, content, layout, user
+   ------------------------------------------------------------------------- */
+
+/* pixfort's pills are sized for marketing tabs (1.25rem text, 24px icons); an
+   account menu is navigation. The selectors carry `.nav.nav-pills` so they
+   outrank `.nav-pills.pix-pills-* .nav-link` without !important, and every
+   widget control, scoped to its element, still outranks these. */
+.galaxie-account-menu .nav.nav-pills {
+  gap: 4px;
+  flex-wrap: nowrap;
+}
+
+.galaxie-account-menu.is-horizontal .nav.nav-pills {
+  flex-wrap: wrap;
+}
+
+.galaxie-account-menu .nav.nav-pills .nav-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  font-size: 1rem;
+  line-height: 1.4;
+  text-decoration: none;
+}
+
+.galaxie-account-menu.is-vertical .nav.nav-pills .nav-link {
+  justify-content: flex-start;
+}
+
+.galaxie-account-menu.is-horizontal .nav.nav-pills .nav-link {
+  justify-content: center;
+}
+
+.galaxie-account-menu .nav.nav-pills .nav-link.is-icon-top {
+  flex-direction: column;
+  gap: 6px;
+  text-align: center;
+}
+
+.galaxie-account-menu .nav-link .pixfort-icon {
+  flex: none;
+  width: 20px;
+  height: 20px;
+}
+
+.galaxie-account-menu-label {
+  min-width: 0;
+}
+
+.galaxie-account-menu-heading {
+  padding: 14px 16px 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.6;
+}
+
+.galaxie-account-menu-divider {
+  align-self: stretch;
+  flex: none;
+  background-color: rgb(0 0 0 / 8%);
+}
+
+.galaxie-account-menu.is-vertical .galaxie-account-menu-divider {
+  height: 1px;
+  margin: 8px 0;
+}
+
+.galaxie-account-menu.is-horizontal .galaxie-account-menu-divider {
+  width: 1px;
+  margin: 0 8px;
+}
+
+.galaxie-account-menu.is-sticky {
+  position: sticky;
+  top: 110px;
+}
+
+.galaxie-account-menu-select {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .galaxie-account-menu.is-mobile-scroll .nav.nav-pills {
+    flex-direction: row !important;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .galaxie-account-menu.is-mobile-scroll .nav.nav-pills::-webkit-scrollbar {
+    display: none;
+  }
+
+  .galaxie-account-menu.is-mobile-scroll .nav-link {
+    white-space: nowrap;
+  }
+
+  .galaxie-account-menu.is-mobile-scroll .galaxie-account-menu-heading,
+  .galaxie-account-menu.is-mobile-scroll .galaxie-account-menu-divider,
+  .galaxie-account-menu.is-mobile-scroll .galaxie-account-menu-line {
+    display: none !important;
+  }
+
+  .galaxie-account-menu.is-mobile-select .nav.nav-pills {
+    display: none;
+  }
+
+  .galaxie-account-menu.is-mobile-select .galaxie-account-menu-select {
+    display: block;
+    width: 100%;
+  }
+
+  .galaxie-account-menu.is-sticky {
+    position: static;
+  }
+}
+
+/* The Account widget: pixfort's tabs row, with a gap that is a control. */
+.galaxie-account-layout.is-vertical {
+  margin-right: calc(var(--galaxie-account-gap, 30px) / -2);
+  margin-left: calc(var(--galaxie-account-gap, 30px) / -2);
+}
+
+.galaxie-account-layout.is-vertical > .galaxie-account-layout-menu,
+.galaxie-account-layout.is-vertical > .galaxie-account-layout-content {
+  padding-right: calc(var(--galaxie-account-gap, 30px) / 2);
+  padding-left: calc(var(--galaxie-account-gap, 30px) / 2);
+}
+
+.galaxie-account-layout.is-vertical > .galaxie-account-layout-menu {
+  margin-bottom: var(--galaxie-account-gap, 30px);
+}
+
+@media (min-width: 768px) {
+  .galaxie-account-layout.is-vertical > .galaxie-account-layout-menu {
+    margin-bottom: 0;
+  }
+
+  .galaxie-account-layout.is-menu-end {
+    flex-direction: row-reverse;
+  }
+}
+
+.galaxie-account-layout.is-horizontal {
+  display: flex;
+  flex-direction: column;
+  gap: var(--galaxie-account-gap, 30px);
+}
+
+.galaxie-account-layout-content,
+.galaxie-account-content {
+  min-width: 0;
+}
+
+.galaxie-account-content-title {
+  margin-bottom: 20px;
+}
+
+.galaxie-account-empty {
+  padding: 16px;
+  border: 1px dashed rgb(0 0 0 / 20%);
+  border-radius: 8px;
+  opacity: 0.8;
+}
+
+.galaxie-account-user {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.galaxie-account-user.is-stacked {
+  flex-direction: column;
+}
+
+.galaxie-account-user.is-inline.is-align-center {
+  justify-content: center;
+}
+
+.galaxie-account-user.is-inline.is-align-end {
+  justify-content: flex-end;
+}
+
+.galaxie-account-user.is-stacked.is-align-start {
+  align-items: flex-start;
+}
+
+.galaxie-account-user.is-stacked.is-align-center {
+  align-items: center;
+  text-align: center;
+}
+
+.galaxie-account-user.is-stacked.is-align-end {
+  align-items: flex-end;
+  text-align: right;
+}
+
+.galaxie-account-user-avatar {
+  flex: none;
+  overflow: hidden;
+  line-height: 0;
+}
+
+.galaxie-account-user-avatar img {
+  display: block;
+  width: 56px;
+  height: 56px;
+  border-radius: inherit;
+  object-fit: cover;
+}
+
+.galaxie-account-user-text {
+  min-width: 0;
+}
