@@ -182,12 +182,30 @@ function applyFreeShipping(state: CartResponse['data'] extends undefined ? never
   text.appendChild(document.createTextNode(after ?? ''))
 }
 
+let rebindRegistered = false
+
 export function bootCart(config?: CartConfig): void {
   if (!config?.ajaxUrl) return
 
-  const form = document.querySelector<HTMLFormElement>('.galaxie-cart-form[data-galaxie-auto="1"]')
-  if (!form) return
+  // WooCommerce's cart.js replaces the whole `.woocommerce-cart-form` after
+  // the shipping calculator or a shipping method change — a fresh element with
+  // none of the listeners below on it. So the boot runs again on its
+  // `updated_wc_div`, and each form node is bound exactly once.
+  if (!rebindRegistered) {
+    const jQuery = jq()
+    if (jQuery) {
+      rebindRegistered = true
+      ;(jQuery(document.body) as unknown as { on: (e: string, h: () => void) => void }).on(
+        'updated_wc_div updated_cart_totals',
+        () => bootCart(config)
+      )
+    }
+  }
 
+  const form = document.querySelector<HTMLFormElement>('.galaxie-cart-form[data-galaxie-auto="1"]')
+  if (!form || form.dataset.galaxieBound === '1') return
+
+  form.dataset.galaxieBound = '1'
   form.classList.add('is-galaxie-auto')
 
   const update = async (line: HTMLElement, quantity: number): Promise<void> => {

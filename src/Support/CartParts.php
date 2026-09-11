@@ -1080,8 +1080,13 @@ final class CartParts {
 		$checkout = (string) ( $settings['checkout_text'] ?? __( 'Finalizar compra', 'galaxie-woo' ) );
 
 		ob_start();
+		// `cart_totals` is WooCommerce's own class, and it is here for its
+		// cart.js: after the shipping calculator or a shipping method change,
+		// that script re-fetches the cart page and swaps `div.cart_totals` for
+		// the fresh one. Without the class the new rates arrived and were thrown
+		// away — the page kept showing no shipping at all.
 		printf(
-			'<div class="galaxie-cart-totals %s">',
+			'<div class="galaxie-cart-totals cart_totals %s">',
 			esc_attr( PixfortControls::surface_classes( $settings, 'box' ) )
 		);
 
@@ -1209,7 +1214,10 @@ final class CartParts {
 			// This one prints its own <tr>s, so it is given the row slot whole
 			// rather than wrapped — its markup is what the shipping methods and
 			// the calculator link expect.
-			echo '<div class="galaxie-cart-total-row galaxie-cart-total-shipping">' . self::capture( 'wc_cart_totals_shipping_html' ) . '</div>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WooCommerce's own markup.
+			// Wrapped in a table because the template prints <tr> and <td>. A
+			// browser drops those tags outside a table, which loses the row
+			// structure the shipping method list and its labels sit in.
+			echo '<div class="galaxie-cart-total-row galaxie-cart-total-shipping"><table class="galaxie-cart-shipping-table"><tbody>' . self::capture( 'wc_cart_totals_shipping_html' ) . '</tbody></table></div>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WooCommerce's own markup.
 		}
 
 		foreach ( $cart->get_fees() as $fee ) {

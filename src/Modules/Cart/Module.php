@@ -70,6 +70,53 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 		// clock has to start at the moment of the add — which happens on a
 		// different request entirely.
 		add_action( 'woocommerce_add_to_cart', array( CartCountdown::class, 'touch' ) );
+
+		add_action( 'wp_loaded', array( $this, 'handle_shipping_calculator' ), 20 );
+	}
+
+	/**
+	 * Process the shipping calculator on a cart built from widgets.
+	 *
+	 * WooCommerce handles `calc_shipping` in exactly one place:
+	 * `WC_Shortcode_Cart::output()`, the [woocommerce_cart] shortcode. There is
+	 * no form handler for it. A cart page assembled from Elementor widgets
+	 * never runs that shortcode, so the calculator posted, got a 200, and
+	 * nothing was saved — the postcode was gone on the next load and no rate
+	 * was ever quoted. Found by submitting it for real on the test store.
+	 *
+	 * This does not reimplement the calculation. It calls WooCommerce's own
+	 * public `WC_Shortcode_Cart::calculate_shipping()`, with the same nonce
+	 * check the shortcode performs, and then clears `calc_shipping` so a page
+	 * that DOES also render the shortcode does not process the same address a
+	 * second time and print "Shipping costs updated" twice.
+	 */
+	public function handle_shipping_calculator(): void {
+		// phpcs:disable WordPress.Security.NonceVerification.Missing -- verified just below, as the shortcode does.
+		if ( empty( $_POST['calc_shipping'] ) || ! function_exists( 'WC' ) || ! WC()->cart ) {
+			return;
+		}
+
+		$nonce = isset( $_REQUEST['woocommerce-shipping-calculator-nonce'] )
+			? sanitize_text_field( wp_unslash( $_REQUEST['woocommerce-shipping-calculator-nonce'] ) )
+			: ( isset( $_REQUEST['_wpnonce'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['_wpnonce'] ) ) : '' );
+		// phpcs:enable WordPress.Security.NonceVerification.Missing
+
+		if ( ! wp_verify_nonce( $nonce, 'woocommerce-shipping-calculator' ) && ! wp_verify_nonce( $nonce, 'woocommerce-cart' ) ) {
+			return;
+		}
+
+		if ( ! class_exists( '\WC_Shortcode_Cart' ) && defined( 'WC_ABSPATH' ) ) {
+			include_once WC_ABSPATH . 'includes/shortcodes/class-wc-shortcode-cart.php';
+		}
+
+		if ( ! class_exists( '\WC_Shortcode_Cart' ) ) {
+			return;
+		}
+
+		\WC_Shortcode_Cart::calculate_shipping();
+		WC()->cart->calculate_totals();
+
+		unset( $_POST['calc_shipping'] );
 	}
 
 	/** @return string[] */
