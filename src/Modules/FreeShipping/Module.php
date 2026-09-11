@@ -124,6 +124,26 @@ final class Module implements ModuleContract, ProvidesSettings {
 	 *
 	 * @param array<string,mixed> $package
 	 */
+	/**
+	 * Does WooCommerce place this package in one of the zones ticked here?
+	 *
+	 * Zone only: no minimum, no CEP. {@see covers()} is the stricter question
+	 * of whether the promise itself reaches the destination.
+	 *
+	 * @param array<string,mixed> $package
+	 */
+	private static function in_our_zones( array $package ): bool {
+		$zones = array_map( 'strval', (array) ( self::settings()['zones'] ?? array() ) );
+
+		if ( ! $zones || ! class_exists( '\WC_Shipping_Zones' ) ) {
+			return false;
+		}
+
+		$zone = \WC_Shipping_Zones::get_zone_matching_package( $package );
+
+		return $zone && in_array( (string) $zone->get_id(), $zones, true );
+	}
+
 	private static function covers( array $package ): bool {
 		$settings = self::settings();
 
@@ -237,25 +257,36 @@ final class Module implements ModuleContract, ProvidesSettings {
 	 * @return array<string,\WC_Shipping_Rate>
 	 */
 	public function apply( array $rates, array $package ): array {
-		if ( ! self::active() || ! self::covers( $package ) ) {
+		if ( ! self::active() ) {
 			return $rates;
 		}
 
 		// WooCommerce's own Free shipping with no requirement, in a zone this
-		// module covers, is the trap the diagnostics panel describes: a free
+		// module is set for, is the trap the diagnostics panel describes: a free
 		// option on a R$ 29,90 cart, sitting beside the rule that says R$ 350.
 		// Free shipping has one owner here, so it goes. One that needs a coupon
 		// or a minimum of its own stays. Those are deliberate.
-		foreach ( $rates as $key => $rate ) {
-			if ( 'free_shipping' !== $rate->get_method_id() ) {
-				continue;
-			}
+		//
+		// This runs before the CEP check on purpose. An anonymous visitor with
+		// no CEP is placed at the store's own address, São Paulo, which matches
+		// the Sul e Sudeste zone by state, and the test store's cart offered them
+		// "Free shipping" at R$ 29,90 before they had typed anything.
+		if ( self::in_our_zones( $package ) ) {
+			foreach ( $rates as $key => $rate ) {
+				if ( 'free_shipping' !== $rate->get_method_id() ) {
+					continue;
+				}
 
-			$method = \WC_Shipping_Zones::get_shipping_method( (int) $rate->get_instance_id() );
+				$method = \WC_Shipping_Zones::get_shipping_method( (int) $rate->get_instance_id() );
 
-			if ( $method && '' === (string) $method->get_option( 'requires' ) ) {
-				unset( $rates[ $key ] );
+				if ( $method && '' === (string) $method->get_option( 'requires' ) ) {
+					unset( $rates[ $key ] );
+				}
 			}
+		}
+
+		if ( ! self::covers( $package ) ) {
+			return $rates;
 		}
 
 		$settings = self::settings();

@@ -1300,6 +1300,12 @@ final class CartParts {
 	 * @param array<string,mixed> $settings
 	 */
 	private static function chosen_shipping_html( array $settings ): string {
+		// Same rule as the card: a price for the store's own address is not a
+		// price for this shopper.
+		if ( ! FreeShipping::destination_known() ) {
+			return esc_html( (string) ( $settings['shipping_empty_text'] ?? __( 'Informe o CEP', 'galaxie-woo' ) ) );
+		}
+
 		$chosen = WC()->session ? (array) WC()->session->get( 'chosen_shipping_methods', array() ) : array();
 		$tax    = WC()->cart->display_prices_including_tax();
 		$total  = 0.0;
@@ -1336,6 +1342,13 @@ final class CartParts {
 	 */
 	public static function shipping_card( array $settings, string $instance, array $args = array() ): string {
 		if ( ! self::available() || ! WC()->cart->needs_shipping() ) {
+			return '';
+		}
+
+		// No CEP, no options. Without one WooCommerce quotes for the store's own
+		// address, and what it lists is what shipping to the store would cost,
+		// not what shipping to the shopper will.
+		if ( ! FreeShipping::destination_known() ) {
 			return '';
 		}
 
