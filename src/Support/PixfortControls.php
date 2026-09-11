@@ -1216,6 +1216,50 @@ final class PixfortControls {
 	 * @param array<string,mixed> $args
 	 * @return array<int,array<string,mixed>>
 	 */
+	/**
+	 * A colour picked from pixfort's palette, for a value that is not a CSS
+	 * property: something JavaScript paints with, such as confetti.
+	 *
+	 * Same list as every other colour control here. Read it back with
+	 * {@see color_value()}.
+	 *
+	 * @param array<string,mixed> $condition
+	 */
+	public static function color_select( object $target, string $id, string $label, string $default = '', array $condition = array() ): void {
+		if ( ! self::available() ) {
+			self::add( $target, $condition, $id . '_fallback', array(
+				'label' => $label,
+				'type'  => Controls_Manager::COLOR,
+			) );
+			return;
+		}
+
+		self::add( $target, $condition, $id, array(
+			'label'   => $label,
+			'type'    => Controls_Manager::SELECT,
+			'groups'  => self::colors( array( 'defaultValue' => array( '' => __( 'None', 'galaxie-woo' ) ), 'mainLight' => true, 'gradients' => false, 'custom' => false ) ),
+			'default' => $default,
+		) );
+	}
+
+	/**
+	 * The CSS colour a {@see color_select()} holds: pixfort's own variable for a
+	 * palette entry, which follows light and dark mode, or the fallback's value.
+	 *
+	 * @param array<string,mixed> $settings
+	 */
+	public static function color_value( array $settings, string $id ): string {
+		$slug = $settings[ $id ] ?? '';
+
+		if ( is_string( $slug ) && '' !== $slug && 'custom' !== $slug ) {
+			return 'var(--pix-' . sanitize_key( $slug ) . ')';
+		}
+
+		$fallback = $settings[ $id . '_fallback' ] ?? '';
+
+		return is_string( $fallback ) ? $fallback : '';
+	}
+
 	private static function colors( array $args ): array {
 		return self::available() ? \PixfortCore::instance()->coreFunctions->getColorsArray( $args ) : array();
 	}

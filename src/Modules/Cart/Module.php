@@ -17,6 +17,7 @@ use Galaxie\Woo\Modules\Cart\Widget\ShippingCalculatorWidget;
 use Galaxie\Woo\Modules\Cart\Widget\CartWidget;
 use Galaxie\Woo\Modules\Cart\Widget\CartCouponWidget;
 use Galaxie\Woo\Modules\Cart\Widget\ShippingOptionsWidget;
+use Galaxie\Woo\Modules\Cart\Widget\FreeShippingProgressWidget;
 use Galaxie\Woo\Support\CartCountdown;
 use Galaxie\Woo\Support\CartParts;
 use Galaxie\Woo\Support\FreeShipping;
@@ -321,7 +322,7 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 
 	/** @return string[] */
 	public function elementor_widgets(): array {
-		return array( CartWidget::class, CartTableWidget::class, CartTotalsWidget::class, CartCountdownWidget::class, ShippingCalculatorWidget::class, CartCouponWidget::class, ShippingOptionsWidget::class );
+		return array( CartWidget::class, CartTableWidget::class, CartTotalsWidget::class, CartCountdownWidget::class, ShippingCalculatorWidget::class, CartCouponWidget::class, ShippingOptionsWidget::class, FreeShippingProgressWidget::class );
 	}
 
 	/**

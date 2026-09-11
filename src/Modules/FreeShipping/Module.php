@@ -292,6 +292,19 @@ final class Module implements ModuleContract, ProvidesSettings {
 			$eligible[ $key ] = $rate;
 		}
 
+		// The ticked carriers quoted nothing for this parcel. On the test store,
+		// Correios PAC alone was ticked, and PAC does not take 12 candles to São
+		// Paulo in one volume, so the cart said "Você ganhou frete grátis!" over a
+		// list where nothing was free. The threshold has been met and the bar has
+		// said so; the promise is kept with whichever carriers did quote.
+		if ( ! $eligible && $methods ) {
+			foreach ( $rates as $key => $rate ) {
+				if ( 'free_shipping' !== $rate->get_method_id() && (float) $rate->get_cost() > 0 ) {
+					$eligible[ $key ] = $rate;
+				}
+			}
+		}
+
 		if ( ! $eligible ) {
 			return $rates;
 		}
@@ -399,6 +412,12 @@ final class Module implements ModuleContract, ProvidesSettings {
 			}
 
 			foreach ( $instance->get_shipping_methods( true ) as $method ) {
+				// WooCommerce's own Free shipping is not a carrier whose quote can
+				// be zeroed, and ticking it here did nothing but look meaningful.
+				if ( 'free_shipping' === $method->id ) {
+					continue;
+				}
+
 				$options[ (string) $method->id ] = (string) $method->get_method_title();
 			}
 		}
@@ -454,7 +473,7 @@ final class Module implements ModuleContract, ProvidesSettings {
 				key: 'methods',
 				label: __( 'Which carriers', 'galaxie-woo' ),
 				type: Field::TYPE_MULTI,
-				description: __( 'Nothing ticked means all of them. Ticking only the economy carrier is how a threshold survives an express quote.', 'galaxie-woo' ),
+				description: __( 'Nothing ticked means all of them. When none of the ticked carriers quotes for a parcel, all of them count, so a reached threshold always ends in a free option.', 'galaxie-woo' ),
 				default: array(),
 				options: self::method_options()
 			),

@@ -300,6 +300,7 @@ final class CartParts {
 				'default'      => 'yes',
 				'return_value' => 'yes',
 				'separator'    => 'before',
+				'description'  => __( 'The Galaxie Free Shipping Progress widget does the same anywhere on the page, with confetti.', 'galaxie-woo' ),
 			)
 		);
 

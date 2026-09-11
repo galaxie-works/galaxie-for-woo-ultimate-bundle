@@ -1334,3 +1334,49 @@ form.galaxie-buybox .galaxie-buybox-row {
 .galaxie-cart-total-shipping.is-list .galaxie-shipping-card {
   margin-top: 8px;
 }
+
+/* -------------------------------------------------------------------------
+   Galaxie Free Shipping Progress
+   ------------------------------------------------------------------------- */
+.galaxie-free-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.galaxie-free-progress-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.galaxie-free-progress-text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.galaxie-free-progress-icon {
+  display: inline-flex;
+  flex: none;
+}
+
+.galaxie-free-progress-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.galaxie-free-progress-track {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background-color: rgb(0 0 0 / 8%);
+}
+
+.galaxie-free-progress-fill {
+  height: 100%;
+  border-radius: inherit;
+  background-color: currentcolor;
+  transition: width 0.4s ease;
+}
