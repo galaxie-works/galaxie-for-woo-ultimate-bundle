@@ -491,9 +491,19 @@ final class AccountEndpoints {
 		}
 	}
 
+	/**
+	 * Rebuild the rewrite rules when our screens' addresses changed.
+	 *
+	 * Saving the settings flags it, and so does any other change to the set:
+	 * turning the Wishlist module on adds a screen without anyone saving this
+	 * tab, and its address would stay a 404 until someone thought to.
+	 */
 	public static function maybe_flush(): void {
-		if ( get_option( self::FLUSH_OPTION ) ) {
+		$signature = md5( (string) wp_json_encode( self::query_vars( array() ) ) );
+
+		if ( get_option( self::FLUSH_OPTION ) || get_option( self::FLUSH_OPTION . '_signature' ) !== $signature ) {
 			delete_option( self::FLUSH_OPTION );
+			update_option( self::FLUSH_OPTION . '_signature', $signature, true );
 			flush_rewrite_rules( false );
 		}
 	}
