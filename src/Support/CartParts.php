@@ -1183,6 +1183,17 @@ final class CartParts {
 	 * @param array<string,mixed> $settings
 	 */
 	public static function rows_markup( array $settings = array() ): string {
+		// The [woocommerce_cart] shortcode recalculates the cart every time it
+		// renders, and that is the only thing that fills
+		// WC()->shipping()->get_packages() on a normal page load. Totals read
+		// from the session carry no rates, so without this the shipping row
+		// showed after the calculator's AJAX (which recalculates) and vanished
+		// on the next reload with the CEP still saved.
+		if ( function_exists( 'WC' ) && WC()->cart && ! did_action( 'woocommerce_after_calculate_totals' ) ) {
+			wc_maybe_define_constant( 'WOOCOMMERCE_CART', true );
+			WC()->cart->calculate_totals();
+		}
+
 		if ( ! self::available() ) {
 			return '';
 		}
