@@ -1348,9 +1348,14 @@ final class CartParts {
 	 * sends the Elementor post and element ids it can read off the DOM, and the
 	 * rows come back looking like the ones they replace.
 	 *
-	 * Raw saved values, not `get_settings_for_display()`: this only needs the
-	 * class-producing choices, and rendering a whole widget to read four of
-	 * them would be a lot of work to arrive at the same strings.
+	 * The settings as the widget itself sees them, defaults included. This used
+	 * to return the raw saved values, which was enough while only the rows'
+	 * text classes were read. Elementor does not save a control left at its
+	 * default, though. Once the whole totals box was redrawn from these
+	 * settings (after a carrier change), "Continuar comprando" vanished and
+	 * the checkout button lost its full width: both are defaults. A widget
+	 * with nothing changed at all was not even found, because its saved
+	 * settings are an empty array.
 	 *
 	 * @return array<string,mixed>
 	 */
@@ -1365,17 +1370,27 @@ final class CartParts {
 			return array();
 		}
 
-		return self::find_element( (array) $document->get_elements_data(), $element_id );
+		$data = self::find_element( (array) $document->get_elements_data(), $element_id );
+
+		if ( ! $data ) {
+			return array();
+		}
+
+		$instance = \Elementor\Plugin::$instance->elements_manager->create_element_instance( $data );
+
+		return $instance ? (array) $instance->get_settings_for_display() : (array) ( $data['settings'] ?? array() );
 	}
 
 	/**
+	 * The element's whole data array, not just its settings.
+	 *
 	 * @param array<int,array<string,mixed>> $elements
 	 * @return array<string,mixed>
 	 */
 	private static function find_element( array $elements, string $id ): array {
 		foreach ( $elements as $element ) {
 			if ( ( $element['id'] ?? '' ) === $id ) {
-				return (array) ( $element['settings'] ?? array() );
+				return (array) $element;
 			}
 
 			$found = self::find_element( (array) ( $element['elements'] ?? array() ), $id );
