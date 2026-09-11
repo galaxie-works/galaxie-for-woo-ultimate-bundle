@@ -1217,7 +1217,14 @@ final class CartParts {
 			// Wrapped in a table because the template prints <tr> and <td>. A
 			// browser drops those tags outside a table, which loses the row
 			// structure the shipping method list and its labels sit in.
-			echo '<div class="galaxie-cart-total-row galaxie-cart-total-shipping"><table class="galaxie-cart-shipping-table"><tbody>' . self::capture( 'wc_cart_totals_shipping_html' ) . '</tbody></table></div>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WooCommerce's own markup.
+			// WooCommerce prints its own small calculator under the rates on the
+			// cart page. The calculator here is a widget of its own, so the box
+			// would otherwise show two postcode forms, one of them unstyled.
+			add_filter( 'woocommerce_shipping_show_shipping_calculator', '__return_false' );
+			$shipping = self::capture( 'wc_cart_totals_shipping_html' );
+			remove_filter( 'woocommerce_shipping_show_shipping_calculator', '__return_false' );
+
+			echo '<div class="galaxie-cart-total-row galaxie-cart-total-shipping"><table class="galaxie-cart-shipping-table"><tbody>' . $shipping . '</tbody></table></div>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WooCommerce's own markup.
 		}
 
 		foreach ( $cart->get_fees() as $fee ) {

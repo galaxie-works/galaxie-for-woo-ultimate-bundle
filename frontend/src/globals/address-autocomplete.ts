@@ -107,9 +107,13 @@ function attach(input: HTMLInputElement, scope: ParentNode, config: PlacesConfig
  * shows as the shopper types, and doing that to the postcode field means a
  * half-typed street name sitting in a box labelled CEP.
  */
-function mount(anchor: HTMLElement, scope: ParentNode, config: PlacesConfig): void {
-  if (anchor.hasAttribute(MOUNTED)) return
-  anchor.setAttribute(MOUNTED, '1')
+function mount(anchor: HTMLElement, scope: HTMLElement, config: PlacesConfig): void {
+  // The flag lives on the scope, not the anchor. The search row it inserts is
+  // itself a `.form-row`, so on the next redraw an anchor lookup found the new
+  // row first, saw no flag on it, and added another — three boxes after two
+  // updates on the test store.
+  if (scope.hasAttribute(MOUNTED) || scope.querySelector('.galaxie-places-row')) return
+  scope.setAttribute(MOUNTED, '1')
 
   const wrap = document.createElement('div')
   wrap.className = 'form-row form-row-wide galaxie-places-row'
@@ -127,18 +131,23 @@ function mount(anchor: HTMLElement, scope: ParentNode, config: PlacesConfig): vo
 }
 
 function mountAll(config: PlacesConfig): void {
+  // A selector list returns the first match in document order, not the first
+  // selector that matches — so `#postcode, .form-row` picked the country row.
   const calculator = document.querySelector<HTMLElement>('.shipping-calculator-form')
-  const calcAnchor = calculator?.querySelector<HTMLElement>('#calc_shipping_postcode_field, .form-row')
+  const calcAnchor =
+    calculator?.querySelector<HTMLElement>('#calc_shipping_postcode_field') ??
+    calculator?.querySelector<HTMLElement>('.form-row')
 
   if (calculator && calcAnchor) {
     mount(calcAnchor, calculator, config)
   }
 
   const checkout = document.querySelector<HTMLElement>('.woocommerce-billing-fields__field-wrapper')
-  const checkoutAnchor = checkout?.querySelector<HTMLElement>('#billing_address_1_field, .form-row')
+  const checkoutAnchor =
+    checkout?.querySelector<HTMLElement>('#billing_address_1_field') ?? checkout?.querySelector<HTMLElement>('.form-row')
 
   if (checkout && checkoutAnchor) {
-    mount(checkoutAnchor, document, config)
+    mount(checkoutAnchor, checkout, config)
   }
 }
 
