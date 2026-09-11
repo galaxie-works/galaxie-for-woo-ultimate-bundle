@@ -42,26 +42,47 @@ async function post(p: CouponParams, endpoint: string, data: Record<string, stri
   return response.text()
 }
 
-function show(widget: HTMLElement, html: string): void {
+const NOTICES = '.woocommerce-error, .woocommerce-message, .woocommerce-info, .wc-block-components-notice-banner'
+
+/**
+ * The coupon's own notice out of the endpoint's response.
+ *
+ * The endpoint prints every notice waiting in the session, not only the
+ * coupon's, so "12 × Vela… have been added to your cart" from an earlier page
+ * came back glued to "this coupon is not applicable". WooCommerce adds the
+ * coupon's notice last; an error wins over a success printed beside it.
+ */
+function couponNotice(html: string): { node: Element | null; isError: boolean } {
+  const notices = [...new DOMParser().parseFromString(html, 'text/html').querySelectorAll(NOTICES)]
+  const errors = notices.filter((n) => ERROR.test(n.className))
+  const node = errors.at(-1) ?? notices.at(-1) ?? null
+
+  return { node, isError: errors.length > 0 }
+}
+
+/** Shows the coupon's notice and says whether it was a refusal. */
+function show(widget: HTMLElement, html: string): boolean {
   const holder = widget.querySelector<HTMLElement>('.galaxie-coupon-notice')
-  if (!holder) return
+  const { node, isError } = couponNotice(html)
+
+  if (!holder) return isError
 
   if (widget.dataset.messages === 'notice') {
     // WooCommerce's own notice markup. The Toast Notices module turns it into
     // a toast wherever it lands; without that module it shows here.
     holder.className = 'galaxie-coupon-notice is-store-notice'
-    holder.innerHTML = html
-    holder.hidden = html.trim() === ''
-    return
+    holder.innerHTML = node?.outerHTML ?? ''
+    holder.hidden = !node
+    return isError
   }
 
-  const isError = ERROR.test(html)
-  const text = (new DOMParser().parseFromString(html, 'text/html').body.textContent ?? '').replace(/\s+/g, ' ').trim()
+  const text = (node?.textContent ?? '').replace(/\s+/g, ' ').trim()
   const classes = (isError ? widget.dataset.errorClass : widget.dataset.okClass) ?? ''
 
   holder.className = `galaxie-coupon-notice ${isError ? 'is-error' : 'is-success'} ${classes}`.trim()
   holder.textContent = text
   holder.hidden = text === ''
+  return isError
 }
 
 function trigger(event: string, args: unknown[]): void {
@@ -120,11 +141,11 @@ export function bootCoupon(): void {
 
     void post(p, 'apply_coupon', { security: p.apply_coupon_nonce, coupon_code: code, ...widgetOrigin(widget, 'coupon') })
       .then(async (html) => {
-        show(widget, html)
+        const refused = show(widget, html)
         trigger('applied_coupon', [code])
 
         // A refused coupon changed nothing, so there is nothing to redraw.
-        if (ERROR.test(html)) return
+        if (refused) return
 
         if (input) input.value = ''
         await refresh()
