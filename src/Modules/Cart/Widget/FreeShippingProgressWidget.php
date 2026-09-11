@@ -166,9 +166,27 @@ final class FreeShippingProgressWidget extends Widget_Base {
 			)
 		);
 
-		PixfortControls::color_select( $this, 'confetti_color_1', __( 'Color 1', 'galaxie-woo' ), 'primary', array( 'confetti' => 'yes' ) );
-		PixfortControls::color_select( $this, 'confetti_color_2', __( 'Color 2', 'galaxie-woo' ), '', array( 'confetti' => 'yes' ) );
-		PixfortControls::color_select( $this, 'confetti_color_3', __( 'Color 3', 'galaxie-woo' ), '', array( 'confetti' => 'yes' ) );
+		// Festive by default. The first cut defaulted to the theme's primary
+		// colour alone, and a burst in one colour read as dust, not a party.
+		$this->add_control(
+			'confetti_style',
+			array(
+				'label'     => __( 'Colors', 'galaxie-woo' ),
+				'type'      => Controls_Manager::SELECT,
+				'default'   => 'festive',
+				'options'   => array(
+					'festive' => __( 'Festive (many colors)', 'galaxie-woo' ),
+					'palette' => __( 'From the theme palette', 'galaxie-woo' ),
+				),
+				'condition' => array( 'confetti' => 'yes' ),
+			)
+		);
+
+		$palette = array( 'confetti' => 'yes', 'confetti_style' => 'palette' );
+
+		PixfortControls::color_select( $this, 'confetti_color_1', __( 'Color 1', 'galaxie-woo' ), 'primary', $palette );
+		PixfortControls::color_select( $this, 'confetti_color_2', __( 'Color 2', 'galaxie-woo' ), '', $palette );
+		PixfortControls::color_select( $this, 'confetti_color_3', __( 'Color 3', 'galaxie-woo' ), '', $palette );
 
 		$this->add_control(
 			'confetti_on_load',
@@ -282,13 +300,16 @@ final class FreeShippingProgressWidget extends Widget_Base {
 		$achieved  = $state && $state['achieved'];
 		$hidden    = ! $state || ( $achieved && 'hide' === ( $settings['when_reached'] ?? 'message' ) );
 
-		$colors = array_filter(
-			array(
-				PixfortControls::color_value( $settings, 'confetti_color_1' ),
-				PixfortControls::color_value( $settings, 'confetti_color_2' ),
-				PixfortControls::color_value( $settings, 'confetti_color_3' ),
+		// No colours sent means the script's own festive mix.
+		$colors = 'palette' === ( $settings['confetti_style'] ?? 'festive' )
+			? array_filter(
+				array(
+					PixfortControls::color_value( $settings, 'confetti_color_1' ),
+					PixfortControls::color_value( $settings, 'confetti_color_2' ),
+					PixfortControls::color_value( $settings, 'confetti_color_3' ),
+				)
 			)
-		);
+			: array();
 
 		printf(
 			'<div class="galaxie-free-progress %1$s %2$s" data-galaxie-fragment="free-progress-%3$s" data-achieved="%4$s" data-confetti="%5$s" data-confetti-origin="%6$s" data-confetti-amount="%7$d" data-confetti-colors="%8$s" data-confetti-on-load="%9$s"%10$s>',

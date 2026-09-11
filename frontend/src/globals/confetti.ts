@@ -26,7 +26,8 @@ export interface BurstOptions {
   colors: string[]
 }
 
-const FALLBACK = ['#f4b400', '#db4437', '#4285f4', '#0f9d58', '#ab47bc']
+/** Classic party confetti, used whenever no colours are chosen. */
+const FALLBACK = ['#ff4d6d', '#ffb703', '#ffd60a', '#06d6a0', '#118ab2', '#4cc9f0', '#9b5de5', '#f15bb5', '#fb8500']
 const DURATION = 2600
 
 /**
