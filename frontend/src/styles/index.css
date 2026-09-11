@@ -891,6 +891,31 @@ form.galaxie-buybox .galaxie-buybox-row {
 .galaxie-cart-coupon {
   display: flex;
   gap: 8px;
+  align-items: stretch;
+}
+
+.galaxie-cart-coupon .form-control {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+}
+
+/* The <button> is only the form's submit. What the shopper sees is pixfort's
+   own button inside it, so the wrapper keeps none of the browser's grey. */
+.galaxie-cart-coupon-apply,
+.galaxie-shipping-calculator-submit {
+  appearance: none;
+  background: none;
+  border: 0;
+  margin: 0;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.galaxie-cart-coupon-apply {
+  flex: none;
 }
 
 .galaxie-cart-checkout,
@@ -952,6 +977,64 @@ form.galaxie-buybox .galaxie-buybox-row {
   margin: 0;
   padding: 0;
   list-style: none;
+}
+
+.galaxie-cart-shipping-table {
+  border-collapse: collapse;
+}
+
+.galaxie-cart-shipping-table th,
+.galaxie-cart-shipping-table td {
+  padding: 0;
+  border: 0;
+  background: none;
+  vertical-align: top;
+}
+
+.galaxie-cart-shipping-table th {
+  text-align: left;
+  font-weight: inherit;
+  padding-right: 16px;
+  white-space: nowrap;
+}
+
+.galaxie-cart-shipping-table td {
+  text-align: right;
+}
+
+/* One option per line, the radio beside its own price. The bullets and the
+   radio stacked above its label were the theme's list and label defaults. */
+.galaxie-cart-total-shipping #shipping_method li {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin: 0 0 6px;
+  padding: 0;
+  list-style: none;
+}
+
+.galaxie-cart-total-shipping #shipping_method li::before {
+  content: none;
+}
+
+.galaxie-cart-total-shipping #shipping_method li:last-child {
+  margin-bottom: 0;
+}
+
+.galaxie-cart-total-shipping #shipping_method input[type="radio"] {
+  flex: none;
+  margin: 0;
+}
+
+.galaxie-cart-total-shipping #shipping_method label {
+  margin: 0;
+  cursor: pointer;
+}
+
+.galaxie-cart-total-shipping .woocommerce-shipping-destination {
+  margin: 8px 0 0;
+  font-size: 0.875em;
 }
 
 .galaxie-cart-checkout {
@@ -1044,4 +1127,32 @@ form.galaxie-buybox .galaxie-buybox-row {
 
 .galaxie-places-row .galaxie-places-input {
   width: 100%;
+}
+
+.galaxie-shipping-calculator-heading {
+  margin-bottom: 12px;
+}
+
+.galaxie-shipping-calculator .form-row {
+  margin: 0 0 12px;
+  padding: 0;
+}
+
+.galaxie-shipping-calculator label {
+  display: block;
+  margin-bottom: 6px;
+}
+
+.galaxie-shipping-calculator .form-control {
+  width: 100%;
+}
+
+.galaxie-shipping-calculator-actions {
+  margin: 0;
+}
+
+.galaxie-shipping-calculator-submit {
+  display: block;
+  width: 100%;
+  text-align: center;
 }

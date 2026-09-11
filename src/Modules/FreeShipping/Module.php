@@ -72,6 +72,7 @@ final class Module implements ModuleContract, ProvidesSettings {
 
 	public function boot(): void {
 		add_filter( 'woocommerce_package_rates', array( $this, 'apply' ), 100, 2 );
+		add_filter( 'woocommerce_cart_shipping_packages', array( $this, 'state_from_postcode' ) );
 	}
 
 	/* ---------------------------------------------------------------------
@@ -119,6 +120,19 @@ final class Module implements ModuleContract, ProvidesSettings {
 	 */
 	private static function covers( array $package ): bool {
 		$settings = self::settings();
+
+		// In Brazil the CEP is the destination and the State field is only an
+		// opinion. No CEP, or one outside every range, means we cannot say
+		// where the parcel goes, and a promise to an unknown place is not made.
+		if ( 'BR' === strtoupper( (string) ( $package['destination']['country'] ?? '' ) ) ) {
+			$state = \Galaxie\Woo\Support\BrazilianPostcode::state( (string) ( $package['destination']['postcode'] ?? '' ) );
+
+			if ( null === $state ) {
+				return false;
+			}
+
+			$package['destination']['state'] = $state;
+		}
 		$minimum  = (float) ( $settings['minimum'] ?? 0 );
 
 		if ( $minimum <= 0 ) {
@@ -149,6 +163,38 @@ final class Module implements ModuleContract, ProvidesSettings {
 		$destination = strtoupper( (string) ( $package['destination']['state'] ?? '' ) );
 
 		return in_array( $destination, $states, true );
+	}
+
+	/**
+	 * Correct each package's state from its CEP before WooCommerce picks a zone.
+	 *
+	 * Zones here are drawn by state. The state on an address is whatever the
+	 * shopper left in a dropdown, and on the test store that dropdown opened on
+	 * Sao Paulo. A Recife CEP under it was matched to "Sul e Sudeste", zone
+	 * rules and all. The CEP decides instead. A CEP we cannot place leaves the
+	 * state as typed.
+	 *
+	 * @param array<int,array<string,mixed>> $packages
+	 * @return array<int,array<string,mixed>>
+	 */
+	public function state_from_postcode( array $packages ): array {
+		if ( ! self::active() ) {
+			return $packages;
+		}
+
+		foreach ( $packages as $index => $package ) {
+			if ( 'BR' !== strtoupper( (string) ( $package['destination']['country'] ?? '' ) ) ) {
+				continue;
+			}
+
+			$state = \Galaxie\Woo\Support\BrazilianPostcode::state( (string) ( $package['destination']['postcode'] ?? '' ) );
+
+			if ( null !== $state ) {
+				$packages[ $index ]['destination']['state'] = $state;
+			}
+		}
+
+		return $packages;
 	}
 
 	/**
@@ -213,6 +259,13 @@ final class Module implements ModuleContract, ProvidesSettings {
 			}
 
 			$cost = (float) $rate->get_cost();
+
+			// Already free — WooCommerce's own Free shipping, a local pickup.
+			// Relabelling it produced "Frete grátis (Free shipping)" on the
+			// test store: the same promise said twice, in two languages.
+			if ( 'free_shipping' === $rate->get_method_id() || $cost <= 0 ) {
+				continue;
+			}
 
 			if ( $cap > 0 && $cost > $cap ) {
 				if ( self::OVER_NONE === ( $settings['over_cap'] ?? self::OVER_PARTIAL ) ) {

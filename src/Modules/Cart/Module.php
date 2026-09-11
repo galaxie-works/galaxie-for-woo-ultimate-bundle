@@ -105,6 +105,37 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 			return;
 		}
 
+		// phpcs:disable WordPress.Security.NonceVerification.Missing -- verified above.
+		$country = isset( $_POST['calc_shipping_country'] ) ? wc_clean( wp_unslash( $_POST['calc_shipping_country'] ) ) : '';
+
+		// A calculator showing only the CEP sends no usable country. WooCommerce
+		// reads an empty one as "reset to the store's address", which throws the
+		// CEP away, so the store's own country stands in.
+		if ( '' === $country || 'default' === $country ) {
+			$country                        = WC()->countries->get_base_country();
+			$_POST['calc_shipping_country'] = $country;
+		}
+
+		if ( 'BR' === $country ) {
+			$postcode = isset( $_POST['calc_shipping_postcode'] ) ? wc_clean( wp_unslash( $_POST['calc_shipping_postcode'] ) ) : '';
+
+			// Every carrier quotes by CEP. Accepting the form without one saved
+			// "Shipping to Sao Paulo." and quoted nothing, which left a free
+			// shipping method as the only option on the page.
+			if ( ! \Galaxie\Woo\Support\BrazilianPostcode::is_valid( $postcode ) ) {
+				wc_add_notice( __( 'Informe um CEP válido para calcular o frete.', 'galaxie-woo' ), 'error' );
+				unset( $_POST['calc_shipping'] );
+				return;
+			}
+
+			$state = \Galaxie\Woo\Support\BrazilianPostcode::state( $postcode );
+
+			if ( null !== $state ) {
+				$_POST['calc_shipping_state'] = $state;
+			}
+		}
+		// phpcs:enable WordPress.Security.NonceVerification.Missing
+
 		if ( ! class_exists( '\WC_Shortcode_Cart' ) && defined( 'WC_ABSPATH' ) ) {
 			include_once WC_ABSPATH . 'includes/shortcodes/class-wc-shortcode-cart.php';
 		}

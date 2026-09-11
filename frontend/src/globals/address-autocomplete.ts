@@ -97,6 +97,15 @@ function attach(input: HTMLInputElement, scope: ParentNode, config: PlacesConfig
       [route, number].filter(Boolean).join(', ')
     )
     set(q<HTMLInputElement>('#billing_address_2, #shipping_address_2'), neighbourhood)
+
+    // A street picked without a number usually comes back from Google with
+    // no postal code, and every carrier quotes by CEP. This key cannot
+    // geocode (REQUEST_DENIED on the test store), so the one thing left is to
+    // put the shopper on the field that still needs them.
+    if (!postcode) {
+      const cep = q<HTMLInputElement>('#calc_shipping_postcode') ?? q<HTMLInputElement>('#billing_postcode, #shipping_postcode')
+      cep?.focus()
+    }
   })
 }
 
@@ -120,7 +129,7 @@ function mount(anchor: HTMLElement, scope: HTMLElement, config: PlacesConfig): v
 
   const input = document.createElement('input')
   input.type = 'text'
-  input.className = 'input-text galaxie-places-input'
+  input.className = 'input-text form-control galaxie-places-input'
   input.autocomplete = 'off'
   input.placeholder = config.placeholder
 

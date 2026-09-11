@@ -224,14 +224,27 @@ final class CartParts {
 			)
 		);
 
-		$widget->add_control(
-			'coupon_text',
-			array(
-				'label'     => __( 'Coupon button', 'galaxie-woo' ),
-				'type'      => Controls_Manager::TEXT,
-				'default'   => __( 'Aplicar', 'galaxie-woo' ),
-				'condition' => array( 'show_coupon' => 'yes' ),
-			)
+		$widget->end_controls_section();
+
+		// The coupon's Apply is a button like every other button here: the buy
+		// box's own set. It was a bare grey browser button before.
+		$widget->start_controls_section(
+			'coupon_button_section',
+			array( 'label' => __( 'Coupon', 'galaxie-woo' ), 'condition' => array( 'show_coupon' => 'yes' ) )
+		);
+
+		$coupon_field = '{{WRAPPER}} .galaxie-cart-coupon .form-control';
+
+		PixfortControls::palette_control( $widget, 'coupon_field_bg', __( 'Field background', 'galaxie-woo' ), $coupon_field, 'background-color' );
+		PixfortControls::palette_control( $widget, 'coupon_field_color', __( 'Field text color', 'galaxie-woo' ), $coupon_field, 'color' );
+		PixfortControls::palette_control( $widget, 'coupon_field_border', __( 'Field border color', 'galaxie-woo' ), $coupon_field, 'border-color', array(), ' border-style: solid; border-width: 1px;' );
+
+		PixfortControls::button(
+			$widget,
+			'couponbtn',
+			array( 'text' => __( 'Aplicar', 'galaxie-woo' ), 'color' => 'primary', 'size' => 'md' ),
+			array(),
+			'{{WRAPPER}} .galaxie-cart-coupon'
 		);
 
 		$widget->end_controls_section();
@@ -1040,9 +1053,9 @@ final class CartParts {
 
 		if ( 'yes' === ( $settings['show_coupon'] ?? 'yes' ) && wc_coupons_enabled() ) {
 			printf(
-				'<div class="galaxie-cart-coupon"><input type="text" name="coupon_code" class="input-text" placeholder="%s" /><button type="submit" name="apply_coupon" value="1" class="galaxie-cart-coupon-apply">%s</button></div>',
+				'<div class="galaxie-cart-coupon"><input type="text" name="coupon_code" class="input-text form-control" placeholder="%s" /><button type="submit" name="apply_coupon" value="1" class="galaxie-cart-coupon-apply">%s</button></div>',
 				esc_attr( (string) ( $settings['coupon_placeholder'] ?? '' ) ),
-				esc_html( (string) ( $settings['coupon_text'] ?? '' ) )
+				PixfortControls::render_button( $settings, 'couponbtn', (string) ( $settings['couponbtn_text'] ?? __( 'Aplicar', 'galaxie-woo' ) ) ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pixfort's own component markup.
 			);
 		}
 
@@ -1234,6 +1247,18 @@ final class CartParts {
 			add_filter( 'woocommerce_shipping_show_shipping_calculator', '__return_false' );
 			$shipping = self::capture( 'wc_cart_totals_shipping_html' );
 			remove_filter( 'woocommerce_shipping_show_shipping_calculator', '__return_false' );
+
+			// The template's own <th> and <td>, given the same label and value
+			// classes as every other row, so Totals type reaches the shipping
+			// row too instead of leaving it in the theme's table defaults.
+			$shipping = str_replace(
+				array( '<th>', '<td ' ),
+				array(
+					'<th class="galaxie-cart-total-label ' . esc_attr( self::$row_label_class ) . '">',
+					'<td class="galaxie-cart-total-value ' . esc_attr( self::$row_value_class ) . '" ',
+				),
+				$shipping
+			);
 
 			echo '<div class="galaxie-cart-total-row galaxie-cart-total-shipping"><table class="galaxie-cart-shipping-table"><tbody>' . $shipping . '</tbody></table></div>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WooCommerce's own markup.
 		}
