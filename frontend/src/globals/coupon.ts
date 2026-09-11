@@ -74,9 +74,12 @@ async function refresh(): Promise<void> {
   const $ = jq()
 
   // cart.js re-fetches the cart page and redraws the table and totals, and the
-  // fragment listener refreshes this widget from that same response.
+  // fragment listener refreshes this widget from that same response. The
+  // `true` is cart.js's preserve_notices: without it the redraw removes every
+  // `.is-error` and `.is-success` on the page, and this widget's message was
+  // gone a moment after it appeared.
   if ($ && document.querySelector('.woocommerce-cart-form')) {
-    $(document.body).trigger('wc_update_cart')
+    $(document.body).trigger('wc_update_cart', [true])
     return
   }
 
@@ -118,8 +121,12 @@ export function bootCoupon(): void {
     void post(p, 'apply_coupon', { security: p.apply_coupon_nonce, coupon_code: code, ...widgetOrigin(widget, 'coupon') })
       .then(async (html) => {
         show(widget, html)
-        if (!ERROR.test(html) && input) input.value = ''
         trigger('applied_coupon', [code])
+
+        // A refused coupon changed nothing, so there is nothing to redraw.
+        if (ERROR.test(html)) return
+
+        if (input) input.value = ''
         await refresh()
       })
       .finally(() => busy(widget, false))

@@ -1035,8 +1035,16 @@ form.galaxie-buybox .galaxie-buybox-row {
 /* wc_cart_totals_shipping_html() prints its own <tr>s — the shipping methods
    and the calculator link expect that markup — so the row it lands in stacks
    rather than trying to lay a table out as flex. */
-.galaxie-cart-total-shipping {
+.galaxie-cart-total-shipping.is-list {
   display: block;
+}
+
+/* The chosen carrier sits under the "Frete" label, not beside the amount. */
+.galaxie-cart-total-method {
+  display: block;
+  margin-top: 2px;
+  opacity: 0.7;
+  font-weight: 400;
 }
 
 .galaxie-cart-total-shipping table,

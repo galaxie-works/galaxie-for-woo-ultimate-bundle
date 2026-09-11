@@ -256,9 +256,24 @@ final class CartParts {
 					'list'   => __( 'Every option, to choose from', 'galaxie-woo' ),
 					'chosen' => __( 'Chosen method only', 'galaxie-woo' ),
 				),
-				'default'     => 'list',
-				'description' => __( 'Pick "Chosen method only" when a Galaxie Shipping Options widget is on the page.', 'galaxie-woo' ),
+				'default'     => 'chosen',
+				'description' => __( '"Chosen method only" is one line under the subtotal, with the carrier the shopper picked in the Galaxie Shipping Options widget. "Every option" lists them all here instead, for a page without that widget.', 'galaxie-woo' ),
 				'condition'   => array( 'show_shipping' => 'yes' ),
+			)
+		);
+
+		$widget->add_control(
+			'shipping_show_method',
+			array(
+				'label'        => __( 'Carrier under the label', 'galaxie-woo' ),
+				'type'         => Controls_Manager::SWITCHER,
+				'default'      => 'yes',
+				'return_value' => 'yes',
+				'description'  => __( 'The chosen carrier and its delivery time, e.g. "Loggi Express · 1 a 3 dias úteis".', 'galaxie-woo' ),
+				'condition'    => array(
+					'show_shipping'    => 'yes',
+					'shipping_display' => 'chosen',
+				),
 			)
 		);
 
@@ -656,6 +671,7 @@ final class CartParts {
 			'sumh' => array( __( 'Heading', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-cart-totals-heading', array( 'size' => 'text-20', 'bold' => 'font-weight-bold' ) ),
 			'suml'   => array( __( 'Row label', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-cart-total-label', array( 'size' => '', 'bold' => '' ) ),
 			'sumv'   => array( __( 'Row amount', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-cart-total-value', array( 'size' => '', 'bold' => 'font-weight-bold' ) ),
+			'sums'   => array( __( 'Shipping carrier', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-cart-total-method', array( 'size' => 'text-sm', 'bold' => '' ) ),
 			'sumt'   => array( __( 'Order total', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-cart-total-order-total', array( 'size' => 'text-18', 'bold' => 'font-weight-bold' ) ),
 		);
 
@@ -1249,8 +1265,18 @@ final class CartParts {
 		}
 
 		if ( 'yes' === ( $settings['show_shipping'] ?? 'yes' ) && $cart->needs_shipping() && $cart->show_shipping() ) {
-			if ( 'chosen' === ( $settings['shipping_display'] ?? 'list' ) ) {
-				self::row( (string) ( $settings['shipping_label'] ?? __( 'Frete', 'galaxie-woo' ) ), self::chosen_shipping_html( $settings ), 'shipping' );
+			if ( 'chosen' === ( $settings['shipping_display'] ?? 'chosen' ) ) {
+				$chosen = self::chosen_shipping( $settings );
+				$method = 'yes' === ( $settings['shipping_show_method'] ?? 'yes' ) ? $chosen['method'] : '';
+
+				printf(
+					'<div class="galaxie-cart-total-row galaxie-cart-total-shipping is-chosen"><span class="galaxie-cart-total-label %1$s">%2$s%3$s</span><span class="galaxie-cart-total-value %4$s">%5$s</span></div>',
+					esc_attr( self::$row_label_class ),
+					esc_html( (string) ( $settings['shipping_label'] ?? __( 'Frete', 'galaxie-woo' ) ) ),
+					'' !== $method ? '<span class="galaxie-cart-total-method ' . esc_attr( PixfortControls::text_classes( $settings, 'sums' ) ) . '">' . esc_html( $method ) . '</span>' : '', // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped inside.
+					esc_attr( self::$row_value_class ),
+					$chosen['value'] // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in chosen_shipping().
+				);
 			} else {
 				// The same card as the Shipping Options widget, not WooCommerce's
 				// template: that one lays the options out as a table row whose
@@ -1294,22 +1320,28 @@ final class CartParts {
 	}
 
 	/**
-	 * The cost of the carrier the shopper picked, for a totals box that leaves
-	 * the choosing to the shipping options widget.
+	 * The carrier the shopper picked and what it costs, for a totals box that
+	 * leaves the choosing to the shipping options widget.
 	 *
 	 * @param array<string,mixed> $settings
+	 * @return array{value:string,method:string} Value is escaped HTML, method plain text.
 	 */
-	private static function chosen_shipping_html( array $settings ): string {
+	private static function chosen_shipping( array $settings ): array {
+		$empty = array(
+			'value'  => esc_html( (string) ( $settings['shipping_empty_text'] ?? __( 'Informe o CEP', 'galaxie-woo' ) ) ),
+			'method' => '',
+		);
+
 		// Same rule as the card: a price for the store's own address is not a
 		// price for this shopper.
 		if ( ! FreeShipping::destination_known() ) {
-			return esc_html( (string) ( $settings['shipping_empty_text'] ?? __( 'Informe o CEP', 'galaxie-woo' ) ) );
+			return $empty;
 		}
 
 		$chosen = WC()->session ? (array) WC()->session->get( 'chosen_shipping_methods', array() ) : array();
 		$tax    = WC()->cart->display_prices_including_tax();
-		$total  = 0.0;
-		$found  = false;
+		$total   = 0.0;
+		$methods = array();
 
 		foreach ( WC()->shipping()->get_packages() as $index => $package ) {
 			$id = (string) ( $chosen[ $index ] ?? '' );
@@ -1318,17 +1350,21 @@ final class CartParts {
 				continue;
 			}
 
-			$rate   = $package['rates'][ $id ];
-			$cost   = (float) $rate->get_cost();
-			$total += $tax ? $cost + array_sum( array_map( 'floatval', (array) $rate->get_taxes() ) ) : $cost;
-			$found  = true;
+			$rate      = $package['rates'][ $id ];
+			$cost      = (float) $rate->get_cost();
+			$total    += $tax ? $cost + array_sum( array_map( 'floatval', (array) $rate->get_taxes() ) ) : $cost;
+			$parts     = ShippingRates::parts( $rate );
+			$methods[] = '' !== $parts['days'] ? $parts['name'] . ' · ' . $parts['days'] : $parts['name'];
 		}
 
-		if ( ! $found ) {
-			return esc_html( (string) ( $settings['shipping_empty_text'] ?? __( 'Informe o CEP', 'galaxie-woo' ) ) );
+		if ( ! $methods ) {
+			return $empty;
 		}
 
-		return $total > 0 ? wc_price( $total ) : esc_html( (string) ( $settings['shipping_free_text'] ?? __( 'Grátis', 'galaxie-woo' ) ) );
+		return array(
+			'value'  => $total > 0 ? wp_kses_post( wc_price( $total ) ) : esc_html( (string) ( $settings['shipping_free_text'] ?? __( 'Grátis', 'galaxie-woo' ) ) ),
+			'method' => implode( ' + ', array_unique( $methods ) ),
+		);
 	}
 
 	/**
