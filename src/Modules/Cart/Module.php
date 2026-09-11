@@ -15,6 +15,8 @@ use Galaxie\Woo\Modules\Cart\Widget\CartTableWidget;
 use Galaxie\Woo\Modules\Cart\Widget\CartTotalsWidget;
 use Galaxie\Woo\Modules\Cart\Widget\ShippingCalculatorWidget;
 use Galaxie\Woo\Modules\Cart\Widget\CartWidget;
+use Galaxie\Woo\Modules\Cart\Widget\CartCouponWidget;
+use Galaxie\Woo\Modules\Cart\Widget\ShippingOptionsWidget;
 use Galaxie\Woo\Support\CartCountdown;
 use Galaxie\Woo\Support\CartParts;
 use Galaxie\Woo\Support\FreeShipping;
@@ -72,6 +74,15 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 		add_action( 'woocommerce_add_to_cart', array( CartCountdown::class, 'touch' ) );
 
 		add_action( 'wp_loaded', array( $this, 'handle_shipping_calculator' ), 20 );
+
+		// The coupon widget's messages, swapped in at WooCommerce's own filters.
+		add_filter( 'woocommerce_coupon_message', array( $this, 'coupon_message' ), 10, 3 );
+		add_filter( 'woocommerce_coupon_error', array( $this, 'coupon_error' ), 10, 3 );
+		add_filter( 'woocommerce_add_success', array( $this, 'coupon_removed_notice' ) );
+
+		// Our totals box, not WooCommerce's default, in the answer cart.js gets
+		// after a carrier is chosen or a coupon removed.
+		add_filter( 'wc_get_template', array( $this, 'totals_template' ), 10, 2 );
 	}
 
 	/**
@@ -150,9 +161,167 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 		unset( $_POST['calc_shipping'] );
 	}
 
+	/**
+	 * WooCommerce coupon codes, grouped by what a shopper needs to hear.
+	 *
+	 * @see CartCouponWidget::messages()
+	 */
+	private const COUPON_MESSAGES = array(
+		200 => 'msg_applied',
+		201 => 'msg_removed',
+		111 => 'msg_empty',
+		105 => 'msg_not_exist',
+		107 => 'msg_expired',
+		106 => 'msg_usage_limit',
+		115 => 'msg_usage_limit',
+		116 => 'msg_usage_limit',
+		103 => 'msg_already',
+		104 => 'msg_individual',
+		108 => 'msg_min',
+		112 => 'msg_max',
+		109 => 'msg_not_applicable',
+		110 => 'msg_not_applicable',
+		113 => 'msg_not_applicable',
+		114 => 'msg_not_applicable',
+		100 => 'msg_invalid',
+		101 => 'msg_invalid',
+		102 => 'msg_invalid',
+	);
+
+	/**
+	 * Does this request name a widget of this kind (`coupon`, `totals`)?
+	 */
+	public static function has_request( string $kind ): bool {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only: only chooses which saved widget styles a response is drawn with.
+		return ! empty( $_REQUEST[ "galaxie_{$kind}_post" ] ) && ! empty( $_REQUEST[ "galaxie_{$kind}_element" ] );
+	}
+
+	/**
+	 * The saved settings of the widget a request came from.
+	 *
+	 * @return array<string,mixed>
+	 */
+	public static function request_settings( string $kind ): array {
+		static $cache = array();
+
+		if ( isset( $cache[ $kind ] ) ) {
+			return $cache[ $kind ];
+		}
+
+		if ( ! self::has_request( $kind ) ) {
+			return array();
+		}
+
+		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- read-only, see has_request().
+		$post_id    = absint( $_REQUEST[ "galaxie_{$kind}_post" ] );
+		$element_id = sanitize_key( wp_unslash( $_REQUEST[ "galaxie_{$kind}_element" ] ) );
+		// phpcs:enable WordPress.Security.NonceVerification.Recommended
+
+		$cache[ $kind ] = CartParts::element_settings( $post_id, $element_id );
+
+		return $cache[ $kind ];
+	}
+
+	/**
+	 * @param string          $message
+	 * @param int             $code
+	 * @param \WC_Coupon|null $coupon
+	 */
+	public function coupon_message( $message, $code, $coupon ): string {
+		return self::coupon_text( (string) $message, (int) $code, $coupon );
+	}
+
+	/**
+	 * @param string          $error
+	 * @param int             $code
+	 * @param \WC_Coupon|null $coupon
+	 */
+	public function coupon_error( $error, $code, $coupon ): string {
+		return self::coupon_text( (string) $error, (int) $code, $coupon );
+	}
+
+	/**
+	 * The merchant's text for this code, or WooCommerce's when there is none.
+	 *
+	 * Only for requests that came from a coupon widget. Everywhere else,
+	 * checkout included, WooCommerce says what it always said.
+	 *
+	 * @param \WC_Coupon|null $coupon
+	 */
+	private static function coupon_text( string $original, int $code, $coupon ): string {
+		$key = self::COUPON_MESSAGES[ $code ] ?? '';
+
+		if ( '' === $key || ! self::has_request( 'coupon' ) ) {
+			return $original;
+		}
+
+		$custom = trim( (string) ( self::request_settings( 'coupon' )[ $key ] ?? '' ) );
+
+		if ( '' === $custom ) {
+			return $original;
+		}
+
+		// phpcs:disable WordPress.Security.NonceVerification.Missing -- WooCommerce verified this request before raising the message.
+		$typed = isset( $_POST['coupon_code'] ) ? wc_format_coupon_code( wp_unslash( $_POST['coupon_code'] ) ) : '';
+		// phpcs:enable WordPress.Security.NonceVerification.Missing
+
+		$coupon_code = $coupon instanceof \WC_Coupon ? $coupon->get_code() : $typed;
+		$amount      = '';
+
+		if ( $coupon instanceof \WC_Coupon && 108 === $code ) {
+			$amount = wc_price( (float) $coupon->get_minimum_amount() );
+		} elseif ( $coupon instanceof \WC_Coupon && 112 === $code ) {
+			$amount = wc_price( (float) $coupon->get_maximum_amount() );
+		}
+
+		return str_replace( array( '{code}', '{amount}' ), array( esc_html( $coupon_code ), $amount ), esc_html( $custom ) );
+	}
+
+	/**
+	 * "Coupon has been removed." is added straight to the notices by
+	 * WooCommerce's `remove_coupon` endpoint, not through the coupon filters,
+	 * so it is caught here instead.
+	 *
+	 * @param string $message
+	 */
+	public function coupon_removed_notice( $message ): string {
+		$message = (string) $message;
+
+		if ( ! self::has_request( 'coupon' ) || __( 'Coupon has been removed.', 'woocommerce' ) !== $message ) {
+			return $message;
+		}
+
+		$custom = trim( (string) ( self::request_settings( 'coupon' )['msg_removed'] ?? '' ) );
+
+		if ( '' === $custom ) {
+			return $message;
+		}
+
+		// phpcs:disable WordPress.Security.NonceVerification.Missing -- WooCommerce verified this request before adding the notice.
+		$coupon = isset( $_POST['coupon'] ) ? wc_format_coupon_code( wp_unslash( $_POST['coupon'] ) ) : '';
+		// phpcs:enable WordPress.Security.NonceVerification.Missing
+
+		return str_replace( '{code}', esc_html( $coupon ), esc_html( $custom ) );
+	}
+
+	/**
+	 * Serve our totals box when WooCommerce renders its totals template for a
+	 * request that named our totals widget.
+	 *
+	 * @param string $template
+	 * @param string $template_name
+	 */
+	public function totals_template( $template, $template_name ): string {
+		if ( 'cart/cart-totals.php' !== $template_name || ! self::has_request( 'totals' ) ) {
+			return (string) $template;
+		}
+
+		return __DIR__ . '/templates/cart-totals.php';
+	}
+
 	/** @return string[] */
 	public function elementor_widgets(): array {
-		return array( CartWidget::class, CartTableWidget::class, CartTotalsWidget::class, CartCountdownWidget::class, ShippingCalculatorWidget::class );
+		return array( CartWidget::class, CartTableWidget::class, CartTotalsWidget::class, CartCountdownWidget::class, ShippingCalculatorWidget::class, CartCouponWidget::class, ShippingOptionsWidget::class );
 	}
 
 	/**

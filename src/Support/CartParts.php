@@ -43,6 +43,24 @@ final class CartParts {
 		return function_exists( 'WC' ) && null !== WC()->cart;
 	}
 
+	/**
+	 * Calculate the cart once per request, if nothing has yet.
+	 *
+	 * The [woocommerce_cart] shortcode recalculates the cart every time it
+	 * renders, and that is the only thing that fills
+	 * WC()->shipping()->get_packages() on a normal page load. Totals read from
+	 * the session carry no rates, so without this the shipping row showed after
+	 * the calculator's AJAX (which recalculates) and vanished on the next
+	 * reload with the CEP still saved. The shipping options widget needs the
+	 * same packages, which is why this is shared.
+	 */
+	public static function ensure_totals(): void {
+		if ( self::available() && ! did_action( 'woocommerce_after_calculate_totals' ) ) {
+			wc_maybe_define_constant( 'WOOCOMMERCE_CART', true );
+			WC()->cart->calculate_totals();
+		}
+	}
+
 	/* ---------------------------------------------------------------------
 	 * Controls
 	 * ------------------------------------------------------------------ */
@@ -204,49 +222,6 @@ final class CartParts {
 			)
 		);
 
-		$widget->add_control(
-			'show_coupon',
-			array(
-				'label'        => __( 'Coupon field', 'galaxie-woo' ),
-				'type'         => Controls_Manager::SWITCHER,
-				'default'      => 'yes',
-				'return_value' => 'yes',
-			)
-		);
-
-		$widget->add_control(
-			'coupon_placeholder',
-			array(
-				'label'     => __( 'Coupon placeholder', 'galaxie-woo' ),
-				'type'      => Controls_Manager::TEXT,
-				'default'   => __( 'Cupom de desconto', 'galaxie-woo' ),
-				'condition' => array( 'show_coupon' => 'yes' ),
-			)
-		);
-
-		$widget->end_controls_section();
-
-		// The coupon's Apply is a button like every other button here: the buy
-		// box's own set. It was a bare grey browser button before.
-		$widget->start_controls_section(
-			'coupon_button_section',
-			array( 'label' => __( 'Coupon', 'galaxie-woo' ), 'condition' => array( 'show_coupon' => 'yes' ) )
-		);
-
-		$coupon_field = '{{WRAPPER}} .galaxie-cart-coupon .form-control';
-
-		PixfortControls::palette_control( $widget, 'coupon_field_bg', __( 'Field background', 'galaxie-woo' ), $coupon_field, 'background-color' );
-		PixfortControls::palette_control( $widget, 'coupon_field_color', __( 'Field text color', 'galaxie-woo' ), $coupon_field, 'color' );
-		PixfortControls::palette_control( $widget, 'coupon_field_border', __( 'Field border color', 'galaxie-woo' ), $coupon_field, 'border-color', array(), ' border-style: solid; border-width: 1px;' );
-
-		PixfortControls::button(
-			$widget,
-			'couponbtn',
-			array( 'text' => __( 'Aplicar', 'galaxie-woo' ), 'color' => 'primary', 'size' => 'md' ),
-			array(),
-			'{{WRAPPER}} .galaxie-cart-coupon'
-		);
-
 		$widget->end_controls_section();
 	}
 
@@ -269,6 +244,51 @@ final class CartParts {
 				'type'         => Controls_Manager::SWITCHER,
 				'default'      => 'yes',
 				'return_value' => 'yes',
+			)
+		);
+
+		$widget->add_control(
+			'shipping_display',
+			array(
+				'label'       => __( 'Shipping row shows', 'galaxie-woo' ),
+				'type'        => Controls_Manager::SELECT,
+				'options'     => array(
+					'list'   => __( 'Every option, to choose from', 'galaxie-woo' ),
+					'chosen' => __( 'Chosen method only', 'galaxie-woo' ),
+				),
+				'default'     => 'list',
+				'description' => __( 'Pick "Chosen method only" when a Galaxie Shipping Options widget is on the page.', 'galaxie-woo' ),
+				'condition'   => array( 'show_shipping' => 'yes' ),
+			)
+		);
+
+		$widget->add_control(
+			'shipping_label',
+			array(
+				'label'     => __( 'Shipping label', 'galaxie-woo' ),
+				'type'      => Controls_Manager::TEXT,
+				'default'   => __( 'Frete', 'galaxie-woo' ),
+				'condition' => array( 'show_shipping' => 'yes', 'shipping_display' => 'chosen' ),
+			)
+		);
+
+		$widget->add_control(
+			'shipping_empty_text',
+			array(
+				'label'     => __( 'Before a CEP is entered', 'galaxie-woo' ),
+				'type'      => Controls_Manager::TEXT,
+				'default'   => __( 'Informe o CEP', 'galaxie-woo' ),
+				'condition' => array( 'show_shipping' => 'yes', 'shipping_display' => 'chosen' ),
+			)
+		);
+
+		$widget->add_control(
+			'shipping_free_text',
+			array(
+				'label'     => __( 'When shipping is free', 'galaxie-woo' ),
+				'type'      => Controls_Manager::TEXT,
+				'default'   => __( 'Grátis', 'galaxie-woo' ),
+				'condition' => array( 'show_shipping' => 'yes', 'shipping_display' => 'chosen' ),
 			)
 		);
 
@@ -1051,14 +1071,6 @@ final class CartParts {
 	private static function render_actions( array $settings ): void {
 		echo '<div class="galaxie-cart-actions">';
 
-		if ( 'yes' === ( $settings['show_coupon'] ?? 'yes' ) && wc_coupons_enabled() ) {
-			printf(
-				'<div class="galaxie-cart-coupon"><input type="text" name="coupon_code" class="input-text form-control" placeholder="%s" /><button type="submit" name="apply_coupon" value="1" class="galaxie-cart-coupon-apply">%s</button></div>',
-				esc_attr( (string) ( $settings['coupon_placeholder'] ?? '' ) ),
-				PixfortControls::render_button( $settings, 'couponbtn', (string) ( $settings['couponbtn_text'] ?? __( 'Aplicar', 'galaxie-woo' ) ) ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pixfort's own component markup.
-			);
-		}
-
 		// Kept in the markup and hidden by CSS while the script runs, so a
 		// shopper without JavaScript still has a way to commit a change.
 		printf(
@@ -1196,16 +1208,7 @@ final class CartParts {
 	 * @param array<string,mixed> $settings
 	 */
 	public static function rows_markup( array $settings = array() ): string {
-		// The [woocommerce_cart] shortcode recalculates the cart every time it
-		// renders, and that is the only thing that fills
-		// WC()->shipping()->get_packages() on a normal page load. Totals read
-		// from the session carry no rates, so without this the shipping row
-		// showed after the calculator's AJAX (which recalculates) and vanished
-		// on the next reload with the CEP still saved.
-		if ( function_exists( 'WC' ) && WC()->cart && ! did_action( 'woocommerce_after_calculate_totals' ) ) {
-			wc_maybe_define_constant( 'WOOCOMMERCE_CART', true );
-			WC()->cart->calculate_totals();
-		}
+		self::ensure_totals();
 
 		if ( ! self::available() ) {
 			return '';
@@ -1235,32 +1238,36 @@ final class CartParts {
 		}
 
 		if ( 'yes' === ( $settings['show_shipping'] ?? 'yes' ) && $cart->needs_shipping() && $cart->show_shipping() ) {
-			// This one prints its own <tr>s, so it is given the row slot whole
-			// rather than wrapped — its markup is what the shipping methods and
-			// the calculator link expect.
-			// Wrapped in a table because the template prints <tr> and <td>. A
-			// browser drops those tags outside a table, which loses the row
-			// structure the shipping method list and its labels sit in.
-			// WooCommerce prints its own small calculator under the rates on the
-			// cart page. The calculator here is a widget of its own, so the box
-			// would otherwise show two postcode forms, one of them unstyled.
-			add_filter( 'woocommerce_shipping_show_shipping_calculator', '__return_false' );
-			$shipping = self::capture( 'wc_cart_totals_shipping_html' );
-			remove_filter( 'woocommerce_shipping_show_shipping_calculator', '__return_false' );
+			if ( 'chosen' === ( $settings['shipping_display'] ?? 'list' ) ) {
+				self::row( (string) ( $settings['shipping_label'] ?? __( 'Frete', 'galaxie-woo' ) ), self::chosen_shipping_html( $settings ), 'shipping' );
+			} else {
+				// This one prints its own <tr>s, so it is given the row slot whole
+				// rather than wrapped — its markup is what the shipping methods and
+				// the calculator link expect.
+				// Wrapped in a table because the template prints <tr> and <td>. A
+				// browser drops those tags outside a table, which loses the row
+				// structure the shipping method list and its labels sit in.
+				// WooCommerce prints its own small calculator under the rates on the
+				// cart page. The calculator here is a widget of its own, so the box
+				// would otherwise show two postcode forms, one of them unstyled.
+				add_filter( 'woocommerce_shipping_show_shipping_calculator', '__return_false' );
+				$shipping = self::capture( 'wc_cart_totals_shipping_html' );
+				remove_filter( 'woocommerce_shipping_show_shipping_calculator', '__return_false' );
 
-			// The template's own <th> and <td>, given the same label and value
-			// classes as every other row, so Totals type reaches the shipping
-			// row too instead of leaving it in the theme's table defaults.
-			$shipping = str_replace(
-				array( '<th>', '<td ' ),
-				array(
-					'<th class="galaxie-cart-total-label ' . esc_attr( self::$row_label_class ) . '">',
-					'<td class="galaxie-cart-total-value ' . esc_attr( self::$row_value_class ) . '" ',
-				),
-				$shipping
-			);
+				// The template's own <th> and <td>, given the same label and value
+				// classes as every other row, so Totals type reaches the shipping
+				// row too instead of leaving it in the theme's table defaults.
+				$shipping = str_replace(
+					array( '<th>', '<td ' ),
+					array(
+						'<th class="galaxie-cart-total-label ' . esc_attr( self::$row_label_class ) . '">',
+						'<td class="galaxie-cart-total-value ' . esc_attr( self::$row_value_class ) . '" ',
+					),
+					$shipping
+				);
 
-			echo '<div class="galaxie-cart-total-row galaxie-cart-total-shipping"><table class="galaxie-cart-shipping-table"><tbody>' . $shipping . '</tbody></table></div>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WooCommerce's own markup.
+				echo '<div class="galaxie-cart-total-row galaxie-cart-total-shipping"><table class="galaxie-cart-shipping-table"><tbody>' . $shipping . '</tbody></table></div>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WooCommerce's own markup.
+			}
 		}
 
 		foreach ( $cart->get_fees() as $fee ) {
@@ -1282,6 +1289,38 @@ final class CartParts {
 		echo '</div>';
 
 		return (string) ob_get_clean();
+	}
+
+	/**
+	 * The cost of the carrier the shopper picked, for a totals box that leaves
+	 * the choosing to the shipping options widget.
+	 *
+	 * @param array<string,mixed> $settings
+	 */
+	private static function chosen_shipping_html( array $settings ): string {
+		$chosen = WC()->session ? (array) WC()->session->get( 'chosen_shipping_methods', array() ) : array();
+		$tax    = WC()->cart->display_prices_including_tax();
+		$total  = 0.0;
+		$found  = false;
+
+		foreach ( WC()->shipping()->get_packages() as $index => $package ) {
+			$id = (string) ( $chosen[ $index ] ?? '' );
+
+			if ( '' === $id || empty( $package['rates'][ $id ] ) ) {
+				continue;
+			}
+
+			$rate   = $package['rates'][ $id ];
+			$cost   = (float) $rate->get_cost();
+			$total += $tax ? $cost + array_sum( array_map( 'floatval', (array) $rate->get_taxes() ) ) : $cost;
+			$found  = true;
+		}
+
+		if ( ! $found ) {
+			return esc_html( (string) ( $settings['shipping_empty_text'] ?? __( 'Informe o CEP', 'galaxie-woo' ) ) );
+		}
+
+		return $total > 0 ? wc_price( $total ) : esc_html( (string) ( $settings['shipping_free_text'] ?? __( 'Grátis', 'galaxie-woo' ) ) );
 	}
 
 	/** One label/value pair in the totals block. */

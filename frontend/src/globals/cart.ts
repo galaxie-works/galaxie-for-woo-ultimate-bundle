@@ -15,6 +15,8 @@
  * With the switch off, none of this binds and the native form posts as usual.
  */
 
+import { refreshFragments } from '@/globals/cart-fragments'
+
 interface CartConfig {
   ajaxUrl: string
   nonce: string
@@ -129,6 +131,10 @@ function apply(line: HTMLElement, data: NonNullable<CartResponse['data']>): void
   }
 
   applyFreeShipping(data.freeShipping)
+
+  // A new quantity changes what the carriers quote and what a coupon takes
+  // off, and those live in widgets this response does not carry.
+  void refreshFragments()
 
   // The mini cart in the header listens for this, and WooCommerce's own
   // fragments arrive in the same response — so the two never disagree.

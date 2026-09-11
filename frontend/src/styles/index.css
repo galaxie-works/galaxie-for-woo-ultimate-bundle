@@ -888,21 +888,89 @@ form.galaxie-buybox .galaxie-buybox-row {
   align-items: center;
 }
 
-.galaxie-cart-coupon {
+/* -------------------------------------------------------------------------
+   Galaxie Cart Coupon
+   ------------------------------------------------------------------------- */
+.galaxie-coupon-label {
+  display: block;
+  margin-bottom: 6px;
+}
+
+.galaxie-coupon-form {
   display: flex;
   gap: 8px;
   align-items: stretch;
+  margin: 0;
 }
 
-.galaxie-cart-coupon .form-control {
+.galaxie-coupon-form .form-control {
   flex: 1 1 auto;
   width: auto;
   min-width: 0;
+  margin: 0;
+}
+
+.galaxie-coupon.is-stacked .galaxie-coupon-form {
+  flex-direction: column;
+}
+
+.galaxie-coupon.is-stacked .galaxie-coupon-form .form-control {
+  width: 100%;
+}
+
+.galaxie-coupon.is-busy {
+  cursor: progress;
+}
+
+.galaxie-coupon-notice {
+  margin-top: 8px;
+}
+
+.galaxie-coupon-notice.is-error {
+  color: #b32d2e;
+}
+
+.galaxie-coupon-applied {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.galaxie-coupon-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.galaxie-coupon-item::before {
+  content: none;
+}
+
+.galaxie-coupon-amount {
+  margin-left: auto;
+}
+
+.galaxie-coupon-remove {
+  display: inline-flex;
+  align-items: center;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.galaxie-coupon-remove svg {
+  width: 16px;
+  height: 16px;
 }
 
 /* The <button> is only the form's submit. What the shopper sees is pixfort's
    own button inside it, so the wrapper keeps none of the browser's grey. */
-.galaxie-cart-coupon-apply,
+.galaxie-coupon-apply,
 .galaxie-shipping-calculator-submit {
   appearance: none;
   background: none;
@@ -914,7 +982,7 @@ form.galaxie-buybox .galaxie-buybox-row {
   cursor: pointer;
 }
 
-.galaxie-cart-coupon-apply {
+.galaxie-coupon-apply {
   flex: none;
 }
 
@@ -1155,4 +1223,59 @@ form.galaxie-buybox .galaxie-buybox-row {
   display: block;
   width: 100%;
   text-align: center;
+}
+
+/* -------------------------------------------------------------------------
+   Galaxie Shipping Options
+   ------------------------------------------------------------------------- */
+.galaxie-shipping-options-heading {
+  margin-bottom: 12px;
+}
+
+.galaxie-shipping-options-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.galaxie-shipping-option {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.galaxie-shipping-option::before {
+  content: none;
+}
+
+.galaxie-shipping-option label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid rgb(0 0 0 / 8%);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.galaxie-shipping-option input[type="radio"] {
+  flex: none;
+  margin: 0;
+}
+
+.galaxie-shipping-option-name {
+  flex: 1 1 auto;
+}
+
+.galaxie-shipping-option-price {
+  flex: none;
+  text-align: right;
+}
+
+.galaxie-shipping-options-note {
+  margin: 10px 0 0;
 }

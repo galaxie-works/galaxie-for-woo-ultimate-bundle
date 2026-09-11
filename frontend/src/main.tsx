@@ -15,6 +15,8 @@ import { bootProductData } from '@/globals/product-data'
 import { bootCart } from '@/globals/cart'
 import { bootCartCountdown } from '@/globals/countdown'
 import { bootAddressAutocomplete } from '@/globals/address-autocomplete'
+import { bootCartFragments } from '@/globals/cart-fragments'
+import { bootCoupon } from '@/globals/coupon'
 
 // Each module registers its island(s) here as they are ported.
 registerIsland('demo', Demo)
@@ -42,6 +44,8 @@ function boot(): void {
   bootQuantityDiscounts()
   bootCartCountdown()
   bootAddressAutocomplete(config.addressAutocomplete)
+  bootCartFragments()
+  bootCoupon()
 
   if (config.productData) {
     bootProductData()
