@@ -72,6 +72,26 @@ final class FreeShipping {
 	}
 
 	/**
+	 * Has the shopper told us where the parcel goes?
+	 *
+	 * A CEP saved by the calculator or on the customer's account. In Brazil it
+	 * has to be a whole CEP, since that is what decides the zone.
+	 */
+	public static function destination_known(): bool {
+		if ( ! function_exists( 'WC' ) || ! WC()->customer ) {
+			return false;
+		}
+
+		$postcode = (string) WC()->customer->get_shipping_postcode();
+
+		if ( '' === $postcode ) {
+			return false;
+		}
+
+		return 'BR' !== WC()->customer->get_shipping_country() || BrazilianPostcode::is_valid( $postcode );
+	}
+
+	/**
 	 * @return array{threshold:float,total:float,remaining:float,percent:float,achieved:bool}
 	 */
 	public static function state( float $threshold ): array {

@@ -11,6 +11,7 @@ use Galaxie\Woo\Core\Field;
 use Galaxie\Woo\Core\Module as ModuleContract;
 use Galaxie\Woo\Core\Plugin;
 use Galaxie\Woo\Core\ProvidesSettings;
+use Galaxie\Woo\Support\ShippingRates;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -82,6 +83,11 @@ final class Module implements ModuleContract, ProvidesSettings {
 	/**
 	 * @return array<string,mixed>
 	 */
+	/** Which quote becomes the free one. */
+	public const PICK_CHEAPEST = 'cheapest';
+	public const PICK_FASTEST  = 'fastest';
+	public const PICK_ALL      = 'all';
+
 	private static function settings(): array {
 		return Plugin::instance()->settings()->module_settings( 'free-shipping' );
 	}
@@ -235,6 +241,23 @@ final class Module implements ModuleContract, ProvidesSettings {
 			return $rates;
 		}
 
+		// WooCommerce's own Free shipping with no requirement, in a zone this
+		// module covers, is the trap the diagnostics panel describes: a free
+		// option on a R$ 29,90 cart, sitting beside the rule that says R$ 350.
+		// Free shipping has one owner here, so it goes. One that needs a coupon
+		// or a minimum of its own stays. Those are deliberate.
+		foreach ( $rates as $key => $rate ) {
+			if ( 'free_shipping' !== $rate->get_method_id() ) {
+				continue;
+			}
+
+			$method = \WC_Shipping_Zones::get_shipping_method( (int) $rate->get_instance_id() );
+
+			if ( $method && '' === (string) $method->get_option( 'requires' ) ) {
+				unset( $rates[ $key ] );
+			}
+		}
+
 		$settings = self::settings();
 		$minimum  = (float) ( $settings['minimum'] ?? 0 );
 
@@ -250,6 +273,8 @@ final class Module implements ModuleContract, ProvidesSettings {
 			return array( 'galaxie_free_shipping' => new \WC_Shipping_Rate( 'galaxie_free_shipping', $label, 0.0, array(), 'galaxie_free_shipping' ) ) + $rates;
 		}
 
+		$eligible = array();
+
 		foreach ( $rates as $key => $rate ) {
 			// An empty carrier list means every carrier in those zones. A
 			// non-empty one is the store saying "free by PAC, not by Sedex",
@@ -258,14 +283,35 @@ final class Module implements ModuleContract, ProvidesSettings {
 				continue;
 			}
 
-			$cost = (float) $rate->get_cost();
-
-			// Already free — WooCommerce's own Free shipping, a local pickup.
-			// Relabelling it produced "Frete grátis (Free shipping)" on the
-			// test store: the same promise said twice, in two languages.
-			if ( 'free_shipping' === $rate->get_method_id() || $cost <= 0 ) {
+			// Already free: a coupon's free shipping, a local pickup. Relabelling
+			// one produced "Frete grátis (Free shipping)" on the test store.
+			if ( 'free_shipping' === $rate->get_method_id() || (float) $rate->get_cost() <= 0 ) {
 				continue;
 			}
+
+			$eligible[ $key ] = $rate;
+		}
+
+		if ( ! $eligible ) {
+			return $rates;
+		}
+
+		$pick = (string) ( $settings['pick'] ?? self::PICK_CHEAPEST );
+
+		// One quote becomes the free one, and the rest keep their price, so a
+		// shopper who wants it sooner can still pay for that. Ties go to the
+		// other measure: the cheaper of two equally fast, the faster of two
+		// equally cheap.
+		if ( self::PICK_ALL !== $pick ) {
+			$by_cost = static fn( $a, $b ) => array( (float) $a->get_cost(), ShippingRates::max_days( $a ) ) <=> array( (float) $b->get_cost(), ShippingRates::max_days( $b ) );
+			$by_days = static fn( $a, $b ) => array( ShippingRates::max_days( $a ), (float) $a->get_cost() ) <=> array( ShippingRates::max_days( $b ), (float) $b->get_cost() );
+
+			uasort( $eligible, self::PICK_FASTEST === $pick ? $by_days : $by_cost );
+			$eligible = array_slice( $eligible, 0, 1, true );
+		}
+
+		foreach ( $eligible as $rate ) {
+			$cost = (float) $rate->get_cost();
 
 			if ( $cap > 0 && $cost > $cap ) {
 				if ( self::OVER_NONE === ( $settings['over_cap'] ?? self::OVER_PARTIAL ) ) {
@@ -277,15 +323,25 @@ final class Module implements ModuleContract, ProvidesSettings {
 				continue;
 			}
 
+			$days = ShippingRates::parts( $rate )['days'];
+
 			$rate->set_cost( 0.0 );
 			$rate->set_taxes( array() );
 
-			// The carrier stays in the label: the shopper is still choosing
-			// one, and "Frete grátis (Correios PAC)" carries the delivery
-			// estimate that a bare "Frete grátis" throws away.
-			$rate->set_label( sprintf( '%s (%s)', $label, $rate->get_label() ) );
+			// One free option reads "Frete grátis (4 a 6 dias úteis)": which
+			// carrier it is matters less than when it arrives. When every
+			// carrier is free, the carrier is what tells the options apart.
+			$rate->set_label(
+				self::PICK_ALL === $pick
+					? sprintf( '%s – %s', $label, $rate->get_label() )
+					: ( '' !== $days ? sprintf( '%s (%s)', $label, $days ) : $label )
+			);
+		}
 
-			unset( $key );
+		if ( self::PICK_ALL !== $pick ) {
+			// First in the list: where the shopper looks, and where WooCommerce
+			// takes its default choice from.
+			$rates = array_intersect_key( $rates, $eligible ) + $rates;
 		}
 
 		return $rates;
@@ -401,6 +457,18 @@ final class Module implements ModuleContract, ProvidesSettings {
 				description: __( 'Nothing ticked means all of them. Ticking only the economy carrier is how a threshold survives an express quote.', 'galaxie-woo' ),
 				default: array(),
 				options: self::method_options()
+			),
+			new Field(
+				key: 'pick',
+				label: __( 'Which quote becomes free', 'galaxie-woo' ),
+				type: Field::TYPE_SELECT,
+				description: __( 'The cheapest or the fastest carrier becomes "Frete grátis (x dias úteis)" and moves to the top; the others keep their price. "All of them" zeroes every carrier.', 'galaxie-woo' ),
+				default: self::PICK_CHEAPEST,
+				options: array(
+					self::PICK_CHEAPEST => __( 'The cheapest', 'galaxie-woo' ),
+					self::PICK_FASTEST  => __( 'The fastest', 'galaxie-woo' ),
+					self::PICK_ALL      => __( 'All of them', 'galaxie-woo' ),
+				)
 			),
 			new Field(
 				key: 'include_discounts',

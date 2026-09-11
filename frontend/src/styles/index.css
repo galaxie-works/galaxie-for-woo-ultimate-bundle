@@ -1226,56 +1226,111 @@ form.galaxie-buybox .galaxie-buybox-row {
 }
 
 /* -------------------------------------------------------------------------
-   Galaxie Shipping Options
+   Shipping options card: Galaxie Shipping Options, and the totals' own list.
+
+   pixfort's Card as the container (its `card`, rounded and effect classes)
+   and the radio-group pattern inside it: one row per carrier, a divider
+   between rows, the chosen row shaded. Every colour here is a starting point
+   the widget's controls replace.
    ------------------------------------------------------------------------- */
 .galaxie-shipping-options-heading {
   margin-bottom: 12px;
 }
 
-.galaxie-shipping-options-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+.galaxie-shipping-card {
+  margin: 0;
+  padding: 0;
+  border: 1px solid rgb(0 0 0 / 8%);
+  background-color: var(--pix-white, #fff);
+  box-shadow: none;
+}
+
+.galaxie-shipping-card-list {
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.galaxie-shipping-option {
+.galaxie-shipping-row {
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.galaxie-shipping-option::before {
+.galaxie-shipping-row::before {
   content: none;
 }
 
-.galaxie-shipping-option label {
+.galaxie-shipping-row + .galaxie-shipping-row {
+  border-top: 1px solid rgb(0 0 0 / 8%);
+}
+
+.galaxie-shipping-row label {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   margin: 0;
-  padding: 12px 14px;
-  border: 1px solid rgb(0 0 0 / 8%);
-  border-radius: 8px;
+  padding: 12px 16px;
+  text-align: left;
+  font-weight: inherit;
   cursor: pointer;
+  transition: background-color 0.15s ease;
 }
 
-.galaxie-shipping-option input[type="radio"] {
+.galaxie-shipping-row label:hover {
+  background-color: rgb(0 0 0 / 2%);
+}
+
+.galaxie-shipping-row label:has(input:checked) {
+  background-color: rgb(0 0 0 / 4%);
+}
+
+.galaxie-shipping-row input[type="radio"] {
+  appearance: none;
+  -webkit-appearance: none;
   flex: none;
+  width: 18px;
+  height: 18px;
   margin: 0;
+  border: 1.5px solid rgb(0 0 0 / 30%);
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  transition: border-width 0.15s ease, border-color 0.15s ease;
 }
 
-.galaxie-shipping-option-name {
+.galaxie-shipping-row input[type="radio"]:checked {
+  border-width: 5px;
+  border-color: var(--pix-heading-default, #111);
+}
+
+.galaxie-shipping-row input[type="radio"]:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+.galaxie-shipping-row-text {
+  display: flex;
   flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.35;
 }
 
-.galaxie-shipping-option-price {
+.galaxie-shipping-row-days {
+  font-size: 0.85em;
+}
+
+.galaxie-shipping-row-price {
   flex: none;
   text-align: right;
+  white-space: nowrap;
 }
 
 .galaxie-shipping-options-note {
   margin: 10px 0 0;
+}
+
+.galaxie-cart-total-shipping.is-list .galaxie-shipping-card {
+  margin-top: 8px;
 }

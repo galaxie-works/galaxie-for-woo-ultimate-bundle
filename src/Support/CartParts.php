@@ -268,7 +268,7 @@ final class CartParts {
 				'label'     => __( 'Shipping label', 'galaxie-woo' ),
 				'type'      => Controls_Manager::TEXT,
 				'default'   => __( 'Frete', 'galaxie-woo' ),
-				'condition' => array( 'show_shipping' => 'yes', 'shipping_display' => 'chosen' ),
+				'condition' => array( 'show_shipping' => 'yes' ),
 			)
 		);
 
@@ -278,7 +278,7 @@ final class CartParts {
 				'label'     => __( 'Before a CEP is entered', 'galaxie-woo' ),
 				'type'      => Controls_Manager::TEXT,
 				'default'   => __( 'Informe o CEP', 'galaxie-woo' ),
-				'condition' => array( 'show_shipping' => 'yes', 'shipping_display' => 'chosen' ),
+				'condition' => array( 'show_shipping' => 'yes' ),
 			)
 		);
 
@@ -288,7 +288,7 @@ final class CartParts {
 				'label'     => __( 'When shipping is free', 'galaxie-woo' ),
 				'type'      => Controls_Manager::TEXT,
 				'default'   => __( 'Grátis', 'galaxie-woo' ),
-				'condition' => array( 'show_shipping' => 'yes', 'shipping_display' => 'chosen' ),
+				'condition' => array( 'show_shipping' => 'yes' ),
 			)
 		);
 
@@ -1159,9 +1159,19 @@ final class CartParts {
 			return;
 		}
 
+		// Nothing until the shopper has said where the parcel goes, and nothing
+		// where free shipping does not reach. "Faltam R$ 23,30 para o frete
+		// grátis" to someone who has not typed a CEP, or who lives outside the
+		// zone, is a promise the checkout will not keep. That holds for a typed
+		// amount too: the amount can be fixed, the geography cannot be skipped.
+		if ( ! FreeShipping::destination_known() ) {
+			return;
+		}
+
+		$reach     = FreeShipping::threshold();
 		$threshold = 'fixed' === ( $settings['free_shipping_source'] ?? 'auto' )
-			? (float) ( $settings['free_shipping_amount'] ?? 0 )
-			: FreeShipping::threshold();
+			? ( $reach > 0 ? (float) ( $settings['free_shipping_amount'] ?? 0 ) : 0.0 )
+			: $reach;
 
 		// Nothing to aim at — no free shipping rule, or one with no minimum.
 		// Saying nothing beats inventing a goal.
@@ -1241,32 +1251,23 @@ final class CartParts {
 			if ( 'chosen' === ( $settings['shipping_display'] ?? 'list' ) ) {
 				self::row( (string) ( $settings['shipping_label'] ?? __( 'Frete', 'galaxie-woo' ) ), self::chosen_shipping_html( $settings ), 'shipping' );
 			} else {
-				// This one prints its own <tr>s, so it is given the row slot whole
-				// rather than wrapped — its markup is what the shipping methods and
-				// the calculator link expect.
-				// Wrapped in a table because the template prints <tr> and <td>. A
-				// browser drops those tags outside a table, which loses the row
-				// structure the shipping method list and its labels sit in.
-				// WooCommerce prints its own small calculator under the rates on the
-				// cart page. The calculator here is a widget of its own, so the box
-				// would otherwise show two postcode forms, one of them unstyled.
-				add_filter( 'woocommerce_shipping_show_shipping_calculator', '__return_false' );
-				$shipping = self::capture( 'wc_cart_totals_shipping_html' );
-				remove_filter( 'woocommerce_shipping_show_shipping_calculator', '__return_false' );
-
-				// The template's own <th> and <td>, given the same label and value
-				// classes as every other row, so Totals type reaches the shipping
-				// row too instead of leaving it in the theme's table defaults.
-				$shipping = str_replace(
-					array( '<th>', '<td ' ),
-					array(
-						'<th class="galaxie-cart-total-label ' . esc_attr( self::$row_label_class ) . '">',
-						'<td class="galaxie-cart-total-value ' . esc_attr( self::$row_value_class ) . '" ',
-					),
-					$shipping
+				// The same card as the Shipping Options widget, not WooCommerce's
+				// template: that one lays the options out as a table row whose
+				// labels wrap under the price in a narrow column.
+				$card = self::shipping_card(
+					$settings,
+					'totals',
+					array( 'free_text' => (string) ( $settings['shipping_free_text'] ?? __( 'Grátis', 'galaxie-woo' ) ) )
 				);
 
-				echo '<div class="galaxie-cart-total-row galaxie-cart-total-shipping"><table class="galaxie-cart-shipping-table"><tbody>' . $shipping . '</tbody></table></div>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WooCommerce's own markup.
+				printf(
+					'<div class="galaxie-cart-total-row galaxie-cart-total-shipping is-list"><span class="galaxie-cart-total-label %1$s">%2$s</span>%3$s</div>',
+					esc_attr( self::$row_label_class ),
+					esc_html( (string) ( $settings['shipping_label'] ?? __( 'Frete', 'galaxie-woo' ) ) ),
+					'' !== $card // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built from escaped parts.
+						? $card
+						: '<span class="galaxie-cart-total-value ' . esc_attr( self::$row_value_class ) . '">' . esc_html( (string) ( $settings['shipping_empty_text'] ?? __( 'Informe o CEP', 'galaxie-woo' ) ) ) . '</span>'
+				);
 			}
 		}
 
@@ -1321,6 +1322,93 @@ final class CartParts {
 		}
 
 		return $total > 0 ? wc_price( $total ) : esc_html( (string) ( $settings['shipping_free_text'] ?? __( 'Grátis', 'galaxie-woo' ) ) );
+	}
+
+	/**
+	 * The shipping options as one card: pixfort's Card around one row per carrier.
+	 *
+	 * Empty string when there is nothing to choose from, which is how callers
+	 * know to show a message or nothing instead.
+	 *
+	 * @param array<string,mixed>                                          $settings Widget settings; the text sets are read from option_name, option_days, option_price, options_note and the card from card_*.
+	 * @param array{free_text?:string,show_days?:bool,show_destination?:bool} $args
+	 */
+	public static function shipping_card( array $settings, string $instance, array $args = array() ): string {
+		if ( ! self::available() || ! WC()->cart->needs_shipping() ) {
+			return '';
+		}
+
+		self::ensure_totals();
+
+		$packages  = WC()->shipping()->get_packages();
+		$chosen    = WC()->session ? (array) WC()->session->get( 'chosen_shipping_methods', array() ) : array();
+		$free      = (string) ( $args['free_text'] ?? __( 'Grátis', 'galaxie-woo' ) );
+		$show_days = $args['show_days'] ?? true;
+		$name      = PixfortControls::text_classes( $settings, 'option_name' );
+		$days      = PixfortControls::text_classes( $settings, 'option_days' );
+		$price     = PixfortControls::text_classes( $settings, 'option_price' );
+		$card      = array_key_exists( 'card_rounded', $settings ) ? PixfortControls::surface_classes( $settings, 'card' ) : 'rounded-xl';
+		$listed    = false;
+
+		ob_start();
+
+		foreach ( $packages as $index => $package ) {
+			$rates = (array) ( $package['rates'] ?? array() );
+
+			if ( ! $rates ) {
+				continue;
+			}
+
+			$listed  = true;
+			$current = isset( $chosen[ $index ], $rates[ $chosen[ $index ] ] ) ? (string) $chosen[ $index ] : (string) array_key_first( $rates );
+
+			printf( '<div class="card galaxie-shipping-card overflow-hidden %s"><ul class="galaxie-shipping-card-list" role="radiogroup">', esc_attr( $card ) );
+
+			foreach ( $rates as $rate ) {
+				$rate_id  = (string) $rate->get_id();
+				$input_id = sprintf( 'galaxie_shipping_%d_%s_%s', $index, sanitize_title( $rate_id ), sanitize_key( $instance ) );
+				$parts    = ShippingRates::parts( $rate );
+				$shown    = ShippingRates::display_cost( $rate );
+
+				printf(
+					'<li class="galaxie-shipping-row%1$s"><label for="%2$s"><input type="radio" name="shipping_method[%3$d]" data-index="%3$d" id="%2$s" value="%4$s" class="shipping_method" %5$s /><span class="galaxie-shipping-row-text"><span class="galaxie-shipping-row-name %6$s">%7$s</span>%8$s</span><span class="galaxie-shipping-row-price %9$s">%10$s</span></label>',
+					$shown <= 0 ? ' is-free' : '',
+					esc_attr( $input_id ),
+					(int) $index,
+					esc_attr( $rate_id ),
+					checked( $rate_id, $current, false ),
+					esc_attr( $name ),
+					esc_html( $parts['name'] ),
+					$show_days && '' !== $parts['days'] ? '<span class="galaxie-shipping-row-days ' . esc_attr( $days ) . '">' . esc_html( $parts['days'] ) . '</span>' : '',
+					esc_attr( $price ),
+					$shown > 0 ? wp_kses_post( wc_price( $shown ) ) : esc_html( $free )
+				);
+
+				do_action( 'woocommerce_after_shipping_rate', $rate, $index );
+
+				echo '</li>';
+			}
+
+			echo '</ul></div>';
+		}
+
+		if ( $listed && ( $args['show_destination'] ?? true ) ) {
+			$package     = reset( $packages );
+			$destination = WC()->countries->get_formatted_address( (array) ( $package['destination'] ?? array() ), ', ' );
+
+			if ( '' !== $destination ) {
+				printf(
+					'<p class="galaxie-shipping-options-note galaxie-shipping-options-destination %1$s">%2$s</p>',
+					esc_attr( PixfortControls::text_classes( $settings, 'options_note' ) ),
+					/* translators: %s: shipping destination. */
+					sprintf( esc_html__( 'Shipping to %s.', 'woocommerce' ), '<strong>' . esc_html( $destination ) . '</strong>' ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped inside.
+				);
+			}
+		}
+
+		$html = (string) ob_get_clean();
+
+		return $listed ? $html : '';
 	}
 
 	/** One label/value pair in the totals block. */
