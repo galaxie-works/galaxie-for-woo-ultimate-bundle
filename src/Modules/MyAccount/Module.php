@@ -54,6 +54,7 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 	public function boot(): void {
 		AccountEndpoints::hooks();
 
+		add_action( 'wp_ajax_galaxie_myaccount_screen', array( $this, 'ajax_screen' ) );
 		add_action( 'wp_ajax_galaxie_myaccount_save_details', array( $this, 'ajax_save_details' ) );
 		add_action( 'wp_ajax_galaxie_myaccount_toggle_interest', array( $this, 'ajax_toggle_interest' ) );
 		add_action( 'wp_ajax_galaxie_myaccount_save_communication', array( $this, 'ajax_save_communication' ) );
@@ -331,6 +332,48 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 		do_action( 'galaxie_woo/profile_updated', $user_id );
 
 		wp_send_json_success( CustomerProfile::status( $user_id ) );
+	}
+
+	/**
+	 * One account screen, so the menu can swap it in instead of reloading.
+	 *
+	 * Returns the screen alone — not the box around it — because the wrapper on
+	 * the page carries the merchant's surface classes and the selectors Elementor
+	 * wrote against that widget. Replacing it would drop the styling.
+	 */
+	public function ajax_screen(): void {
+		$this->check_nonce_and_login();
+
+		$key = isset( $_POST['screen'] ) ? sanitize_key( wp_unslash( $_POST['screen'] ) ) : '';
+
+		// Logging out is a real navigation: it ends the session the page is drawn
+		// from, so it is never swapped in.
+		if ( '' === $key || 'customer-logout' === $key || ! AccountEndpoints::get( $key ) || ! AccountEndpoints::is_enabled( $key ) ) {
+			wp_send_json_error( array( 'message' => __( 'Unknown screen.', 'galaxie-woo' ) ), 404 );
+		}
+
+		$value    = isset( $_POST['value'] ) ? sanitize_text_field( wp_unslash( $_POST['value'] ) ) : '';
+		$override = isset( $_POST['template'] ) ? absint( $_POST['template'] ) : 0;
+
+		// The override travels from the clicked menu item, so it arrives as the
+		// visitor's word. Only a published Elementor template is honoured; on
+		// anything else this falls back to what Galaxie → My Account says, which
+		// is what a page render with no override would have shown anyway.
+		if ( $override && ( 'elementor_library' !== get_post_type( $override ) || 'publish' !== get_post_status( $override ) ) ) {
+			$override = 0;
+		}
+
+		$title = function_exists( 'WC' ) && WC()->query
+			? wp_strip_all_tags( (string) WC()->query->get_endpoint_title( $key ) )
+			: '';
+
+		wp_send_json_success(
+			array(
+				'screen' => $key,
+				'title'  => '' !== $title ? $title : AccountEndpoints::label( $key ),
+				'html'   => AccountEndpoints::render( $key, $value, $override ),
+			)
+		);
 	}
 
 	public function ajax_toggle_interest(): void {

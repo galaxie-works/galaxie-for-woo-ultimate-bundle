@@ -541,8 +541,9 @@ final class AccountParts {
 				continue;
 			}
 
-			$attrs     = '';
-			$is_active = false;
+			$attrs       = '';
+			$screen_attr = '';
+			$is_active   = false;
 
 			if ( 'link' === $type ) {
 				$link = (array) ( $item['link'] ?? array() );
@@ -569,6 +570,13 @@ final class AccountParts {
 				$url       = AccountEndpoints::url( $key );
 				$label     = '' !== $label ? $label : AccountEndpoints::label( $key );
 				$is_active = $key === $active;
+
+				// What the script needs to swap this screen in without a reload:
+				// which screen, and the template chosen for it right here. Kept
+				// apart from $attrs, which carries target and rel — neither of
+				// which belongs on the phone menu's <option>.
+				$chosen      = absint( $item['template'] ?? 0 );
+				$screen_attr = ' data-screen="' . esc_attr( $key ) . '"' . ( $chosen ? ' data-template="' . $chosen . '"' : '' );
 			}
 
 			$icon = '';
@@ -578,16 +586,23 @@ final class AccountParts {
 			}
 
 			$links .= sprintf(
-				'<div class="nav-item"><a class="%1$s" href="%2$s"%3$s%4$s>%5$s<span class="galaxie-account-menu-label">%6$s</span></a></div>',
+				'<div class="nav-item"><a class="%1$s" href="%2$s"%3$s%4$s%7$s>%5$s<span class="galaxie-account-menu-label">%6$s</span></a></div>',
 				esc_attr( $link_base . ( $is_active ? ' active' : '' ) ),
 				esc_url( $url ),
 				$is_active ? ' aria-current="page"' : '',
 				$attrs, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- fixed attribute strings.
 				$icon, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pixfort's own icon markup.
-				esc_html( $label )
+				esc_html( $label ),
+				$screen_attr // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- an escaped key and an integer.
 			);
 
-			$options .= sprintf( '<option value="%1$s"%2$s>%3$s</option>', esc_url( $url ), selected( $is_active, true, false ), esc_html( $label ) );
+			$options .= sprintf(
+				'<option value="%1$s"%2$s%4$s>%3$s</option>',
+				esc_url( $url ),
+				selected( $is_active, true, false ),
+				esc_html( $label ),
+				$screen_attr // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- an escaped key and an integer.
+			);
 		}
 
 		// The Lines style draws a rule either side of a horizontal row, as
@@ -812,12 +827,19 @@ final class AccountParts {
 			$html .= (string) wc_print_notices( true );
 		}
 
-		$html .= AccountEndpoints::render( $screen['key'], $screen['value'], self::template_for( $screen['key'], $settings ) );
+		// The screen sits in a box of its own so the script can replace exactly
+		// this much: the wrapper stays, and with it the pixfort surface classes
+		// and every selector Elementor generated against {{WRAPPER}}.
+		$html .= sprintf(
+			'<div class="galaxie-account-screen-body">%s</div>',
+			AccountEndpoints::render( $screen['key'], $screen['value'], self::template_for( $screen['key'], $settings ) )
+		);
 
 		return sprintf(
-			'<div class="galaxie-account-content woocommerce %1$s" data-account-screen="%2$s">%3$s</div>',
+			'<div class="galaxie-account-content woocommerce %1$s" data-account-screen="%2$s"%3$s>%4$s</div>',
 			esc_attr( $box ),
 			esc_attr( $screen['key'] ),
+			'yes' === ( $settings['content_show_title'] ?? '' ) ? ' data-account-title="yes"' : '',
 			$html
 		);
 	}

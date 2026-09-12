@@ -1547,6 +1547,21 @@ form.galaxie-buybox .galaxie-buybox-row {
   min-width: 0;
 }
 
+/* While the next screen is being fetched the old one stays where it is, dimmed
+   and no longer taking clicks. Keeping it in place holds the height, so the
+   page does not jump and then jump back. */
+.galaxie-account-content.is-loading {
+  opacity: 0.55;
+  pointer-events: none;
+  transition: opacity 120ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .galaxie-account-content.is-loading {
+    transition: none;
+  }
+}
+
 .galaxie-account-content-title {
   margin-bottom: 20px;
 }
