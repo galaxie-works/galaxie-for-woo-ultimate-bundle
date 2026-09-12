@@ -35,6 +35,9 @@ final class ProductsCarouselWidget extends \Elementor\Pix_Eor_Products_Carousel 
 	/** @var array<string,string> Button texts for the render in progress. */
 	private static array $texts = array();
 
+	/** @var array<string,string>|null Card box style for the render in progress. */
+	private static ?array $box = null;
+
 	public function get_name() {
 		return 'galaxie-products-carousel';
 	}
@@ -229,18 +232,49 @@ final class ProductsCarouselWidget extends \Elementor\Pix_Eor_Products_Carousel 
 				'unavailable' => trim( (string) ( $s['gx_text_unavailable'] ?? '' ) ),
 			)
 		);
+		self::$box   = array(
+			'rounded'         => (string) ( $s['rounded_img'] ?? '' ),
+			'shadow'          => (string) ( $s['style'] ?? '' ),
+			'hover_shadow'    => (string) ( $s['hover_effect'] ?? '' ),
+			'hover_animation' => (string) ( $s['add_hover_effect'] ?? '' ),
+		);
 
 		add_filter( 'woocommerce_product_data_store_cpt_get_products_query', array( self::class, 'filter_query' ), 10, 2 );
 		add_filter( 'woocommerce_product_add_to_cart_text', array( self::class, 'filter_button_text' ), 20, 2 );
+		add_filter( 'pixfort_core_woocommerce_product_box_style', array( self::class, 'filter_box_style' ), 20 );
 
 		try {
 			parent::render();
 		} finally {
 			remove_filter( 'woocommerce_product_data_store_cpt_get_products_query', array( self::class, 'filter_query' ), 10 );
 			remove_filter( 'woocommerce_product_add_to_cart_text', array( self::class, 'filter_button_text' ), 20 );
+			remove_filter( 'pixfort_core_woocommerce_product_box_style', array( self::class, 'filter_box_style' ), 20 );
 			self::$query = null;
 			self::$texts = array();
+			self::$box   = null;
 		}
+	}
+
+	/**
+	 * Makes Rounded corners, Shadow Style, Shadow Hover Style and Hover Animation
+	 * reach the card.
+	 *
+	 * The carousel hands those four to the card renderer as `extra_classes`, but
+	 * `pixfort_core_render_woocommerce_product_loop_item()` has already made a
+	 * local `$extra_classes` from the shop's own options by the time it runs
+	 * `extract( $template_args, EXTR_SKIP )` — and EXTR_SKIP keeps the local. The
+	 * four controls are dropped there, in pixfort's widget as much as in ours.
+	 *
+	 * So we set them one step earlier, where that local is built: this is
+	 * pixfort's own filter over the card's box style. It also reaches the image,
+	 * whose radius the carousel never passed at all, so Rounded corners now
+	 * rounds the card and the photo inside it rather than neither.
+	 *
+	 * @param mixed $settings
+	 * @return mixed
+	 */
+	public static function filter_box_style( $settings ) {
+		return is_array( self::$box ) ? array_merge( (array) $settings, self::$box ) : $settings;
 	}
 
 	/**

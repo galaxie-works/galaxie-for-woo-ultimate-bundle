@@ -7,6 +7,25 @@
  * widget name, so our widget needs its own binding or the canvas never updates.
  */
 jQuery( window ).on( 'elementor/frontend/init', function () {
+	function ready( $element ) {
+		// Outside the editor pixfort also starts the slide effects and the tilts;
+		// only the rebuild below is editor-only. Dropping these left "Slides
+		// effect" doing nothing for logged-in visitors on the site itself.
+		if ( ! window.elementorFrontend.isEditMode() ) {
+			setTimeout( function () {
+				if ( typeof pix_main_slider === 'function' ) {
+					pix_main_slider( $element );
+				}
+
+				if ( typeof init_tilts === 'function' ) {
+					init_tilts( $element );
+				}
+			}, 400 );
+		}
+
+		rebuild( $element );
+	}
+
 	function rebuild( $element ) {
 		var $swipers = $element.find( '.pixfort-swiper .swiper' );
 
@@ -35,5 +54,5 @@ jQuery( window ).on( 'elementor/frontend/init', function () {
 		}, 100 );
 	}
 
-	elementorFrontend.hooks.addAction( 'frontend/element_ready/galaxie-products-carousel.default', rebuild );
+	elementorFrontend.hooks.addAction( 'frontend/element_ready/galaxie-products-carousel.default', ready );
 } );
