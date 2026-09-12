@@ -74,16 +74,21 @@ final class PixfortControls {
 	 * @param array<string,mixed> $condition Applied to every control (a repeater row's own field, typically).
 	 * @param string              $scope     CSS scope for the selector-driven icon colours.
 	 */
-	public static function button( object $target, string $prefix, array $defaults = array(), array $condition = array(), string $scope = '{{WRAPPER}}' ): void {
+	public static function button( object $target, string $prefix, array $defaults = array(), array $condition = array(), string $scope = '{{WRAPPER}}', array $skip = array() ): void {
 		$d = static fn( string $key, $fallback ) => $defaults[ $key ] ?? $fallback;
 
-		self::add( $target, $condition, $prefix . '_text', array(
-			'label'       => __( 'Button text', 'galaxie-woo' ),
-			'label_block' => true,
-			'type'        => Controls_Manager::TEXT,
-			'default'     => $d( 'text', '' ),
-			'dynamic'     => array( 'active' => true ),
-		) );
+		// `text`: the label comes from somewhere else — WooCommerce's own action
+		// names, or a field of the widget's — and a Button text field here would
+		// be one the render never reads.
+		if ( ! in_array( 'text', $skip, true ) ) {
+			self::add( $target, $condition, $prefix . '_text', array(
+				'label'       => __( 'Button text', 'galaxie-woo' ),
+				'label_block' => true,
+				'type'        => Controls_Manager::TEXT,
+				'default'     => $d( 'text', '' ),
+				'dynamic'     => array( 'active' => true ),
+			) );
+		}
 
 		self::add( $target, $condition, $prefix . '_title_bold', array(
 			'label'        => __( 'Bold', 'galaxie-woo' ),
@@ -398,6 +403,13 @@ final class PixfortControls {
 	public static function text( object $target, string $prefix, array $defaults = array(), array $condition = array(), string $scope = '{{WRAPPER}}', string $sizes = 'text', array $skip = array() ): void {
 		$d = static fn( string $key, $fallback ) => $defaults[ $key ] ?? $fallback;
 
+		// `inline`: this prefix becomes classes on markup of our own, through
+		// text_classes(), not a paragraph drawn by pixfort's Text element. A class
+		// can carry a size, a weight or a palette colour and nothing else, so the
+		// controls only that element could honour are left out, and the two that
+		// can be honoured another way are painted on the element itself.
+		$inline = in_array( 'inline', $skip, true );
+
 		self::add( $target, $condition, $prefix . '_size', array(
 			'label'   => __( 'Size', 'galaxie-woo' ),
 			'type'    => Controls_Manager::SELECT,
@@ -413,7 +425,9 @@ final class PixfortControls {
 			'type'       => Controls_Manager::SLIDER,
 			'size_units' => array( 'px', 'rem' ),
 			'range'      => array( 'px' => array( 'min' => 10, 'max' => 96 ) ),
-			'selectors'  => array( $scope . ' p' => 'font-size: {{SIZE}}{{UNIT}};' ),
+			// pixfort's element prints a <p> inside the scope; our own markup is the
+			// scope, and a `p` looked for inside a <label> or a <span> is never there.
+			'selectors'  => array( ( $inline ? $scope : $scope . ' p' ) => 'font-size: {{SIZE}}{{UNIT}};' ),
 			'condition'  => array( $prefix . '_size' => 'custom' ),
 		) );
 
@@ -439,13 +453,17 @@ final class PixfortControls {
 			'default'      => $d( 'secondary_font', '' ),
 		) );
 
-		self::add( $target, $condition, $prefix . '_max_width', array(
-			'label'       => __( 'Text max width (optional)', 'galaxie-woo' ),
-			'label_block' => true,
-			'type'        => Controls_Manager::TEXT,
-			'placeholder' => __( 'For example 400px', 'galaxie-woo' ),
-			'default'     => $d( 'max_width', '' ),
-		) );
+		// A max width is pixfort's element styling its own paragraph; on an inline
+		// label or span it would change nothing.
+		if ( ! $inline ) {
+			self::add( $target, $condition, $prefix . '_max_width', array(
+				'label'       => __( 'Text max width (optional)', 'galaxie-woo' ),
+				'label_block' => true,
+				'type'        => Controls_Manager::TEXT,
+				'placeholder' => __( 'For example 400px', 'galaxie-woo' ),
+				'default'     => $d( 'max_width', '' ),
+			) );
+		}
 
 		if ( self::available() ) {
 			self::add( $target, $condition, $prefix . '_content_color', array(
@@ -455,12 +473,21 @@ final class PixfortControls {
 				'default' => $d( 'content_color', '' ),
 			) );
 
-			self::add( $target, $condition, $prefix . '_content_custom_color', array(
+			$custom = array(
 				'label'     => __( 'Custom content color', 'galaxie-woo' ),
 				'type'      => Controls_Manager::COLOR,
 				'default'   => '',
 				'condition' => array( $prefix . '_content_color' => 'custom' ),
-			) );
+			);
+
+			// pixfort's element paints a custom colour itself. A class cannot carry
+			// an arbitrary colour — text_classes() emits nothing for `custom` — so
+			// on our own markup the rule goes on the element.
+			if ( $inline ) {
+				$custom['selectors'] = array( $scope => 'color: {{VALUE}} !important;' );
+			}
+
+			self::add( $target, $condition, $prefix . '_content_custom_color', $custom );
 		} else {
 			self::add( $target, $condition, $prefix . '_content_color_fallback', array(
 				'label'     => __( 'Content color', 'galaxie-woo' ),
@@ -487,6 +514,11 @@ final class PixfortControls {
 			),
 			'default' => $d( 'position', 'text-left' ),
 		) );
+		}
+
+		// Entrance animation and the paragraph margin belong to pixfort's element.
+		if ( $inline ) {
+			return;
 		}
 
 		self::add( $target, $condition, $prefix . '_animation', array(

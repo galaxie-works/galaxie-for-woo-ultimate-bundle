@@ -175,12 +175,17 @@ final class AccountOrdersWidget extends Widget_Base {
 
 		$this->end_controls_section();
 
-		$this->start_controls_section( 'orders_view_button_section', array( 'label' => __( 'View button', 'galaxie-woo' ) ) );
+		// Also styles the previous and next page links, which is why the name says so.
+		$this->start_controls_section( 'orders_view_button_section', array( 'label' => __( 'View and page buttons', 'galaxie-woo' ) ) );
 		PixfortControls::button( $this, 'orders_view', array( 'text' => __( 'Ver pedido', 'galaxie-woo' ), 'style' => 'outline', 'size' => 'sm' ) );
 		$this->end_controls_section();
 
-		$this->start_controls_section( 'orders_action_button_section', array( 'label' => __( 'Other action buttons', 'galaxie-woo' ), 'condition' => array( 'orders_show_actions' => 'yes' ) ) );
-		PixfortControls::button( $this, 'orders_action', array( 'style' => 'link', 'size' => 'sm' ) );
+		// No condition on the actions switch: the "See every order" link wears this
+		// style too, and it stays on the page when the actions are turned off. No
+		// text field either: the labels are WooCommerce's ("Pay", "Cancel") or that
+		// link's own field above.
+		$this->start_controls_section( 'orders_action_button_section', array( 'label' => __( 'Action buttons', 'galaxie-woo' ) ) );
+		PixfortControls::button( $this, 'orders_action', array( 'style' => 'link', 'size' => 'sm' ), array(), '{{WRAPPER}}', array( 'text' ) );
 		$this->end_controls_section();
 
 		$this->start_controls_section( 'orders_empty_button_section', array( 'label' => __( 'Empty list button', 'galaxie-woo' ) ) );
@@ -210,17 +215,19 @@ final class AccountOrdersWidget extends Widget_Base {
 		$this->end_controls_section();
 
 		$texts = array(
-			'orders_heading_text' => array( __( 'Heading', 'galaxie-woo' ), '.galaxie-account-orders-heading', array( 'size' => 'text-20', 'bold' => 'font-weight-bold' ) ),
+			'orders_heading_text' => array( __( 'Heading', 'galaxie-woo' ), '.galaxie-account-orders-heading', array( 'size' => 'text-20', 'bold' => 'font-weight-bold' ), true ),
 			'orders_number'       => array( __( 'Order number', 'galaxie-woo' ), '.galaxie-order-number', array( 'bold' => 'font-weight-bold' ) ),
 			'orders_date'         => array( __( 'Date', 'galaxie-woo' ), '.galaxie-order-date', array( 'size' => 'text-sm', 'bold' => '' ) ),
 			'orders_items'        => array( __( 'Item count', 'galaxie-woo' ), '.galaxie-order-items', array( 'size' => 'text-sm', 'bold' => '' ) ),
 			'orders_total'        => array( __( 'Total', 'galaxie-woo' ), '.galaxie-order-total', array( 'bold' => 'font-weight-bold' ) ),
-			'orders_empty'        => array( __( 'Empty list text', 'galaxie-woo' ), '.galaxie-account-orders-empty', array( 'bold' => '' ) ),
+			'orders_empty'        => array( __( 'Empty list text', 'galaxie-woo' ), '.galaxie-account-orders-empty', array( 'bold' => '' ), true ),
 		);
 
+		// A fourth `true` marks text drawn by pixfort's Text element; the rest are
+		// classes on this widget's own markup, which carry fewer controls.
 		foreach ( $texts as $prefix => $text ) {
 			$this->start_controls_section( $prefix . '_style', array( 'label' => $text[0], 'tab' => Controls_Manager::TAB_STYLE ) );
-			PixfortControls::text( $this, $prefix, array_merge( $text[2], array( 'remove_pb_padding' => 'm-0' ) ), array(), '{{WRAPPER}} ' . $text[1], 'text', array( 'position' ) );
+			PixfortControls::text( $this, $prefix, array_merge( $text[2], array( 'remove_pb_padding' => 'm-0' ) ), array(), '{{WRAPPER}} ' . $text[1], 'text', empty( $text[3] ) ? array( 'position', 'inline' ) : array( 'position' ) );
 			$this->end_controls_section();
 		}
 

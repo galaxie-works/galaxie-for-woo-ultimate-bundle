@@ -110,12 +110,13 @@ final class AccountOrderWidget extends Widget_Base {
 
 		$this->end_controls_section();
 
-		$this->start_controls_section( 'order_back_button_section', array( 'label' => __( 'Back link button', 'galaxie-woo' ) ) );
+		$this->start_controls_section( 'order_back_button_section', array( 'label' => __( 'Back button', 'galaxie-woo' ) ) );
 		PixfortControls::button( $this, 'order_back', array( 'text' => __( 'Voltar para pedidos', 'galaxie-woo' ), 'style' => 'link', 'size' => 'sm', 'icon' => 'Line/pixfort-icon-arrow-left-1' ) );
 		$this->end_controls_section();
 
 		$this->start_controls_section( 'order_action_button_section', array( 'label' => __( 'Action buttons', 'galaxie-woo' ), 'condition' => array( 'order_show_actions' => 'yes' ) ) );
-		PixfortControls::button( $this, 'order_action', array( 'style' => 'outline', 'size' => 'sm' ) );
+		// No text field: the labels are WooCommerce's own ("Pay", "Cancel").
+		PixfortControls::button( $this, 'order_action', array( 'style' => 'outline', 'size' => 'sm' ), array(), '{{WRAPPER}}', array( 'text' ) );
 		$this->end_controls_section();
 
 		AccountParts::register_status_controls( $this );
@@ -142,7 +143,7 @@ final class AccountOrderWidget extends Widget_Base {
 		$texts = array(
 			'order_title'     => array( __( 'Title', 'galaxie-woo' ), '.galaxie-order-title', array( 'size' => 'text-24', 'bold' => 'font-weight-bold' ) ),
 			'order_date'      => array( __( 'Date', 'galaxie-woo' ), '.galaxie-order-date', array( 'size' => 'text-sm', 'bold' => '' ) ),
-			'order_heading'   => array( __( 'Card headings', 'galaxie-woo' ), '.galaxie-order-section-heading', array( 'size' => 'text-18', 'bold' => 'font-weight-bold' ) ),
+			'order_heading'   => array( __( 'Card headings', 'galaxie-woo' ), '.galaxie-order-section-heading', array( 'size' => 'text-18', 'bold' => 'font-weight-bold' ), true ),
 			'order_item_name' => array( __( 'Item name', 'galaxie-woo' ), '.galaxie-order-line-name', array( 'bold' => 'font-weight-bold' ) ),
 			'order_item_meta' => array( __( 'Item details and quantity', 'galaxie-woo' ), '.galaxie-order-line-meta', array( 'size' => 'text-sm', 'bold' => '' ) ),
 			'order_item_total' => array( __( 'Item total', 'galaxie-woo' ), '.galaxie-order-line-total', array( 'bold' => 'font-weight-bold' ) ),
@@ -151,9 +152,11 @@ final class AccountOrderWidget extends Widget_Base {
 			'order_body'      => array( __( 'Addresses, note and updates', 'galaxie-woo' ), '.galaxie-order-body', array( 'bold' => '' ) ),
 		);
 
+		// A fourth `true` marks text drawn by pixfort's Text element; the rest are
+		// classes on this widget's own markup, which carry fewer controls.
 		foreach ( $texts as $prefix => $text ) {
 			$this->start_controls_section( $prefix . '_style', array( 'label' => $text[0], 'tab' => Controls_Manager::TAB_STYLE ) );
-			PixfortControls::text( $this, $prefix, array_merge( $text[2], array( 'remove_pb_padding' => 'm-0' ) ), array(), '{{WRAPPER}} ' . $text[1], 'text', array( 'position' ) );
+			PixfortControls::text( $this, $prefix, array_merge( $text[2], array( 'remove_pb_padding' => 'm-0' ) ), array(), '{{WRAPPER}} ' . $text[1], 'text', empty( $text[3] ) ? array( 'position', 'inline' ) : array( 'position' ) );
 			$this->end_controls_section();
 		}
 

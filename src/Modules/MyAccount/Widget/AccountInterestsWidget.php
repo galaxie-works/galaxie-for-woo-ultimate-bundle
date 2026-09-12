@@ -94,7 +94,7 @@ final class AccountInterestsWidget extends Widget_Base {
 		);
 
 		$this->add_control( 'interests_heading', array( 'label' => __( 'Heading', 'galaxie-woo' ), 'type' => Controls_Manager::TEXT, 'label_block' => true, 'default' => __( 'Seus interesses', 'galaxie-woo' ) ) );
-		$this->add_control( 'interests_intro', array( 'label' => __( 'Text', 'galaxie-woo' ), 'type' => Controls_Manager::TEXTAREA, 'rows' => 2, 'default' => __( 'Escolha o que combina com você. Usamos isso para mandar só novidades que interessam.', 'galaxie-woo' ) ) );
+		$this->add_control( 'interests_intro', array( 'label' => __( 'Intro text', 'galaxie-woo' ), 'type' => Controls_Manager::TEXTAREA, 'rows' => 2, 'default' => __( 'Escolha o que combina com você. Usamos isso para mandar só novidades que interessam.', 'galaxie-woo' ) ) );
 		$this->add_control( 'interests_sparkles', array( 'label' => __( 'Sparkles when choosing', 'galaxie-woo' ), 'type' => Controls_Manager::SWITCHER, 'return_value' => 'yes', 'default' => 'yes' ) );
 
 		$this->add_control(
@@ -119,14 +119,17 @@ final class AccountInterestsWidget extends Widget_Base {
 		$this->end_controls_section();
 
 		$texts = array(
-			'interests_heading_text' => array( __( 'Heading', 'galaxie-woo' ), '.galaxie-interests-heading', array( 'size' => 'text-20', 'bold' => 'font-weight-bold' ) ),
-			'interests_intro_text'   => array( __( 'Text', 'galaxie-woo' ), '.galaxie-interests-intro', array( 'bold' => '' ) ),
+			'interests_heading_text' => array( __( 'Heading', 'galaxie-woo' ), '.galaxie-interests-heading', array( 'size' => 'text-20', 'bold' => 'font-weight-bold' ), true ),
+			'interests_intro_text'   => array( __( 'Intro text', 'galaxie-woo' ), '.galaxie-interests-intro', array( 'bold' => '' ), true ),
 			'interests_pill_text'    => array( __( 'Pill text', 'galaxie-woo' ), '.galaxie-interest', array( 'size' => 'text-sm', 'bold' => '' ) ),
+			'interests_msg_text'     => array( __( 'Error message', 'galaxie-woo' ), '.galaxie-account-message', array( 'size' => 'text-sm', 'bold' => '', 'content_color' => 'red' ) ),
 		);
 
+		// A fourth `true` marks text drawn by pixfort's Text element; the rest are
+		// classes on this widget's own markup, which carry fewer controls.
 		foreach ( $texts as $prefix => $text ) {
 			$this->start_controls_section( $prefix . '_style', array( 'label' => $text[0], 'tab' => Controls_Manager::TAB_STYLE ) );
-			PixfortControls::text( $this, $prefix, array_merge( $text[2], array( 'remove_pb_padding' => 'm-0' ) ), array(), '{{WRAPPER}} ' . $text[1], 'text', array( 'position' ) );
+			PixfortControls::text( $this, $prefix, array_merge( $text[2], array( 'remove_pb_padding' => 'm-0' ) ), array(), '{{WRAPPER}} ' . $text[1], 'text', empty( $text[3] ) ? array( 'position', 'inline' ) : array( 'position' ) );
 			$this->end_controls_section();
 		}
 
@@ -171,10 +174,13 @@ final class AccountInterestsWidget extends Widget_Base {
 		$selected = array_map( 'intval', FluentCRMApi::contact_tag_ids( wp_get_current_user()->user_email ) );
 		$pill     = trim( PixfortControls::text_classes( $s, 'interests_pill_text' ) . ' ' . PixfortControls::surface_classes( $s, 'interests_pill' ) );
 
+		// data-msg-class: the script paints the message line with these when a
+		// toggle fails, as it does for the details, communication and delete widgets.
 		printf(
-			'<div class="galaxie-account-interests %1$s" data-sparkles="%2$s">',
+			'<div class="galaxie-account-interests %1$s" data-sparkles="%2$s" data-msg-class="%3$s">',
 			esc_attr( PixfortControls::surface_classes( $s, 'interests_box' ) ),
-			'yes' === ( $s['interests_sparkles'] ?? 'yes' ) ? '1' : ''
+			'yes' === ( $s['interests_sparkles'] ?? 'yes' ) ? '1' : '',
+			esc_attr( PixfortControls::text_classes( $s, 'interests_msg_text' ) )
 		);
 
 		$heading = trim( (string) ( $s['interests_heading'] ?? '' ) );

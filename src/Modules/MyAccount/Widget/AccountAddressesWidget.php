@@ -100,7 +100,7 @@ final class AccountAddressesWidget extends Widget_Base {
 			'addr_edit'   => array( __( 'Edit button', 'galaxie-woo' ), array( 'text' => __( 'Editar', 'galaxie-woo' ), 'style' => 'outline', 'size' => 'sm' ) ),
 			'addr_add'    => array( __( 'Add button', 'galaxie-woo' ), array( 'text' => __( 'Adicionar endereço', 'galaxie-woo' ), 'size' => 'sm' ) ),
 			'addr_save'   => array( __( 'Save button', 'galaxie-woo' ), array( 'text' => __( 'Salvar endereço', 'galaxie-woo' ) ) ),
-			'addr_cancel' => array( __( 'Cancel link', 'galaxie-woo' ), array( 'text' => __( 'Cancelar', 'galaxie-woo' ), 'style' => 'link' ) ),
+			'addr_cancel' => array( __( 'Cancel button', 'galaxie-woo' ), array( 'text' => __( 'Cancelar', 'galaxie-woo' ), 'style' => 'link' ) ),
 		);
 
 		foreach ( $buttons as $prefix => $button ) {
@@ -132,9 +132,11 @@ final class AccountAddressesWidget extends Widget_Base {
 			'addr_label'      => array( __( 'Form labels', 'galaxie-woo' ), '.galaxie-address-form label', array( 'size' => 'text-sm', 'bold' => 'font-weight-bold' ) ),
 		);
 
+		// A fourth `true` marks text drawn by pixfort's Text element; the rest are
+		// classes on this widget's own markup, which carry fewer controls.
 		foreach ( $texts as $prefix => $text ) {
 			$this->start_controls_section( $prefix . '_style', array( 'label' => $text[0], 'tab' => Controls_Manager::TAB_STYLE ) );
-			PixfortControls::text( $this, $prefix, array_merge( $text[2], array( 'remove_pb_padding' => 'm-0' ) ), array(), '{{WRAPPER}} ' . $text[1], 'text', array( 'position' ) );
+			PixfortControls::text( $this, $prefix, array_merge( $text[2], array( 'remove_pb_padding' => 'm-0' ) ), array(), '{{WRAPPER}} ' . $text[1], 'text', empty( $text[3] ) ? array( 'position', 'inline' ) : array( 'position' ) );
 			$this->end_controls_section();
 		}
 

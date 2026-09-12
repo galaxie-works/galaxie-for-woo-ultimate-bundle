@@ -74,7 +74,7 @@ final class AccountDeleteWidget extends Widget_Base {
 			$this->end_controls_section();
 		}
 
-		$this->start_controls_section( 'delete_box_style', array( 'label' => __( 'Card', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
+		$this->start_controls_section( 'delete_box_style', array( 'label' => __( 'Box', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
 		PixfortControls::surface( $this, 'delete_box', '{{WRAPPER}} .galaxie-account-delete', array( 'rounded' => 'rounded-lg' ) );
 		$this->end_controls_section();
 
@@ -83,14 +83,16 @@ final class AccountDeleteWidget extends Widget_Base {
 		$this->end_controls_section();
 
 		$texts = array(
-			'delete_title_text' => array( __( 'Titles', 'galaxie-woo' ), '.galaxie-delete-title', array( 'size' => 'text-18', 'bold' => 'font-weight-bold', 'content_color' => 'red' ) ),
-			'delete_body_text'  => array( __( 'Texts', 'galaxie-woo' ), '.galaxie-delete-text', array( 'size' => 'text-sm', 'bold' => '' ) ),
+			'delete_title_text' => array( __( 'Titles', 'galaxie-woo' ), '.galaxie-delete-title', array( 'size' => 'text-18', 'bold' => 'font-weight-bold', 'content_color' => 'red' ), true ),
+			'delete_body_text'  => array( __( 'Texts', 'galaxie-woo' ), '.galaxie-delete-text', array( 'size' => 'text-sm', 'bold' => '' ), true ),
 			'delete_msg_text'   => array( __( 'Error message', 'galaxie-woo' ), '.galaxie-account-message', array( 'size' => 'text-sm', 'bold' => '', 'content_color' => 'red' ) ),
 		);
 
+		// A fourth `true` marks text drawn by pixfort's Text element; the rest are
+		// classes on this widget's own markup, which carry fewer controls.
 		foreach ( $texts as $prefix => $text ) {
 			$this->start_controls_section( $prefix . '_style', array( 'label' => $text[0], 'tab' => Controls_Manager::TAB_STYLE ) );
-			PixfortControls::text( $this, $prefix, array_merge( $text[2], array( 'remove_pb_padding' => 'm-0' ) ), array(), '{{WRAPPER}} ' . $text[1], 'text', array( 'position' ) );
+			PixfortControls::text( $this, $prefix, array_merge( $text[2], array( 'remove_pb_padding' => 'm-0' ) ), array(), '{{WRAPPER}} ' . $text[1], 'text', empty( $text[3] ) ? array( 'position', 'inline' ) : array( 'position' ) );
 			$this->end_controls_section();
 		}
 	}

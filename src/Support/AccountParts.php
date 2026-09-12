@@ -292,7 +292,8 @@ final class AccountParts {
 
 		$widget->start_controls_section( 'menu_items_style', array( 'label' => __( 'Menu items', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
 
-		PixfortControls::text( $widget, 'menu_item', array( 'bold' => '', 'remove_pb_padding' => 'm-0' ), array(), $link, 'text', array( 'position' ) );
+		// Inline: the items are our own links carrying these as classes.
+		PixfortControls::text( $widget, 'menu_item', array( 'bold' => '', 'remove_pb_padding' => 'm-0' ), array(), $link, 'text', array( 'position', 'inline' ) );
 
 		$widget->add_responsive_control(
 			'menu_item_gap',
@@ -375,7 +376,7 @@ final class AccountParts {
 
 		$widget->start_controls_section( 'menu_groups_style', array( 'label' => __( 'Group titles and dividers', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
 
-		PixfortControls::text( $widget, 'menu_heading', array( 'size' => 'text-xs', 'bold' => 'font-weight-bold', 'remove_pb_padding' => 'm-0' ), array(), $menu . ' .galaxie-account-menu-heading', 'text', array( 'position' ) );
+		PixfortControls::text( $widget, 'menu_heading', array( 'size' => 'text-xs', 'bold' => 'font-weight-bold', 'remove_pb_padding' => 'm-0' ), array(), $menu . ' .galaxie-account-menu-heading', 'text', array( 'position', 'inline' ) );
 
 		$widget->add_control( 'menu_divider_heading', array( 'label' => __( 'Divider', 'galaxie-woo' ), 'type' => Controls_Manager::HEADING, 'separator' => 'before' ) );
 		PixfortControls::palette_control( $widget, 'menu_divider_color', __( 'Color', 'galaxie-woo' ), $menu . ' .galaxie-account-menu-divider', 'background-color' );

@@ -67,15 +67,17 @@ final class AccountCommunicationWidget extends Widget_Base {
 		$this->end_controls_section();
 
 		$texts = array(
-			'comm_heading_text' => array( __( 'Heading', 'galaxie-woo' ), '.galaxie-comm-heading', array( 'size' => 'text-20', 'bold' => 'font-weight-bold' ) ),
-			'comm_title_text'   => array( __( 'Option title', 'galaxie-woo' ), '.galaxie-comm-title', array( 'bold' => 'font-weight-bold' ) ),
-			'comm_desc_text'    => array( __( 'Option description', 'galaxie-woo' ), '.galaxie-comm-text', array( 'size' => 'text-sm', 'bold' => '' ) ),
+			'comm_heading_text' => array( __( 'Heading', 'galaxie-woo' ), '.galaxie-comm-heading', array( 'size' => 'text-20', 'bold' => 'font-weight-bold' ), true ),
+			'comm_title_text'   => array( __( 'Option title', 'galaxie-woo' ), '.galaxie-comm-title', array( 'bold' => 'font-weight-bold' ), true ),
+			'comm_desc_text'    => array( __( 'Option description', 'galaxie-woo' ), '.galaxie-comm-text', array( 'size' => 'text-sm', 'bold' => '' ), true ),
 			'comm_msg_text'     => array( __( 'Messages', 'galaxie-woo' ), '.galaxie-account-message', array( 'size' => 'text-sm', 'bold' => '' ) ),
 		);
 
+		// A fourth `true` marks text drawn by pixfort's Text element; the rest are
+		// classes on this widget's own markup, which carry fewer controls.
 		foreach ( $texts as $prefix => $text ) {
 			$this->start_controls_section( $prefix . '_style', array( 'label' => $text[0], 'tab' => Controls_Manager::TAB_STYLE ) );
-			PixfortControls::text( $this, $prefix, array_merge( $text[2], array( 'remove_pb_padding' => 'm-0' ) ), array(), '{{WRAPPER}} ' . $text[1], 'text', array( 'position' ) );
+			PixfortControls::text( $this, $prefix, array_merge( $text[2], array( 'remove_pb_padding' => 'm-0' ) ), array(), '{{WRAPPER}} ' . $text[1], 'text', empty( $text[3] ) ? array( 'position', 'inline' ) : array( 'position' ) );
 			$this->end_controls_section();
 		}
 

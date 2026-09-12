@@ -84,7 +84,7 @@ final class AccountWishlistWidget extends Widget_Base {
 			$this->end_controls_section();
 		}
 
-		$this->start_controls_section( 'wl_card_style', array( 'label' => __( 'Product card', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
+		$this->start_controls_section( 'wl_card_style', array( 'label' => __( 'Product cards', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
 		PixfortControls::surface( $this, 'wl_card', '{{WRAPPER}} .galaxie-wishlist-item', array( 'rounded' => 'rounded-lg' ) );
 
 		$this->add_responsive_control(
@@ -100,21 +100,23 @@ final class AccountWishlistWidget extends Widget_Base {
 
 		$this->end_controls_section();
 
-		$this->start_controls_section( 'wl_thumb_style', array( 'label' => __( 'Picture', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
+		$this->start_controls_section( 'wl_thumb_style', array( 'label' => __( 'Product pictures', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
 		PixfortControls::thumb( $this, 'wl_thumb', '{{WRAPPER}} .galaxie-wishlist-thumb img', array( 'size_mode' => 'width' ), array(), '{{WRAPPER}} .galaxie-wishlist-thumb' );
 		$this->end_controls_section();
 
 		$texts = array(
-			'wl_heading_text' => array( __( 'Heading', 'galaxie-woo' ), '.galaxie-wishlist-heading', array( 'size' => 'text-20', 'bold' => 'font-weight-bold' ) ),
+			'wl_heading_text' => array( __( 'Heading', 'galaxie-woo' ), '.galaxie-wishlist-heading', array( 'size' => 'text-20', 'bold' => 'font-weight-bold' ), true ),
 			'wl_name'         => array( __( 'Product name', 'galaxie-woo' ), '.galaxie-wishlist-name', array( 'bold' => 'font-weight-bold' ) ),
 			'wl_price'        => array( __( 'Price', 'galaxie-woo' ), '.galaxie-wishlist-price', array( 'bold' => '' ) ),
 			'wl_remove'       => array( __( 'Remove link', 'galaxie-woo' ), '.galaxie-wishlist-remove', array( 'size' => 'text-sm', 'bold' => '' ) ),
 			'wl_empty'        => array( __( 'Empty list text', 'galaxie-woo' ), '.galaxie-wishlist-empty', array( 'bold' => '' ) ),
 		);
 
+		// A fourth `true` marks text drawn by pixfort's Text element; the rest are
+		// classes on this widget's own markup, which carry fewer controls.
 		foreach ( $texts as $prefix => $text ) {
 			$this->start_controls_section( $prefix . '_style', array( 'label' => $text[0], 'tab' => Controls_Manager::TAB_STYLE ) );
-			PixfortControls::text( $this, $prefix, array_merge( $text[2], array( 'remove_pb_padding' => 'm-0' ) ), array(), '{{WRAPPER}} ' . $text[1], 'text', array( 'position' ) );
+			PixfortControls::text( $this, $prefix, array_merge( $text[2], array( 'remove_pb_padding' => 'm-0' ) ), array(), '{{WRAPPER}} ' . $text[1], 'text', empty( $text[3] ) ? array( 'position', 'inline' ) : array( 'position' ) );
 			$this->end_controls_section();
 		}
 	}

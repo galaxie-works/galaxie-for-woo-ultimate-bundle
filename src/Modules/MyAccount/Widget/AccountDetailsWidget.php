@@ -104,16 +104,18 @@ final class AccountDetailsWidget extends Widget_Base {
 		$this->end_controls_section();
 
 		$texts = array(
-			'details_heading_text' => array( __( 'Heading', 'galaxie-woo' ), '.galaxie-details-heading', array( 'size' => 'text-20', 'bold' => 'font-weight-bold' ) ),
+			'details_heading_text' => array( __( 'Heading', 'galaxie-woo' ), '.galaxie-details-heading', array( 'size' => 'text-20', 'bold' => 'font-weight-bold' ), true ),
 			'details_label'        => array( __( 'Labels', 'galaxie-woo' ), '.galaxie-details-form label', array( 'size' => 'text-sm', 'bold' => 'font-weight-bold' ) ),
 			'details_hint'         => array( __( 'Hints', 'galaxie-woo' ), '.galaxie-details-hint', array( 'size' => 'text-xs', 'bold' => '' ) ),
 			'details_msg_ok'       => array( __( 'Saved message', 'galaxie-woo' ), '.galaxie-account-message.is-success', array( 'size' => 'text-sm', 'bold' => '', 'content_color' => 'green' ) ),
 			'details_msg_err'      => array( __( 'Error message', 'galaxie-woo' ), '.galaxie-account-message.is-error', array( 'size' => 'text-sm', 'bold' => '', 'content_color' => 'red' ) ),
 		);
 
+		// A fourth `true` marks text drawn by pixfort's Text element; the rest are
+		// classes on this widget's own markup, which carry fewer controls.
 		foreach ( $texts as $prefix => $text ) {
 			$this->start_controls_section( $prefix . '_style', array( 'label' => $text[0], 'tab' => Controls_Manager::TAB_STYLE ) );
-			PixfortControls::text( $this, $prefix, array_merge( $text[2], array( 'remove_pb_padding' => 'm-0' ) ), array(), '{{WRAPPER}} ' . $text[1], 'text', array( 'position' ) );
+			PixfortControls::text( $this, $prefix, array_merge( $text[2], array( 'remove_pb_padding' => 'm-0' ) ), array(), '{{WRAPPER}} ' . $text[1], 'text', empty( $text[3] ) ? array( 'position', 'inline' ) : array( 'position' ) );
 			$this->end_controls_section();
 		}
 
