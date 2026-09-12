@@ -112,6 +112,7 @@ final class Plugin {
 		$this->modules->register( new \Galaxie\Woo\Modules\VariationSpotlight\Module() );
 		$this->modules->register( new \Galaxie\Woo\Modules\QuantityDiscounts\Module() );
 		$this->modules->register( new \Galaxie\Woo\Modules\ProductsCarousel\Module() );
+		$this->modules->register( new \Galaxie\Woo\Modules\LoopCarousel\Module() );
 		$this->modules->register( new \Galaxie\Woo\Modules\ProductData\Module() );
 		$this->modules->register( new \Galaxie\Woo\Modules\PixfortIconPicker\Module() );
 	}
