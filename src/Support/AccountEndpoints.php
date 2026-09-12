@@ -385,7 +385,9 @@ final class AccountEndpoints {
 	 * @return array<int,string>
 	 */
 	public static function templates(): array {
-		$posts = get_posts(
+		$out = array();
+
+		$elementor = get_posts(
 			array(
 				'post_type'      => 'elementor_library',
 				'post_status'    => 'publish',
@@ -403,10 +405,44 @@ final class AccountEndpoints {
 			)
 		);
 
-		$out = array();
-
-		foreach ( $posts as $post ) {
+		foreach ( $elementor as $post ) {
 			$out[ (int) $post->ID ] = '' !== $post->post_title ? $post->post_title : sprintf( '#%d', $post->ID );
+		}
+
+		// pixfort keeps its own templates in a post type of its own, and a theme
+		// built on pixfort is where a merchant makes them. Queried separately on
+		// purpose: the kit exclusion above is a `!=` meta clause, which WordPress
+		// resolves with an INNER JOIN, so a post type that never carries that meta
+		// would vanish from a combined query without saying so.
+		if ( ! post_type_exists( 'pixfort_template' ) ) {
+			return $out;
+		}
+
+		$args = array(
+			'post_type'      => 'pixfort_template',
+			'post_status'    => 'publish',
+			'posts_per_page' => 200,
+			'orderby'        => 'title',
+			'order'          => 'ASC',
+		);
+
+		// Their builder files headers, footers and popups under the same post type,
+		// separated by this taxonomy. Only the plain templates belong here.
+		if ( taxonomy_exists( 'pixfort_template_type' ) ) {
+			$args['tax_query'] = array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_tax_query
+				array(
+					'taxonomy' => 'pixfort_template_type',
+					'field'    => 'slug',
+					'terms'    => 'template',
+				),
+			);
+		}
+
+		foreach ( get_posts( $args ) as $post ) {
+			$title = '' !== $post->post_title ? $post->post_title : sprintf( '#%d', $post->ID );
+
+			/* translators: %s: template name. */
+			$out[ (int) $post->ID ] = sprintf( __( '%s (pixfort)', 'galaxie-woo' ), $title );
 		}
 
 		return $out;

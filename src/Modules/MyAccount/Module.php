@@ -356,10 +356,13 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 		$override = isset( $_POST['template'] ) ? absint( $_POST['template'] ) : 0;
 
 		// The override travels from the clicked menu item, so it arrives as the
-		// visitor's word. Only a published Elementor template is honoured; on
+		// visitor's word. Only a template the site actually offers is honoured,
+		// checked against the very list the pickers are built from — naming a post
+		// type here instead would go stale the moment that list grows, and the
+		// screen would quietly differ from the same screen loaded normally. On
 		// anything else this falls back to what Galaxie → My Account says, which
 		// is what a page render with no override would have shown anyway.
-		if ( $override && ( 'elementor_library' !== get_post_type( $override ) || 'publish' !== get_post_status( $override ) ) ) {
+		if ( $override && ! isset( AccountEndpoints::templates()[ $override ] ) ) {
 			$override = 0;
 		}
 
