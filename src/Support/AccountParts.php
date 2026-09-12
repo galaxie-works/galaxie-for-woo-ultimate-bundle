@@ -126,6 +126,18 @@ final class AccountParts {
 
 		PixfortControls::icon_select( $repeater, 'icon', __( 'pixfort Icon', 'galaxie-woo' ), '', array( 'item_type' => array( 'endpoint', 'link' ) ) );
 
+		$repeater->add_control(
+			'template',
+			array(
+				'label'       => __( 'Template', 'galaxie-woo' ),
+				'type'        => Controls_Manager::SELECT,
+				'options'     => array( '' => __( 'As set under Galaxie → My Account', 'galaxie-woo' ) ) + AccountEndpoints::templates(),
+				'default'     => '',
+				'description' => __( 'Draws this screen from a template of your own, wherever this menu is. Leave it as it is to follow Galaxie → My Account.', 'galaxie-woo' ),
+				'condition'   => array( 'item_type' => 'endpoint' ),
+			)
+		);
+
 		$defaults = array();
 
 		foreach ( AccountEndpoints::all() as $key => $screen ) {
@@ -407,12 +419,68 @@ final class AccountParts {
 	}
 
 	/** @param array<string,mixed> $settings */
+	/**
+	 * Screen key => template id, as the menu beside the content was told to draw them.
+	 *
+	 * The menu and the screen are two widgets as often as they are one. When they
+	 * are one — the Galaxie Account widget — the content reads the items straight
+	 * out of its own settings, which it must, because that widget draws the
+	 * content before the menu. When they are two, the menu leaves its choices
+	 * here on the way past and the content picks them up.
+	 *
+	 * @var array<string,int>
+	 */
+	private static array $menu_templates = array();
+
+	/**
+	 * The template this screen should be drawn from here, or 0 to follow the admin.
+	 *
+	 * @param array<string,mixed> $settings
+	 */
+	private static function template_for( string $key, array $settings ): int {
+		if ( '' === $key ) {
+			return 0;
+		}
+
+		if ( isset( $settings['menu_items'] ) && is_array( $settings['menu_items'] ) ) {
+			return self::templates_from( $settings['menu_items'] )[ $key ] ?? 0;
+		}
+
+		return self::$menu_templates[ $key ] ?? 0;
+	}
+
+	/**
+	 * @param array<int,mixed> $items
+	 * @return array<string,int>
+	 */
+	private static function templates_from( array $items ): array {
+		$out = array();
+
+		foreach ( $items as $item ) {
+			if ( ! is_array( $item ) || 'endpoint' !== ( $item['item_type'] ?? 'endpoint' ) ) {
+				continue;
+			}
+
+			$key      = (string) ( $item['endpoint'] ?? '' );
+			$template = absint( $item['template'] ?? 0 );
+
+			if ( '' !== $key && $template ) {
+				$out[ $key ] = $template;
+			}
+		}
+
+		return $out;
+	}
+
 	public static function render_menu( array $settings ): string {
 		if ( ! self::available() || ( ! is_user_logged_in() && ! self::editing() ) ) {
 			return '';
 		}
 
 		$items = array_values( array_filter( (array) ( $settings['menu_items'] ?? array() ), 'is_array' ) );
+
+		// Left for a content widget rendered after this one, further down the page.
+		self::$menu_templates = self::templates_from( $items );
 
 		if ( ! $items ) {
 			foreach ( array_keys( AccountEndpoints::all() ) as $key ) {
@@ -744,7 +812,7 @@ final class AccountParts {
 			$html .= (string) wc_print_notices( true );
 		}
 
-		$html .= AccountEndpoints::render( $screen['key'], $screen['value'] );
+		$html .= AccountEndpoints::render( $screen['key'], $screen['value'], self::template_for( $screen['key'], $settings ) );
 
 		return sprintf(
 			'<div class="galaxie-account-content woocommerce %1$s" data-account-screen="%2$s">%3$s</div>',

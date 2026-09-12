@@ -324,7 +324,7 @@ final class AccountEndpoints {
 	 * One screen's content: its template when it has one, WooCommerce's own
 	 * screen when it does not.
 	 */
-	public static function render( string $key, string $value = '' ): string {
+	public static function render( string $key, string $value = '', int $override = 0 ): string {
 		if ( self::$depth > 0 ) {
 			return '';
 		}
@@ -334,6 +334,13 @@ final class AccountEndpoints {
 		try {
 			$entry    = self::get( $key );
 			$template = $entry ? $entry['template'] : 0;
+
+			// A template picked beside the menu item wins, for the page that menu
+			// is on. Everywhere else — WooCommerce's own account page, another
+			// layout, a screen reached with no menu drawn — the admin still rules.
+			if ( $override > 0 ) {
+				$template = $override;
+			}
 
 			if ( $template > 0 && class_exists( '\Elementor\Plugin' ) && 'publish' === get_post_status( $template ) ) {
 				return (string) \Elementor\Plugin::$instance->frontend->get_builder_content_for_display( $template, true );
