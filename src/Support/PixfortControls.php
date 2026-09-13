@@ -1089,7 +1089,13 @@ final class PixfortControls {
 			return;
 		}
 
-		$colors     = self::colors( array( 'defaultValue' => array( '' => __( 'Default', 'galaxie-woo' ) ), 'mainLight' => true, 'gradients' => false ) );
+		// A background picker offers what pixfort's own background pickers offer:
+		// its background list, which carries Primary Gradient and Primary Gradient
+		// Light. A gradient is an image, not a colour, so it is written to
+		// `background-image` through the theme's own --pix-gradient-* variable —
+		// which keeps it following the palette the way every other entry does.
+		$background = in_array( $property, array( 'background-color', 'background' ), true );
+		$colors     = self::colors( array( 'defaultValue' => array( '' => __( 'Default', 'galaxie-woo' ) ), 'mainLight' => true, 'bg' => $background, 'gradients' => $background ) );
 		$dictionary = array( '' => '' );
 
 		foreach ( $colors as $group ) {
@@ -1100,6 +1106,12 @@ final class PixfortControls {
 				if ( '' === $value || 'custom' === $value ) {
 					continue;
 				}
+
+				if ( $background && 0 === strpos( (string) $value, 'gradient-' ) ) {
+					$dictionary[ $value ] = ( 'background' === $property ? 'background' : 'background-image' ) . ': var(--pix-' . $value . ') !important;' . $extra;
+					continue;
+				}
+
 				$dictionary[ $value ] = $property . ': var(--pix-' . $value . ') !important;' . $extra;
 			}
 		}

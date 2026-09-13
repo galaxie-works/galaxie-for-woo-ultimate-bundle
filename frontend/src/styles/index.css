@@ -2172,11 +2172,10 @@ address.galaxie-order-body {
   min-width: 0;
 }
 
-/* A card drawn as a card. The colour is `background-color`, which the Cards
-   background control replaces; the depth is a translucent gradient layered on
-   top of it, so a chosen colour keeps the sheen instead of losing it. */
+/* A card drawn as a card, in a flat colour. A gradient is a choice, not a
+   given: the Cards background control offers pixfort's Primary Gradient and
+   Primary Gradient Light. */
 .galaxie-pm-card {
-  position: relative;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -2186,25 +2185,7 @@ address.galaxie-order-body {
   overflow: hidden;
   border: 1px solid rgb(255 255 255 / 8%);
   background-color: #1d1d21;
-  background-image: linear-gradient(135deg, rgb(255 255 255 / 12%) 0%, rgb(255 255 255 / 0%) 45%, rgb(0 0 0 / 22%) 100%);
   color: #fff;
-}
-
-.galaxie-pm-card::after {
-  content: '';
-  position: absolute;
-  right: -25%;
-  bottom: -55%;
-  width: 75%;
-  aspect-ratio: 1;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgb(255 255 255 / 9%), transparent 70%);
-  pointer-events: none;
-}
-
-.galaxie-pm-card > * {
-  position: relative;
-  z-index: 1;
 }
 
 .galaxie-pm-card-top,
