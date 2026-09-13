@@ -229,8 +229,12 @@ final class AccountAddressesWidget extends Widget_Base {
 		echo '<div class="galaxie-address-cards">';
 
 		foreach ( $this->types( $s ) as $type => $title ) {
+			// A street, not just any text: saving the account details copies the name
+			// into billing so checkout starts filled in, and the formatted address
+			// of a name alone is not empty — it would read as an address on file.
 			$formatted = wc_get_account_formatted_address( $type );
-			$has       = '' !== trim( wp_strip_all_tags( (string) $formatted ) );
+			$has       = '' !== trim( (string) get_user_meta( get_current_user_id(), $type . '_address_1', true ) )
+				&& '' !== trim( wp_strip_all_tags( (string) $formatted ) );
 
 			printf(
 				'<section class="galaxie-address-card card %1$s"><header class="galaxie-address-card-head">%2$s</header>%3$s<div class="galaxie-address-card-actions">%4$s</div></section>',
