@@ -323,7 +323,11 @@ final class PixfortControls {
 	 * @param array<string,mixed> $condition
 	 */
 	private static function button_hover( object $target, string $prefix, array $condition, string $scope ): void {
-		$hovered = $scope . ':hover .btn';
+		// The button's own hover, not the scope's: with `{{WRAPPER}}` as the scope,
+		// `{{WRAPPER}}:hover .btn` paints every button in the widget the moment the
+		// pointer enters any part of it, and a second button loses the style when
+		// the first one is hovered.
+		$hovered = $scope . ' .btn:hover';
 
 		self::add( $target, $condition, $prefix . '_hover_heading', array(
 			'label'     => __( 'Hover', 'galaxie-woo' ),
