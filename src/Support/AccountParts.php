@@ -340,6 +340,33 @@ final class AccountParts {
 			)
 		);
 
+		// pixfort gives the current pill its large shadow with `!important`, so
+		// the Button's Shadow style above — a class — can never reach it. The
+		// values are pixfort's own shadow-sm / shadow / shadow-lg, written on a
+		// selector scoped by Elementor, which outranks the theme's rule.
+		$widget->add_control(
+			'menu_active_shadow',
+			array(
+				'label'                => __( 'Shadow', 'galaxie-woo' ),
+				'type'                 => Controls_Manager::SELECT,
+				'options'              => array(
+					''       => __( 'As the menu style draws it', 'galaxie-woo' ),
+					'none'   => __( 'None', 'galaxie-woo' ),
+					'small'  => __( 'Small shadow', 'galaxie-woo' ),
+					'medium' => __( 'Medium shadow', 'galaxie-woo' ),
+					'large'  => __( 'Large shadow', 'galaxie-woo' ),
+				),
+				'default'              => '',
+				'selectors_dictionary' => array(
+					'none'   => 'none',
+					'small'  => '0 1px 5px 0 rgba(0, 0, 0, .15)',
+					'medium' => '0 .125rem .375rem rgba(0, 0, 0, .05), 0 .5rem 1.2rem rgba(0, 0, 0, .1)',
+					'large'  => '0 .25rem .5rem rgba(0, 0, 0, .05), 0 1.5rem 2.2rem rgba(0, 0, 0, .1)',
+				),
+				'selectors'            => array( $link . '.active' => 'box-shadow: {{VALUE}} !important;' ),
+			)
+		);
+
 		$widget->end_controls_section();
 
 		$widget->start_controls_section(
@@ -498,13 +525,29 @@ final class AccountParts {
 		$mobile    = in_array( $settings['menu_mobile'] ?? 'scroll', array( 'scroll', 'select', 'stack' ), true ) ? (string) $settings['menu_mobile'] : 'scroll';
 		$sticky    = $vertical && 'yes' === ( $settings['menu_sticky'] ?? '' );
 		$active    = self::active_key();
+
+		// The size class goes on the label, not the link: pixfort's pill styles
+		// and ours both set a font size on `.nav-pills .nav-link` with more
+		// specificity than a lone `.text-20`, so on the link the Size control
+		// never showed. Nothing sizes the label, so there the class wins, and
+		// with no size chosen the label simply inherits the link's. A custom
+		// size is untouched — its rule already reaches the link through
+		// Elementor's scoped selector.
+		$item_size  = (string) ( $settings['menu_item_size'] ?? '' );
+		$size_class = ( '' !== $item_size && 'custom' !== $item_size ) ? $item_size : '';
+		$item_text  = PixfortControls::text_classes( $settings, 'menu_item' );
+
+		if ( '' !== $size_class ) {
+			$item_text = trim( (string) preg_replace( '/(^|\s)' . preg_quote( $size_class, '/' ) . '(?=\s|$)/', ' ', $item_text ) );
+		}
+
 		$link_base = trim(
 			implode(
 				' ',
 				array(
 					'nav-link',
 					$top ? 'is-icon-top' : '',
-					PixfortControls::text_classes( $settings, 'menu_item' ),
+					$item_text,
 					PixfortControls::surface_classes( $settings, 'menu_item' ),
 				)
 			)
@@ -587,13 +630,13 @@ final class AccountParts {
 			}
 
 			$links .= sprintf(
-				'<div class="nav-item"><a class="%1$s" href="%2$s"%3$s%4$s%7$s>%5$s<span class="galaxie-account-menu-label">%6$s</span></a></div>',
+				'<div class="nav-item"><a class="%1$s" href="%2$s"%3$s%4$s%7$s>%5$s%6$s</a></div>',
 				esc_attr( $link_base . ( $is_active ? ' active' : '' ) ),
 				esc_url( $url ),
 				$is_active ? ' aria-current="page"' : '',
 				$attrs, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- fixed attribute strings.
 				$icon, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pixfort's own icon markup.
-				esc_html( $label ),
+				sprintf( '<span class="%1$s">%2$s</span>', esc_attr( trim( 'galaxie-account-menu-label ' . $size_class ) ), esc_html( $label ) ),
 				$screen_attr // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- an escaped key and an integer.
 			);
 
