@@ -17,8 +17,9 @@ use Galaxie\Woo\Support\PixfortControls;
 defined( 'ABSPATH' ) || exit;
 
 /**
- * A card per saved payment method, drawn from WooCommerce's own list —
- * `woocommerce_saved_payment_methods_list` — rather than from any one gateway.
+ * Each saved payment method drawn as the card it is — brand mark, chip, the
+ * last four digits, the expiry — from WooCommerce's own list,
+ * `woocommerce_saved_payment_methods_list`, rather than from any one gateway.
  * Stripe, or whatever replaces it, adds its methods to that list, so the widget
  * never needs to know which gateway holds the card.
  *
@@ -30,18 +31,18 @@ defined( 'ABSPATH' ) || exit;
  */
 final class AccountPaymentMethodsWidget extends Widget_Base {
 
-	/** Brand name, lowercased and stripped to letters => WooCommerce's own card icon. */
-	private const ICONS = array(
-		'visa'            => 'visa.svg',
-		'mastercard'      => 'mastercard.svg',
-		'amex'            => 'amex.svg',
-		'americanexpress' => 'amex.svg',
-		'diners'          => 'diners.svg',
-		'dinersclub'      => 'diners.svg',
-		'discover'        => 'discover.svg',
-		'jcb'             => 'jcb.svg',
-		'maestro'         => 'maestro.svg',
+	/**
+	 * Brand name, lowercased and stripped to letters => pixfort icon. The two
+	 * brands pixfort draws come from its Solid set; any other brand — Elo,
+	 * Hipercard, Amex — gets its generic card outline rather than a wrong logo.
+	 */
+	private const BRAND_ICONS = array(
+		'visa'       => 'Solid/pixfort-icon-visa-1',
+		'mastercard' => 'Solid/pixfort-icon-mastercard-1',
+		'master'     => 'Solid/pixfort-icon-mastercard-1',
 	);
+
+	private const GENERIC_ICON = 'Line/pixfort-icon-credit-card-1';
 
 	public function get_name(): string {
 		return 'galaxie-account-payment-methods';
@@ -81,13 +82,17 @@ final class AccountPaymentMethodsWidget extends Widget_Base {
 		$this->add_control(
 			'pm_show_icons',
 			array(
-				'label'        => __( 'Card brand icons', 'galaxie-woo' ),
+				'label'        => __( 'Card brand icon', 'galaxie-woo' ),
+				'description'  => __( 'Visa and Mastercard get their own mark; any other brand gets a generic card.', 'galaxie-woo' ),
 				'type'         => Controls_Manager::SWITCHER,
 				'return_value' => 'yes',
 				'default'      => 'yes',
 				'separator'    => 'before',
 			)
 		);
+
+		$this->add_control( 'pm_show_brand_name', array( 'label' => __( 'Brand name', 'galaxie-woo' ), 'type' => Controls_Manager::SWITCHER, 'return_value' => 'yes', 'default' => 'yes' ) );
+		$this->add_control( 'pm_show_chip', array( 'label' => __( 'Chip', 'galaxie-woo' ), 'type' => Controls_Manager::SWITCHER, 'return_value' => 'yes', 'default' => 'yes' ) );
 
 		$this->add_responsive_control(
 			'pm_columns',
@@ -99,6 +104,7 @@ final class AccountPaymentMethodsWidget extends Widget_Base {
 				'tablet_default' => '2',
 				'mobile_default' => '1',
 				'selectors'      => array( '{{WRAPPER}} .galaxie-pm-cards' => 'grid-template-columns: repeat({{VALUE}}, minmax(0, 1fr));' ),
+				'separator'      => 'before',
 			)
 		);
 
@@ -119,6 +125,30 @@ final class AccountPaymentMethodsWidget extends Widget_Base {
 		$this->start_controls_section( 'pm_card_style', array( 'label' => __( 'Cards', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
 		PixfortControls::surface( $this, 'pm_card', '{{WRAPPER}} .galaxie-pm-card', array( 'rounded' => 'rounded-lg' ) );
 
+		$this->add_control(
+			'pm_card_ratio',
+			array(
+				'label'        => __( 'Credit card proportions', 'galaxie-woo' ),
+				'description'  => __( 'The 85.6 × 54 mm shape of a real card. Off, the card is as tall as its content.', 'galaxie-woo' ),
+				'type'         => Controls_Manager::SWITCHER,
+				'return_value' => 'yes',
+				'default'      => 'yes',
+				'separator'    => 'before',
+				'selectors'    => array( '{{WRAPPER}} .galaxie-pm-card' => 'aspect-ratio: 1.586 / 1;' ),
+			)
+		);
+
+		$this->add_responsive_control(
+			'pm_card_width',
+			array(
+				'label'      => __( 'Card max width', 'galaxie-woo' ),
+				'type'       => Controls_Manager::SLIDER,
+				'size_units' => array( 'px', '%' ),
+				'range'      => array( 'px' => array( 'min' => 200, 'max' => 640 ) ),
+				'selectors'  => array( '{{WRAPPER}} .galaxie-pm-item' => 'max-width: {{SIZE}}{{UNIT}};' ),
+			)
+		);
+
 		$this->add_responsive_control(
 			'pm_gap',
 			array(
@@ -130,17 +160,22 @@ final class AccountPaymentMethodsWidget extends Widget_Base {
 			)
 		);
 
+		$this->end_controls_section();
+
+		$this->start_controls_section( 'pm_icon_style', array( 'label' => __( 'Brand icon', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE, 'condition' => array( 'pm_show_icons' => 'yes' ) ) );
+
 		$this->add_responsive_control(
-			'pm_icon_height',
+			'pm_icon_size',
 			array(
-				'label'      => __( 'Brand icon height', 'galaxie-woo' ),
+				'label'      => __( 'Size', 'galaxie-woo' ),
 				'type'       => Controls_Manager::SLIDER,
 				'size_units' => array( 'px' ),
-				'range'      => array( 'px' => array( 'min' => 12, 'max' => 64 ) ),
-				'selectors'  => array( '{{WRAPPER}} .galaxie-pm-brand img' => 'height: {{SIZE}}{{UNIT}};' ),
-				'condition'  => array( 'pm_show_icons' => 'yes' ),
+				'range'      => array( 'px' => array( 'min' => 16, 'max' => 96 ) ),
+				'selectors'  => array( '{{WRAPPER}} .galaxie-pm-brand .pixfort-icon' => 'width: {{SIZE}}{{UNIT}}; height: {{SIZE}}{{UNIT}};' ),
 			)
 		);
+
+		PixfortControls::icon_color( $this, 'pm_icon_color', __( 'Color', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-pm-brand' );
 
 		$this->end_controls_section();
 
@@ -156,9 +191,9 @@ final class AccountPaymentMethodsWidget extends Widget_Base {
 		$texts = array(
 			'pm_heading_text' => array( __( 'Heading', 'galaxie-woo' ), '.galaxie-pm-heading', array( 'size' => 'text-20', 'bold' => 'font-weight-bold' ), true ),
 			'pm_intro_text'   => array( __( 'Intro text', 'galaxie-woo' ), '.galaxie-pm-intro', array( 'bold' => '' ), true ),
-			'pm_brand_text'   => array( __( 'Card brand', 'galaxie-woo' ), '.galaxie-pm-brand-name', array( 'size' => 'text-18', 'bold' => 'font-weight-bold' ) ),
-			'pm_number_text'  => array( __( 'Card number', 'galaxie-woo' ), '.galaxie-pm-number', array( 'bold' => '' ) ),
+			'pm_number_text'  => array( __( 'Card number', 'galaxie-woo' ), '.galaxie-pm-number', array( 'size' => 'text-20', 'bold' => '' ) ),
 			'pm_expiry_text'  => array( __( 'Expiry', 'galaxie-woo' ), '.galaxie-pm-expiry', array( 'size' => 'text-sm', 'bold' => '' ) ),
+			'pm_brand_text'   => array( __( 'Brand name', 'galaxie-woo' ), '.galaxie-pm-brand-name', array( 'size' => 'text-sm', 'bold' => 'font-weight-bold' ) ),
 			'pm_badge_text'   => array( __( 'Badge text', 'galaxie-woo' ), '.galaxie-pm-badge', array( 'size' => 'text-xs', 'bold' => 'font-weight-bold' ) ),
 			'pm_empty_body'   => array( __( 'Empty list text', 'galaxie-woo' ), '.galaxie-pm-empty', array( 'bold' => '' ) ),
 		);
@@ -183,11 +218,13 @@ final class AccountPaymentMethodsWidget extends Widget_Base {
 		$editing = AccountParts::editing();
 		$methods = is_user_logged_in() ? self::methods( get_current_user_id() ) : array();
 
-		// Something to style in the editor, where the account may have no cards.
+		// Something to style in the editor, where the account may have no cards:
+		// one of each icon and each warning.
 		if ( ! $methods && $editing ) {
 			$methods = array(
 				array( 'method' => array( 'brand' => 'Visa', 'last4' => '4242' ), 'expires' => '12/30', 'is_default' => true, 'actions' => array( 'delete' => array( 'url' => '#' ) ) ),
 				array( 'method' => array( 'brand' => 'Mastercard', 'last4' => '4444' ), 'expires' => gmdate( 'm/y', strtotime( '+1 month' ) ), 'is_default' => false, 'actions' => array( 'delete' => array( 'url' => '#' ), 'default' => array( 'url' => '#' ) ) ),
+				array( 'method' => array( 'brand' => 'Elo', 'last4' => '0001' ), 'expires' => '01/24', 'is_default' => false, 'actions' => array( 'delete' => array( 'url' => '#' ), 'default' => array( 'url' => '#' ) ) ),
 			);
 		}
 
@@ -284,6 +321,18 @@ final class AccountPaymentMethodsWidget extends Widget_Base {
 		return $end - $now < 60 * DAY_IN_SECONDS ? 'expiring' : '';
 	}
 
+	/** The brand's pixfort icon, or the generic card when pixfort has none for it. */
+	private static function brand_icon( string $brand ): string {
+		if ( ! class_exists( '\PixfortCore' ) ) {
+			return '';
+		}
+
+		$key  = (string) preg_replace( '/[^a-z]/', '', strtolower( $brand ) );
+		$name = self::BRAND_ICONS[ $key ] ?? self::GENERIC_ICON;
+
+		return (string) \PixfortCore::instance()->icons->getIcon( $name, 48, 'galaxie-pm-brand-icon' );
+	}
+
 	/**
 	 * @param array<string,mixed> $s
 	 * @param array<string,mixed> $method
@@ -295,13 +344,9 @@ final class AccountPaymentMethodsWidget extends Widget_Base {
 		$default = ! empty( $method['is_default'] );
 		$actions = (array) ( $method['actions'] ?? array() );
 		$state   = self::expiry_state( $expires );
+		$key     = (string) preg_replace( '/[^a-z]/', '', strtolower( $brand ) );
 		$badge   = trim( PixfortControls::text_classes( $s, 'pm_badge_text' ) . ' ' . PixfortControls::surface_classes( $s, 'pm_badge' ) );
-		$file    = self::ICONS[ (string) preg_replace( '/[^a-z]/', '', strtolower( $brand ) ) ] ?? '';
-		$icon    = '';
-
-		if ( '' !== $file && 'yes' === ( $s['pm_show_icons'] ?? 'yes' ) && function_exists( 'WC' ) ) {
-			$icon = sprintf( '<img src="%1$s" alt="" loading="lazy" />', esc_url( WC()->plugin_url() . '/assets/images/icons/credit-cards/' . $file ) );
-		}
+		$icon    = 'yes' === ( $s['pm_show_icons'] ?? 'yes' ) ? self::brand_icon( $brand ) : '';
 
 		$badges = $default ? sprintf( '<span class="galaxie-pm-badge is-default %1$s">%2$s</span>', esc_attr( $badge ), esc_html( (string) ( $s['pm_badge_default'] ?? '' ) ) ) : '';
 
@@ -320,18 +365,25 @@ final class AccountPaymentMethodsWidget extends Widget_Base {
 		}
 
 		$has_date = '' !== $expires && preg_match( '#\d#', $expires );
+		$classes  = array(
+			'galaxie-pm-card',
+			'card',
+			PixfortControls::surface_classes( $s, 'pm_card' ),
+			'is-' . ( isset( self::BRAND_ICONS[ $key ] ) ? $key : 'generic' ),
+			$default ? 'is-default' : '',
+			'' !== $state ? 'is-' . $state : '',
+		);
 
 		return sprintf(
-			'<article class="galaxie-pm-card card %1$s%2$s"><header class="galaxie-pm-card-head"><span class="galaxie-pm-brand">%3$s<span class="galaxie-pm-brand-name %4$s">%5$s</span></span><span class="galaxie-pm-badges">%6$s</span></header>%7$s%8$s<div class="galaxie-pm-card-actions">%9$s</div></article>',
-			esc_attr( PixfortControls::surface_classes( $s, 'pm_card' ) ),
-			$default ? ' is-default' : '',
-			$icon,
-			esc_attr( PixfortControls::text_classes( $s, 'pm_brand_text' ) ),
-			esc_html( $brand ),
+			'<article class="galaxie-pm-item"><div class="%1$s"><div class="galaxie-pm-card-top"><span class="galaxie-pm-brand">%2$s</span><span class="galaxie-pm-badges">%3$s</span></div>%4$s%5$s<div class="galaxie-pm-card-bottom">%6$s%7$s</div></div>%8$s</article>',
+			esc_attr( trim( implode( ' ', array_filter( $classes ) ) ) ),
+			$icon, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pixfort's own icon markup.
 			$badges,
-			'' !== $last4 ? sprintf( '<div class="galaxie-pm-number %1$s">•••• %2$s</div>', esc_attr( PixfortControls::text_classes( $s, 'pm_number_text' ) ), esc_html( $last4 ) ) : '',
-			$has_date ? sprintf( '<div class="galaxie-pm-expiry %1$s">%2$s %3$s</div>', esc_attr( PixfortControls::text_classes( $s, 'pm_expiry_text' ) ), esc_html( (string) ( $s['pm_expires_label'] ?? '' ) ), esc_html( $expires ) ) : '',
-			$buttons
+			'yes' === ( $s['pm_show_chip'] ?? 'yes' ) ? '<span class="galaxie-pm-chip" aria-hidden="true"></span>' : '',
+			'' !== $last4 ? sprintf( '<div class="galaxie-pm-number %1$s"><span aria-hidden="true">•••• •••• ••••</span> %2$s</div>', esc_attr( PixfortControls::text_classes( $s, 'pm_number_text' ) ), esc_html( $last4 ) ) : '',
+			$has_date ? sprintf( '<div class="galaxie-pm-expiry %1$s"><span class="galaxie-pm-expiry-label">%2$s</span> %3$s</div>', esc_attr( PixfortControls::text_classes( $s, 'pm_expiry_text' ) ), esc_html( (string) ( $s['pm_expires_label'] ?? '' ) ), esc_html( $expires ) ) : '<span></span>',
+			'yes' === ( $s['pm_show_brand_name'] ?? 'yes' ) && '' !== $brand ? sprintf( '<span class="galaxie-pm-brand-name %1$s">%2$s</span>', esc_attr( PixfortControls::text_classes( $s, 'pm_brand_text' ) ), esc_html( $brand ) ) : '',
+			'' !== $buttons ? '<div class="galaxie-pm-card-actions">' . $buttons . '</div>' : ''
 		);
 	}
 }

@@ -2165,36 +2165,77 @@ address.galaxie-order-body {
   }
 }
 
-.galaxie-pm-card {
+.galaxie-pm-item {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 20px;
-  border: 1px solid rgb(0 0 0 / 6%);
+  gap: 10px;
+  min-width: 0;
 }
 
-.galaxie-pm-card-head {
+/* A card drawn as a card. The colour is `background-color`, which the Cards
+   background control replaces; the depth is a translucent gradient layered on
+   top of it, so a chosen colour keeps the sheen instead of losing it. */
+.galaxie-pm-card {
+  position: relative;
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 22px 24px;
+  overflow: hidden;
+  border: 1px solid rgb(255 255 255 / 8%);
+  background-color: #1d1d21;
+  background-image: linear-gradient(135deg, rgb(255 255 255 / 12%) 0%, rgb(255 255 255 / 0%) 45%, rgb(0 0 0 / 22%) 100%);
+  color: #fff;
+}
+
+.galaxie-pm-card::after {
+  content: '';
+  position: absolute;
+  right: -25%;
+  bottom: -55%;
+  width: 75%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgb(255 255 255 / 9%), transparent 70%);
+  pointer-events: none;
+}
+
+.galaxie-pm-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.galaxie-pm-card-top,
+.galaxie-pm-card-bottom {
+  display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
 }
 
+.galaxie-pm-card-bottom {
+  align-items: flex-end;
+}
+
+/* pixfort paints its icons through --pf-icon-color; the card's own text colour
+   is the default, so the mark follows whatever colour the card is set to. */
 .galaxie-pm-brand {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  --pf-icon-color: currentColor;
 }
 
-.galaxie-pm-brand img {
-  width: auto;
-  height: 24px;
+.galaxie-pm-brand .pixfort-icon {
+  width: 48px;
+  height: 48px;
 }
 
 .galaxie-pm-badges {
   display: flex;
   flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 6px;
 }
 
@@ -2203,10 +2244,33 @@ address.galaxie-order-body {
   align-items: center;
   padding: 2px 10px;
   border: 1px solid currentColor;
+  white-space: nowrap;
+}
+
+.galaxie-pm-chip {
+  display: block;
+  width: 42px;
+  height: 30px;
+  border: 1px solid rgb(255 255 255 / 28%);
+  border-radius: 6px;
+  background: linear-gradient(135deg, rgb(255 255 255 / 45%), rgb(255 255 255 / 12%));
 }
 
 .galaxie-pm-number {
-  letter-spacing: 0.08em;
+  overflow: hidden;
+  letter-spacing: 0.12em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.galaxie-pm-expiry-label {
+  opacity: 0.7;
+}
+
+.galaxie-pm-card.is-expired .galaxie-pm-number,
+.galaxie-pm-card.is-expired .galaxie-pm-brand {
+  opacity: 0.55;
 }
 
 .galaxie-pm-card-actions,
@@ -2215,10 +2279,6 @@ address.galaxie-order-body {
   flex-wrap: wrap;
   align-items: center;
   gap: 8px 12px;
-}
-
-.galaxie-pm-card-actions {
-  margin-top: auto;
 }
 
 /* Personal details */
