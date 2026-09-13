@@ -264,7 +264,7 @@ final class AccountAddressBookWidget extends Widget_Base {
 			$this->button( $s, 'ab_edit', 'galaxie-ab-edit' ),
 			$this->button( $s, 'ab_ship_default', 'galaxie-ab-default', 'data-type="shipping"' . $hide( null !== $entry && $shipping ) ),
 			$this->button( $s, 'ab_bill_default', 'galaxie-ab-default', 'data-type="billing"' . $hide( null !== $entry && $billing ) ),
-			$this->button( $s, 'ab_delete', 'galaxie-ab-delete', $hide( $shipping || $billing ) )
+			$this->button( $s, 'ab_delete', 'galaxie-ab-delete' )
 		);
 	}
 

@@ -173,16 +173,35 @@ final class AddressBook {
 			return new \WP_Error( 'missing', __( 'Este endereço não existe mais. Recarregue a página.', 'galaxie-woo' ) );
 		}
 
-		// A default is what checkout fills in; removing it from the book would
-		// leave checkout using an address the customer can no longer see.
-		if ( self::defaults_of( $user_id, $entries[ $id ] ) ) {
-			return new \WP_Error( 'default', __( 'Este é um endereço padrão. Escolha outro para entrega e cobrança antes de excluir.', 'galaxie-woo' ) );
-		}
+		$defaults = self::defaults_of( $user_id, $entries[ $id ] );
 
 		unset( $entries[ $id ] );
 		update_user_meta( $user_id, self::META_KEY, $entries );
 
+		// A default is what checkout fills in, so it cannot just vanish from the
+		// book and stay behind in WooCommerce: the next address takes its place,
+		// and with none left the WooCommerce address is emptied too.
+		foreach ( $defaults as $type ) {
+			$next = reset( $entries );
+
+			if ( false !== $next ) {
+				self::write_wc( $user_id, $type, $next );
+			} else {
+				self::clear_wc( $user_id, $type );
+			}
+		}
+
 		return true;
+	}
+
+	/**
+	 * Empties where a WooCommerce address points, keeping the name and phone:
+	 * those belong to the customer, not to the place.
+	 */
+	private static function clear_wc( int $user_id, string $type ): void {
+		foreach ( array( 'company', 'address_1', 'address_2', 'city', 'state', 'postcode' ) as $field ) {
+			update_user_meta( $user_id, $type . '_' . $field, '' );
+		}
 	}
 
 	/** @return true|\WP_Error */

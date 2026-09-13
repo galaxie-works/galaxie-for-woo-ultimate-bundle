@@ -99,9 +99,6 @@ function fillCard(card: HTMLElement, entry: AddressBookEntry): HTMLElement {
     button.hidden = button.dataset.type === 'shipping' ? entry.shipping : entry.billing
   })
 
-  const remove = card.querySelector<HTMLElement>('.galaxie-ab-delete')
-  if (remove) remove.hidden = entry.shipping || entry.billing
-
   return card
 }
 
