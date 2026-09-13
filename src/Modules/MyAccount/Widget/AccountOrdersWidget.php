@@ -312,11 +312,11 @@ final class AccountOrdersWidget extends Widget_Base {
 			echo '<nav class="galaxie-account-orders-pages">';
 
 			if ( $data['page'] > 1 ) {
-				echo AccountParts::link_button( $s, 'orders_view', (string) ( $s['orders_prev_text'] ?? '' ), (string) wc_get_endpoint_url( 'orders', (string) ( $data['page'] - 1 ) ), 'is-prev' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built from escaped parts.
+				echo AccountParts::link_button( $s, 'orders_view', (string) ( $s['orders_prev_text'] ?? '' ), AccountEndpoints::url( 'orders', (string) ( $data['page'] - 1 ) ), 'is-prev' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built from escaped parts.
 			}
 
 			if ( $data['page'] < $data['pages'] ) {
-				echo AccountParts::link_button( $s, 'orders_view', (string) ( $s['orders_next_text'] ?? '' ), (string) wc_get_endpoint_url( 'orders', (string) ( $data['page'] + 1 ) ), 'is-next' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built from escaped parts.
+				echo AccountParts::link_button( $s, 'orders_view', (string) ( $s['orders_next_text'] ?? '' ), AccountEndpoints::url( 'orders', (string) ( $data['page'] + 1 ) ), 'is-next' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built from escaped parts.
 			}
 
 			echo '</nav>';

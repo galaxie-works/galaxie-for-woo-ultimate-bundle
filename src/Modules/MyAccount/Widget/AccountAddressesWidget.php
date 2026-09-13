@@ -242,8 +242,8 @@ final class AccountAddressesWidget extends Widget_Base {
 				$this->text( $s, 'addr_title', 'galaxie-address-title', esc_html( $title ) ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped inside.
 				$this->text( $s, 'addr_body', 'galaxie-address-body' . ( $has ? '' : ' is-empty' ), $has ? wp_kses_post( $formatted ) : esc_html( (string) ( $s['addr_empty_text'] ?? '' ) ), 'address' ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped inside.
 				$has // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built from escaped parts.
-					? AccountParts::link_button( $s, 'addr_edit', (string) ( $s['addr_edit_text'] ?? '' ), (string) wc_get_endpoint_url( 'edit-address', $type ) )
-					: AccountParts::link_button( $s, 'addr_add', (string) ( $s['addr_add_text'] ?? '' ), (string) wc_get_endpoint_url( 'edit-address', $type ) )
+					? AccountParts::link_button( $s, 'addr_edit', (string) ( $s['addr_edit_text'] ?? '' ), AccountEndpoints::url( 'edit-address', $type ) )
+					: AccountParts::link_button( $s, 'addr_add', (string) ( $s['addr_add_text'] ?? '' ), AccountEndpoints::url( 'edit-address', $type ) )
 			);
 		}
 
