@@ -74,7 +74,14 @@ final class FluentCRM {
 		}
 	}
 
-	/** Finds (creating if needed) the contact, then runs $callback( $contact ). Non-fatal on any failure. */
+	/**
+	 * Finds (creating if needed) the contact, then runs $callback( $contact ).
+	 * Non-fatal on any failure.
+	 *
+	 * A contact is born here more often than anywhere else — the first interest
+	 * a customer picks, the first opt-in — so it is born with the account's
+	 * name, and a contact that was created nameless gets it on its next visit.
+	 */
 	private static function with_contact( string $email, callable $callback ): void {
 		if ( ! self::is_active() || '' === $email ) {
 			return;
@@ -82,7 +89,10 @@ final class FluentCRM {
 		try {
 			$contact = \FluentCrmApi( 'contacts' )->getContact( $email );
 			if ( ! $contact ) {
-				self::sync_contact( $email, array( 'status' => 'subscribed' ) );
+				self::sync_contact( $email, array_merge( array( 'status' => 'subscribed' ), self::names_for( $email ) ) );
+				$contact = \FluentCrmApi( 'contacts' )->getContact( $email );
+			} elseif ( '' === trim( (string) $contact->first_name ) && ( $names = self::names_for( $email ) ) ) { // phpcs:ignore Generic.CodeAnalysis.AssignmentInCondition.Found
+				self::sync_contact( $email, $names );
 				$contact = \FluentCrmApi( 'contacts' )->getContact( $email );
 			}
 			if ( $contact ) {
@@ -91,5 +101,29 @@ final class FluentCRM {
 		} catch ( \Throwable $e ) {
 			// Non-fatal.
 		}
+	}
+
+	/**
+	 * The name of the account behind an email, falling back to the billing name
+	 * a checkout wrote when the profile itself was never filled in.
+	 *
+	 * @return array<string,string> Only the parts that are known.
+	 */
+	private static function names_for( string $email ): array {
+		$user = get_user_by( 'email', $email );
+
+		if ( ! $user ) {
+			return array();
+		}
+
+		$first = trim( (string) $user->first_name ) ?: trim( (string) get_user_meta( $user->ID, 'billing_first_name', true ) );
+		$last  = trim( (string) $user->last_name ) ?: trim( (string) get_user_meta( $user->ID, 'billing_last_name', true ) );
+
+		return array_filter(
+			array(
+				'first_name' => $first,
+				'last_name'  => $last,
+			)
+		);
 	}
 }

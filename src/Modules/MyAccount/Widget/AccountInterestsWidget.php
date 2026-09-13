@@ -49,7 +49,8 @@ final class AccountInterestsWidget extends Widget_Base {
 
 	/** @return array<int,array{tagId:int,label:string,icon:string,iconUrl:string}> */
 	public static function options(): array {
-		if ( ! Plugin::instance()->modules()->is_enabled_by_id( 'fluentcrm' ) ) {
+		// Without FluentCRM a pill could be tapped but never kept.
+		if ( ! Plugin::instance()->modules()->is_enabled_by_id( 'fluentcrm' ) || ! FluentCRMApi::is_active() ) {
 			return array();
 		}
 

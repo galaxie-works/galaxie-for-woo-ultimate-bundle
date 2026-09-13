@@ -390,6 +390,13 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 			wp_send_json_error( array( 'message' => __( 'Invalid interest.', 'galaxie-woo' ) ) );
 		}
 
+		// An interest lives only in FluentCRM. Without it there is nowhere to
+		// write the choice, and answering "saved" would show a pill as chosen
+		// that is gone on the next visit.
+		if ( ! FluentCRMApi::is_active() ) {
+			wp_send_json_error( array( 'message' => __( 'Não foi possível salvar seus interesses agora. Tente de novo mais tarde.', 'galaxie-woo' ) ) );
+		}
+
 		if ( $selected ) {
 			FluentCRMApi::attach_tags( $user->user_email, array( $tag_id ) );
 		} else {

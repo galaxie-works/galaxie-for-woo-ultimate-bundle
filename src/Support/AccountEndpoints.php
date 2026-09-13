@@ -122,7 +122,7 @@ final class AccountEndpoints {
 
 		$fluent = Plugin::instance()->settings()->module_settings( 'fluentcrm' );
 
-		if ( $modules->is_enabled_by_id( 'fluentcrm' ) && ! empty( $fluent['interests_enabled'] ) && ! empty( $fluent['interest_options'] ) ) {
+		if ( $modules->is_enabled_by_id( 'fluentcrm' ) && \Galaxie\Woo\Integrations\FluentCRM::is_active() && ! empty( $fluent['interests_enabled'] ) && ! empty( $fluent['interest_options'] ) ) {
 			$screens['galaxie-interests'] = array( __( 'Interesses', 'galaxie-woo' ), 'interesses' );
 		}
 
