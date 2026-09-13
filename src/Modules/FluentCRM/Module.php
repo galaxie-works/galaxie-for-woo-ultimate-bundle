@@ -185,6 +185,14 @@ final class Module implements ModuleContract, ProvidesSettings {
 		}
 	}
 
+	/**
+	 * What marks a FluentCRM tag as a customer interest: its description starts
+	 * with this, followed by the emoji. It is how the two sides recognise each
+	 * other — the list here is written into tags that carry it, and tags that
+	 * carry it are read back into the list.
+	 */
+	private const INTEREST_MARKER = 'Interesse do cliente (My Account)';
+
 	/** @return array<string,mixed> */
 	private function settings(): array {
 		return Plugin::instance()->settings()->module_settings( $this->id() );
@@ -255,8 +263,26 @@ final class Module implements ModuleContract, ProvidesSettings {
 		$options = array_values( (array) ( $values['interest_options'] ?? array() ) );
 		?>
 		<h3><?php esc_html_e( 'Interests', 'galaxie-woo' ); ?></h3>
+		<?php
+		$notice_key = 'galaxie_woo_fcrm_sync_' . get_current_user_id();
+		$notice     = get_transient( $notice_key );
+
+		if ( is_string( $notice ) && '' !== $notice ) {
+			delete_transient( $notice_key );
+			printf( '<div class="notice notice-info inline"><p>%s</p></div>', esc_html( $notice ) );
+		}
+		?>
 		<p class="description">
 			<?php esc_html_e( 'The curated list customers pick from in My Account → Interests, shown to them in alphabetical order. Each row is an icon/emoji + a label. Type a label — pick a suggestion to link an existing FluentCRM tag, or type a new name to create one when you save.', 'galaxie-woo' ); ?>
+		</p>
+		<p class="description">
+			<?php
+			printf(
+				/* translators: %s: the text a tag description starts with. */
+				esc_html__( 'The list and FluentCRM feed each other. Saving writes each label and emoji into its tag, whose description becomes "%s: emoji"; a row you remove loses that description. "Import and update from FluentCRM" does the reverse: every tag with that description joins the list, names and emojis are taken from the tags, and rows whose tag was deleted go away.', 'galaxie-woo' ),
+				esc_html( self::INTEREST_MARKER )
+			);
+			?>
 		</p>
 
 		<datalist id="gxf-interest-tag-suggestions">
@@ -285,6 +311,13 @@ final class Module implements ModuleContract, ProvidesSettings {
 
 		<p>
 			<button type="button" class="button" id="gxf-interests-add"><?php esc_html_e( '+ Add interest', 'galaxie-woo' ); ?></button>
+			<?php
+			// A plain button that submits on purpose, not a submit button: this sits
+			// above "Save settings", and Enter in any field presses the first submit
+			// button in the form.
+			?>
+			<button type="button" class="button" id="gxf-interests-sync"><?php esc_html_e( 'Import and update from FluentCRM', 'galaxie-woo' ); ?></button>
+			<input type="hidden" id="gxf-interests-sync-input" name="fields[interests_sync]" value="" />
 		</p>
 
 		<template id="gxf-interest-row-template">
@@ -360,9 +393,18 @@ final class Module implements ModuleContract, ProvidesSettings {
 				row.querySelector( '[data-role="label"]' ).focus();
 			} );
 
+			var syncBtn = document.getElementById( 'gxf-interests-sync' );
+			var syncInput = document.getElementById( 'gxf-interests-sync-input' );
+
+			syncBtn.addEventListener( 'click', function () {
+				syncInput.value = 'pull';
+				syncBtn.form.submit();
+			} );
+
 			function syncVisibility() {
 				rows.style.display = enabledToggle.checked ? '' : 'none';
 				addBtn.style.display = enabledToggle.checked ? '' : 'none';
+				syncBtn.style.display = enabledToggle.checked ? '' : 'none';
 			}
 			if ( enabledToggle ) {
 				enabledToggle.addEventListener( 'change', syncVisibility );
@@ -504,7 +546,23 @@ final class Module implements ModuleContract, ProvidesSettings {
 			$sanitized[ $key ] = '' === $raw ? '' : absint( $raw );
 		}
 
-		$sanitized['interest_options'] = $this->sanitize_interests( (array) ( $submitted['interests'] ?? array() ) );
+		$rows     = $this->sanitize_interests( (array) ( $submitted['interests'] ?? array() ) );
+		$previous = (array) ( $current['interest_options'] ?? array() );
+
+		// One direction per save, never both: pulling and then pushing would
+		// write back the very names just read, and pushing first would erase
+		// the changes made in FluentCRM that the import exists to bring in.
+		if ( 'pull' === ( $submitted['interests_sync'] ?? '' ) ) {
+			[ $rows, $message ] = $this->pull_interests( $rows );
+		} else {
+			$message = $this->push_interests( $rows, $previous );
+		}
+
+		$sanitized['interest_options'] = $rows;
+
+		if ( '' !== $message ) {
+			set_transient( 'galaxie_woo_fcrm_sync_' . get_current_user_id(), $message, MINUTE_IN_SECONDS );
+		}
 
 		return $sanitized;
 	}
@@ -544,5 +602,181 @@ final class Module implements ModuleContract, ProvidesSettings {
 		}
 
 		return $out;
+	}
+
+	/**
+	 * FluentCRM → the list. Every tag marked as an interest is in the list
+	 * afterwards, named and iconed as the tag is; a row whose tag no longer
+	 * exists is dropped, since a deleted tag can never be applied. Rows linked
+	 * to unmarked tags stay as they are — the admin chose them here — and an
+	 * uploaded image is kept, FluentCRM having nowhere to hold one.
+	 *
+	 * @param array<int,array{tag_id:int,label:string,icon:string,icon_url:string}> $rows
+	 * @return array{0: array<int,array{tag_id:int,label:string,icon:string,icon_url:string}>, 1: string}
+	 */
+	private function pull_interests( array $rows ): array {
+		$tags = $this->all_tags();
+
+		if ( null === $tags ) {
+			return array( $rows, __( 'Could not read the tags from FluentCRM. Nothing was imported.', 'galaxie-woo' ) );
+		}
+
+		$added   = 0;
+		$updated = 0;
+		$removed = 0;
+		$out     = array();
+		$listed  = array();
+
+		foreach ( $rows as $row ) {
+			$tag = $tags[ $row['tag_id'] ] ?? null;
+
+			if ( null === $tag ) {
+				++$removed;
+				continue;
+			}
+
+			$icon = $this->marked_icon( (string) $tag->description );
+			$next = $row;
+
+			$next['label'] = (string) $tag->title;
+
+			if ( null !== $icon ) {
+				$next['icon'] = $icon;
+			}
+
+			if ( $next !== $row ) {
+				++$updated;
+			}
+
+			$out[]                     = $next;
+			$listed[ $row['tag_id'] ] = true;
+		}
+
+		foreach ( $tags as $id => $tag ) {
+			$icon = $this->marked_icon( (string) $tag->description );
+
+			if ( null === $icon || isset( $listed[ $id ] ) ) {
+				continue;
+			}
+
+			$out[] = array(
+				'tag_id'   => (int) $id,
+				'label'    => (string) $tag->title,
+				'icon'     => $icon,
+				'icon_url' => '',
+			);
+			++$added;
+		}
+
+		return array(
+			$out,
+			sprintf(
+				/* translators: 1: interests added, 2: interests updated, 3: interests removed. */
+				__( 'Imported from FluentCRM: %1$d added, %2$d updated, %3$d removed because their tag no longer exists.', 'galaxie-woo' ),
+				$added,
+				$updated,
+				$removed
+			),
+		);
+	}
+
+	/**
+	 * The list → FluentCRM. Each tag takes its row's label and emoji and is
+	 * marked as an interest; a tag whose row was removed here loses the mark,
+	 * so the next import does not bring it back. Tags are never deleted — the
+	 * customers who chose one keep it.
+	 *
+	 * @param array<int,array{tag_id:int,label:string,icon:string,icon_url:string}> $rows
+	 * @param array<int,mixed>                                                      $previous
+	 */
+	private function push_interests( array $rows, array $previous ): string {
+		$tags = $this->all_tags();
+
+		if ( null === $tags ) {
+			return '';
+		}
+
+		$changed  = 0;
+		$unmarked = 0;
+		$kept     = array();
+
+		try {
+			foreach ( $rows as $row ) {
+				$kept[ $row['tag_id'] ] = true;
+				$tag                    = $tags[ $row['tag_id'] ] ?? null;
+
+				if ( null === $tag ) {
+					continue;
+				}
+
+				$description = trim( self::INTEREST_MARKER . ': ' . $row['icon'] );
+
+				if ( (string) $tag->title !== $row['label'] || (string) $tag->description !== $description ) {
+					$tag->title       = $row['label'];
+					$tag->description = $description;
+					$tag->save();
+					++$changed;
+				}
+			}
+
+			foreach ( $previous as $row ) {
+				$id  = absint( ( (array) $row )['tag_id'] ?? 0 );
+				$tag = $tags[ $id ] ?? null;
+
+				if ( null === $tag || isset( $kept[ $id ] ) || null === $this->marked_icon( (string) $tag->description ) ) {
+					continue;
+				}
+
+				$tag->description = '';
+				$tag->save();
+				++$unmarked;
+			}
+		} catch ( \Throwable $e ) {
+			return __( 'The list was saved, but FluentCRM could not be updated. Try saving again.', 'galaxie-woo' );
+		}
+
+		if ( 0 === $changed && 0 === $unmarked ) {
+			return '';
+		}
+
+		return sprintf(
+			/* translators: 1: tags updated, 2: tags no longer marked as interests. */
+			__( 'FluentCRM updated: %1$d tags renamed or re-iconed, %2$d no longer marked as interests.', 'galaxie-woo' ),
+			$changed,
+			$unmarked
+		);
+	}
+
+	/**
+	 * The emoji a marked description carries ('' when marked without one), or
+	 * null when the description does not mark the tag as an interest.
+	 */
+	private function marked_icon( string $description ): ?string {
+		$description = trim( $description );
+
+		if ( 0 !== strpos( $description, self::INTEREST_MARKER ) ) {
+			return null;
+		}
+
+		return trim( ltrim( substr( $description, strlen( self::INTEREST_MARKER ) ), " \t:" ) );
+	}
+
+	/** @return array<int,object>|null tag id => FluentCRM tag model, or null when FluentCRM cannot be read. */
+	private function all_tags(): ?array {
+		if ( ! class_exists( '\FluentCrm\App\Models\Tag' ) ) {
+			return null;
+		}
+
+		try {
+			$tags = array();
+
+			foreach ( \FluentCrm\App\Models\Tag::all() as $tag ) {
+				$tags[ (int) $tag->id ] = $tag;
+			}
+
+			return $tags;
+		} catch ( \Throwable $e ) {
+			return null;
+		}
 	}
 }
