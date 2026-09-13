@@ -2023,6 +2023,13 @@ address.galaxie-order-body {
   gap: 16px;
 }
 
+/* The script shows and hides with the `hidden` attribute, and every element it
+   toggles here — buttons, the form, the cards — sets its own `display`, which
+   outranks the browser's `[hidden]` rule. */
+.galaxie-address-book [hidden] {
+  display: none !important;
+}
+
 .galaxie-address-book.is-busy {
   opacity: 0.6;
   pointer-events: none;

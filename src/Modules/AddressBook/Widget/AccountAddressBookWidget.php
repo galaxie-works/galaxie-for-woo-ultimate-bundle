@@ -59,7 +59,7 @@ final class AccountAddressBookWidget extends Widget_Base {
 
 		$this->add_control( 'ab_form_new', array( 'label' => __( 'Form title when adding', 'galaxie-woo' ), 'type' => Controls_Manager::TEXT, 'default' => __( 'Novo endereço', 'galaxie-woo' ), 'separator' => 'before' ) );
 		$this->add_control( 'ab_form_edit', array( 'label' => __( 'Form title when editing', 'galaxie-woo' ), 'type' => Controls_Manager::TEXT, 'default' => __( 'Editar endereço', 'galaxie-woo' ) ) );
-		$this->add_control( 'ab_label_field', array( 'label' => __( 'Nickname field label', 'galaxie-woo' ), 'type' => Controls_Manager::TEXT, 'default' => __( 'Apelido (opcional)', 'galaxie-woo' ) ) );
+		$this->add_control( 'ab_label_field', array( 'label' => __( 'Nickname field label', 'galaxie-woo' ), 'type' => Controls_Manager::TEXT, 'default' => __( 'Apelido', 'galaxie-woo' ), 'description' => __( 'WooCommerce adds "(optional)" by itself.', 'galaxie-woo' ) ) );
 		$this->add_control( 'ab_label_placeholder', array( 'label' => __( 'Nickname placeholder', 'galaxie-woo' ), 'type' => Controls_Manager::TEXT, 'default' => __( 'Ex.: Casa, Trabalho', 'galaxie-woo' ) ) );
 
 		$this->add_control( 'ab_saved', array( 'label' => __( 'Saved message', 'galaxie-woo' ), 'type' => Controls_Manager::TEXT, 'label_block' => true, 'default' => __( 'Endereços atualizados.', 'galaxie-woo' ), 'separator' => 'before' ) );
