@@ -84,12 +84,24 @@ final class AccountPaymentMethodsWidget extends Widget_Base {
 			'pm_new_note',
 			array(
 				'type'            => Controls_Manager::RAW_HTML,
-				'raw'             => __( 'With the WooCommerce Stripe plugin active, the card is added right here, in the card design, through Stripe\'s own secure fields. Without it, the add button opens WooCommerce\'s screen.', 'galaxie-woo' ),
+				'raw'             => __( 'With the WooCommerce Stripe plugin active, a form opens below the cards with Stripe\'s own secure fields, and after saving the customer is asked whether the new card becomes the default. Without it, the add button opens WooCommerce\'s screen.', 'galaxie-woo' ),
 				'content_classes' => 'elementor-panel-alert elementor-panel-alert-info',
 			)
 		);
-		$this->add_control( 'pm_cvc_label', array( 'label' => __( 'Security code label', 'galaxie-woo' ), 'type' => Controls_Manager::TEXT, 'default' => __( 'CVC', 'galaxie-woo' ) ) );
+		$this->add_control( 'pm_form_title', array( 'label' => __( 'Form title', 'galaxie-woo' ), 'type' => Controls_Manager::TEXT, 'label_block' => true, 'default' => __( 'Novo cartão', 'galaxie-woo' ) ) );
+		$this->add_control( 'pm_number_label', array( 'label' => __( 'Card number label', 'galaxie-woo' ), 'type' => Controls_Manager::TEXT, 'default' => __( 'Número do cartão', 'galaxie-woo' ) ) );
+		$this->add_control( 'pm_cvc_label', array( 'label' => __( 'Security code label', 'galaxie-woo' ), 'description' => __( 'The expiry field uses the Expiry label above.', 'galaxie-woo' ), 'type' => Controls_Manager::TEXT, 'default' => __( 'CVC', 'galaxie-woo' ) ) );
 		$this->add_control( 'pm_saved', array( 'label' => __( 'Card saved message', 'galaxie-woo' ), 'type' => Controls_Manager::TEXT, 'label_block' => true, 'default' => __( 'Cartão salvo.', 'galaxie-woo' ) ) );
+		$this->add_control( 'pm_default_saved', array( 'label' => __( 'Default changed message', 'galaxie-woo' ), 'type' => Controls_Manager::TEXT, 'label_block' => true, 'default' => __( 'Cartão padrão atualizado.', 'galaxie-woo' ) ) );
+		$this->add_control(
+			'pm_form_preview',
+			array(
+				'label'        => __( 'Show the form in the editor', 'galaxie-woo' ),
+				'description'  => __( 'Keeps the add card form open, with sample fields, while you style it.', 'galaxie-woo' ),
+				'type'         => Controls_Manager::SWITCHER,
+				'return_value' => 'yes',
+			)
+		);
 
 		$this->add_control(
 			'pm_show_icons',
@@ -145,6 +157,19 @@ final class AccountPaymentMethodsWidget extends Widget_Base {
 				'text'  => __( 'Excluir este cartão?', 'galaxie-woo' ),
 				'yes'   => __( 'Sim, remover', 'galaxie-woo' ),
 				'no'    => __( 'Cancelar', 'galaxie-woo' ),
+			)
+		);
+
+		Dialog::controls(
+			$this,
+			'pm_default_ask',
+			array(
+				'label'        => __( 'Make default question', 'galaxie-woo' ),
+				'title'        => __( 'Cartão salvo', 'galaxie-woo' ),
+				'text'         => __( 'Usar este cartão como padrão nos próximos pagamentos?', 'galaxie-woo' ),
+				'yes'          => __( 'Usar como padrão', 'galaxie-woo' ),
+				'no'           => __( 'Agora não', 'galaxie-woo' ),
+				'yes_defaults' => array( 'size' => 'sm' ),
 			)
 		);
 
@@ -266,8 +291,67 @@ final class AccountPaymentMethodsWidget extends Widget_Base {
 
 		$this->end_controls_section();
 
+		$this->start_controls_section( 'pm_form_style', array( 'label' => __( 'Add card form', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
+
+		PixfortControls::surface( $this, 'pm_form', '{{WRAPPER}} .galaxie-pm-form', array( 'rounded' => 'rounded-lg' ) );
+
+		$sliders = array(
+			'pm_form_width' => array( __( 'Max width', 'galaxie-woo' ), array( 'px', '%' ), 280, 1200, '.galaxie-pm-form', 'max-width' ),
+			'pm_form_space' => array( __( 'Space above the form', 'galaxie-woo' ), array( 'px' ), 0, 80, '.galaxie-pm-form', 'margin-top' ),
+			'pm_form_gap'   => array( __( 'Space between title, fields and buttons', 'galaxie-woo' ), array( 'px' ), 0, 60, '.galaxie-pm-form', 'gap' ),
+			'pm_fields_gap' => array( __( 'Space between fields', 'galaxie-woo' ), array( 'px' ), 0, 40, '.galaxie-pm-fields', 'gap' ),
+			'pm_label_gap'  => array( __( 'Space between label and field', 'galaxie-woo' ), array( 'px' ), 0, 24, '.galaxie-pm-field', 'gap' ),
+		);
+
+		foreach ( $sliders as $id => $slider ) {
+			$this->add_responsive_control(
+				$id,
+				array(
+					'label'      => $slider[0],
+					'type'       => Controls_Manager::SLIDER,
+					'size_units' => $slider[1],
+					'range'      => array( 'px' => array( 'min' => $slider[2], 'max' => $slider[3] ) ),
+					'separator'  => 'pm_form_width' === $id ? 'before' : '',
+					'selectors'  => array( '{{WRAPPER}} ' . $slider[4] => $slider[5] . ': {{SIZE}}{{UNIT}};' ),
+				)
+			);
+		}
+
+		$this->end_controls_section();
+
+		// Stripe's fields are iframes: what is typed inside them cannot take a
+		// class or a stylesheet. The script reads these boxes' computed colour,
+		// font and size and hands them to Stripe, so the controls still work.
+		$this->start_controls_section( 'pm_field_style', array( 'label' => __( 'Add card form: fields', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
+
+		PixfortControls::surface( $this, 'pm_field', '{{WRAPPER}} .galaxie-pm-stripe' );
+
+		$this->add_control( 'pm_field_text_heading', array( 'label' => __( 'Typed text', 'galaxie-woo' ), 'type' => Controls_Manager::HEADING, 'separator' => 'before' ) );
+		PixfortControls::palette_control( $this, 'pm_field_color', __( 'Text color', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-pm-stripe', 'color' );
+		PixfortControls::palette_control( $this, 'pm_field_placeholder', __( 'Placeholder color', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-pm-placeholder', 'color' );
+
+		$this->add_responsive_control(
+			'pm_field_font_size',
+			array(
+				'label'      => __( 'Text size', 'galaxie-woo' ),
+				'type'       => Controls_Manager::SLIDER,
+				'size_units' => array( 'px' ),
+				'range'      => array( 'px' => array( 'min' => 12, 'max' => 28 ) ),
+				'selectors'  => array( '{{WRAPPER}} .galaxie-pm-stripe' => 'font-size: {{SIZE}}{{UNIT}};' ),
+			)
+		);
+
+		$this->add_control( 'pm_field_state_heading', array( 'label' => __( 'States', 'galaxie-woo' ), 'type' => Controls_Manager::HEADING, 'separator' => 'before' ) );
+		PixfortControls::palette_control( $this, 'pm_field_focus', __( 'Border when focused', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-pm-stripe.is-focused', 'border-color' );
+		PixfortControls::palette_control( $this, 'pm_field_focus_bg', __( 'Background when focused', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-pm-stripe.is-focused', 'background-color' );
+		PixfortControls::palette_control( $this, 'pm_field_error', __( 'Border on error', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-pm-stripe.is-invalid', 'border-color' );
+
+		$this->end_controls_section();
+
 		$texts = array(
 			'pm_heading_text' => array( __( 'Heading', 'galaxie-woo' ), '.galaxie-pm-heading', array( 'size' => 'text-20', 'bold' => 'font-weight-bold' ), true ),
+			'pm_form_title_text' => array( __( 'Add card form: title', 'galaxie-woo' ), '.galaxie-pm-form-title', array( 'size' => 'text-18', 'bold' => 'font-weight-bold' ), true ),
+			'pm_field_label'  => array( __( 'Add card form: labels', 'galaxie-woo' ), '.galaxie-pm-field-label', array( 'size' => 'text-sm', 'bold' => 'font-weight-bold' ) ),
 			'pm_intro_text'   => array( __( 'Intro text', 'galaxie-woo' ), '.galaxie-pm-intro', array( 'bold' => '' ), true ),
 			'pm_number_text'  => array( __( 'Card number', 'galaxie-woo' ), '.galaxie-pm-number', array( 'size' => 'text-20', 'bold' => '' ) ),
 			'pm_expiry_text'  => array( __( 'Expiry', 'galaxie-woo' ), '.galaxie-pm-expiry', array( 'size' => 'text-sm', 'bold' => '' ) ),
@@ -309,8 +393,9 @@ final class AccountPaymentMethodsWidget extends Widget_Base {
 		$stripe = $editing ? null : \Galaxie\Woo\Support\StripeCards::client_config();
 
 		printf(
-			'<div class="galaxie-payment-methods" data-saved="%1$s"%2$s>',
+			'<div class="galaxie-payment-methods" data-saved="%1$s" data-default-saved="%2$s"%3$s>',
 			esc_attr( (string) ( $s['pm_saved'] ?? '' ) ),
+			esc_attr( (string) ( $s['pm_default_saved'] ?? '' ) ),
 			$stripe ? ' data-stripe="' . esc_attr( (string) wp_json_encode( $stripe ) ) . '"' : ''
 		);
 
@@ -334,17 +419,11 @@ final class AccountPaymentMethodsWidget extends Widget_Base {
 			esc_html( (string) ( $s['pm_empty_text'] ?? '' ) )
 		);
 
-		// The grid is printed even when empty whenever a card can be added here,
-		// because the new card opens inside it.
-		if ( $methods || $stripe ) {
+		if ( $methods ) {
 			echo '<div class="galaxie-pm-cards">';
 
 			foreach ( $methods as $method ) {
 				echo $this->card( $s, $method ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built from escaped parts.
-			}
-
-			if ( $stripe ) {
-				echo $this->new_card( $s ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built from escaped parts.
 			}
 
 			echo '</div>';
@@ -362,7 +441,16 @@ final class AccountPaymentMethodsWidget extends Widget_Base {
 			);
 		}
 
+		// Below the cards, the way an address is added: typing into a picture of
+		// a card made the fields the hardest thing on the screen to hit.
+		$preview = $editing && 'yes' === ( $s['pm_form_preview'] ?? '' );
+
+		if ( $stripe || $preview ) {
+			echo $this->new_form( $s, $preview ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built from escaped parts.
+		}
+
 		echo Dialog::render( $s, 'pm_confirm' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built from escaped parts.
+		echo Dialog::render( $s, 'pm_default_ask' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built from escaped parts.
 
 		echo '</div>';
 	}
@@ -438,40 +526,59 @@ final class AccountPaymentMethodsWidget extends Widget_Base {
 	}
 
 	/**
-	 * The card a new card is typed into: the same card, with Stripe's secure
-	 * fields mounted where the number, expiry and code are drawn. All three
-	 * brand marks are printed and the script shows the one Stripe recognises
-	 * as the number is typed.
+	 * The form a new card is typed into, below the cards. Each field box is
+	 * where one of Stripe's secure fields is mounted; in the editor preview they
+	 * hold sample text instead, so the boxes have something to be styled around.
 	 *
 	 * @param array<string,mixed> $s
 	 */
-	private function new_card( array $s ): string {
-		$marks = '';
+	private function new_form( array $s, bool $preview ): string {
+		$label = static fn( string $text ): string => sprintf(
+			'<span class="galaxie-pm-field-label %1$s">%2$s</span>',
+			esc_attr( PixfortControls::text_classes( $s, 'pm_field_label' ) ),
+			esc_html( $text )
+		);
 
-		if ( 'yes' === ( $s['pm_show_icons'] ?? 'yes' ) ) {
-			foreach ( array( 'visa' => 'Visa', 'mastercard' => 'Mastercard', 'generic' => '' ) as $brand => $name ) {
-				$marks .= sprintf(
-					'<span class="galaxie-pm-brand-mark" data-brand="%1$s"%2$s>%3$s</span>',
-					esc_attr( $brand ),
-					'generic' === $brand ? '' : ' hidden',
-					self::brand_icon( $name ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pixfort's own icon markup.
-				);
+		$slot = static fn( string $field, string $sample ): string => sprintf(
+			'<div class="galaxie-pm-stripe %1$s" data-field="%2$s">%3$s</div>',
+			esc_attr( PixfortControls::surface_classes( $s, 'pm_field' ) ),
+			esc_attr( $field ),
+			$preview ? '<span class="galaxie-pm-stripe-sample">' . esc_html( $sample ) . '</span>' : ''
+		);
+
+		$title = trim( (string) ( $s['pm_form_title'] ?? '' ) );
+
+		return sprintf(
+			'<form class="galaxie-pm-form card %1$s" novalidate%2$s>%3$s<div class="galaxie-pm-fields"><div class="galaxie-pm-field is-number">%4$s%5$s</div><div class="galaxie-pm-field is-expiry">%6$s%7$s</div><div class="galaxie-pm-field is-cvc">%8$s%9$s</div></div><span class="galaxie-pm-placeholder" hidden></span><div class="galaxie-pm-form-actions"><button type="button" class="galaxie-account-submit galaxie-pm-save">%10$s</button><button type="button" class="galaxie-account-submit galaxie-pm-cancel">%11$s</button></div></form>',
+			esc_attr( PixfortControls::surface_classes( $s, 'pm_form' ) ),
+			$preview ? '' : ' hidden',
+			'' !== $title ? '<div class="galaxie-pm-form-title">' . PixfortControls::render_text( $s, 'pm_form_title_text', esc_html( $title ) ) . '</div>' : '',
+			$label( (string) ( $s['pm_number_label'] ?? '' ) ),
+			$slot( 'cardNumber', '1234 1234 1234 1234' ),
+			$label( (string) ( $s['pm_expires_label'] ?? '' ) ),
+			$slot( 'cardExpiry', 'MM / AA' ),
+			$label( (string) ( $s['pm_cvc_label'] ?? '' ) ),
+			$slot( 'cardCvc', 'CVC' ),
+			PixfortControls::render_button( $s, 'pm_save', (string) ( $s['pm_save_text'] ?? '' ) ),
+			PixfortControls::render_button( $s, 'pm_cancel', (string) ( $s['pm_cancel_text'] ?? '' ) )
+		);
+	}
+
+	/**
+	 * The saved token's id, read off its WooCommerce action links — the list
+	 * WooCommerce hands over carries the links but not the id itself. The
+	 * script uses it to find the card it has just saved.
+	 *
+	 * @param array<string,mixed> $actions
+	 */
+	private static function token_id( array $actions ): string {
+		foreach ( array( 'delete', 'default' ) as $action ) {
+			if ( preg_match( '#(?:delete|set-default)-payment-method[/=](\d+)#', (string) ( $actions[ $action ]['url'] ?? '' ), $match ) ) {
+				return $match[1];
 			}
 		}
 
-		$label = static fn( string $prefix, string $text ): string => sprintf( '<span class="galaxie-pm-input-label %1$s">%2$s</span>', esc_attr( PixfortControls::text_classes( $s, $prefix ) ), esc_html( $text ) );
-
-		return sprintf(
-			'<article class="galaxie-pm-item galaxie-pm-new" hidden><div class="%1$s"><div class="galaxie-pm-card-top"><span class="galaxie-pm-brand">%2$s</span><span class="galaxie-pm-badges"></span></div>%3$s<div class="galaxie-pm-number galaxie-pm-input is-number %4$s"><div class="galaxie-pm-stripe" data-field="cardNumber"></div></div><div class="galaxie-pm-card-bottom"><div class="galaxie-pm-input is-expiry">%5$s<div class="galaxie-pm-stripe" data-field="cardExpiry"></div></div><div class="galaxie-pm-input is-cvc">%6$s<div class="galaxie-pm-stripe" data-field="cardCvc"></div></div></div></div><div class="galaxie-pm-card-actions"><button type="button" class="galaxie-account-submit galaxie-pm-save">%7$s</button><button type="button" class="galaxie-account-submit galaxie-pm-cancel">%8$s</button></div></article>',
-			esc_attr( trim( 'galaxie-pm-card card is-new ' . PixfortControls::surface_classes( $s, 'pm_card' ) ) ),
-			$marks,
-			'yes' === ( $s['pm_show_chip'] ?? 'yes' ) ? '<span class="' . esc_attr( trim( 'galaxie-pm-chip ' . PixfortControls::surface_classes( $s, 'pm_chip' ) ) ) . '" aria-hidden="true"></span>' : '',
-			esc_attr( PixfortControls::text_classes( $s, 'pm_number_text' ) ),
-			$label( 'pm_expiry_text', (string) ( $s['pm_expires_label'] ?? '' ) ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped inside.
-			$label( 'pm_expiry_text', (string) ( $s['pm_cvc_label'] ?? '' ) ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped inside.
-			PixfortControls::render_button( $s, 'pm_save', (string) ( $s['pm_save_text'] ?? '' ) ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pixfort's own button.
-			PixfortControls::render_button( $s, 'pm_cancel', (string) ( $s['pm_cancel_text'] ?? '' ) ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pixfort's own button.
-		);
+		return '';
 	}
 
 	/**
@@ -516,7 +623,7 @@ final class AccountPaymentMethodsWidget extends Widget_Base {
 		);
 
 		return sprintf(
-			'<article class="galaxie-pm-item"><div class="%1$s"><div class="galaxie-pm-card-top"><span class="galaxie-pm-brand">%2$s</span><span class="galaxie-pm-badges">%3$s</span></div>%4$s%5$s<div class="galaxie-pm-card-bottom">%6$s%7$s</div></div>%8$s</article>',
+			'<article class="galaxie-pm-item" data-token="%9$s"><div class="%1$s"><div class="galaxie-pm-card-top"><span class="galaxie-pm-brand">%2$s</span><span class="galaxie-pm-badges">%3$s</span></div>%4$s%5$s<div class="galaxie-pm-card-bottom">%6$s%7$s</div></div>%8$s</article>',
 			esc_attr( trim( implode( ' ', array_filter( $classes ) ) ) ),
 			$icon, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pixfort's own icon markup.
 			$badges,
@@ -524,7 +631,8 @@ final class AccountPaymentMethodsWidget extends Widget_Base {
 			'' !== $last4 ? sprintf( '<div class="galaxie-pm-number %1$s"><span aria-hidden="true">•••• •••• ••••</span> %2$s</div>', esc_attr( PixfortControls::text_classes( $s, 'pm_number_text' ) ), esc_html( $last4 ) ) : '',
 			$has_date ? sprintf( '<div class="galaxie-pm-expiry %1$s"><span class="galaxie-pm-expiry-label">%2$s</span> %3$s</div>', esc_attr( PixfortControls::text_classes( $s, 'pm_expiry_text' ) ), esc_html( (string) ( $s['pm_expires_label'] ?? '' ) ), esc_html( $expires ) ) : '<span></span>',
 			'yes' === ( $s['pm_show_brand_name'] ?? 'yes' ) && '' !== $brand ? sprintf( '<span class="galaxie-pm-brand-name %1$s">%2$s</span>', esc_attr( PixfortControls::text_classes( $s, 'pm_brand_text' ) ), esc_html( $brand ) ) : '',
-			'' !== $buttons ? '<div class="galaxie-pm-card-actions">' . $buttons . '</div>' : ''
+			'' !== $buttons ? '<div class="galaxie-pm-card-actions">' . $buttons . '</div>' : '',
+			esc_attr( self::token_id( $actions ) )
 		);
 	}
 }

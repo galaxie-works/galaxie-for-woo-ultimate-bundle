@@ -1,15 +1,18 @@
 /**
- * Adding a card inside the payment methods widget, without leaving the page.
+ * Adding a card from the payment methods widget, without leaving the page.
  *
- * The number, expiry and code are Stripe's own fields — iframes Stripe serves —
- * mounted into the widget's card design, so the card data goes from the
- * customer's keyboard straight to Stripe and never through this site. The save
- * runs the WooCommerce Stripe plugin's own flow (see PHP Support\StripeCards):
- * Stripe.js creates the PaymentMethod, the plugin confirms a SetupIntent for
- * it, Stripe.js handles any bank authentication, and our endpoint turns the
- * confirmed intent into the saved card. The list is then redrawn from the
- * server, so the new card appears exactly as it will on every later visit.
+ * The form opens below the cards, the way an address is added. The number,
+ * expiry and code are Stripe's own fields — iframes Stripe serves — mounted
+ * into the form's field boxes, so the card data goes from the customer's
+ * keyboard straight to Stripe and never through this site. The save runs the
+ * WooCommerce Stripe plugin's own flow (see PHP Support\StripeCards): Stripe.js
+ * creates the PaymentMethod, the plugin confirms a SetupIntent for it, Stripe.js
+ * handles any bank authentication, and our endpoint turns the confirmed intent
+ * into the saved card. The list is then redrawn from the server, and the
+ * customer is asked whether the new card becomes the default.
  */
+
+import { ask } from '@/lib/dialog'
 
 interface StripeConfig {
   key: string
@@ -20,7 +23,6 @@ interface StripeConfig {
 }
 
 interface StripeElementChange {
-  brand?: string
   complete?: boolean
   error?: { message?: string }
 }
@@ -29,7 +31,7 @@ interface StripeElement {
   mount: (el: HTMLElement) => void
   destroy: () => void
   focus: () => void
-  on: (event: 'change' | 'focus' | 'blur', handler: (event: StripeElementChange) => void) => void
+  on: (event: 'change' | 'focus' | 'blur' | 'ready', handler: (event: StripeElementChange) => void) => void
 }
 
 interface StripeElements {
@@ -55,7 +57,7 @@ interface AjaxResponse<T> {
   data?: T & { message?: string; error?: { message?: string } }
 }
 
-interface OpenCard {
+interface OpenForm {
   stripe: StripeInstance
   number: StripeElement
   expiry: StripeElement
@@ -65,7 +67,7 @@ interface OpenCard {
 const STRIPE_JS = 'https://js.stripe.com/v3/'
 const GENERIC_ERROR = 'Não foi possível salvar o cartão. Tente de novo.'
 
-const open = new WeakMap<HTMLElement, OpenCard>()
+const open = new WeakMap<HTMLElement, OpenForm>()
 
 let stripeLoader: Promise<StripeFactory> | null = null
 
@@ -110,20 +112,26 @@ function message(root: HTMLElement, text: string, ok: boolean): void {
   line.hidden = text === ''
 }
 
-function busy(item: HTMLElement, on: boolean): void {
-  item.classList.toggle('is-busy', on)
-  item.querySelectorAll<HTMLButtonElement>('button').forEach((button) => {
+function busy(el: HTMLElement, on: boolean): void {
+  el.classList.toggle('is-busy', on)
+  el.querySelectorAll<HTMLButtonElement>('button').forEach((button) => {
     button.disabled = on
   })
 }
 
+function faded(color: string, alpha: number): string {
+  const rgb = color.match(/\d+(\.\d+)?/g)
+  return rgb && rgb.length >= 3 ? `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${alpha})` : color
+}
+
 /**
  * Stripe's fields live in iframes and inherit nothing from the page, so the
- * card's own computed text styles are handed to them — the number looks like
- * the number printed on the cards around it.
+ * field box's computed text styles — whatever the widget's controls set — are
+ * handed to them. The placeholder colour comes from a hidden probe the
+ * Placeholder color control paints, or the text colour faded.
  */
-function styleFrom(el: HTMLElement): Record<string, unknown> {
-  const css = getComputedStyle(el)
+function styleFrom(box: HTMLElement, probe: HTMLElement | null): Record<string, unknown> {
+  const css = getComputedStyle(box)
   const base: Record<string, unknown> = {
     color: css.color,
     fontFamily: css.fontFamily,
@@ -133,13 +141,11 @@ function styleFrom(el: HTMLElement): Record<string, unknown> {
   }
 
   // Stripe rejects properties it does not know and values it cannot parse, so
-  // only what the card really sets is passed on.
+  // only what the box really sets is passed on.
   if (css.letterSpacing && css.letterSpacing !== 'normal') base.letterSpacing = css.letterSpacing
 
-  // Its default placeholder grey disappears on a dark card: the card's own
-  // colour, faded, reads on any background.
-  const rgb = css.color.match(/\d+(\.\d+)?/g)
-  if (rgb && rgb.length >= 3) base['::placeholder'] = { color: `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, 0.55)` }
+  const probed = probe ? getComputedStyle(probe).color : ''
+  base['::placeholder'] = { color: probed && probed !== css.color ? probed : faded(css.color, 0.5) }
 
   return {
     base,
@@ -147,50 +153,46 @@ function styleFrom(el: HTMLElement): Record<string, unknown> {
   }
 }
 
-function showBrand(item: HTMLElement, brand: string | undefined): void {
-  const known = brand === 'visa' || brand === 'mastercard' ? brand : 'generic'
-
-  item.querySelectorAll<HTMLElement>('.galaxie-pm-brand-mark').forEach((mark) => {
-    mark.hidden = mark.dataset.brand !== known
-  })
+function formOf(root: HTMLElement): HTMLElement | null {
+  return root.querySelector<HTMLElement>('.galaxie-pm-form')
 }
 
-async function openNewCard(root: HTMLElement, config: StripeConfig): Promise<void> {
-  const item = root.querySelector<HTMLElement>('.galaxie-pm-new')
+async function openForm(root: HTMLElement, config: StripeConfig): Promise<void> {
+  const form = formOf(root)
   const toolbar = root.querySelector<HTMLElement>('.galaxie-pm-toolbar')
-  if (!item || open.has(item)) return
+  if (!form || open.has(form)) return
 
   message(root, '', true)
-  item.hidden = false
+  form.hidden = false
   if (toolbar) toolbar.hidden = true
-  root.querySelector<HTMLElement>('.galaxie-pm-empty')?.setAttribute('hidden', '')
-  busy(item, true)
+  busy(form, true)
 
   try {
     const factory = await loadStripe()
     const stripe = factory(config.key, { locale: config.locale || 'auto' })
     const elements = stripe.elements()
-    const slot = (field: string) => item.querySelector<HTMLElement>(`.galaxie-pm-stripe[data-field="${field}"]`)
-    const numberSlot = slot('cardNumber')
-    const expirySlot = slot('cardExpiry')
-    const cvcSlot = slot('cardCvc')
-    if (!numberSlot || !expirySlot || !cvcSlot) throw new Error('Card fields missing')
+    const slot = (field: string) => form.querySelector<HTMLElement>(`.galaxie-pm-stripe[data-field="${field}"]`)
+    const numberBox = slot('cardNumber')
+    const expiryBox = slot('cardExpiry')
+    const cvcBox = slot('cardCvc')
+    if (!numberBox || !expiryBox || !cvcBox) throw new Error('Card fields missing')
 
-    const number = elements.create('cardNumber', { style: styleFrom(numberSlot.parentElement ?? numberSlot), placeholder: '•••• •••• •••• ••••', showIcon: false })
-    const expiry = elements.create('cardExpiry', { style: styleFrom(expirySlot.parentElement ?? expirySlot) })
-    const cvc = elements.create('cardCvc', { style: styleFrom(cvcSlot.parentElement ?? cvcSlot) })
+    const probe = form.querySelector<HTMLElement>('.galaxie-pm-placeholder')
 
-    number.mount(numberSlot)
-    expiry.mount(expirySlot)
-    cvc.mount(cvcSlot)
+    // Stripe's own brand icon inside the number, since there is no card picture
+    // to show it; its Link button off, which offered a different checkout.
+    const number = elements.create('cardNumber', { style: styleFrom(numberBox, probe), showIcon: true, disableLink: true })
+    const expiry = elements.create('cardExpiry', { style: styleFrom(expiryBox, probe) })
+    const cvc = elements.create('cardCvc', { style: styleFrom(cvcBox, probe) })
 
     const pairs: Array<[StripeElement, HTMLElement]> = [
-      [number, numberSlot],
-      [expiry, expirySlot],
-      [cvc, cvcSlot],
+      [number, numberBox],
+      [expiry, expiryBox],
+      [cvc, cvcBox],
     ]
 
     for (const [field, box] of pairs) {
+      field.mount(box)
       field.on('focus', () => box.classList.add('is-focused'))
       field.on('blur', () => box.classList.remove('is-focused'))
       field.on('change', (event) => {
@@ -198,43 +200,38 @@ async function openNewCard(root: HTMLElement, config: StripeConfig): Promise<voi
         message(root, event.error?.message ?? '', !event.error)
       })
 
-      // The iframe is only as big as its text line; the label and the padding
+      // The iframe is only as tall as its text line; the label and the padding
       // around it are part of the field too.
-      box.closest<HTMLElement>('.galaxie-pm-input')?.addEventListener('click', () => field.focus())
+      box.closest<HTMLElement>('.galaxie-pm-field')?.addEventListener('click', () => field.focus())
     }
 
-    number.on('change', (event) => showBrand(item, event.brand))
-
-    open.set(item, { stripe, number, expiry, cvc })
-    item.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+    number.on('ready', () => number.focus())
+    open.set(form, { stripe, number, expiry, cvc })
+    form.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
   } catch {
-    closeNewCard(root)
+    closeForm(root)
     message(root, GENERIC_ERROR, false)
   } finally {
-    busy(item, false)
+    busy(form, false)
   }
 }
 
-function closeNewCard(root: HTMLElement): void {
-  const item = root.querySelector<HTMLElement>('.galaxie-pm-new')
+function closeForm(root: HTMLElement): void {
+  const form = formOf(root)
   const toolbar = root.querySelector<HTMLElement>('.galaxie-pm-toolbar')
-  if (!item) return
+  if (!form) return
 
-  const fields = open.get(item)
+  const fields = open.get(form)
   if (fields) {
     fields.number.destroy()
     fields.expiry.destroy()
     fields.cvc.destroy()
-    open.delete(item)
+    open.delete(form)
   }
 
-  showBrand(item, undefined)
-  item.hidden = true
+  form.querySelectorAll('.galaxie-pm-stripe').forEach((box) => box.classList.remove('is-focused', 'is-invalid'))
+  form.hidden = true
   if (toolbar) toolbar.hidden = false
-
-  if (!root.querySelector('.galaxie-pm-item:not(.galaxie-pm-new)')) {
-    root.querySelector<HTMLElement>('.galaxie-pm-empty')?.removeAttribute('hidden')
-  }
 }
 
 async function postForm<T>(url: string, body: Record<string, string>): Promise<AjaxResponse<T>> {
@@ -256,12 +253,37 @@ async function redraw(root: HTMLElement): Promise<HTMLElement | null> {
   return node
 }
 
-async function saveNewCard(root: HTMLElement, config: StripeConfig): Promise<void> {
-  const item = root.querySelector<HTMLElement>('.galaxie-pm-new')
-  const fields = item ? open.get(item) : undefined
-  if (!item || !fields) return
+/**
+ * With other cards already saved, the new one is not the default — WooCommerce
+ * only makes the first card default by itself. Its own "make default" link is
+ * on the redrawn card; following it in the background is exactly what a click
+ * on that button would have done.
+ */
+async function offerDefault(root: HTMLElement, token: string): Promise<void> {
+  const link = root.querySelector<HTMLAnchorElement>(`.galaxie-pm-item[data-token="${token}"] .galaxie-pm-default`)
+  if (!link) return
 
-  busy(item, true)
+  const yes = await ask(root, 'pm_default_ask', 'Usar este cartão como padrão nos próximos pagamentos?')
+  if (!yes) return
+
+  busy(root, true)
+
+  try {
+    await fetch(link.href, { credentials: 'same-origin' })
+    const fresh = await redraw(root)
+    if (fresh) message(fresh, root.dataset.defaultSaved ?? '', true)
+  } catch {
+    busy(root, false)
+    message(root, 'Não foi possível atualizar o cartão padrão. Tente de novo.', false)
+  }
+}
+
+async function saveCard(root: HTMLElement, config: StripeConfig): Promise<void> {
+  const form = formOf(root)
+  const fields = form ? open.get(form) : undefined
+  if (!form || !fields) return
+
+  busy(form, true)
   message(root, '', true)
 
   try {
@@ -295,13 +317,15 @@ async function saveNewCard(root: HTMLElement, config: StripeConfig): Promise<voi
 
     if (!saved.success) throw new Error(saved.data?.message ?? GENERIC_ERROR)
 
-    const done = root.dataset.saved ?? ''
-    closeNewCard(root)
+    closeForm(root)
 
     const fresh = await redraw(root)
-    if (fresh) message(fresh, done, true)
+    if (!fresh) return
+
+    message(fresh, root.dataset.saved ?? '', true)
+    if (saved.data?.token) await offerDefault(fresh, String(saved.data.token))
   } catch (error) {
-    busy(item, false)
+    busy(form, false)
     message(root, error instanceof Error && error.message ? error.message : GENERIC_ERROR, false)
   }
 }
@@ -317,19 +341,19 @@ export function bootPaymentMethods(): void {
 
     if (target.closest('.galaxie-pm-add')) {
       event.preventDefault()
-      void openNewCard(root, config)
+      void openForm(root, config)
       return
     }
 
     if (target.closest('.galaxie-pm-cancel')) {
       event.preventDefault()
-      closeNewCard(root)
+      closeForm(root)
       return
     }
 
     if (target.closest('.galaxie-pm-save')) {
       event.preventDefault()
-      void saveNewCard(root, config)
+      void saveCard(root, config)
     }
   })
 }

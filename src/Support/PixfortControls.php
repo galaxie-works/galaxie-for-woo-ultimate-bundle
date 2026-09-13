@@ -322,12 +322,25 @@ final class PixfortControls {
 	 *
 	 * @param array<string,mixed> $condition
 	 */
+	/** The class {@see button_attr()} puts on the button a prefix configures. */
+	public static function button_class( string $prefix ): string {
+		return 'galaxie-btn-' . sanitize_html_class( $prefix );
+	}
+
 	private static function button_hover( object $target, string $prefix, array $condition, string $scope ): void {
 		// The button's own hover, not the scope's: with `{{WRAPPER}}` as the scope,
 		// `{{WRAPPER}}:hover .btn` paints every button in the widget the moment the
 		// pointer enters any part of it, and a second button loses the style when
 		// the first one is hovered.
-		$hovered = $scope . ' .btn:hover';
+		//
+		// Nor `{{WRAPPER}} .btn:hover` when the scope is the whole widget: every
+		// button configured there writes that same selector with `!important`, so
+		// the last one in the stylesheet — a dialog's, say — painted all of them.
+		// The configuration's own class tells them apart. A narrower scope already
+		// does, and is kept for buttons drawn by someone else's markup.
+		$own     = '{{WRAPPER}}' === $scope;
+		$button  = $own ? $scope . ' .' . self::button_class( $prefix ) : $scope;
+		$hovered = $own ? $button . ':hover' : $scope . ' .btn:hover';
 
 		self::add( $target, $condition, $prefix . '_hover_heading', array(
 			'label'     => __( 'Hover', 'galaxie-woo' ),
@@ -358,7 +371,7 @@ final class PixfortControls {
 			// would outrank Elementor's generated rule. Handing the value over as a
 			// variable lets both rules coexist: ours owns the transform, this owns
 			// the distance.
-			'selectors'  => array( $scope => '--galaxie-hover-lift: {{SIZE}}{{UNIT}};' ),
+			'selectors'  => array( $button => '--galaxie-hover-lift: {{SIZE}}{{UNIT}};' ),
 		) );
 	}
 
@@ -393,6 +406,10 @@ final class PixfortControls {
 		// The icon is a pair of controls, not one: a dropdown plus the raw
 		// identifier the Custom entry reveals.
 		$attr['btn_icon'] = self::icon_value( $settings, $prefix . '_icon' );
+
+		// A class naming this configuration, so its hover rules reach this button
+		// and no other one in the widget — see button_hover().
+		$attr['btn_extra_classes'] = trim( $attr['btn_extra_classes'] . ' ' . self::button_class( $prefix ) );
 
 		return $attr;
 	}

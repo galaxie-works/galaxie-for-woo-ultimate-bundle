@@ -36,9 +36,11 @@ final class Dialog {
 	 *   title?:string,
 	 *   yes:string,
 	 *   no?:string|null,
+	 *   yes_defaults?:array<string,string>,
 	 *   extra?:array<string,array{0:string,1:string}>
 	 * } $args `no` null makes it a notice with a single button; `extra` adds
-	 *         more messages the script picks by key.
+	 *         more messages the script picks by key. A question's confirm
+	 *         button is red unless `yes_defaults` says otherwise.
 	 */
 	public static function controls( object $widget, string $prefix, array $args ): void {
 		$widget->start_controls_section( $prefix . '_content_section', array( 'label' => $args['label'] ) );
@@ -66,7 +68,7 @@ final class Dialog {
 		$buttons = array( 'yes' => array( __( 'Dialog: confirm button', 'galaxie-woo' ), $args['yes'], array( 'size' => 'sm' ) ) );
 
 		if ( null !== ( $args['no'] ?? null ) ) {
-			$buttons['yes'][2] = array( 'color' => 'red', 'text_color' => 'white', 'size' => 'sm' );
+			$buttons['yes'][2] = $args['yes_defaults'] ?? array( 'color' => 'red', 'text_color' => 'white', 'size' => 'sm' );
 			$buttons['no']     = array( __( 'Dialog: cancel button', 'galaxie-woo' ), $args['no'], array( 'style' => 'link', 'size' => 'sm' ) );
 		} else {
 			$buttons['yes'][0] = __( 'Dialog: button', 'galaxie-woo' );
