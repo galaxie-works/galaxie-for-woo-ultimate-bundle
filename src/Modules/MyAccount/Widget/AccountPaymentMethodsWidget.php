@@ -186,6 +186,28 @@ final class AccountPaymentMethodsWidget extends Widget_Base {
 			)
 		);
 
+		$this->add_responsive_control(
+			'pm_actions_space',
+			array(
+				'label'      => __( 'Space between card and buttons', 'galaxie-woo' ),
+				'type'       => Controls_Manager::SLIDER,
+				'size_units' => array( 'px' ),
+				'range'      => array( 'px' => array( 'min' => 0, 'max' => 60 ) ),
+				'selectors'  => array( '{{WRAPPER}} .galaxie-pm-item' => 'gap: {{SIZE}}{{UNIT}};' ),
+			)
+		);
+
+		$this->add_responsive_control(
+			'pm_actions_gap',
+			array(
+				'label'      => __( 'Space between buttons', 'galaxie-woo' ),
+				'type'       => Controls_Manager::SLIDER,
+				'size_units' => array( 'px' ),
+				'range'      => array( 'px' => array( 'min' => 0, 'max' => 40 ) ),
+				'selectors'  => array( '{{WRAPPER}} .galaxie-pm-card-actions' => 'gap: {{SIZE}}{{UNIT}};' ),
+			)
+		);
+
 		$this->end_controls_section();
 
 		$this->start_controls_section( 'pm_chip_style', array( 'label' => __( 'Chip', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE, 'condition' => array( 'pm_show_chip' => 'yes' ) ) );
