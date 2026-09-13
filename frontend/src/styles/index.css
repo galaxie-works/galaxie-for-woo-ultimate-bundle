@@ -2228,13 +2228,17 @@ address.galaxie-order-body {
   white-space: nowrap;
 }
 
+/* A flat colour by default: a built-in gradient would sit on top of whatever
+   the Chip background control chooses and hide it. pixfort's gradients are in
+   that control for a chip that wants one. */
 .galaxie-pm-chip {
   display: block;
+  flex: none;
   width: 42px;
   height: 30px;
   border: 1px solid rgb(255 255 255 / 28%);
   border-radius: 6px;
-  background: linear-gradient(135deg, rgb(255 255 255 / 45%), rgb(255 255 255 / 12%));
+  background-color: rgb(255 255 255 / 30%);
 }
 
 .galaxie-pm-number {

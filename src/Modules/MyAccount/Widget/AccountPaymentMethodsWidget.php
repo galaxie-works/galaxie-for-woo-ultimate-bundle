@@ -176,6 +176,36 @@ final class AccountPaymentMethodsWidget extends Widget_Base {
 
 		$this->end_controls_section();
 
+		$this->start_controls_section( 'pm_chip_style', array( 'label' => __( 'Chip', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE, 'condition' => array( 'pm_show_chip' => 'yes' ) ) );
+
+		$this->add_responsive_control(
+			'pm_chip_width',
+			array(
+				'label'      => __( 'Width', 'galaxie-woo' ),
+				'type'       => Controls_Manager::SLIDER,
+				'size_units' => array( 'px' ),
+				'range'      => array( 'px' => array( 'min' => 16, 'max' => 96 ) ),
+				'selectors'  => array( '{{WRAPPER}} .galaxie-pm-chip' => 'width: {{SIZE}}{{UNIT}};' ),
+			)
+		);
+
+		$this->add_responsive_control(
+			'pm_chip_height',
+			array(
+				'label'      => __( 'Height', 'galaxie-woo' ),
+				'type'       => Controls_Manager::SLIDER,
+				'size_units' => array( 'px' ),
+				'range'      => array( 'px' => array( 'min' => 12, 'max' => 72 ) ),
+				'selectors'  => array( '{{WRAPPER}} .galaxie-pm-chip' => 'height: {{SIZE}}{{UNIT}};' ),
+			)
+		);
+
+		// Background — pixfort's gradients included — corners, shadow and border,
+		// the same box set every other surface in the widget has.
+		PixfortControls::surface( $this, 'pm_chip', '{{WRAPPER}} .galaxie-pm-chip', array(), array(), false );
+
+		$this->end_controls_section();
+
 		$this->start_controls_section( 'pm_icon_style', array( 'label' => __( 'Brand icon', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE, 'condition' => array( 'pm_show_icons' => 'yes' ) ) );
 
 		$this->add_responsive_control(
@@ -400,7 +430,7 @@ final class AccountPaymentMethodsWidget extends Widget_Base {
 			'<article class="galaxie-pm-item galaxie-pm-new" hidden><div class="%1$s"><div class="galaxie-pm-card-top"><span class="galaxie-pm-brand">%2$s</span><span class="galaxie-pm-badges"></span></div>%3$s<div class="galaxie-pm-number galaxie-pm-input is-number %4$s"><div class="galaxie-pm-stripe" data-field="cardNumber"></div></div><div class="galaxie-pm-card-bottom"><div class="galaxie-pm-input is-expiry">%5$s<div class="galaxie-pm-stripe" data-field="cardExpiry"></div></div><div class="galaxie-pm-input is-cvc">%6$s<div class="galaxie-pm-stripe" data-field="cardCvc"></div></div></div></div><div class="galaxie-pm-card-actions"><button type="button" class="galaxie-account-submit galaxie-pm-save">%7$s</button><button type="button" class="galaxie-account-submit galaxie-pm-cancel">%8$s</button></div></article>',
 			esc_attr( trim( 'galaxie-pm-card card is-new ' . PixfortControls::surface_classes( $s, 'pm_card' ) ) ),
 			$marks,
-			'yes' === ( $s['pm_show_chip'] ?? 'yes' ) ? '<span class="galaxie-pm-chip" aria-hidden="true"></span>' : '',
+			'yes' === ( $s['pm_show_chip'] ?? 'yes' ) ? '<span class="' . esc_attr( trim( 'galaxie-pm-chip ' . PixfortControls::surface_classes( $s, 'pm_chip' ) ) ) . '" aria-hidden="true"></span>' : '',
 			esc_attr( PixfortControls::text_classes( $s, 'pm_number_text' ) ),
 			$label( 'pm_expiry_text', (string) ( $s['pm_expires_label'] ?? '' ) ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped inside.
 			$label( 'pm_expiry_text', (string) ( $s['pm_cvc_label'] ?? '' ) ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped inside.
@@ -455,7 +485,7 @@ final class AccountPaymentMethodsWidget extends Widget_Base {
 			esc_attr( trim( implode( ' ', array_filter( $classes ) ) ) ),
 			$icon, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pixfort's own icon markup.
 			$badges,
-			'yes' === ( $s['pm_show_chip'] ?? 'yes' ) ? '<span class="galaxie-pm-chip" aria-hidden="true"></span>' : '',
+			'yes' === ( $s['pm_show_chip'] ?? 'yes' ) ? '<span class="' . esc_attr( trim( 'galaxie-pm-chip ' . PixfortControls::surface_classes( $s, 'pm_chip' ) ) ) . '" aria-hidden="true"></span>' : '',
 			'' !== $last4 ? sprintf( '<div class="galaxie-pm-number %1$s"><span aria-hidden="true">•••• •••• ••••</span> %2$s</div>', esc_attr( PixfortControls::text_classes( $s, 'pm_number_text' ) ), esc_html( $last4 ) ) : '',
 			$has_date ? sprintf( '<div class="galaxie-pm-expiry %1$s"><span class="galaxie-pm-expiry-label">%2$s</span> %3$s</div>', esc_attr( PixfortControls::text_classes( $s, 'pm_expiry_text' ) ), esc_html( (string) ( $s['pm_expires_label'] ?? '' ) ), esc_html( $expires ) ) : '<span></span>',
 			'yes' === ( $s['pm_show_brand_name'] ?? 'yes' ) && '' !== $brand ? sprintf( '<span class="galaxie-pm-brand-name %1$s">%2$s</span>', esc_attr( PixfortControls::text_classes( $s, 'pm_brand_text' ) ), esc_html( $brand ) ) : '',
