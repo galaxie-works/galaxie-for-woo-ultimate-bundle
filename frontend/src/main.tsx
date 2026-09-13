@@ -21,6 +21,7 @@ import { bootFreeProgress } from '@/globals/free-progress'
 import { bootAccountMenu } from '@/globals/account-menu'
 import { bootAccountScreens } from '@/globals/account-screens'
 import { bootAddressBook, type AddressBookConfig } from '@/globals/address-book'
+import { bootPaymentMethods } from '@/globals/payment-methods'
 
 // Each module registers its island(s) here as they are ported.
 registerIsland('demo', Demo)
@@ -55,6 +56,7 @@ function boot(): void {
   bootAccountMenu()
   bootAccountScreens(config.wishlist)
   bootAddressBook(config.addressBook)
+  bootPaymentMethods()
 
   if (config.productData) {
     bootProductData()

@@ -58,6 +58,8 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 		add_action( 'wp_ajax_galaxie_myaccount_save_details', array( $this, 'ajax_save_details' ) );
 		add_action( 'wp_ajax_galaxie_myaccount_toggle_interest', array( $this, 'ajax_toggle_interest' ) );
 		add_action( 'wp_ajax_galaxie_myaccount_save_communication', array( $this, 'ajax_save_communication' ) );
+
+		\Galaxie\Woo\Support\StripeCards::hooks();
 	}
 
 	public function boot_data(): array {
