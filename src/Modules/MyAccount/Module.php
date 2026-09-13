@@ -79,6 +79,7 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 			AccountOrdersWidget::class,
 			AccountOrderWidget::class,
 			AccountAddressesWidget::class,
+			\Galaxie\Woo\Modules\MyAccount\Widget\AccountPaymentMethodsWidget::class,
 			AccountDetailsWidget::class,
 			AccountInterestsWidget::class,
 			AccountCommunicationWidget::class,

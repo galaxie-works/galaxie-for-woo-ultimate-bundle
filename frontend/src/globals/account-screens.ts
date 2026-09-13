@@ -183,6 +183,15 @@ export function bootAccountScreens(wishlist?: WishlistConfig): void {
     }
   })
 
+  // Payment methods: WooCommerce deletes a saved card on a plain link, so ask first.
+  document.addEventListener('click', (event) => {
+    const link = (event.target as Element | null)?.closest?.<HTMLAnchorElement>('.galaxie-pm-delete')
+    const root = link?.closest<HTMLElement>('.galaxie-payment-methods')
+    if (!link || !root) return
+
+    if (!window.confirm(root.dataset.confirm ?? '')) event.preventDefault()
+  })
+
   // Wishlist: removing a product.
   document.addEventListener('click', (event) => {
     const button = (event.target as Element | null)?.closest?.<HTMLButtonElement>('.galaxie-wishlist-remove')

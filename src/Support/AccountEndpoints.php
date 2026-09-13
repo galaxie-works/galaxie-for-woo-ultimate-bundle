@@ -79,6 +79,7 @@ final class AccountEndpoints {
 		'orders'                => array( array( 'galaxie-account-orders', array() ) ),
 		'view-order'            => array( array( 'galaxie-account-order', array() ) ),
 		'edit-address'          => array( array( 'galaxie-account-addresses', array() ) ),
+		'payment-methods'       => array( array( 'galaxie-account-payment-methods', array() ) ),
 		'edit-account'          => array( array( 'galaxie-account-details', array() ), array( 'galaxie-account-delete', array() ) ),
 		'galaxie-interests'     => array( array( 'galaxie-account-interests', array() ) ),
 		'galaxie-communication' => array( array( 'galaxie-account-communication', array() ) ),
