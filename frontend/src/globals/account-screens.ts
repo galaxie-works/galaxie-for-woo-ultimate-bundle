@@ -9,6 +9,7 @@
  */
 
 import { getGalaxieConfig, post } from '@/lib/wp'
+import { ask } from '@/lib/dialog'
 
 interface WishlistConfig {
   ajaxUrl: string
@@ -189,7 +190,10 @@ export function bootAccountScreens(wishlist?: WishlistConfig): void {
     const root = link?.closest<HTMLElement>('.galaxie-payment-methods')
     if (!link || !root) return
 
-    if (!window.confirm(root.dataset.confirm ?? '')) event.preventDefault()
+    event.preventDefault()
+    void ask(root, 'pm_confirm', 'Excluir este cartão?').then((yes) => {
+      if (yes) window.location.href = link.href
+    })
   })
 
   // Wishlist: removing a product.

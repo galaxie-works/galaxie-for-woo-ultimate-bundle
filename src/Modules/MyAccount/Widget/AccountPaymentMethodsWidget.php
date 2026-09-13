@@ -12,6 +12,7 @@ use Elementor\Widget_Base;
 use Galaxie\Woo\Support\AccountEndpoints;
 use Galaxie\Woo\Support\AccountParts;
 use Galaxie\Woo\Support\Assets;
+use Galaxie\Woo\Support\Dialog;
 use Galaxie\Woo\Support\PixfortControls;
 
 defined( 'ABSPATH' ) || exit;
@@ -77,7 +78,6 @@ final class AccountPaymentMethodsWidget extends Widget_Base {
 		$this->add_control( 'pm_badge_default', array( 'label' => __( 'Default badge', 'galaxie-woo' ), 'type' => Controls_Manager::TEXT, 'default' => __( 'Padrão', 'galaxie-woo' ) ) );
 		$this->add_control( 'pm_badge_expiring', array( 'label' => __( 'Expiring soon badge', 'galaxie-woo' ), 'type' => Controls_Manager::TEXT, 'default' => __( 'Vence em breve', 'galaxie-woo' ) ) );
 		$this->add_control( 'pm_badge_expired', array( 'label' => __( 'Expired badge', 'galaxie-woo' ), 'type' => Controls_Manager::TEXT, 'default' => __( 'Vencido', 'galaxie-woo' ) ) );
-		$this->add_control( 'pm_confirm', array( 'label' => __( 'Delete confirmation', 'galaxie-woo' ), 'type' => Controls_Manager::TEXT, 'label_block' => true, 'default' => __( 'Excluir este cartão?', 'galaxie-woo' ) ) );
 
 		$this->add_control( 'pm_new_heading', array( 'label' => __( 'Adding a card', 'galaxie-woo' ), 'type' => Controls_Manager::HEADING, 'separator' => 'before' ) );
 		$this->add_control(
@@ -136,6 +136,18 @@ final class AccountPaymentMethodsWidget extends Widget_Base {
 			$this->end_controls_section();
 		}
 
+		Dialog::controls(
+			$this,
+			'pm_confirm',
+			array(
+				'label' => __( 'Delete confirmation', 'galaxie-woo' ),
+				'title' => __( 'Remover cartão', 'galaxie-woo' ),
+				'text'  => __( 'Excluir este cartão?', 'galaxie-woo' ),
+				'yes'   => __( 'Sim, remover', 'galaxie-woo' ),
+				'no'    => __( 'Cancelar', 'galaxie-woo' ),
+			)
+		);
+
 		$this->start_controls_section( 'pm_card_style', array( 'label' => __( 'Cards', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
 		PixfortControls::surface( $this, 'pm_card', '{{WRAPPER}} .galaxie-pm-card', array( 'rounded' => 'rounded-lg' ) );
 
@@ -148,7 +160,7 @@ final class AccountPaymentMethodsWidget extends Widget_Base {
 				'return_value' => 'yes',
 				'default'      => 'yes',
 				'separator'    => 'before',
-				'selectors'    => array( '{{WRAPPER}} .galaxie-pm-card' => 'aspect-ratio: 1.586 / 1;' ),
+				'selectors'    => array( '{{WRAPPER}} .galaxie-pm-card:not(.is-new)' => 'aspect-ratio: 1.586 / 1;' ),
 			)
 		);
 
@@ -275,8 +287,7 @@ final class AccountPaymentMethodsWidget extends Widget_Base {
 		$stripe = $editing ? null : \Galaxie\Woo\Support\StripeCards::client_config();
 
 		printf(
-			'<div class="galaxie-payment-methods" data-confirm="%1$s" data-saved="%2$s"%3$s>',
-			esc_attr( (string) ( $s['pm_confirm'] ?? '' ) ),
+			'<div class="galaxie-payment-methods" data-saved="%1$s"%2$s>',
 			esc_attr( (string) ( $s['pm_saved'] ?? '' ) ),
 			$stripe ? ' data-stripe="' . esc_attr( (string) wp_json_encode( $stripe ) ) . '"' : ''
 		);
@@ -328,6 +339,8 @@ final class AccountPaymentMethodsWidget extends Widget_Base {
 				AccountParts::link_button( $s, 'pm_add', (string) ( $s['pm_add_text'] ?? '' ), $editing ? '#' : AccountEndpoints::url( 'add-payment-method' ) ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built from escaped parts.
 			);
 		}
+
+		echo Dialog::render( $s, 'pm_confirm' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built from escaped parts.
 
 		echo '</div>';
 	}

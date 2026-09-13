@@ -12,6 +12,7 @@ use Elementor\Widget_Base;
 use Galaxie\Woo\Support\AccountParts;
 use Galaxie\Woo\Support\AddressBook;
 use Galaxie\Woo\Support\Assets;
+use Galaxie\Woo\Support\Dialog;
 use Galaxie\Woo\Support\PixfortControls;
 
 defined( 'ABSPATH' ) || exit;
@@ -63,7 +64,6 @@ final class AccountAddressBookWidget extends Widget_Base {
 		$this->add_control( 'ab_label_placeholder', array( 'label' => __( 'Nickname placeholder', 'galaxie-woo' ), 'type' => Controls_Manager::TEXT, 'default' => __( 'Ex.: Casa, Trabalho', 'galaxie-woo' ) ) );
 
 		$this->add_control( 'ab_saved', array( 'label' => __( 'Saved message', 'galaxie-woo' ), 'type' => Controls_Manager::TEXT, 'label_block' => true, 'default' => __( 'Endereços atualizados.', 'galaxie-woo' ), 'separator' => 'before' ) );
-		$this->add_control( 'ab_confirm', array( 'label' => __( 'Delete confirmation', 'galaxie-woo' ), 'type' => Controls_Manager::TEXT, 'label_block' => true, 'default' => __( 'Excluir este endereço?', 'galaxie-woo' ) ) );
 
 		$this->add_responsive_control(
 			'ab_columns',
@@ -96,6 +96,18 @@ final class AccountAddressBookWidget extends Widget_Base {
 			PixfortControls::button( $this, $prefix, $button[1] );
 			$this->end_controls_section();
 		}
+
+		Dialog::controls(
+			$this,
+			'ab_confirm',
+			array(
+				'label' => __( 'Delete confirmation', 'galaxie-woo' ),
+				'title' => __( 'Excluir endereço', 'galaxie-woo' ),
+				'text'  => __( 'Excluir este endereço?', 'galaxie-woo' ),
+				'yes'   => __( 'Sim, excluir', 'galaxie-woo' ),
+				'no'    => __( 'Cancelar', 'galaxie-woo' ),
+			)
+		);
 
 		$this->start_controls_section( 'ab_card_style', array( 'label' => __( 'Cards', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
 		PixfortControls::surface( $this, 'ab_card', '{{WRAPPER}} .galaxie-ab-card, {{WRAPPER}} .galaxie-ab-form', array( 'rounded' => 'rounded-lg' ) );
@@ -189,11 +201,10 @@ final class AccountAddressBookWidget extends Widget_Base {
 		}
 
 		printf(
-			'<div class="galaxie-address-book" data-entries="%1$s" data-msg-class="%2$s" data-saved="%3$s" data-confirm="%4$s">',
+			'<div class="galaxie-address-book" data-entries="%1$s" data-msg-class="%2$s" data-saved="%3$s">',
 			esc_attr( (string) wp_json_encode( $entries ) ),
 			esc_attr( PixfortControls::text_classes( $s, 'ab_msg_text' ) ),
-			esc_attr( (string) ( $s['ab_saved'] ?? '' ) ),
-			esc_attr( (string) ( $s['ab_confirm'] ?? '' ) )
+			esc_attr( (string) ( $s['ab_saved'] ?? '' ) )
 		);
 
 		$heading = trim( (string) ( $s['ab_heading'] ?? '' ) );
@@ -229,6 +240,8 @@ final class AccountAddressBookWidget extends Widget_Base {
 		$this->render_form( $s );
 
 		printf( '<template class="galaxie-ab-card-template">%s</template>', $this->card( $s, null ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built from escaped parts.
+
+		echo Dialog::render( $s, 'ab_confirm' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built from escaped parts.
 
 		echo '</div>';
 	}

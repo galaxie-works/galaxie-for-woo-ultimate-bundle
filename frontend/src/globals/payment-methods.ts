@@ -28,6 +28,7 @@ interface StripeElementChange {
 interface StripeElement {
   mount: (el: HTMLElement) => void
   destroy: () => void
+  focus: () => void
   on: (event: 'change' | 'focus' | 'blur', handler: (event: StripeElementChange) => void) => void
 }
 
@@ -135,6 +136,11 @@ function styleFrom(el: HTMLElement): Record<string, unknown> {
   // only what the card really sets is passed on.
   if (css.letterSpacing && css.letterSpacing !== 'normal') base.letterSpacing = css.letterSpacing
 
+  // Its default placeholder grey disappears on a dark card: the card's own
+  // colour, faded, reads on any background.
+  const rgb = css.color.match(/\d+(\.\d+)?/g)
+  if (rgb && rgb.length >= 3) base['::placeholder'] = { color: `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, 0.55)` }
+
   return {
     base,
     invalid: { color: css.color, iconColor: css.color },
@@ -178,12 +184,23 @@ async function openNewCard(root: HTMLElement, config: StripeConfig): Promise<voi
     expiry.mount(expirySlot)
     cvc.mount(cvcSlot)
 
-    const card = item.querySelector<HTMLElement>('.galaxie-pm-card')
+    const pairs: Array<[StripeElement, HTMLElement]> = [
+      [number, numberSlot],
+      [expiry, expirySlot],
+      [cvc, cvcSlot],
+    ]
 
-    for (const field of [number, expiry, cvc]) {
-      field.on('focus', () => card?.classList.add('is-focused'))
-      field.on('blur', () => card?.classList.remove('is-focused'))
-      field.on('change', (event) => message(root, event.error?.message ?? '', !event.error))
+    for (const [field, box] of pairs) {
+      field.on('focus', () => box.classList.add('is-focused'))
+      field.on('blur', () => box.classList.remove('is-focused'))
+      field.on('change', (event) => {
+        box.classList.toggle('is-invalid', Boolean(event.error))
+        message(root, event.error?.message ?? '', !event.error)
+      })
+
+      // The iframe is only as big as its text line; the label and the padding
+      // around it are part of the field too.
+      box.closest<HTMLElement>('.galaxie-pm-input')?.addEventListener('click', () => field.focus())
     }
 
     number.on('change', (event) => showBrand(item, event.brand))

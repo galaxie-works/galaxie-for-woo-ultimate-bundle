@@ -14,6 +14,7 @@
  */
 
 import { post } from '@/lib/wp'
+import { ask } from '@/lib/dialog'
 
 export interface AddressBookEntry {
   id: string
@@ -368,9 +369,9 @@ export function bootAddressBook(config?: AddressBookConfig): void {
     }
 
     if (target.closest('.galaxie-ab-delete')) {
-      if (window.confirm(root.dataset.confirm ?? '')) {
-        void act(root, config, 'galaxie_address_book_delete', { id: entry.id }, root.dataset.saved ?? '')
-      }
+      void ask(root, 'ab_confirm', 'Excluir este endereço?').then((yes) => {
+        if (yes) void act(root, config, 'galaxie_address_book_delete', { id: entry.id }, root.dataset.saved ?? '')
+      })
       return
     }
 

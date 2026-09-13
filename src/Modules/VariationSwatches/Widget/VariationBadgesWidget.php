@@ -85,6 +85,18 @@ final class VariationBadgesWidget extends Widget_Base {
 		$this->register_layout_style_controls();
 		$this->register_button_controls( 'addcart', 'addcart_style_section', __( 'Add to Cart button', 'galaxie-woo' ), __( 'Adicionar ao carrinho', 'galaxie-woo' ), 'primary', '' );
 		$this->register_button_controls( 'buynow', 'buynow_style_section', __( 'Buy Now button', 'galaxie-woo' ), __( 'Comprar agora', 'galaxie-woo' ), 'primary', 'outline' );
+
+		\Galaxie\Woo\Support\Dialog::controls(
+			$this,
+			'vb_dialog',
+			array(
+				'label' => __( 'Notice dialog', 'galaxie-woo' ),
+				'text'  => __( 'Selecione uma variação antes de continuar.', 'galaxie-woo' ),
+				'yes'   => __( 'Entendi', 'galaxie-woo' ),
+				'no'    => null,
+				'extra' => array( 'error' => array( __( 'When adding to cart fails', 'galaxie-woo' ), __( 'Não foi possível adicionar ao carrinho.', 'galaxie-woo' ) ) ),
+			)
+		);
 	}
 
 	private function register_label_style_controls(): void {
@@ -682,6 +694,8 @@ final class VariationBadgesWidget extends Widget_Base {
 			$this->render_block( $block, $product, $attribute_data, $slug, $settings, $show_stock );
 			++$i;
 		}
+
+		echo \Galaxie\Woo\Support\Dialog::render( $settings, 'vb_dialog', false, array( 'error' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built from escaped parts.
 
 		echo '</div>'; // .galaxie-buybox
 

@@ -31,6 +31,7 @@ interface AddToCartResponse {
 }
 
 import { findAlert } from '@/globals/buy-box-alert'
+import { tell } from '@/lib/dialog'
 
 interface VariationPayload {
   price_html?: string
@@ -313,7 +314,7 @@ function initButtons(form: HTMLFormElement, config?: BuyBoxConfig): void {
           // there is no Alert block at all does this resort to a browser
           // dialog, which is what the whole change is here to get rid of.
           const spoken = alert?.show('error', json.data?.message) ?? false
-          if (!spoken) window.alert(json.data?.message ?? 'Não foi possível adicionar ao carrinho.')
+          if (!spoken) void tell(form, 'buybox_dialog', { text: json.data?.message, fallback: 'Não foi possível adicionar ao carrinho.' })
           return
         }
 
