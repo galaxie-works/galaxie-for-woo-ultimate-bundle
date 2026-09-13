@@ -1953,6 +1953,19 @@ address.galaxie-order-body {
   font-style: normal;
 }
 
+/* pixfort gives every `.woocommerce address` a white box with a border, which
+   on a dark card reads as a hole in it. The address starts as plain text on
+   the card instead; the Address box controls add a box back, and their
+   scoped selectors outrank this. `border-style` rather than a width, because
+   pixfort's width carries `!important`. */
+.galaxie-account-addresses address.galaxie-address-body,
+.galaxie-address-book address.galaxie-ab-address {
+  background: transparent;
+  border-style: none;
+  border-radius: 0;
+  padding: 0;
+}
+
 .galaxie-address-card-actions {
   margin-top: auto;
 }
@@ -2001,6 +2014,129 @@ address.galaxie-order-body {
   flex-wrap: wrap;
   align-items: center;
   gap: 12px;
+}
+
+/* Address book */
+.galaxie-address-book {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.galaxie-address-book.is-busy {
+  opacity: 0.6;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+
+.galaxie-ab-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+
+@media (max-width: 767px) {
+  .galaxie-ab-cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.galaxie-ab-card,
+.galaxie-ab-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+  border: 1px solid rgb(0 0 0 / 6%);
+}
+
+.galaxie-ab-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.galaxie-ab-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.galaxie-ab-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border: 1px solid currentColor;
+}
+
+.galaxie-ab-address {
+  margin: 0;
+  font-style: normal;
+}
+
+.galaxie-ab-card-actions,
+.galaxie-ab-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.galaxie-ab-card-actions {
+  margin-top: auto;
+}
+
+/* The saved-address picker on the block checkout. */
+.galaxie-ab-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0 0 16px;
+}
+
+.galaxie-ab-picker-title {
+  margin: 0;
+  font-size: 0.875em;
+  font-weight: 600;
+}
+
+.galaxie-ab-picker-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.galaxie-ab-picker-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  max-width: 100%;
+  padding: 8px 12px;
+  border: 1px solid rgb(0 0 0 / 15%);
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.galaxie-ab-picker-item[aria-pressed='true'] {
+  border-color: currentColor;
+  box-shadow: inset 0 0 0 1px currentColor;
+}
+
+.galaxie-ab-picker-item-label {
+  font-size: 0.875em;
+  font-weight: 600;
+}
+
+.galaxie-ab-picker-item-address {
+  font-size: 0.8125em;
+  opacity: 0.75;
 }
 
 /* Personal details */

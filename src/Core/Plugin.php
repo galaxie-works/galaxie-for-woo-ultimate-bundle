@@ -106,6 +106,7 @@ final class Plugin {
 		$this->modules->register( new \Galaxie\Woo\Modules\Cart\Module() );
 		$this->modules->register( new \Galaxie\Woo\Modules\FreeShipping\Module() );
 		$this->modules->register( new \Galaxie\Woo\Modules\Wishlist\Module() );
+		$this->modules->register( new \Galaxie\Woo\Modules\AddressBook\Module() );
 		$this->modules->register( new \Galaxie\Woo\Modules\AccountDeletion\Module() );
 		$this->modules->register( new \Galaxie\Woo\Modules\ToastNotices\Module() );
 		$this->modules->register( new \Galaxie\Woo\Modules\VariationSwatches\Module() );

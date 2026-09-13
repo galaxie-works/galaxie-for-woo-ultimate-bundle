@@ -143,14 +143,14 @@ final class AccountAddressesWidget extends Widget_Base {
 		// The box around an address is pixfort's `.woocommerce address` rule — a
 		// white fill, a hairline border, 5px corners — until these say otherwise.
 		// Elementor's scoped selector outranks it, so any value set here wins.
-		$this->start_controls_section( 'addr_box_style', array( 'label' => __( 'Address box', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
+		$this->start_controls_section( 'addr_box_style', array( 'label' => __( 'Address box — all addresses', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
 		PixfortControls::surface( $this, 'addr_box', '{{WRAPPER}} .galaxie-address-body' );
 		$this->end_controls_section();
 
 		// The empty state on its own: its box starts from the one above and only
 		// what is set here differs, while its text is styled apart from a real
 		// address, since a hint and an address rarely want the same weight.
-		$this->start_controls_section( 'addr_empty_style', array( 'label' => __( 'Empty address', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
+		$this->start_controls_section( 'addr_empty_style', array( 'label' => __( 'Empty address — overrides', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
 
 		$this->add_responsive_control(
 			'addr_empty_opacity',

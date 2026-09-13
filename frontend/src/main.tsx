@@ -20,6 +20,7 @@ import { bootCoupon } from '@/globals/coupon'
 import { bootFreeProgress } from '@/globals/free-progress'
 import { bootAccountMenu } from '@/globals/account-menu'
 import { bootAccountScreens } from '@/globals/account-screens'
+import { bootAddressBook, type AddressBookConfig } from '@/globals/address-book'
 
 // Each module registers its island(s) here as they are ported.
 registerIsland('demo', Demo)
@@ -34,6 +35,7 @@ interface GalaxieConfig {
   productData?: boolean
   cart?: { ajaxUrl: string; nonce: string }
   addressAutocomplete?: { country: string; placeholder: string }
+  addressBook?: AddressBookConfig
 }
 
 function boot(): void {
@@ -52,6 +54,7 @@ function boot(): void {
   bootFreeProgress()
   bootAccountMenu()
   bootAccountScreens(config.wishlist)
+  bootAddressBook(config.addressBook)
 
   if (config.productData) {
     bootProductData()
