@@ -1953,10 +1953,6 @@ address.galaxie-order-body {
   font-style: normal;
 }
 
-.galaxie-address-body.is-empty {
-  opacity: 0.7;
-}
-
 .galaxie-address-card-actions {
   margin-top: auto;
 }

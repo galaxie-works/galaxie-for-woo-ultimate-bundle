@@ -128,7 +128,7 @@ final class AccountAddressesWidget extends Widget_Base {
 		$texts = array(
 			'addr_intro_text' => array( __( 'Text above the cards', 'galaxie-woo' ), '.galaxie-address-intro', array( 'bold' => '' ) ),
 			'addr_title'      => array( __( 'Titles', 'galaxie-woo' ), '.galaxie-address-title', array( 'size' => 'text-18', 'bold' => 'font-weight-bold' ) ),
-			'addr_body'       => array( __( 'Address text', 'galaxie-woo' ), '.galaxie-address-body', array( 'bold' => '' ) ),
+			'addr_body'       => array( __( 'Address text', 'galaxie-woo' ), '.galaxie-address-body:not(.is-empty)', array( 'bold' => '' ) ),
 			'addr_label'      => array( __( 'Form labels', 'galaxie-woo' ), '.galaxie-address-form label', array( 'size' => 'text-sm', 'bold' => 'font-weight-bold' ) ),
 		);
 
@@ -139,6 +139,37 @@ final class AccountAddressesWidget extends Widget_Base {
 			PixfortControls::text( $this, $prefix, array_merge( $text[2], array( 'remove_pb_padding' => 'm-0' ) ), array(), '{{WRAPPER}} ' . $text[1], 'text', empty( $text[3] ) ? array( 'position', 'inline' ) : array( 'position' ) );
 			$this->end_controls_section();
 		}
+
+		// The box around an address is pixfort's `.woocommerce address` rule — a
+		// white fill, a hairline border, 5px corners — until these say otherwise.
+		// Elementor's scoped selector outranks it, so any value set here wins.
+		$this->start_controls_section( 'addr_box_style', array( 'label' => __( 'Address box', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
+		PixfortControls::surface( $this, 'addr_box', '{{WRAPPER}} .galaxie-address-body' );
+		$this->end_controls_section();
+
+		// The empty state on its own: its box starts from the one above and only
+		// what is set here differs, while its text is styled apart from a real
+		// address, since a hint and an address rarely want the same weight.
+		$this->start_controls_section( 'addr_empty_style', array( 'label' => __( 'Empty address', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
+
+		$this->add_responsive_control(
+			'addr_empty_opacity',
+			array(
+				'label'     => __( 'Opacity', 'galaxie-woo' ),
+				'type'      => Controls_Manager::SLIDER,
+				'range'     => array( 'px' => array( 'min' => 0, 'max' => 100 ) ),
+				'default'   => array( 'size' => 70 ),
+				'selectors' => array( '{{WRAPPER}} .galaxie-address-body.is-empty' => 'opacity: calc({{SIZE}} / 100);' ),
+			)
+		);
+
+		$this->add_control( 'addr_empty_box_heading', array( 'label' => __( 'Box', 'galaxie-woo' ), 'type' => Controls_Manager::HEADING, 'separator' => 'before' ) );
+		PixfortControls::surface( $this, 'addr_empty_box', '{{WRAPPER}} .galaxie-address-body.is-empty' );
+
+		$this->add_control( 'addr_empty_body_heading', array( 'label' => __( 'Text', 'galaxie-woo' ), 'type' => Controls_Manager::HEADING, 'separator' => 'before' ) );
+		PixfortControls::text( $this, 'addr_empty_body', array( 'bold' => '' ), array(), '{{WRAPPER}} .galaxie-address-body.is-empty', 'text', array( 'position', 'inline' ) );
+
+		$this->end_controls_section();
 
 		$this->start_controls_section( 'addr_field_style', array( 'label' => __( 'Form fields', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
 
@@ -165,6 +196,25 @@ final class AccountAddressesWidget extends Widget_Base {
 	/** @param array<string,mixed> $s */
 	private function text( array $s, string $prefix, string $class, string $html, string $tag = 'div' ): string {
 		return sprintf( '<%1$s class="%2$s %3$s">%4$s</%1$s>', $tag, esc_attr( $class ), esc_attr( PixfortControls::text_classes( $s, $prefix ) ), $html );
+	}
+
+	/**
+	 * Corners and shadow are classes, so they cannot fall back through CSS the
+	 * way a colour does: the empty box takes each of its own when one is chosen
+	 * and the address box's otherwise.
+	 *
+	 * @param array<string,mixed> $s
+	 */
+	private function empty_box_classes( array $s ): string {
+		$merged = $s;
+
+		foreach ( array( 'rounded', 'shadow' ) as $key ) {
+			if ( '' !== (string) ( $s[ 'addr_empty_box_' . $key ] ?? '' ) ) {
+				$merged[ 'addr_box_' . $key ] = $s[ 'addr_empty_box_' . $key ];
+			}
+		}
+
+		return PixfortControls::surface_classes( $merged, 'addr_box' );
 	}
 
 	/** Which address the form is for, or '' for the cards. */
@@ -240,7 +290,9 @@ final class AccountAddressesWidget extends Widget_Base {
 				'<section class="galaxie-address-card card %1$s"><header class="galaxie-address-card-head">%2$s</header>%3$s<div class="galaxie-address-card-actions">%4$s</div></section>',
 				esc_attr( PixfortControls::surface_classes( $s, 'addr_card' ) ),
 				$this->text( $s, 'addr_title', 'galaxie-address-title', esc_html( $title ) ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped inside.
-				$this->text( $s, 'addr_body', 'galaxie-address-body' . ( $has ? '' : ' is-empty' ), $has ? wp_kses_post( $formatted ) : esc_html( (string) ( $s['addr_empty_text'] ?? '' ) ), 'address' ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped inside.
+				$has // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped inside.
+					? $this->text( $s, 'addr_body', 'galaxie-address-body ' . PixfortControls::surface_classes( $s, 'addr_box' ), wp_kses_post( $formatted ), 'address' )
+					: $this->text( $s, 'addr_empty_body', 'galaxie-address-body is-empty ' . $this->empty_box_classes( $s ), esc_html( (string) ( $s['addr_empty_text'] ?? '' ) ), 'address' ),
 				$has // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built from escaped parts.
 					? AccountParts::link_button( $s, 'addr_edit', (string) ( $s['addr_edit_text'] ?? '' ), AccountEndpoints::url( 'edit-address', $type ) )
 					: AccountParts::link_button( $s, 'addr_add', (string) ( $s['addr_add_text'] ?? '' ), AccountEndpoints::url( 'edit-address', $type ) )
