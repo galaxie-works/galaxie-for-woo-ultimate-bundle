@@ -1032,6 +1032,18 @@ form.galaxie-buybox .galaxie-buybox-row {
   text-align: right;
 }
 
+/* The amounts are WooCommerce's own spans, which the theme sizes and weighs on
+   its own. They follow the row's text controls instead. */
+.galaxie-cart-total-row .woocommerce-Price-amount,
+.galaxie-cart-total-row .woocommerce-Price-amount bdi,
+.galaxie-cart-total-row .woocommerce-Price-currencySymbol {
+  color: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  font-style: inherit;
+  font-family: inherit;
+}
+
 /* wc_cart_totals_shipping_html() prints its own <tr>s — the shipping methods
    and the calculator link expect that markup — so the row it lands in stacks
    rather than trying to lay a table out as flex. */

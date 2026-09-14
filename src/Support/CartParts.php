@@ -1133,7 +1133,7 @@ final class CartParts {
 		);
 
 		if ( '' !== $heading ) {
-			printf( '<h3 class="galaxie-cart-totals-heading">%s</h3>', esc_html( $heading ) );
+			printf( '<h3 class="galaxie-cart-totals-heading %1$s">%2$s</h3>', esc_attr( PixfortControls::text_classes( $settings, 'sumh' ) ), esc_html( $heading ) );
 		}
 
 		self::render_free_shipping( $settings );
@@ -1312,7 +1312,9 @@ final class CartParts {
 			}
 		}
 
-		self::row( __( 'Total', 'woocommerce' ), self::capture( 'wc_cart_totals_order_total_html' ), 'order-total' );
+		// The "Order total" style section, which until now was registered and
+		// never printed: the row wore the shared label and amount classes.
+		self::row( __( 'Total', 'woocommerce' ), self::capture( 'wc_cart_totals_order_total_html' ), 'order-total', PixfortControls::text_classes( $settings, 'sumt' ) );
 
 		echo '</div>';
 
@@ -1466,13 +1468,18 @@ final class CartParts {
 	private static string $row_label_class = '';
 	private static string $row_value_class = '';
 
-	private static function row( string $label, string $value, string $modifier ): void {
+	/**
+	 * @param string|null $classes The row's own text classes, for both label and
+	 *                             amount, instead of the shared row ones — the
+	 *                             order total has its own set.
+	 */
+	private static function row( string $label, string $value, string $modifier, ?string $classes = null ): void {
 		printf(
 			'<div class="galaxie-cart-total-row galaxie-cart-total-%1$s"><span class="galaxie-cart-total-label %2$s">%3$s</span><span class="galaxie-cart-total-value %4$s">%5$s</span></div>',
 			esc_attr( $modifier ),
-			esc_attr( self::$row_label_class ),
+			esc_attr( $classes ?? self::$row_label_class ),
 			esc_html( wp_strip_all_tags( $label ) ),
-			esc_attr( self::$row_value_class ),
+			esc_attr( $classes ?? self::$row_value_class ),
 			$value // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WooCommerce's own formatted amount.
 		);
 	}
