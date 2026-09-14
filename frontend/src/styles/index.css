@@ -2799,8 +2799,16 @@ address.galaxie-order-body {
 }
 
 /* A shared wishlist's public page. */
+/* pixfort's header sits over the page and each page makes room for it in its
+   own settings; this page has none, so it makes that room itself. */
 .galaxie-shared-page {
-  padding: 48px 0 72px;
+  padding: 180px 0 72px;
+}
+
+@media (max-width: 1024px) {
+  .galaxie-shared-page {
+    padding-top: 120px;
+  }
 }
 
 .galaxie-shared-wishlist {
