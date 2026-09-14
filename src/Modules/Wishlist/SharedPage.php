@@ -126,9 +126,25 @@ final class SharedPage {
 		return $robots;
 	}
 
-	/** A product page opened from "Give as a gift": remembered for the add-to-cart that follows. */
+	/**
+	 * A product page opened from "Give as a gift": remembered for the add-to-cart
+	 * that follows. The same product opened any other way — "Choose options", a
+	 * search, the menu — is the shopper's own purchase again, so it is forgotten.
+	 */
 	public static function remember_gift(): void {
-		if ( empty( $_GET[ Gifts::REQUEST_ARG ] ) || ! function_exists( 'is_product' ) || ! is_product() || ! WC()->session ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- only remembers where a visitor came from.
+		if ( ! function_exists( 'is_product' ) || ! is_product() || ! WC()->session ) {
+			return;
+		}
+
+		$product = (int) get_queried_object_id();
+
+		if ( empty( $_GET[ Gifts::REQUEST_ARG ] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- only remembers where a visitor came from.
+			$pending = WC()->session->get( Gifts::PENDING );
+
+			if ( is_array( $pending ) && (int) ( $pending['product'] ?? 0 ) === $product ) {
+				WC()->session->set( Gifts::PENDING, null );
+			}
+
 			return;
 		}
 
@@ -142,6 +158,9 @@ final class SharedPage {
 			WC()->session->set_customer_session_cookie( true );
 		}
 
-		WC()->session->set( Gifts::PENDING, array( 'token' => $token, 'product' => (int) get_queried_object_id() ) );
+		// The page says whose gift this is; a cached copy would say it to strangers.
+		nocache_headers();
+
+		WC()->session->set( Gifts::PENDING, array( 'token' => $token, 'product' => $product ) );
 	}
 }

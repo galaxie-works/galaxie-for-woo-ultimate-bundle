@@ -578,7 +578,8 @@ form.galaxie-buybox .galaxie-buybox-row a.added_to_cart {
 
 /* pixfort's alert carries a bottom margin for standalone stacking; inside the
    buy box the column gap already does that job. */
-form.galaxie-buybox .galaxie-buybox-alert .alert {
+form.galaxie-buybox .galaxie-buybox-alert .alert,
+form.galaxie-buybox .galaxie-buybox-gift .alert {
   margin-bottom: 0;
 }
 

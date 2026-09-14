@@ -8,6 +8,8 @@
 namespace Galaxie\Woo\Modules\VariationSwatches\Widget;
 
 use Elementor\Controls_Manager;
+use Galaxie\Woo\Core\Plugin;
+use Galaxie\Woo\Modules\Wishlist\Gifts;
 use Galaxie\Woo\Support\PixfortControls;
 use Galaxie\Woo\Support\QuantityField;
 use Elementor\Repeater;
@@ -95,6 +97,7 @@ final class BuyBoxWidget extends Widget_Base {
 		$this->register_price_section();
 		$this->register_variations_section();
 		$this->register_alert_section();
+		$this->register_gift_section();
 		$this->register_quantity_section();
 		$this->register_button_section( 'addcart', __( 'Add to Cart button', 'galaxie-woo' ), __( 'Adicionar ao carrinho', 'galaxie-woo' ), '' );
 		$this->register_button_section( 'buynow', __( 'Buy Now button', 'galaxie-woo' ), __( 'Comprar agora', 'galaxie-woo' ), 'outline' );
@@ -383,6 +386,95 @@ final class BuyBoxWidget extends Widget_Base {
 		$this->end_controls_section();
 	}
 
+	/**
+	 * The notice above the buy box for a shopper who came from "Give as a gift"
+	 * on a shared wish list, so they know the add-to-cart is a gift delivered to
+	 * someone else — with a link back to buying for themselves.
+	 */
+	private function register_gift_section(): void {
+		$this->start_controls_section(
+			'gift_section',
+			array( 'label' => __( 'Gift notice (shared wish list)', 'galaxie-woo' ) )
+		);
+
+		$this->add_control(
+			'gift_note',
+			array(
+				'type'            => Controls_Manager::RAW_HTML,
+				'raw'             => esc_html__( 'Shown at the top of the buy box when the shopper came from "Give as a gift" on a shared wish list. {name} is the list owner\'s first name. The link opens the product again as an ordinary purchase. Leave the message empty to show nothing.', 'galaxie-woo' ),
+				'content_classes' => 'elementor-descriptor',
+			)
+		);
+
+		$this->add_control(
+			'gift_text',
+			array(
+				'label'       => __( 'Message', 'galaxie-woo' ),
+				'label_block' => true,
+				'type'        => Controls_Manager::TEXTAREA,
+				'rows'        => 2,
+				'default'     => __( 'Você está dando este produto de presente para {name}. A entrega vai para o endereço dessa pessoa.', 'galaxie-woo' ),
+			)
+		);
+
+		$shown = array( 'gift_text!' => '' );
+
+		$this->add_control(
+			'gift_preview',
+			array(
+				'label'        => __( 'Show in the editor', 'galaxie-woo' ),
+				'type'         => Controls_Manager::SWITCHER,
+				'return_value' => 'yes',
+				'default'      => '',
+				'condition'    => $shown,
+			)
+		);
+
+		$this->add_control(
+			'gift_type',
+			array(
+				'label'     => __( 'Alert type', 'galaxie-woo' ),
+				'type'      => Controls_Manager::SELECT,
+				'options'   => self::alert_types(),
+				'default'   => 'info',
+				'condition' => $shown,
+			)
+		);
+
+		PixfortControls::icon_select( $this, 'gift_icon', __( 'Icon', 'galaxie-woo' ), 'Line/pixfort-icon-gift-1', $shown );
+
+		$this->add_control(
+			'gift_link_text',
+			array(
+				'label'       => __( 'Link text', 'galaxie-woo' ),
+				'description' => __( 'Leave empty for no link.', 'galaxie-woo' ),
+				'label_block' => true,
+				'type'        => Controls_Manager::TEXT,
+				'default'     => __( 'Comprar pra mim', 'galaxie-woo' ),
+				'condition'   => $shown,
+			)
+		);
+
+		PixfortControls::palette_select( $this, 'gift_link_color', __( 'Link color', 'galaxie-woo' ), 'alert-default', $shown + array( 'gift_link_text!' => '' ) );
+
+		$this->add_control(
+			'gift_inherit',
+			array(
+				'label'        => __( 'Same appearance as the Alert', 'galaxie-woo' ),
+				'description'  => __( 'Wears the Appearance set in the Alert section. Turn off to style this notice on its own.', 'galaxie-woo' ),
+				'type'         => Controls_Manager::SWITCHER,
+				'return_value' => 'yes',
+				'default'      => 'yes',
+				'separator'    => 'before',
+				'condition'    => $shown,
+			)
+		);
+
+		PixfortControls::alert( $this, 'gift_alert', array(), $shown + array( 'gift_inherit!' => 'yes' ), '{{WRAPPER}} .galaxie-buybox-gift' );
+
+		$this->end_controls_section();
+	}
+
 	private function register_button_section( string $prefix, string $label, string $default_text, string $default_style ): void {
 		$this->start_controls_section(
 			$prefix . '_section',
@@ -522,6 +614,7 @@ final class BuyBoxWidget extends Widget_Base {
 			$this->render_single_variation_slot();
 		}
 
+		$this->render_gift_notice( $settings, $product );
 		$this->render_blocks( $rows, $product, $settings );
 		$this->render_hidden_fields( $product, $variable );
 
@@ -846,6 +939,65 @@ final class BuyBoxWidget extends Widget_Base {
 			$editing ? ' is-visible' : '',
 			$markup // phpcs:ignore WordPress.Security.EscapeOutput -- built above from escaped parts and pixfort's own component markup.
 		);
+	}
+
+	/**
+	 * "You are giving this to {name}", for a shopper who opened this product from
+	 * "Give as a gift" — or a sample in the editor when asked for.
+	 *
+	 * Its own element, outside `.galaxie-buybox-alert`: that one is the script's,
+	 * hidden until an add-to-cart goes wrong, and this has to stay on screen.
+	 *
+	 * @param array<string,mixed> $settings
+	 */
+	private function render_gift_notice( array $settings, \WC_Product $product ): void {
+		$text = trim( (string) ( $settings['gift_text'] ?? '' ) );
+
+		if ( '' === $text ) {
+			return;
+		}
+
+		$editing = self::is_editing();
+		$gift    = ! $editing && Plugin::instance()->modules()->is_enabled_by_id( 'wishlist' ) ? Gifts::pending_for( (int) $product->get_id() ) : null;
+
+		if ( ! $gift && ! ( $editing && 'yes' === ( $settings['gift_preview'] ?? '' ) ) ) {
+			return;
+		}
+
+		$name    = $gift ? (string) $gift['name'] : 'Maria';
+		$text    = wp_kses_post( str_replace( '{name}', esc_html( $name ), $text ) );
+		$type    = (string) ( $settings['gift_type'] ?? 'info' );
+		$inherit = 'yes' === ( $settings['gift_inherit'] ?? 'yes' );
+		$prefix  = $inherit ? 'alert' : 'gift_alert';
+		$label   = trim( (string) ( $settings['gift_link_text'] ?? '' ) );
+
+		// Back to the clean product page, which forgets the gift.
+		$link = '' === $label ? array() : array(
+			'link_text'  => $label,
+			'link'       => array( 'url' => (string) $product->get_permalink(), 'is_external' => false, 'nofollow' => false ),
+			'link_color' => (string) ( $settings['gift_link_color'] ?? 'alert-default' ),
+		);
+
+		echo '<div class="galaxie-buybox-gift" role="status">';
+
+		// The Alert's icon size is a selector scoped to its own element.
+		$size = $settings['alert_icon_size'] ?? '';
+
+		if ( $inherit && is_numeric( $size ) ) {
+			printf( '<style>.elementor-element-%1$s .galaxie-buybox-gift .pix-alert-icon > div{font-size:%2$spx !important;}</style>', esc_attr( $this->get_id() ), esc_attr( (string) (float) $size ) );
+		}
+
+		if ( PixfortControls::available() ) {
+			if ( defined( 'PIX_CORE_PLUGIN_URI' ) && defined( 'PIXFORT_PLUGIN_VERSION' ) ) {
+				wp_enqueue_style( 'pixfort-alert-style', PIX_CORE_PLUGIN_URI . 'includes/assets/css/elements/alert.min.css', array(), PIXFORT_PLUGIN_VERSION );
+			}
+
+			echo \PixfortCore::instance()->elementsManager->renderElement( 'Alert', PixfortControls::alert_attr( $settings, $prefix, $text, $type, PixfortControls::icon_value( $settings, 'gift_icon' ), $link ) ); // phpcs:ignore WordPress.Security.EscapeOutput -- pixfort's own component markup.
+		} else {
+			printf( '<div class="alert alert-%s" role="alert"><div class="pix-alert-title">%s</div></div>', esc_attr( $type ), $text ); // phpcs:ignore WordPress.Security.EscapeOutput -- kses above.
+		}
+
+		echo '</div>';
 	}
 
 	/**

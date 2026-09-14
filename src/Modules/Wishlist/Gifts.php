@@ -122,6 +122,17 @@ final class Gifts {
 		return is_array( $pending ) && (int) ( $pending['product'] ?? 0 ) === $product_id ? (string) ( $pending['token'] ?? '' ) : '';
 	}
 
+	/** The gift this product page was opened for, still valid, or null. @return array<string,mixed>|null */
+	public static function pending_for( int $product_id ): ?array {
+		$pending = function_exists( 'WC' ) && WC()->session ? WC()->session->get( self::PENDING ) : null;
+
+		if ( ! is_array( $pending ) || (int) ( $pending['product'] ?? 0 ) !== $product_id ) {
+			return null;
+		}
+
+		return self::for_token( (string) ( $pending['token'] ?? '' ) );
+	}
+
 	/** One delivery per cart: gifts for one list, or the buyer's own shopping, never both. */
 	public static function validate( $passed, $product_id ) {
 		if ( ! $passed || ! function_exists( 'WC' ) || ! WC()->cart ) {
