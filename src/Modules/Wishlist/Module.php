@@ -7,9 +7,11 @@
 
 namespace Galaxie\Woo\Modules\Wishlist;
 
+use Galaxie\Woo\Core\Field;
 use Galaxie\Woo\Core\Module as ModuleContract;
 use Galaxie\Woo\Core\ProvidesBootData;
 use Galaxie\Woo\Core\ProvidesElementorWidgets;
+use Galaxie\Woo\Core\ProvidesSettings;
 use Galaxie\Woo\Modules\Wishlist\Widget\WishlistButtonWidget;
 
 defined( 'ABSPATH' ) || exit;
@@ -25,7 +27,7 @@ defined( 'ABSPATH' ) || exit;
  * default list and takes them back. That runs on any page load rather than on
  * `wp_login`, because the passwordless sign-in never fires `wp_login`.
  */
-final class Module implements ModuleContract, ProvidesElementorWidgets, ProvidesBootData {
+final class Module implements ModuleContract, ProvidesElementorWidgets, ProvidesBootData, ProvidesSettings {
 
 	public const AJAX_ACTION  = 'galaxie_wishlist_toggle';
 	public const NONCE_ACTION = 'galaxie_woo_wishlist';
@@ -43,6 +45,8 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 		'default' => 'ajax_default',
 		'share'   => 'ajax_share',
 		'gifts'   => 'ajax_gifts',
+
+		'save_shared' => 'ajax_save_shared',
 	);
 
 	public function id(): string {
@@ -69,9 +73,44 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 		// Only so a visitor gets sent to sign in rather than a silent failure.
 		add_action( 'wp_ajax_nopriv_galaxie_wishlist_toggle', array( $this, 'ajax_toggle' ) );
 		add_action( 'wp_ajax_nopriv_galaxie_wishlist_lists', array( $this, 'ajax_lists' ) );
+		add_action( 'wp_ajax_nopriv_galaxie_wishlist_save_shared', array( $this, 'ajax_save_shared' ) );
 
 		add_action( 'template_redirect', array( $this, 'apply_pending' ) );
 		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue' ) );
+
+		SharedPage::hooks();
+		Gifts::hooks();
+	}
+
+	// -------------------------------------------------------------- settings
+
+	public function settings_tab_label(): string {
+		return __( 'Wishlist', 'galaxie-woo' );
+	}
+
+	public function settings_fields(): array {
+		$templates = array( '' => __( 'The Galaxie Shared Wishlist widget, as it comes', 'galaxie-woo' ) );
+
+		foreach ( \Galaxie\Woo\Support\AccountEndpoints::templates() as $id => $title ) {
+			$templates[ (string) $id ] = $title;
+		}
+
+		return array(
+			new Field(
+				key: 'shared_template',
+				label: __( 'Shared list page', 'galaxie-woo' ),
+				type: Field::TYPE_SELECT,
+				description: __( 'What a shared list\'s link (/lista/…) shows inside the theme. Put the Galaxie Shared Wishlist widget in the template you pick.', 'galaxie-woo' ),
+				default: '',
+				options: $templates
+			),
+		);
+	}
+
+	public function render_extra_settings( array $values ): void {}
+
+	public function sanitize_settings( array $submitted, array $current ): array {
+		return array_merge( $current, Field::sanitize_all( $this->settings_fields(), $submitted ) );
 	}
 
 	public function enqueue(): void {
@@ -82,17 +121,37 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 	}
 
 	public function elementor_widgets(): array {
-		return array( WishlistButtonWidget::class, \Galaxie\Woo\Modules\Wishlist\Widget\AccountWishlistWidget::class );
+		return array( WishlistButtonWidget::class, \Galaxie\Woo\Modules\Wishlist\Widget\AccountWishlistWidget::class, \Galaxie\Woo\Modules\Wishlist\Widget\SharedWishlistWidget::class );
 	}
 
 	public function boot_data(): array {
-		return array(
+		$data = array(
 			'wishlist' => array(
 				'ajaxUrl'  => admin_url( 'admin-ajax.php' ),
 				'nonce'    => wp_create_nonce( self::NONCE_ACTION ),
 				'loggedIn' => is_user_logged_in(),
 			),
 		);
+
+		// A gift checkout learns who it is for and the area — never the street.
+		$gift = function_exists( 'is_checkout' ) && is_checkout() ? Gifts::cart_gift() : null;
+
+		if ( $gift ) {
+			$place = trim( $gift['address']['city'] . ( '' !== $gift['address']['state'] ? '/' . $gift['address']['state'] : '' ), '/' );
+
+			$data['giftCheckout'] = array(
+				'firstName'   => $gift['name'],
+				'city'        => $gift['address']['city'],
+				'state'       => $gift['address']['state'],
+				'postcode'    => $gift['address']['postcode'],
+				'country'     => $gift['address']['country'],
+				/* translators: 1: the list owner's first name, 2: city/state. */
+				'notice'      => sprintf( __( 'Presente para %1$s · entrega em %2$s, no endereço que %1$s cadastrou.', 'galaxie-woo' ), $gift['name'], $place ),
+				'placeholder' => __( 'Endereço de quem recebe o presente', 'galaxie-woo' ),
+			);
+		}
+
+		return $data;
 	}
 
 	// ------------------------------------------------------------------ AJAX
@@ -201,6 +260,42 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 		$this->answer( Lists::set_gifts( $user_id, $this->list_id(), $gifts ), $user_id );
 	}
 
+	/** "Save this list": a shared list copied into the visitor's own lists. */
+	public function ajax_save_shared(): void {
+		$user_id = $this->account();
+		$token   = isset( $_POST['token'] ) ? sanitize_key( wp_unslash( $_POST['token'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing -- checked in account().
+		$list    = self::save_shared( $user_id, $token );
+
+		if ( is_wp_error( $list ) ) {
+			wp_send_json_error( array( 'message' => $list->get_error_message() ) );
+		}
+
+		wp_send_json_success( array( 'list' => self::list_json( $list ) ) );
+	}
+
+	/** @return array<string,mixed>|\WP_Error */
+	private static function save_shared( int $user_id, string $token ) {
+		$shared = Lists::find_shared( $token );
+
+		if ( ! $shared ) {
+			return new \WP_Error( 'missing', __( 'Esta lista não está mais disponível.', 'galaxie-woo' ) );
+		}
+
+		if ( (int) $shared['user_id'] === $user_id ) {
+			return new \WP_Error( 'own', __( 'Esta lista já é sua.', 'galaxie-woo' ) );
+		}
+
+		$owner = get_userdata( (int) $shared['user_id'] );
+		$name  = (string) $shared['list']['name'];
+
+		if ( $owner && '' !== $owner->first_name ) {
+			/* translators: 1: list name, 2: the owner's first name. */
+			$name = sprintf( __( '%1$s (de %2$s)', 'galaxie-woo' ), $name, $owner->first_name );
+		}
+
+		return Lists::create( $user_id, $name, (array) $shared['list']['items'] );
+	}
+
 	// ---------------------------------------------------- signing in to save
 
 	/**
@@ -217,15 +312,17 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 		self::set_pending_cookie( '', time() - HOUR_IN_SECONDS );
 
 		$product_id = is_array( $pending ) ? absint( $pending['p'] ?? 0 ) : 0;
+		$token      = is_array( $pending ) ? sanitize_key( (string) ( $pending['s'] ?? '' ) ) : '';
+		$user_id    = get_current_user_id();
 
-		if ( ! $product_id || ! wc_get_product( $product_id ) ) {
+		if ( '' !== $token ) {
+			self::save_shared( $user_id, $token );
+		} elseif ( $product_id && wc_get_product( $product_id ) ) {
+			if ( ! Lists::contains( $user_id, $product_id, (string) Lists::default_list( $user_id )['id'] ) ) {
+				Lists::toggle_default( $user_id, $product_id );
+			}
+		} else {
 			return;
-		}
-
-		$user_id = get_current_user_id();
-
-		if ( ! Lists::contains( $user_id, $product_id, (string) Lists::default_list( $user_id )['id'] ) ) {
-			Lists::toggle_default( $user_id, $product_id );
 		}
 
 		$return = wp_validate_redirect( esc_url_raw( (string) ( $pending['r'] ?? '' ) ), '' );
@@ -291,10 +388,12 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 		}
 
 		$product_id = isset( $_POST['product_id'] ) ? absint( $_POST['product_id'] ) : 0;
+		$token      = isset( $_POST['token'] ) ? sanitize_key( wp_unslash( $_POST['token'] ) ) : '';
 		$return     = isset( $_POST['return'] ) ? wp_validate_redirect( esc_url_raw( wp_unslash( $_POST['return'] ) ), '' ) : '';
 
-		if ( $product_id && wc_get_product( $product_id ) ) {
-			self::set_pending_cookie( (string) wp_json_encode( array( 'p' => $product_id, 'r' => $return ) ), time() + HOUR_IN_SECONDS );
+		// What they were saving — a product, or a whole shared list — for after sign-in.
+		if ( '' !== $token || ( $product_id && wc_get_product( $product_id ) ) ) {
+			self::set_pending_cookie( (string) wp_json_encode( array( 'p' => $product_id, 's' => $token, 'r' => $return ) ), time() + HOUR_IN_SECONDS );
 		}
 
 		wp_send_json_error(

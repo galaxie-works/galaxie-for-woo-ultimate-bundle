@@ -23,6 +23,8 @@ import { bootAccountScreens } from '@/globals/account-screens'
 import { bootAddressBook, type AddressBookConfig } from '@/globals/address-book'
 import { bootPaymentMethods } from '@/globals/payment-methods'
 import { bootWishlistAccount } from '@/globals/wishlist-account'
+import { bootSharedWishlist } from '@/globals/shared-wishlist'
+import { bootGiftCheckout, type GiftCheckoutConfig } from '@/globals/gift-checkout'
 
 // Each module registers its island(s) here as they are ported.
 registerIsland('demo', Demo)
@@ -38,6 +40,7 @@ interface GalaxieConfig {
   cart?: { ajaxUrl: string; nonce: string }
   addressAutocomplete?: { country: string; placeholder: string }
   addressBook?: AddressBookConfig
+  giftCheckout?: GiftCheckoutConfig
 }
 
 function boot(): void {
@@ -59,6 +62,8 @@ function boot(): void {
   bootAddressBook(config.addressBook)
   bootPaymentMethods()
   bootWishlistAccount(config.wishlist)
+  bootSharedWishlist(config.wishlist)
+  bootGiftCheckout(config.giftCheckout)
 
   if (config.productData) {
     bootProductData()

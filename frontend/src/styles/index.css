@@ -2798,6 +2798,55 @@ address.galaxie-order-body {
   --pf-icon-color: currentColor;
 }
 
+/* A shared wishlist's public page. */
+.galaxie-shared-page {
+  padding: 48px 0 72px;
+}
+
+.galaxie-shared-wishlist {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.galaxie-shared-wishlist [hidden] {
+  display: none !important;
+}
+
+.galaxie-shared-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.galaxie-shared-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.galaxie-shared-name,
+.galaxie-shared-intro {
+  margin: 0;
+}
+
+/* The block checkout for a gift: the shipping step is who and where. */
+.galaxie-gift-checkout #shipping-fields .wc-block-components-address-form-wrapper,
+.galaxie-gift-checkout #shipping-fields .wc-block-components-address-card-wrapper,
+.galaxie-gift-checkout #shipping-fields .wc-block-components-address-form {
+  display: none !important;
+}
+
+.galaxie-gift-notice {
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  border: 1px solid rgb(0 0 0 / 10%);
+  border-radius: 10px;
+  font-weight: 600;
+}
+
 /* The "add to a list" popover beside a product's heart. */
 .galaxie-wishlist-list-btn {
   margin-left: 8px;

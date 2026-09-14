@@ -163,6 +163,12 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 
 	/** Where the parcel goes, or the billing address when the order ships nowhere. */
 	public function file_order_address( \WC_Order $order ): void {
+		// A gift ships to a wishlist owner's address, which the buyer must never
+		// find in their own address book.
+		if ( $order->get_meta( '_galaxie_gift_owner' ) ) {
+			return;
+		}
+
 		$type    = $order->has_shipping_address() ? 'shipping' : 'billing';
 		$address = array();
 
