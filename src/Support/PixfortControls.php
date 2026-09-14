@@ -376,7 +376,7 @@ final class PixfortControls {
 	 *
 	 * @param mixed $value
 	 */
-	private static function css_colour( $value ): string {
+	public static function css_colour( $value ): string {
 		return is_string( $value ) && preg_match( '/^[#a-zA-Z0-9(),.%\s-]+$/', $value ) ? trim( $value ) : '';
 	}
 
@@ -386,7 +386,7 @@ final class PixfortControls {
 	 *
 	 * @param mixed $value
 	 */
-	private static function css_length( $value ): string {
+	public static function css_length( $value ): string {
 		if ( is_int( $value ) || is_float( $value ) ) {
 			$value = (string) $value;
 		}
@@ -404,7 +404,7 @@ final class PixfortControls {
 	 *
 	 * @param mixed $value
 	 */
-	private static function class_list( $value ): string {
+	public static function class_list( $value ): string {
 		if ( ! is_string( $value ) ) {
 			return '';
 		}
@@ -419,7 +419,7 @@ final class PixfortControls {
 	 *
 	 * @param mixed $value
 	 */
-	private static function number( $value, string $fallback = '' ): string {
+	public static function number( $value, string $fallback = '' ): string {
 		return is_numeric( $value ) ? (string) (float) $value : $fallback;
 	}
 
