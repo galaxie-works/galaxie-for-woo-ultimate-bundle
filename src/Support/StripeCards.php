@@ -70,6 +70,12 @@ final class StripeCards {
 			self::fail( __( 'Sua sessão expirou. Recarregue a página e tente de novo.', 'galaxie-woo' ), 403 );
 		}
 
+		// The notices already waiting before anything below runs, so a failure
+		// can take back only what this request added (see fail()).
+		if ( function_exists( 'wc_get_notices' ) && function_exists( 'WC' ) && WC()->session ) {
+			self::$notices_before = wc_get_notices();
+		}
+
 		$intent_id = isset( $_POST['setup_intent'] ) ? sanitize_text_field( wp_unslash( $_POST['setup_intent'] ) ) : '';
 		$gateway   = self::gateway();
 
@@ -126,16 +132,25 @@ final class StripeCards {
 	}
 
 	/**
+	 * The session's notices as they stood when the save began, or null before then.
+	 *
+	 * @var array<string,mixed>|null
+	 */
+	private static ?array $notices_before = null;
+
+	/**
 	 * Refuses the save with a message for the widget.
 	 *
 	 * The Stripe plugin reports its own failures with wc_add_notice() — among
 	 * them create_token_from_setup_intent(). In an AJAX request nothing prints
 	 * that notice, so it would wait in the session and greet the customer on
-	 * the next page they open. The widget already says what went wrong.
+	 * the next page they open. The widget already says what went wrong, so the
+	 * queue is put back as it was before the save: notices queued earlier, for
+	 * a page the customer has yet to see, stay.
 	 */
 	private static function fail( string $message, ?int $http_status = null, string $intent_status = '' ): void {
-		if ( function_exists( 'wc_clear_notices' ) && function_exists( 'WC' ) && WC()->session ) {
-			wc_clear_notices();
+		if ( null !== self::$notices_before && function_exists( 'wc_set_notices' ) && function_exists( 'WC' ) && WC()->session ) {
+			wc_set_notices( self::$notices_before );
 		}
 
 		$data = array( 'message' => $message );

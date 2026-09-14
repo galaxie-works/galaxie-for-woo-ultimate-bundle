@@ -507,6 +507,9 @@ final class AccountPaymentMethodsWidget extends Widget_Base {
 	/** The key each list item carries its token id under, added by {@see methods()}. */
 	private const TOKEN_KEY = 'galaxie_token_id';
 
+	/** Action key => whether its URL is still WooCommerce's own, added by {@see methods()}. */
+	private const OWN_ACTIONS_KEY = 'galaxie_wc_actions';
+
 	/**
 	 * WooCommerce's saved-methods list, flattened across method types, with the
 	 * default first.
@@ -523,9 +526,22 @@ final class AccountPaymentMethodsWidget extends Widget_Base {
 	private static function methods( int $user_id ): array {
 		$flat = array();
 
+		// Each action whose URL is still the one WooCommerce built is marked, so
+		// only those are rebuilt on My Account; a URL a gateway put there instead
+		// is left as the gateway wrote it.
 		$tag_token = static function ( $item, $token ) {
 			if ( is_array( $item ) && $token instanceof \WC_Payment_Token ) {
-				$item[ self::TOKEN_KEY ] = (string) $token->get_id();
+				$id                      = (string) $token->get_id();
+				$item[ self::TOKEN_KEY ] = $id;
+				$own                     = array();
+
+				foreach ( array( 'delete' => 'delete-payment-method', 'default' => 'set-default-payment-method' ) as $action => $endpoint ) {
+					$url = (string) ( $item['actions'][ $action ]['url'] ?? '' );
+
+					$own[ $action ] = '' !== $url && wp_nonce_url( wc_get_endpoint_url( $endpoint, $id ), $endpoint . '-' . $id ) === $url;
+				}
+
+				$item[ self::OWN_ACTIONS_KEY ] = $own;
 			}
 
 			return $item;
@@ -703,13 +719,15 @@ final class AccountPaymentMethodsWidget extends Widget_Base {
 		$buttons  = '';
 		$token_id = self::token_id( $method );
 
+		$own = (array) ( $method[ self::OWN_ACTIONS_KEY ] ?? array() );
+
 		if ( ! empty( $actions['default']['url'] ) ) {
-			$url      = '' !== $token_id ? self::action_url( 'set-default-payment-method', $token_id ) : (string) $actions['default']['url'];
+			$url      = '' !== $token_id && ! empty( $own['default'] ) ? self::action_url( 'set-default-payment-method', $token_id ) : (string) $actions['default']['url'];
 			$buttons .= AccountParts::link_button( $s, 'pm_default', (string) ( $s['pm_default_text'] ?? '' ), $url, 'galaxie-pm-default' );
 		}
 
 		if ( ! empty( $actions['delete']['url'] ) ) {
-			$url      = '' !== $token_id ? self::action_url( 'delete-payment-method', $token_id ) : (string) $actions['delete']['url'];
+			$url      = '' !== $token_id && ! empty( $own['delete'] ) ? self::action_url( 'delete-payment-method', $token_id ) : (string) $actions['delete']['url'];
 			$buttons .= AccountParts::link_button( $s, 'pm_delete', (string) ( $s['pm_delete_text'] ?? '' ), $url, 'galaxie-pm-delete' );
 		}
 
