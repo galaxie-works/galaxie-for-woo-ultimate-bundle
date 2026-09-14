@@ -67,7 +67,7 @@ function sparkle(el: HTMLElement): void {
   }
 }
 
-export function bootAccountScreens(wishlist?: WishlistConfig): void {
+export function bootAccountScreens(_wishlist?: WishlistConfig): void {
   const config = getGalaxieConfig()
 
   // Personal details.
@@ -208,39 +208,5 @@ export function bootAccountScreens(wishlist?: WishlistConfig): void {
     })
   })
 
-  // Wishlist: removing a product.
-  document.addEventListener('click', (event) => {
-    const button = (event.target as Element | null)?.closest?.<HTMLButtonElement>('.galaxie-wishlist-remove')
-    const item = button?.closest<HTMLElement>('.galaxie-wishlist-item')
-    const root = button?.closest<HTMLElement>('.galaxie-account-wishlist')
-    if (!button || !item || !root || !wishlist) return
-
-    event.preventDefault()
-    item.classList.add('is-removing')
-    button.disabled = true
-
-    const body = new URLSearchParams({
-      action: 'galaxie_wishlist_toggle',
-      nonce: wishlist.nonce,
-      product_id: button.dataset.productId ?? '',
-    })
-
-    fetch(wishlist.ajaxUrl, { method: 'POST', credentials: 'same-origin', body })
-      .then((response) => response.json() as Promise<{ success: boolean; data?: { in_wishlist?: boolean } }>)
-      .then((json) => {
-        if (!json.success || json.data?.in_wishlist) throw new Error('not removed')
-
-        item.remove()
-
-        if (!root.querySelector('.galaxie-wishlist-item')) {
-          root.querySelector('.galaxie-wishlist-grid')?.remove()
-          const empty = root.querySelector<HTMLElement>('.galaxie-wishlist-empty-box')
-          if (empty) empty.hidden = false
-        }
-      })
-      .catch(() => {
-        item.classList.remove('is-removing')
-        button.disabled = false
-      })
-  })
+  // The wishlist screen's own behaviour lives in globals/wishlist-account.ts.
 }

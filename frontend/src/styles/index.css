@@ -680,6 +680,12 @@ form.galaxie-buybox .galaxie-buybox-row {
   display: inline-block;
 }
 
+/* Icon only: pixfort still spaces the icon for text that is not there. */
+.galaxie-wishlist-icon-only .pixfort-icon,
+.galaxie-wishlist-icon-only svg {
+  margin: 0 !important;
+}
+
 /* Only a heading that actually has an icon becomes a row. Without the
    modifier the heading stays whatever the text block made it, which is what
    every layout saved before the icon existed is relying on. */
@@ -2652,6 +2658,195 @@ address.galaxie-order-body {
 
 .galaxie-wishlist-item.is-removing {
   opacity: 0.4;
+}
+
+.galaxie-account-wishlist [hidden] {
+  display: none !important;
+}
+
+.galaxie-account-wishlist.is-busy {
+  opacity: 0.6;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+
+/* The customer's lists as tabs, and the one being shown. */
+.galaxie-wishlist-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.galaxie-wishlist-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border: 1px solid rgb(0 0 0 / 10%);
+  color: inherit;
+  text-decoration: none !important;
+}
+
+.galaxie-wishlist-tab.is-current {
+  border-color: currentColor;
+}
+
+.galaxie-wishlist-tab-count {
+  opacity: 0.6;
+  font-size: 0.85em;
+}
+
+.galaxie-wishlist-name-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.galaxie-wishlist-name-form input {
+  flex: 1 1 220px;
+  max-width: 360px;
+}
+
+.galaxie-wishlist-name-actions,
+.galaxie-wishlist-toolbar-actions,
+.galaxie-wishlist-share-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.galaxie-wishlist-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+}
+
+.galaxie-wishlist-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.galaxie-wishlist-list-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border: 1px solid currentColor;
+}
+
+.galaxie-wishlist-share {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid rgb(0 0 0 / 6%);
+}
+
+.galaxie-wishlist-share-body {
+  margin: 0;
+}
+
+.galaxie-wishlist-share-link {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.galaxie-wishlist-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  cursor: pointer;
+}
+
+/* A product card's corner badges and the picture's optional zoom. */
+.galaxie-wishlist-thumb {
+  position: relative;
+}
+
+.galaxie-wishlist-thumb img {
+  transition: transform 0.3s ease;
+}
+
+.galaxie-wishlist-badges {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  line-height: 1.4;
+}
+
+.galaxie-wishlist-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  background-color: var(--pix-body-bg-color, #fff);
+}
+
+.galaxie-wishlist-empty-icon {
+  display: inline-flex;
+  --pf-icon-color: currentColor;
+}
+
+/* The "add to a list" popover beside a product's heart. */
+.galaxie-wishlist-list-btn {
+  margin-left: 8px;
+}
+
+.galaxie-wishlist-popover {
+  position: absolute;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: min(300px, calc(100vw - 16px));
+  padding: 14px;
+  border-radius: 12px;
+  background-color: var(--pix-body-bg-color, #fff);
+  box-shadow: 0 16px 40px rgb(0 0 0 / 18%);
+}
+
+.galaxie-wishlist-popover-title {
+  font-weight: 600;
+}
+
+.galaxie-wishlist-popover-lists {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 240px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.galaxie-wishlist-popover-lists label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  cursor: pointer;
+}
+
+.galaxie-wishlist-popover-new {
+  display: flex;
+  gap: 8px;
+}
+
+.galaxie-wishlist-popover-new input {
+  flex: 1;
+  min-width: 0;
 }
 
 .galaxie-wishlist-thumb {

@@ -10,6 +10,7 @@ namespace Galaxie\Woo\Modules\Wishlist\Widget;
 use Elementor\Controls_Manager;
 use Elementor\Widget_Base;
 use Galaxie\Woo\Modules\Wishlist\Module;
+use Galaxie\Woo\Support\PixfortControls;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -68,6 +69,30 @@ final class WishlistButtonWidget extends Widget_Base {
 			'primary',
 			'flat'
 		);
+
+		// The heart saves to the default list; this opens all of them.
+		$this->start_controls_section( 'list_section', array( 'label' => __( 'Add to a list button', 'galaxie-woo' ) ) );
+
+		$this->add_control(
+			'list_enabled',
+			array(
+				'label'        => __( 'Show "Add to a list"', 'galaxie-woo' ),
+				'description'  => __( 'A second button beside the heart that opens the customer\'s lists: tick the ones to save to, or create a new one.', 'galaxie-woo' ),
+				'type'         => Controls_Manager::SWITCHER,
+				'return_value' => 'yes',
+				'default'      => '',
+			)
+		);
+
+		$shown = array( 'list_enabled' => 'yes' );
+
+		$this->add_control( 'list_title', array( 'label' => __( 'Popover title', 'galaxie-woo' ), 'type' => Controls_Manager::TEXT, 'default' => __( 'Salvar em', 'galaxie-woo' ), 'condition' => $shown ) );
+		$this->add_control( 'list_placeholder', array( 'label' => __( 'New list placeholder', 'galaxie-woo' ), 'type' => Controls_Manager::TEXT, 'default' => __( 'Nome da nova lista', 'galaxie-woo' ), 'condition' => $shown ) );
+		$this->add_control( 'list_create', array( 'label' => __( 'Create button text', 'galaxie-woo' ), 'type' => Controls_Manager::TEXT, 'default' => __( 'Criar lista', 'galaxie-woo' ), 'condition' => $shown ) );
+
+		PixfortControls::button( $this, 'list', array( 'text' => __( 'Salvar em uma lista', 'galaxie-woo' ), 'style' => 'link', 'size' => 'sm', 'icon' => 'Line/pixfort-icon-heart-1' ), $shown );
+
+		$this->end_controls_section();
 	}
 
 	/**
@@ -90,6 +115,19 @@ final class WishlistButtonWidget extends Widget_Base {
 				'label'   => __( 'Text', 'galaxie-woo' ),
 				'type'    => Controls_Manager::TEXT,
 				'default' => $default_text,
+			)
+		);
+
+		// A heart alone is the usual wishlist control on a product card. The text
+		// stays as the button's accessible name, so a screen reader still says it.
+		$this->add_control(
+			$prefix . '_icon_only',
+			array(
+				'label'        => __( 'Icon only', 'galaxie-woo' ),
+				'description'  => __( 'Hides the text and keeps it as the label screen readers announce. Pick an icon below.', 'galaxie-woo' ),
+				'type'         => Controls_Manager::SWITCHER,
+				'return_value' => 'yes',
+				'default'      => '',
 			)
 		);
 
@@ -214,24 +252,41 @@ final class WishlistButtonWidget extends Widget_Base {
 		$in_wishlist = Module::is_in_wishlist( $product->get_id() );
 
 		printf(
-			'<button type="button" class="galaxie-wishlist-btn%1$s" data-product-id="%2$s" aria-pressed="%3$s">',
+			'<button type="button" class="galaxie-wishlist-btn%1$s" data-product-id="%2$s" aria-pressed="%3$s" aria-label="%4$s" data-label-add="%5$s" data-label-saved="%6$s">',
 			$in_wishlist ? ' is-in-wishlist' : '',
 			esc_attr( (string) $product->get_id() ),
-			$in_wishlist ? 'true' : 'false'
+			$in_wishlist ? 'true' : 'false',
+			esc_attr( (string) ( $settings[ $in_wishlist ? 'saved_text' : 'add_text' ] ?? '' ) ),
+			esc_attr( (string) ( $settings['add_text'] ?? '' ) ),
+			esc_attr( (string) ( $settings['saved_text'] ?? '' ) )
 		);
 		// Both states ship in the markup; CSS shows exactly one. See class docblock.
 		echo '<span class="galaxie-wishlist-add">' . $this->render_button( 'add', $settings ) . '</span>'; // phpcs:ignore -- pixfort's own component markup.
 		echo '<span class="galaxie-wishlist-saved">' . $this->render_button( 'saved', $settings ) . '</span>'; // phpcs:ignore -- pixfort's own component markup.
 		echo '</button>';
+
+		if ( 'yes' === ( $settings['list_enabled'] ?? '' ) ) {
+			printf(
+				'<button type="button" class="galaxie-account-submit galaxie-wishlist-list-btn" data-product-id="%1$s" data-title="%2$s" data-placeholder="%3$s" data-create="%4$s" aria-haspopup="dialog">%5$s</button>',
+				esc_attr( (string) $product->get_id() ),
+				esc_attr( (string) ( $settings['list_title'] ?? '' ) ),
+				esc_attr( (string) ( $settings['list_placeholder'] ?? '' ) ),
+				esc_attr( (string) ( $settings['list_create'] ?? '' ) ),
+				PixfortControls::render_button( $settings, 'list', (string) ( $settings['list_text'] ?? '' ) ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pixfort's own component markup.
+			);
+		}
 	}
 
 	/** @param array<string,mixed> $settings */
 	private function render_button( string $prefix, array $settings ): string {
-		$text = (string) ( $settings[ $prefix . '_text' ] ?? '' );
+		$icon_only = 'yes' === ( $settings[ $prefix . '_icon_only' ] ?? '' ) && '' !== (string) ( $settings[ $prefix . '_icon' ] ?? '' );
+		// The label moves to the <button>'s aria-label; pixfort draws no text.
+		$text = $icon_only ? '' : (string) ( $settings[ $prefix . '_text' ] ?? '' );
 
 		if ( $this->pixfort_active() ) {
 			$attr = array(
 				'is_elementor'      => 'true',
+				'btn_extra_classes' => $icon_only ? 'galaxie-wishlist-icon-only' : '',
 				'btn_text'          => $text,
 				'btn_link'          => '', // Empty on purpose: renders a <span>, not an <a> — our own wrapping <button> handles the click.
 				'btn_icon'          => $settings[ $prefix . '_icon' ] ?? '',

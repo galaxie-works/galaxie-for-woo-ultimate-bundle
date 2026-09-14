@@ -22,6 +22,7 @@ import { bootAccountMenu } from '@/globals/account-menu'
 import { bootAccountScreens } from '@/globals/account-screens'
 import { bootAddressBook, type AddressBookConfig } from '@/globals/address-book'
 import { bootPaymentMethods } from '@/globals/payment-methods'
+import { bootWishlistAccount } from '@/globals/wishlist-account'
 
 // Each module registers its island(s) here as they are ported.
 registerIsland('demo', Demo)
@@ -57,6 +58,7 @@ function boot(): void {
   bootAccountScreens(config.wishlist)
   bootAddressBook(config.addressBook)
   bootPaymentMethods()
+  bootWishlistAccount(config.wishlist)
 
   if (config.productData) {
     bootProductData()
