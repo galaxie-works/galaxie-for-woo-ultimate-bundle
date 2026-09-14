@@ -151,17 +151,26 @@ final class AccountUserWidget extends Widget_Base {
 		$this->end_controls_section();
 	}
 
+	/**
+	 * The template with its placeholders filled, as escaped HTML.
+	 *
+	 * Each value is escaped on its own and made shortcode-safe: the names are
+	 * the customer's own input, and pixfort's Text element runs what it prints
+	 * through do_shortcode(). The merchant's template around them is escaped
+	 * only, so shortcodes they write there keep working.
+	 */
 	private static function fill( string $text, \WP_User $user ): string {
 		$social = (string) get_user_meta( $user->ID, ProfileFields::SOCIAL_NAME, true );
 		$first  = '' !== $user->first_name ? $user->first_name : $user->display_name;
+		$safe   = static fn( string $value ): string => PixfortControls::shortcode_safe( esc_html( $value ) );
 
 		return strtr(
-			$text,
+			esc_html( $text ),
 			array(
-				'{first_name}' => $first,
-				'{name}'       => '' !== $social ? $social : trim( $user->first_name . ' ' . $user->last_name ),
-				'{email}'      => $user->user_email,
-				'{since}'      => date_i18n( 'F \d\e Y', strtotime( $user->user_registered ) ),
+				'{first_name}' => $safe( $first ),
+				'{name}'       => $safe( '' !== $social ? $social : trim( $user->first_name . ' ' . $user->last_name ) ),
+				'{email}'      => $safe( $user->user_email ),
+				'{since}'      => $safe( date_i18n( 'F \d\e Y', strtotime( $user->user_registered ) ) ),
 			)
 		);
 	}
@@ -190,18 +199,18 @@ final class AccountUserWidget extends Widget_Base {
 			printf(
 				'<div class="galaxie-account-user-avatar %1$s">%2$s</div>',
 				esc_attr( PixfortControls::thumb_classes( $settings, 'user_avatar' ) ),
-				get_avatar( $user->ID, 160, '', $greeting ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WordPress's own avatar markup.
+				get_avatar( $user->ID, 160, '', wp_specialchars_decode( $greeting, ENT_QUOTES ) ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WordPress's own avatar markup.
 			);
 		}
 
 		echo '<div class="galaxie-account-user-text">';
 
 		if ( '' !== $greeting ) {
-			printf( '<div class="galaxie-account-user-greeting">%s</div>', PixfortControls::render_text( $settings, 'user_greeting', esc_html( $greeting ) ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pixfort's own element around escaped text.
+			printf( '<div class="galaxie-account-user-greeting">%s</div>', PixfortControls::render_text( $settings, 'user_greeting', $greeting ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped and shortcode-safe in fill().
 		}
 
 		if ( '' !== $subtitle ) {
-			printf( '<div class="galaxie-account-user-subtitle">%s</div>', PixfortControls::render_text( $settings, 'user_subtitle', esc_html( $subtitle ) ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pixfort's own element around escaped text.
+			printf( '<div class="galaxie-account-user-subtitle">%s</div>', PixfortControls::render_text( $settings, 'user_subtitle', $subtitle ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped and shortcode-safe in fill().
 		}
 
 		echo '</div></div>';

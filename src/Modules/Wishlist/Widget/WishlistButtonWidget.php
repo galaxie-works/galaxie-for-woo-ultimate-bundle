@@ -284,19 +284,22 @@ final class WishlistButtonWidget extends Widget_Base {
 		$text = $icon_only ? '' : (string) ( $settings[ $prefix . '_text' ] ?? '' );
 
 		if ( $this->pixfort_active() ) {
+			// PixButton prints the text and these class values unescaped (the text
+			// through do_shortcode), so they are escaped here, as
+			// PixfortControls::button_attr() does for every other button.
 			$attr = array(
 				'is_elementor'      => 'true',
 				'btn_extra_classes' => $icon_only ? 'galaxie-wishlist-icon-only' : '',
-				'btn_text'          => $text,
+				'btn_text'          => esc_html( $text ),
 				'btn_link'          => '', // Empty on purpose: renders a <span>, not an <a> — our own wrapping <button> handles the click.
 				'btn_icon'          => $settings[ $prefix . '_icon' ] ?? '',
-				'btn_icon_position' => $settings[ $prefix . '_icon_position' ] ?? '',
-				'btn_style'         => $settings[ $prefix . '_style' ] ?? '',
-				'btn_color'         => $settings[ $prefix . '_color' ] ?? 'primary',
-				'btn_text_color'    => $settings[ $prefix . '_text_color' ] ?? '',
-				'btn_size'          => $settings[ $prefix . '_size' ] ?? 'md',
-				'btn_rounded'       => $settings[ $prefix . '_rounded' ] ?? '',
-				'btn_full'          => $settings[ $prefix . '_full' ] ?? '',
+				'btn_icon_position' => PixfortControls::class_list( $settings[ $prefix . '_icon_position' ] ?? '' ),
+				'btn_style'         => PixfortControls::class_list( $settings[ $prefix . '_style' ] ?? '' ),
+				'btn_color'         => PixfortControls::class_list( $settings[ $prefix . '_color' ] ?? 'primary' ),
+				'btn_text_color'    => PixfortControls::class_list( $settings[ $prefix . '_text_color' ] ?? '' ),
+				'btn_size'          => PixfortControls::class_list( $settings[ $prefix . '_size' ] ?? 'md' ),
+				'btn_rounded'       => PixfortControls::class_list( $settings[ $prefix . '_rounded' ] ?? '' ),
+				'btn_full'          => PixfortControls::class_list( $settings[ $prefix . '_full' ] ?? '' ),
 			);
 			return \PixfortCore::instance()->elementsManager->renderElement( 'Button', $attr );
 		}

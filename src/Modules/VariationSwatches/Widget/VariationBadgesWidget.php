@@ -10,6 +10,7 @@ namespace Galaxie\Woo\Modules\VariationSwatches\Widget;
 use Elementor\Controls_Manager;
 use Elementor\Group_Control_Typography;
 use Elementor\Widget_Base;
+use Galaxie\Woo\Support\PixfortControls;
 use Galaxie\Woo\Support\QuantityField;
 
 defined( 'ABSPATH' ) || exit;
@@ -788,18 +789,20 @@ final class VariationBadgesWidget extends Widget_Base {
 		$text = (string) ( $settings[ $prefix . '_text' ] ?? '' );
 
 		if ( $this->pixfort_active() ) {
+			// PixButton prints the text and these class values unescaped (the text
+			// through do_shortcode); escaped here as PixfortControls::button_attr() does.
 			$attr = array(
 				'is_elementor'      => 'true',
-				'btn_text'          => $text,
+				'btn_text'          => esc_html( $text ),
 				'btn_link'          => '', // Empty on purpose: renders a <span>, not an <a> — our own wrapping <button> handles the click.
 				'btn_icon'          => $settings[ $prefix . '_icon' ] ?? '',
-				'btn_icon_position' => $settings[ $prefix . '_icon_position' ] ?? '',
-				'btn_style'         => $settings[ $prefix . '_style' ] ?? '',
-				'btn_color'         => $settings[ $prefix . '_color' ] ?? 'primary',
-				'btn_text_color'    => $settings[ $prefix . '_text_color' ] ?? '',
-				'btn_size'          => $settings[ $prefix . '_size' ] ?? 'md',
-				'btn_rounded'       => $settings[ $prefix . '_rounded' ] ?? '',
-				'btn_full'          => $settings[ $prefix . '_full' ] ?? '',
+				'btn_icon_position' => PixfortControls::class_list( $settings[ $prefix . '_icon_position' ] ?? '' ),
+				'btn_style'         => PixfortControls::class_list( $settings[ $prefix . '_style' ] ?? '' ),
+				'btn_color'         => PixfortControls::class_list( $settings[ $prefix . '_color' ] ?? 'primary' ),
+				'btn_text_color'    => PixfortControls::class_list( $settings[ $prefix . '_text_color' ] ?? '' ),
+				'btn_size'          => PixfortControls::class_list( $settings[ $prefix . '_size' ] ?? 'md' ),
+				'btn_rounded'       => PixfortControls::class_list( $settings[ $prefix . '_rounded' ] ?? '' ),
+				'btn_full'          => PixfortControls::class_list( $settings[ $prefix . '_full' ] ?? '' ),
 			);
 			return \PixfortCore::instance()->elementsManager->renderElement( 'Button', $attr );
 		}
@@ -810,21 +813,24 @@ final class VariationBadgesWidget extends Widget_Base {
 	/** @param array<string,mixed> $settings */
 	private function render_label( string $label, array $settings ): string {
 		if ( $this->pixfort_active() ) {
+			// PixText runs its content through do_shortcode and writes the colour
+			// into style="" unescaped, so both are made safe first.
+			$safe = esc_html( $label );
 			$attr = array(
 				'content_type'         => 'simple',
-				'content'              => $label,
-				'size'                 => $settings['label_size'] ?? '',
-				'bold'                 => $settings['label_bold'] ?? '',
-				'italic'               => $settings['label_italic'] ?? '',
-				'secondary_font'       => $settings['label_secondary_font'] ?? '',
-				'content_color'        => $settings['label_content_color'] ?? '',
-				'content_custom_color' => $settings['label_content_custom_color'] ?? '',
-				'position'             => $settings['label_position'] ?? 'text-left',
-				'animation'            => $settings['label_animation'] ?? '',
-				'delay'                => $settings['label_delay'] ?? '0',
-				'remove_pb_padding'    => $settings['label_remove_pb_padding'] ?? '',
+				'content'              => $safe,
+				'size'                 => PixfortControls::class_list( $settings['label_size'] ?? '' ),
+				'bold'                 => PixfortControls::class_list( $settings['label_bold'] ?? '' ),
+				'italic'               => PixfortControls::class_list( $settings['label_italic'] ?? '' ),
+				'secondary_font'       => PixfortControls::class_list( $settings['label_secondary_font'] ?? '' ),
+				'content_color'        => PixfortControls::class_list( $settings['label_content_color'] ?? '' ),
+				'content_custom_color' => PixfortControls::css_colour( $settings['label_content_custom_color'] ?? '' ),
+				'position'             => PixfortControls::class_list( $settings['label_position'] ?? 'text-left' ),
+				'animation'            => PixfortControls::class_list( $settings['label_animation'] ?? '' ),
+				'delay'                => PixfortControls::number( $settings['label_delay'] ?? '0', '0' ),
+				'remove_pb_padding'    => PixfortControls::class_list( $settings['label_remove_pb_padding'] ?? '' ),
 			);
-			return \PixfortCore::instance()->elementsManager->renderElement( 'Text', $attr, $label );
+			return \PixfortCore::instance()->elementsManager->renderElement( 'Text', $attr, $safe );
 		}
 
 		$classes = 'galaxie-variation-label-text';
@@ -845,16 +851,22 @@ final class VariationBadgesWidget extends Widget_Base {
 	/** @param array<string,mixed> $settings */
 	private function render_badge( string $label, array $settings, bool $selected ): string {
 		if ( $this->pixfort_active() ) {
+			// PixBadge prints the text through do_shortcode and these values as
+			// classes, unescaped.
 			$attr = array(
-				'text'      => $label,
-				'text_color' => $selected
-					? ( $settings['badge_text_color_selected'] ?? 'white' )
-					: ( $settings['badge_text_color'] ?? 'primary' ),
-				'bg_color'  => $selected
-					? ( $settings['badge_bg_color_selected'] ?? 'primary' )
-					: ( $settings['badge_bg_color'] ?? 'primary-light' ),
-				'text_size' => $settings['badge_text_size'] ?? 'h6',
-				'rounded'   => $settings['badge_rounded'] ?? '',
+				'text'       => esc_html( $label ),
+				'text_color' => PixfortControls::class_list(
+					$selected
+						? ( $settings['badge_text_color_selected'] ?? 'white' )
+						: ( $settings['badge_text_color'] ?? 'primary' )
+				),
+				'bg_color'   => PixfortControls::class_list(
+					$selected
+						? ( $settings['badge_bg_color_selected'] ?? 'primary' )
+						: ( $settings['badge_bg_color'] ?? 'primary-light' )
+				),
+				'text_size'  => PixfortControls::class_list( $settings['badge_text_size'] ?? 'h6' ),
+				'rounded'    => PixfortControls::class_list( $settings['badge_rounded'] ?? '' ),
 			);
 			return \PixfortCore::instance()->elementsManager->renderElement( 'Badge', $attr );
 		}

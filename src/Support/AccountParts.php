@@ -1045,6 +1045,9 @@ final class AccountParts {
 		'addresses' => array( 'galaxie-account-address-book', 'galaxie_woo_addresses_look', array( 'ab_card_', 'ab_box_', 'ab_address_text_', 'ab_label_text_' ) ),
 	);
 
+	/** Added to a look's option name: the option holding the id of the document the look was taken from. */
+	private const LOOK_SOURCE_SUFFIX = '_source';
+
 	/** @param array<int,string> $prefixes */
 	private static function is_look_key( string $key, array $prefixes ): bool {
 		if ( 'status_inherit' === $key ) {
@@ -1121,10 +1124,22 @@ final class AccountParts {
 			$url    = (string) $action['url'];
 
 			// WooCommerce's cancel link sends the customer to the dashboard. Ours
-			// returns to the screen the widget chose, marked so it can say so.
+			// returns to the screen the widget chose, marked so it can say so —
+			// only when there is an alert to say it with: the mark is what takes
+			// WooCommerce's own "cancelled" notice away (see drop_cancelled_notice()).
+			//
+			// The return address goes inside the cancel link as one query value,
+			// so it is encoded: with plain permalinks it has query arguments of
+			// its own, and an unencoded "&" would cut it short. PHP decodes it back
+			// into $_GET['redirect'], which is what WooCommerce redirects to.
 			if ( 'cancel' === $key ) {
 				$target = 'orders' === ( $settings['cancel_redirect'] ?? 'order' ) ? AccountEndpoints::url( 'orders' ) : $order->get_view_order_url();
-				$url    = $order->get_cancel_order_url( add_query_arg( self::CANCELLED_ARG, $order->get_id(), $target ) );
+
+				if ( '' !== trim( (string) ( $settings['cancel_alert_text'] ?? '' ) ) ) {
+					$target = add_query_arg( self::CANCELLED_ARG, $order->get_id(), $target );
+				}
+
+				$url = $order->get_cancel_order_url( rawurlencode( $target ) );
 			}
 
 			$out .= self::link_button( $settings, $prefix, '' !== $label ? $label : (string) $action['name'], $url, 'is-' . sanitize_html_class( (string) $key ) );
@@ -1247,19 +1262,23 @@ final class AccountParts {
 	 * @param array<string,mixed> $settings
 	 */
 	public static function cancelled_alert( array $settings ): string {
-		$text = trim( (string) ( $settings['cancel_alert_text'] ?? '' ) );
-
-		if ( '' === $text ) {
-			return '';
-		}
-
+		$text    = trim( (string) ( $settings['cancel_alert_text'] ?? '' ) );
 		$id      = isset( $_GET[ self::CANCELLED_ARG ] ) ? absint( wp_unslash( $_GET[ self::CANCELLED_ARG ] ) ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- display only; the cancelling itself was WooCommerce's, nonce and all.
-		$order   = $id ? wc_get_order( $id ) : null;
 		$preview = self::editing() && 'yes' === ( $settings['cancel_alert_preview'] ?? '' );
 
-		// Only for an order of this customer that really is cancelled now: the
-		// argument is in the address bar, and anyone can type it.
+		// Only right after WooCommerce cancelled this order, in the request that
+		// sent the customer here — its "cancelled" notice was waiting for this
+		// page. A stale cancel link, a reload or a typed address has no such
+		// notice, and WooCommerce's own error, if any, is left to speak alone.
+		$confirmed = $id && self::$cancelled_notice && $id === self::$cancelled_notice['order'];
+		$order     = $confirmed ? wc_get_order( $id ) : null;
+
+		// And only for an order of this customer that really is cancelled now.
 		$real = $order instanceof \WC_Order && (int) $order->get_customer_id() === get_current_user_id() && $order->has_status( 'cancelled' );
+
+		if ( '' === $text ) {
+			return $real ? self::restore_cancelled_notice() : '';
+		}
 
 		if ( ! $real && ! $preview ) {
 			return '';
@@ -1284,28 +1303,79 @@ final class AccountParts {
 	}
 
 	/**
+	 * WooCommerce's "cancelled" notice, taken out of the queue by
+	 * {@see drop_cancelled_notice()} for the order in the address: order id,
+	 * notice text, type and data, and whether it has been given back.
+	 *
+	 * @var array{order:int,message:string,type:string,data:array<string,mixed>,restored:bool}|null
+	 */
+	private static ?array $cancelled_notice = null;
+
+	/**
 	 * WooCommerce queues "Your order was cancelled." for the next page; ours says
 	 * it in the widget's alert, so the loose notice is dropped when the cancel
 	 * link came back to one of our screens.
+	 *
+	 * The link only carries the mark when the widget that drew it has an alert
+	 * (see order_actions()). Finding the notice is also what tells the alert
+	 * that the cancelling really happened just now; without it — a stale link
+	 * to an order already cancelled, a reload — nothing is removed and no alert
+	 * is drawn.
 	 */
 	public static function drop_cancelled_notice(): void {
 		if ( ! isset( $_GET[ self::CANCELLED_ARG ] ) || ! function_exists( 'wc_get_notices' ) || ! function_exists( 'WC' ) || ! WC()->session ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- only removes a message.
 			return;
 		}
 
-		$message = (string) apply_filters( 'woocommerce_order_cancelled_notice', __( 'Your order was cancelled.', 'woocommerce' ) ); // phpcs:ignore WordPress.WP.I18n.TextDomainMismatch -- WooCommerce's own string, to match it.
-		$notices = wc_get_notices();
+		$order_id = absint( wp_unslash( $_GET[ self::CANCELLED_ARG ] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- only removes a message.
+		$message  = (string) apply_filters( 'woocommerce_order_cancelled_notice', __( 'Your order was cancelled.', 'woocommerce' ) ); // phpcs:ignore WordPress.WP.I18n.TextDomainMismatch -- WooCommerce's own string, to match it.
+		$notices  = wc_get_notices();
+		$found    = null;
 
 		foreach ( $notices as $type => $list ) {
-			$notices[ $type ] = array_values(
-				array_filter(
-					(array) $list,
-					static fn( $notice ): bool => ( is_array( $notice ) ? (string) ( $notice['notice'] ?? '' ) : (string) $notice ) !== $message
-				)
-			);
+			$kept = array();
+
+			foreach ( (array) $list as $notice ) {
+				$text = is_array( $notice ) ? (string) ( $notice['notice'] ?? '' ) : (string) $notice;
+
+				if ( $text !== $message ) {
+					$kept[] = $notice;
+					continue;
+				}
+
+				$found = $found ?? array(
+					'order'    => $order_id,
+					'message'  => $text,
+					'type'     => (string) $type,
+					'data'     => is_array( $notice ) ? (array) ( $notice['data'] ?? array() ) : array(),
+					'restored' => false,
+				);
+			}
+
+			$notices[ $type ] = $kept;
 		}
 
+		if ( ! $found || ! $order_id ) {
+			return;
+		}
+
+		self::$cancelled_notice = $found;
 		wc_set_notices( $notices );
+	}
+
+	/**
+	 * WooCommerce's own "cancelled" notice, once, for a screen whose widget has
+	 * no alert of its own although the link that led here asked for one — the
+	 * customer still hears that it worked.
+	 */
+	private static function restore_cancelled_notice(): string {
+		if ( ! self::$cancelled_notice || self::$cancelled_notice['restored'] || ! function_exists( 'wc_print_notice' ) ) {
+			return '';
+		}
+
+		self::$cancelled_notice['restored'] = true;
+
+		return (string) wc_print_notice( self::$cancelled_notice['message'], self::$cancelled_notice['type'], self::$cancelled_notice['data'], true );
 	}
 
 	/**
@@ -1342,11 +1412,28 @@ final class AccountParts {
 				$elements = is_array( $saved ) ? $saved : array();
 			}
 
+			$document_id = (int) $document->get_main_id();
+
 			foreach ( $elements ? self::LOOKS : array() as $look_def ) {
 				$look = self::look_in( $elements, $look_def[0], $look_def[2] );
 
-				if ( null !== $look ) {
+				if ( null === $look ) {
+					continue;
+				}
+
+				if ( $look ) {
 					update_option( $look_def[1], $look, false );
+					update_option( $look_def[1] . self::LOOK_SOURCE_SUFFIX, $document_id, false );
+					continue;
+				}
+
+				// Only unstyled widgets of this type here. That clears the look only
+				// when this is the document it was taken from — the merchant set
+				// that widget back to its defaults. Any other document — a
+				// dashboard or a footer with a plain Orders widget in it — leaves
+				// the look alone.
+				if ( $document_id && (int) get_option( $look_def[1] . self::LOOK_SOURCE_SUFFIX, 0 ) === $document_id ) {
+					update_option( $look_def[1], array(), false );
 				}
 			}
 		} finally {
@@ -1440,6 +1527,7 @@ final class AccountParts {
 
 			if ( $found ) {
 				$look = $found;
+				update_option( $option . self::LOOK_SOURCE_SUFFIX, (int) $id, false );
 				break;
 			}
 		}
