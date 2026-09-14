@@ -256,6 +256,12 @@ final class Module implements ModuleContract, ProvidesSettings {
 	 * Keeps what a field held before its first write in this request, so the
 	 * note can say before → after. A filter that changes nothing.
 	 *
+	 * Another filter may short-circuit the write (a gift checkout keeps the
+	 * buyer's shipping address this way). The value captured is then simply the
+	 * current one, no `updated_user_meta` follows, and at the flush old equals
+	 * new — no note, no sync. A real write later in the request still compares
+	 * against the right value, since nothing changed in between.
+	 *
 	 * @param mixed $check
 	 * @param mixed $user_id
 	 * @param mixed $meta_key
@@ -897,13 +903,21 @@ final class Module implements ModuleContract, ProvidesSettings {
 			array_flip( array_map( static fn( string $part ): string => $prefix . '_' . $part, array_keys( $parts ) ) )
 		);
 
+		// Which address the contact showed before this request. When that switches
+		// (a first billing address over the shipping one, or billing emptied back
+		// to shipping), every part comes from the new source, blanks included: a
+		// part the new source never had would otherwise keep the old one's value
+		// and leave the contact with a mixed address.
+		$was_billing = array_key_exists( 'billing_address_1', $old ) ? $this->scalar( $old['billing_address_1'] ) : $meta( 'billing_address_1' );
+		$switched    = ( '' !== $was_billing ? 'billing' : 'shipping' ) !== $type;
+
 		// A change to the shipping address is the contact's business only while
 		// the shipping address is the one it shows.
-		if ( $touched( 'billing' ) || ( 'shipping' === $type && $touched( 'shipping' ) ) ) {
+		if ( $switched || $touched( 'billing' ) || ( 'shipping' === $type && $touched( 'shipping' ) ) ) {
 			foreach ( $parts as $part => $column ) {
 				$value = $meta( $type . '_' . $part );
 
-				if ( '' !== $value || $emptied( 'billing_' . $part ) || ( 'shipping' === $type && $emptied( 'shipping_' . $part ) ) ) {
+				if ( $switched || '' !== $value || $emptied( 'billing_' . $part ) || ( 'shipping' === $type && $emptied( 'shipping_' . $part ) ) ) {
 					$columns[ $column ] = $value;
 				}
 			}
