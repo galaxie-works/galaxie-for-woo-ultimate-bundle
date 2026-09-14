@@ -291,6 +291,8 @@ final class AccountPaymentMethodsWidget extends Widget_Base {
 
 		$this->end_controls_section();
 
+		AccountParts::add_area_controls( $this, 'pm_add_area', '{{WRAPPER}} .galaxie-pm-toolbar', __( 'Add card area', 'galaxie-woo' ) );
+
 		$this->start_controls_section( 'pm_form_style', array( 'label' => __( 'Add card form', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
 
 		PixfortControls::surface( $this, 'pm_form', '{{WRAPPER}} .galaxie-pm-form', array( 'rounded' => 'rounded-lg' ) );

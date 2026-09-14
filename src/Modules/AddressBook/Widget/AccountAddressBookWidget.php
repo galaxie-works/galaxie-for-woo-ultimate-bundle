@@ -133,6 +133,8 @@ final class AccountAddressBookWidget extends Widget_Base {
 		PixfortControls::surface( $this, 'ab_badge', '{{WRAPPER}} .galaxie-ab-badge', array( 'rounded' => 'rounded-pill' ) );
 		$this->end_controls_section();
 
+		AccountParts::add_area_controls( $this, 'ab_add_area', '{{WRAPPER}} .galaxie-ab-toolbar', __( 'Add address area', 'galaxie-woo' ) );
+
 		$texts = array(
 			'ab_heading_text' => array( __( 'Heading', 'galaxie-woo' ), '.galaxie-ab-heading', array( 'size' => 'text-20', 'bold' => 'font-weight-bold' ), true ),
 			'ab_intro_text'   => array( __( 'Intro text', 'galaxie-woo' ), '.galaxie-ab-intro', array( 'bold' => '' ), true ),

@@ -1026,6 +1026,102 @@ final class AccountParts {
 		);
 	}
 
+	/**
+	 * The strip holding a list's add button, set apart from the cards above it:
+	 * an optional line, the space on either side of it and where the buttons sit.
+	 * Shared so the address book and the payment methods separate the same way.
+	 *
+	 * The line is drawn with three custom properties and the switcher writes the
+	 * border that reads them, so style, width and colour each work whichever is
+	 * set first.
+	 */
+	public static function add_area_controls( object $widget, string $prefix, string $selector, string $label ): void {
+		$line = array( $prefix . '_separator' => 'yes' );
+
+		$widget->start_controls_section( $prefix . '_style', array( 'label' => $label, 'tab' => Controls_Manager::TAB_STYLE ) );
+
+		$widget->add_control(
+			$prefix . '_separator',
+			array(
+				'label'        => __( 'Separator line above', 'galaxie-woo' ),
+				'type'         => Controls_Manager::SWITCHER,
+				'return_value' => 'yes',
+				'selectors'    => array( $selector => 'border-top: var(--galaxie-separator-width, 1px) var(--galaxie-separator-style, solid) var(--galaxie-separator-color, rgb(0 0 0 / 12%));' ),
+			)
+		);
+
+		$widget->add_control(
+			$prefix . '_separator_style',
+			array(
+				'label'     => __( 'Line style', 'galaxie-woo' ),
+				'type'      => Controls_Manager::SELECT,
+				'options'   => array(
+					''       => __( 'Default', 'galaxie-woo' ),
+					'solid'  => __( 'Solid', 'galaxie-woo' ),
+					'dashed' => __( 'Dashed', 'galaxie-woo' ),
+					'dotted' => __( 'Dotted', 'galaxie-woo' ),
+					'double' => __( 'Double', 'galaxie-woo' ),
+				),
+				'selectors' => array( $selector => '--galaxie-separator-style: {{VALUE}};' ),
+				'condition' => $line,
+			)
+		);
+
+		$widget->add_responsive_control(
+			$prefix . '_separator_width',
+			array(
+				'label'      => __( 'Line width', 'galaxie-woo' ),
+				'type'       => Controls_Manager::SLIDER,
+				'size_units' => array( 'px' ),
+				'range'      => array( 'px' => array( 'min' => 1, 'max' => 10 ) ),
+				'selectors'  => array( $selector => '--galaxie-separator-width: {{SIZE}}{{UNIT}};' ),
+				'condition'  => $line,
+			)
+		);
+
+		PixfortControls::palette_control( $widget, $prefix . '_separator_color', __( 'Line color', 'galaxie-woo' ), $selector, '--galaxie-separator-color', $line );
+
+		$widget->add_responsive_control(
+			$prefix . '_space_above',
+			array(
+				'label'       => __( 'Space above', 'galaxie-woo' ),
+				'description' => __( 'Between the cards and the line, or the buttons when there is no line. Added to the widget\'s usual spacing.', 'galaxie-woo' ),
+				'type'        => Controls_Manager::SLIDER,
+				'size_units'  => array( 'px' ),
+				'range'       => array( 'px' => array( 'min' => 0, 'max' => 120 ) ),
+				'separator'   => 'before',
+				'selectors'   => array( $selector => 'margin-top: {{SIZE}}{{UNIT}};' ),
+			)
+		);
+
+		$widget->add_responsive_control(
+			$prefix . '_space_below',
+			array(
+				'label'      => __( 'Space between line and buttons', 'galaxie-woo' ),
+				'type'       => Controls_Manager::SLIDER,
+				'size_units' => array( 'px' ),
+				'range'      => array( 'px' => array( 'min' => 0, 'max' => 120 ) ),
+				'selectors'  => array( $selector => 'padding-top: {{SIZE}}{{UNIT}};' ),
+			)
+		);
+
+		$widget->add_responsive_control(
+			$prefix . '_align',
+			array(
+				'label'     => __( 'Buttons alignment', 'galaxie-woo' ),
+				'type'      => Controls_Manager::CHOOSE,
+				'options'   => array(
+					'flex-start' => array( 'title' => __( 'Left', 'galaxie-woo' ), 'icon' => 'eicon-h-align-left' ),
+					'center'     => array( 'title' => __( 'Center', 'galaxie-woo' ), 'icon' => 'eicon-h-align-center' ),
+					'flex-end'   => array( 'title' => __( 'Right', 'galaxie-woo' ), 'icon' => 'eicon-h-align-right' ),
+				),
+				'selectors' => array( $selector => 'justify-content: {{VALUE}};' ),
+			)
+		);
+
+		$widget->end_controls_section();
+	}
+
 	/** The order a screen is about, if this customer may see it. */
 	public static function order_for( string $value ): ?\WC_Order {
 		$order = wc_get_order( absint( $value ) );
