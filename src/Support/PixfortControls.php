@@ -1521,6 +1521,23 @@ final class PixfortControls {
 			'default' => $d( 'shadow', '' ),
 		) );
 
+		// pixfort's own hover pair, as its containers offer it: a shadow that
+		// appears on hover and a movement. Both are classes pixfort's stylesheet
+		// animates, so they are emitted by surface_classes(), not selectors.
+		self::add( $target, $condition, $prefix . '_hover_effect', array(
+			'label'   => __( 'Shadow hover style', 'galaxie-woo' ),
+			'type'    => Controls_Manager::SELECT,
+			'options' => self::shadow_options( __( 'None', 'galaxie-woo' ), __( 'hover shadow', 'galaxie-woo' ) ),
+			'default' => $d( 'hover_effect', '' ),
+		) );
+
+		self::add( $target, $condition, $prefix . '_add_hover_effect', array(
+			'label'   => __( 'Hover animation', 'galaxie-woo' ),
+			'type'    => Controls_Manager::SELECT,
+			'options' => self::hover_animations(),
+			'default' => $d( 'add_hover_effect', '' ),
+		) );
+
 		// Skippable, because padding on a grid row narrows its content box and
 		// therefore its columns — a header padded 40px either side lays out
 		// tracks 80px narrower than the lines below it, and nothing under it
@@ -1577,8 +1594,11 @@ final class PixfortControls {
 			$classes[] = $rounded;
 		}
 
-		if ( '' !== $shadow && self::available() ) {
-			$classes[] = (string) \PixfortCore::instance()->coreFunctions->getEffectsClasses( $shadow );
+		$hover   = (string) ( $settings[ $prefix . '_hover_effect' ] ?? '' );
+		$animate = (string) ( $settings[ $prefix . '_add_hover_effect' ] ?? '' );
+
+		if ( ( '' !== $shadow || '' !== $hover || '' !== $animate ) && self::available() ) {
+			$classes[] = (string) \PixfortCore::instance()->coreFunctions->getEffectsClasses( $shadow, $hover, $animate );
 		}
 
 		return trim( implode( ' ', array_filter( $classes ) ) );
