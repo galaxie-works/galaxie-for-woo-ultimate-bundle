@@ -806,7 +806,7 @@ final class BuyBoxWidget extends Widget_Base {
 			esc_attr( (string) ( $settings['sale_display'] ?? 'simple' ) ),
 			'' === $sale ? ' hidden' : '',
 			'advanced' === ( $settings['sale_display'] ?? 'simple' )
-				? $this->badge( $settings, 'price_sale_badge', $sale ) // phpcs:ignore WordPress.Security.EscapeOutput -- pixfort's own component markup.
+				? $this->badge( $settings, 'price_sale_badge', $sale, true ) // phpcs:ignore WordPress.Security.EscapeOutput -- pixfort's own component markup.
 				: $this->text( $settings, 'price_sale', $sale ) // phpcs:ignore WordPress.Security.EscapeOutput -- rendered through pixfort's own component.
 		);
 
@@ -965,7 +965,9 @@ final class BuyBoxWidget extends Widget_Base {
 		}
 
 		$name    = $gift ? (string) $gift['name'] : 'Maria';
-		$text    = wp_kses_post( str_replace( '{name}', esc_html( $name ), $text ) );
+		// The name is the list owner's own, typed into their account. PixAlert runs
+		// the title through do_shortcode(), so escaping it is not enough on its own.
+		$text    = wp_kses_post( str_replace( '{name}', PixfortControls::shortcode_safe( esc_html( $name ) ), $text ) );
 		$type    = (string) ( $settings['gift_type'] ?? 'info' );
 		$inherit = 'yes' === ( $settings['gift_inherit'] ?? 'yes' );
 		$prefix  = $inherit ? 'alert' : 'gift_alert';
@@ -1085,12 +1087,12 @@ final class BuyBoxWidget extends Widget_Base {
 	/**
 	 * @param array<string,mixed> $settings
 	 */
-	private function badge( array $settings, string $prefix, string $text ): string {
+	private function badge( array $settings, string $prefix, string $text, bool $html = false ): string {
 		if ( PixfortControls::available() ) {
-			return \PixfortCore::instance()->elementsManager->renderElement( 'Badge', PixfortControls::badge_attr( $settings, $prefix, $text ) );
+			return \PixfortCore::instance()->elementsManager->renderElement( 'Badge', PixfortControls::badge_attr( $settings, $prefix, $text, $html ) );
 		}
 
-		return '<span class="galaxie-swatch-badge">' . esc_html( $text ) . '</span>';
+		return '<span class="galaxie-swatch-badge">' . ( $html ? wp_kses_post( $text ) : esc_html( $text ) ) . '</span>';
 	}
 
 	/** A taxonomy attribute stores slugs; the shopper should see the term name. */
