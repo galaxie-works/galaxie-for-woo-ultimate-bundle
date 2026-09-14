@@ -36,7 +36,16 @@ final class FluentCRM {
 			if ( ! $contact ) {
 				return array();
 			}
-			return array_map( static fn( $tag ) => (int) $tag->id, (array) $contact->tags );
+			// `tags` is an Eloquent Collection. Cast to an array it yields the
+			// object's internal properties, not the tags — which is how every
+			// chosen interest came back unchosen. Iterating it walks the tags.
+			$ids = array();
+
+			foreach ( $contact->tags ?? array() as $tag ) {
+				$ids[] = (int) ( is_object( $tag ) ? ( $tag->id ?? 0 ) : ( $tag['id'] ?? 0 ) );
+			}
+
+			return array_values( array_filter( $ids ) );
 		} catch ( \Throwable $e ) {
 			return array();
 		}
