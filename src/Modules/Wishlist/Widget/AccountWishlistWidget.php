@@ -300,6 +300,10 @@ final class AccountWishlistWidget extends Widget_Base {
 
 		$products = $current ? array_filter( array_map( 'wc_get_product', array_reverse( (array) $current['items'] ) ), static fn( $p ) => $p instanceof \WC_Product && $p->is_visible() ) : array();
 
+		// Sharing an empty list shares nothing, so the panel waits for a product.
+		// The editor keeps it, beside its sample products, to be styled.
+		$shareable = (bool) $products || $editing;
+
 		// Something to style in the editor, where the list may be empty.
 		if ( ! $products && $editing ) {
 			$products = wc_get_products( array( 'status' => 'publish', 'limit' => 3, 'orderby' => 'date' ) );
@@ -350,7 +354,10 @@ final class AccountWishlistWidget extends Widget_Base {
 
 		if ( $current ) {
 			$this->render_toolbar( $s, $current );
-			$this->render_share( $s, $current );
+
+			if ( $shareable ) {
+				$this->render_share( $s, $current );
+			}
 		}
 
 		printf(
