@@ -514,6 +514,15 @@ final class Gifts {
 				WC()->customer->{$setter}( (string) $value );
 			}
 		}
+
+		// Saved now, not left to the shutdown save WooCommerce hooks onto the
+		// customer it made in initialize_cart(): the snapshot is already gone
+		// from the session, so a restore that never reached it could not be
+		// redone, and the next request would quote the recipient's area again.
+		// The session customer writes to the session only; were this a database
+		// customer, its shipping_* writes during a gift checkout are refused by
+		// block_shipping_meta(), and otherwise they are the buyer's own values.
+		WC()->customer->save();
 	}
 
 	/**
