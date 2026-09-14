@@ -43,7 +43,11 @@ final class Dialog {
 	 *         button is red unless `yes_defaults` says otherwise.
 	 */
 	public static function controls( object $widget, string $prefix, array $args ): void {
-		$widget->start_controls_section( $prefix . '_content_section', array( 'label' => $args['label'] ) );
+		// Applied to every section, so a dialog another widget styles can leave
+		// this panel altogether.
+		$when = ! empty( $args['condition'] ) ? array( 'condition' => (array) $args['condition'] ) : array();
+
+		$widget->start_controls_section( $prefix . '_content_section', array( 'label' => $args['label'] ) + $when );
 
 		$widget->add_control( $prefix . '_title', array( 'label' => __( 'Title', 'galaxie-woo' ), 'type' => Controls_Manager::TEXT, 'label_block' => true, 'default' => $args['title'] ?? '' ) );
 		$widget->add_control( $prefix, array( 'label' => __( 'Message', 'galaxie-woo' ), 'type' => Controls_Manager::TEXTAREA, 'rows' => 2, 'default' => $args['text'] ) );
@@ -80,14 +84,14 @@ final class Dialog {
 		}
 
 		foreach ( $buttons as $key => $button ) {
-			$widget->start_controls_section( $prefix . '_' . $key . '_section', array( 'label' => $button[0] ) );
+			$widget->start_controls_section( $prefix . '_' . $key . '_section', array( 'label' => $button[0] ) + $when );
 			PixfortControls::button( $widget, $prefix . '_' . $key, array_merge( array( 'text' => $button[1] ), $button[2] ) );
 			$widget->end_controls_section();
 		}
 
 		$box = '{{WRAPPER}} .galaxie-dialog[data-dialog="' . $prefix . '"]';
 
-		$widget->start_controls_section( $prefix . '_box_style', array( 'label' => $named( __( 'box', 'galaxie-woo' ) ), 'tab' => Controls_Manager::TAB_STYLE ) );
+		$widget->start_controls_section( $prefix . '_box_style', array( 'label' => $named( __( 'box', 'galaxie-woo' ) ), 'tab' => Controls_Manager::TAB_STYLE ) + $when );
 
 		PixfortControls::surface( $widget, $prefix . '_box', $box, array( 'rounded' => 'rounded-xl', 'shadow' => '4' ) );
 
@@ -149,10 +153,57 @@ final class Dialog {
 		);
 
 		foreach ( $texts as $key => $text ) {
-			$widget->start_controls_section( $prefix . '_' . $key . '_style', array( 'label' => $text[0], 'tab' => Controls_Manager::TAB_STYLE ) );
+			$widget->start_controls_section( $prefix . '_' . $key . '_style', array( 'label' => $text[0], 'tab' => Controls_Manager::TAB_STYLE ) + $when );
 			PixfortControls::text( $widget, $prefix . '_' . $key, array_merge( $text[2], array( 'remove_pb_padding' => 'm-0' ) ), array(), $box . ' ' . $text[1], 'text', array( 'position' ) );
 			$widget->end_controls_section();
 		}
+	}
+
+	/**
+	 * The rules this dialog's selector-driven controls write — box, width, gap,
+	 * alignment, overlay and its buttons' colours — for a dialog drawn with
+	 * settings saved on another widget, which Elementor wrote no CSS for here.
+	 *
+	 * @param array<string,mixed> $s
+	 * @param string              $scope The element the dialog sits in, e.g. `.elementor-element-abc123`.
+	 */
+	public static function css( array $s, string $prefix, string $scope ): string {
+		$box   = $scope . ' .galaxie-dialog[data-dialog="' . sanitize_key( $prefix ) . '"]';
+		$css   = PixfortControls::surface_css( $s, $prefix . '_box', $box );
+		$size  = static fn( $value ): ?float => is_array( $value ) && is_numeric( $value['size'] ?? null ) ? (float) $value['size'] : null;
+		$rules = array();
+
+		$width = $size( $s[ $prefix . '_width' ] ?? null );
+
+		if ( null !== $width ) {
+			$unit    = 'vw' === ( $s[ $prefix . '_width' ]['unit'] ?? 'px' ) ? 'vw' : 'px';
+			$rules[] = 'width: min(' . $width . $unit . ', calc(100vw - 32px));';
+		}
+
+		$gap = $size( $s[ $prefix . '_gap' ] ?? null );
+
+		if ( null !== $gap ) {
+			$rules[] = 'gap: ' . $gap . 'px;';
+		}
+
+		$align = (string) ( $s[ $prefix . '_align' ] ?? '' );
+
+		if ( in_array( $align, array( 'left', 'center', 'right' ), true ) ) {
+			$rules[] = 'text-align: ' . $align . ';';
+			$css    .= $box . ' .galaxie-dialog-actions{justify-content: ' . $align . ';}';
+		}
+
+		if ( $rules ) {
+			$css .= $box . '{' . implode( ' ', $rules ) . '}';
+		}
+
+		$backdrop = (string) ( $s[ $prefix . '_backdrop' ] ?? '' );
+
+		if ( preg_match( '/^[#a-zA-Z0-9(),.%\s-]+$/', $backdrop ) ) {
+			$css .= $box . '::backdrop{background-color: ' . trim( $backdrop ) . ';}';
+		}
+
+		return $css . PixfortControls::button_css( $s, $prefix . '_yes', $box ) . PixfortControls::button_css( $s, $prefix . '_no', $box );
 	}
 
 	/**

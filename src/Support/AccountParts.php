@@ -972,7 +972,7 @@ final class AccountParts {
 				'status_inherit',
 				array(
 					'label'        => __( 'Same as Galaxie Account Orders', 'galaxie-woo' ),
-					'description'  => __( 'The status badges and the Pay, Cancel and other action buttons look exactly as they do on the Galaxie Account Orders widget. Turn off to style them here on their own.', 'galaxie-woo' ),
+					'description'  => __( 'The status badges, the Pay, Cancel and other action buttons, and cancelling an order (its dialog, alert and return screen) work and look exactly as set on the Galaxie Account Orders widget. Turn off to set them here on their own.', 'galaxie-woo' ),
 					'type'         => Controls_Manager::SWITCHER,
 					'return_value' => 'yes',
 					'default'      => 'yes',
@@ -1034,13 +1034,14 @@ final class AccountParts {
 	 * Looks the order page follows instead of being styled again: widget it is
 	 * taken from, option it is kept in, setting prefixes it is made of.
 	 *
-	 * - orders: the status badges and the Pay, Cancel and plugin action buttons
-	 *   of Galaxie Account Orders — the parts both screens show.
+	 * - orders: the status badges, the Pay, Cancel and plugin action buttons, and
+	 *   cancelling (dialog, alert, return screen) of Galaxie Account Orders —
+	 *   the parts both screens show.
 	 * - addresses: the card, address box and texts of Galaxie Account Address
 	 *   Book, for the order's billing and shipping cards.
 	 */
 	private const LOOKS = array(
-		'orders'    => array( 'galaxie-account-orders', 'galaxie_woo_orders_look_v2', array( 'status_', 'orders_pay_', 'orders_cancel_', 'orders_action_' ) ),
+		'orders'    => array( 'galaxie-account-orders', 'galaxie_woo_orders_look_v3', array( 'status_', 'orders_pay_', 'orders_cancel_', 'orders_action_', 'cancel_' ) ),
 		'addresses' => array( 'galaxie-account-address-book', 'galaxie_woo_addresses_look', array( 'ab_card_', 'ab_box_', 'ab_address_text_', 'ab_label_text_' ) ),
 	);
 
@@ -1218,10 +1219,23 @@ final class AccountParts {
 				'label' => __( 'Cancel order dialog', 'galaxie-woo' ),
 				'title' => __( 'Cancelar pedido', 'galaxie-woo' ),
 				'text'  => __( 'Cancelar este pedido? Isso não pode ser desfeito.', 'galaxie-woo' ),
-				'yes'   => __( 'Sim, cancelar', 'galaxie-woo' ),
-				'no'    => __( 'Voltar', 'galaxie-woo' ),
+				'yes'       => __( 'Sim, cancelar', 'galaxie-woo' ),
+				'no'        => __( 'Voltar', 'galaxie-woo' ),
+				'condition' => $condition,
 			)
 		);
+	}
+
+	/**
+	 * The one selector-driven rule of the cancelled alert, its icon size, for an
+	 * alert drawn with settings saved on another widget.
+	 *
+	 * @param array<string,mixed> $settings
+	 */
+	public static function cancelled_alert_css( array $settings, string $scope ): string {
+		$size = $settings['cancel_alert_icon_size'] ?? '';
+
+		return is_numeric( $size ) ? $scope . ' .galaxie-order-cancelled .pix-alert-icon > div{font-size: ' . (float) $size . 'px !important;}' : '';
 	}
 
 	/**

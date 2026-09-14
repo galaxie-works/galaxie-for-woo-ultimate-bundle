@@ -152,7 +152,7 @@ final class AccountOrderWidget extends Widget_Base {
 			$this->end_controls_section();
 		}
 
-		AccountParts::cancel_controls( $this, 'order', array( 'order_show_actions' => 'yes' ) );
+		AccountParts::cancel_controls( $this, 'order', array( 'order_show_actions' => 'yes', 'status_inherit!' => 'yes' ) );
 
 		$this->start_controls_section( 'order_cards_style', array( 'label' => __( 'Cards', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
 
@@ -269,7 +269,13 @@ final class AccountOrderWidget extends Widget_Base {
 		}
 
 		$date = $order->get_date_created();
-		$out  = AccountParts::cancelled_alert( $s ) . Dialog::render( $s, 'cancel_confirm' );
+		// Cancelling follows Galaxie Account Orders too: its dialog, its alert and
+		// its return screen, with the rules its CSS file holds written here.
+		$inherit = 'yes' === ( $s['status_inherit'] ?? '' );
+		$cancel  = $inherit ? array_merge( $s, AccountParts::orders_look() ) : $s;
+		$scope   = '.elementor-element-' . $this->get_id();
+		$css     = $inherit ? Dialog::css( $cancel, 'cancel_confirm', $scope ) . AccountParts::cancelled_alert_css( $cancel, $scope ) : '';
+		$out     = ( '' !== $css ? '<style>' . $css . '</style>' : '' ) . AccountParts::cancelled_alert( $cancel ) . Dialog::render( $cancel, 'cancel_confirm' );
 
 		// Header: back link, title, date, status.
 		$back = trim( (string) ( $s['order_back_text'] ?? '' ) );
