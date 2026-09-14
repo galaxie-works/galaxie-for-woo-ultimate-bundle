@@ -861,7 +861,10 @@ final class Module implements ModuleContract, ProvidesSettings {
 		$columns = array();
 
 		foreach ( array( 'first_name', 'last_name' ) as $name ) {
-			if ( isset( $changed[ $name ] ) || isset( $changed[ 'billing_' . $name ] ) ) {
+			// The billing name stands in only while the account has none. With
+			// the account name set, a checkout's billing name is not the
+			// contact's name, and must not resend it over whatever the contact holds.
+			if ( isset( $changed[ $name ] ) || ( isset( $changed[ 'billing_' . $name ] ) && '' === $meta( $name ) ) ) {
 				$value = $meta( $name ) ?: $meta( 'billing_' . $name );
 
 				if ( '' !== $value ) {
