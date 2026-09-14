@@ -102,6 +102,18 @@ final class AccountWishlistWidget extends Widget_Base {
 			$this->add_control( $id, array( 'label' => $text[0], 'type' => Controls_Manager::TEXT, 'label_block' => true, 'default' => $text[1], 'description' => 'wl_share_message' === $id ? __( '{name} is the list, {url} its link.', 'galaxie-woo' ) : '' ) );
 		}
 
+		// The form only opens on "New list" or "Rename"; styling it needs it open.
+		$this->add_control(
+			'wl_name_form_preview',
+			array(
+				'label'        => __( 'Show the list name form in the editor', 'galaxie-woo' ),
+				'description'  => __( 'Keeps the new list form open while you style it. Customers only see it after tapping "New list" or "Rename".', 'galaxie-woo' ),
+				'type'         => Controls_Manager::SWITCHER,
+				'return_value' => 'yes',
+				'separator'    => 'before',
+			)
+		);
+
 		$this->end_controls_section();
 
 		$buttons = array(
@@ -329,10 +341,11 @@ final class AccountWishlistWidget extends Widget_Base {
 		printf( '%s</nav>', $this->button( $s, 'wl_list_new', 'galaxie-wishlist-list-new' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built from escaped parts.
 
 		printf(
-			'<form class="galaxie-wishlist-name-form" hidden><input type="text" name="name" class="form-control" maxlength="60" placeholder="%1$s" required /><div class="galaxie-wishlist-name-actions">%2$s%3$s</div></form>',
+			'<form class="galaxie-wishlist-name-form"%4$s><input type="text" name="name" class="form-control" maxlength="60" placeholder="%1$s" required /><div class="galaxie-wishlist-name-actions">%2$s%3$s</div></form>',
 			esc_attr( (string) ( $s['wl_name_placeholder'] ?? '' ) ),
 			$this->button( $s, 'wl_name_save', 'galaxie-wishlist-name-save', 'submit' ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built from escaped parts.
-			$this->button( $s, 'wl_name_cancel', 'galaxie-wishlist-name-cancel' ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built from escaped parts.
+			$this->button( $s, 'wl_name_cancel', 'galaxie-wishlist-name-cancel' ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built from escaped parts.
+			$editing && 'yes' === ( $s['wl_name_form_preview'] ?? '' ) ? '' : ' hidden'
 		);
 
 		if ( $current ) {
