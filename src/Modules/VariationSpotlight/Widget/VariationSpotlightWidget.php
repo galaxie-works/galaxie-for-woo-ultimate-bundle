@@ -98,7 +98,7 @@ final class VariationSpotlightWidget extends Widget_Base {
 			$this,
 			'spotlight_dialog',
 			array(
-				'label' => __( 'Error dialog', 'galaxie-woo' ),
+				'label' => __( 'Add to cart error dialog', 'galaxie-woo' ),
 				'text'  => __( 'Não foi possível adicionar ao carrinho.', 'galaxie-woo' ),
 				'yes'   => __( 'Entendi', 'galaxie-woo' ),
 				'no'    => null,

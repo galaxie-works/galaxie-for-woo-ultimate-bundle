@@ -136,10 +136,10 @@ final class AccountPaymentMethodsWidget extends Widget_Base {
 
 		$buttons = array(
 			'pm_add'     => array( __( 'Add card button', 'galaxie-woo' ), array( 'text' => __( 'Adicionar cartão', 'galaxie-woo' ), 'size' => 'sm' ) ),
-			'pm_default' => array( __( 'Make default button', 'galaxie-woo' ), array( 'text' => __( 'Usar como padrão', 'galaxie-woo' ), 'style' => 'link', 'size' => 'sm' ) ),
-			'pm_delete'  => array( __( 'Delete button', 'galaxie-woo' ), array( 'text' => __( 'Excluir', 'galaxie-woo' ), 'style' => 'link', 'size' => 'sm' ) ),
-			'pm_save'    => array( __( 'Save card button', 'galaxie-woo' ), array( 'text' => __( 'Salvar cartão', 'galaxie-woo' ), 'size' => 'sm' ) ),
-			'pm_cancel'  => array( __( 'Cancel button', 'galaxie-woo' ), array( 'text' => __( 'Cancelar', 'galaxie-woo' ), 'style' => 'link', 'size' => 'sm' ) ),
+			'pm_default' => array( __( 'Card: make default button', 'galaxie-woo' ), array( 'text' => __( 'Usar como padrão', 'galaxie-woo' ), 'style' => 'link', 'size' => 'sm' ) ),
+			'pm_delete'  => array( __( 'Card: delete button', 'galaxie-woo' ), array( 'text' => __( 'Excluir', 'galaxie-woo' ), 'style' => 'link', 'size' => 'sm' ) ),
+			'pm_save'    => array( __( 'Add card form: save button', 'galaxie-woo' ), array( 'text' => __( 'Salvar cartão', 'galaxie-woo' ), 'size' => 'sm' ) ),
+			'pm_cancel'  => array( __( 'Add card form: cancel button', 'galaxie-woo' ), array( 'text' => __( 'Cancelar', 'galaxie-woo' ), 'style' => 'link', 'size' => 'sm' ) ),
 		);
 
 		foreach ( $buttons as $prefix => $button ) {
@@ -148,32 +148,17 @@ final class AccountPaymentMethodsWidget extends Widget_Base {
 			$this->end_controls_section();
 		}
 
-		Dialog::controls(
-			$this,
-			'pm_confirm',
+		// The Style tab follows the screen from top to bottom: header, the cards
+		// and what is on them, the add button and its form, then the dialogs.
+		// Every section names the part it styles.
+		$this->text_sections(
 			array(
-				'label' => __( 'Delete confirmation', 'galaxie-woo' ),
-				'title' => __( 'Remover cartão', 'galaxie-woo' ),
-				'text'  => __( 'Excluir este cartão?', 'galaxie-woo' ),
-				'yes'   => __( 'Sim, remover', 'galaxie-woo' ),
-				'no'    => __( 'Cancelar', 'galaxie-woo' ),
+				'pm_heading_text' => array( __( 'Header: heading', 'galaxie-woo' ), '.galaxie-pm-heading', array( 'size' => 'text-20', 'bold' => 'font-weight-bold' ), true ),
+				'pm_intro_text'   => array( __( 'Header: intro text', 'galaxie-woo' ), '.galaxie-pm-intro', array( 'bold' => '' ), true ),
 			)
 		);
 
-		Dialog::controls(
-			$this,
-			'pm_default_ask',
-			array(
-				'label'        => __( 'Make default question', 'galaxie-woo' ),
-				'title'        => __( 'Cartão salvo', 'galaxie-woo' ),
-				'text'         => __( 'Usar este cartão como padrão nos próximos pagamentos?', 'galaxie-woo' ),
-				'yes'          => __( 'Usar como padrão', 'galaxie-woo' ),
-				'no'           => __( 'Agora não', 'galaxie-woo' ),
-				'yes_defaults' => array( 'size' => 'sm' ),
-			)
-		);
-
-		$this->start_controls_section( 'pm_card_style', array( 'label' => __( 'Cards', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
+		$this->start_controls_section( 'pm_card_style', array( 'label' => __( 'Card: box and layout', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
 		PixfortControls::surface( $this, 'pm_card', '{{WRAPPER}} .galaxie-pm-card', array( 'rounded' => 'rounded-lg' ) );
 
 		$this->add_control(
@@ -235,7 +220,7 @@ final class AccountPaymentMethodsWidget extends Widget_Base {
 
 		$this->end_controls_section();
 
-		$this->start_controls_section( 'pm_chip_style', array( 'label' => __( 'Chip', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE, 'condition' => array( 'pm_show_chip' => 'yes' ) ) );
+		$this->start_controls_section( 'pm_chip_style', array( 'label' => __( 'Card: chip', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE, 'condition' => array( 'pm_show_chip' => 'yes' ) ) );
 
 		$this->add_responsive_control(
 			'pm_chip_width',
@@ -265,7 +250,7 @@ final class AccountPaymentMethodsWidget extends Widget_Base {
 
 		$this->end_controls_section();
 
-		$this->start_controls_section( 'pm_icon_style', array( 'label' => __( 'Brand icon', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE, 'condition' => array( 'pm_show_icons' => 'yes' ) ) );
+		$this->start_controls_section( 'pm_icon_style', array( 'label' => __( 'Card: brand icon', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE, 'condition' => array( 'pm_show_icons' => 'yes' ) ) );
 
 		$this->add_responsive_control(
 			'pm_icon_size',
@@ -282,18 +267,32 @@ final class AccountPaymentMethodsWidget extends Widget_Base {
 
 		$this->end_controls_section();
 
-		$this->start_controls_section( 'pm_badge_style', array( 'label' => __( 'Badges: all', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
+		$this->text_sections(
+			array(
+				'pm_number_text' => array( __( 'Card: number', 'galaxie-woo' ), '.galaxie-pm-number', array( 'size' => 'text-20', 'bold' => '' ) ),
+				'pm_expiry_text' => array( __( 'Card: expiry', 'galaxie-woo' ), '.galaxie-pm-expiry', array( 'size' => 'text-sm', 'bold' => '' ) ),
+				'pm_brand_text'  => array( __( 'Card: brand name', 'galaxie-woo' ), '.galaxie-pm-brand-name', array( 'size' => 'text-sm', 'bold' => 'font-weight-bold' ) ),
+			)
+		);
+
+		$this->start_controls_section( 'pm_badge_style', array( 'label' => __( 'Card badges: shape (all)', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
 		PixfortControls::surface( $this, 'pm_badge', '{{WRAPPER}} .galaxie-pm-badge', array( 'rounded' => 'rounded-pill' ) );
 		$this->end_controls_section();
+
+		$this->text_sections(
+			array(
+				'pm_badge_text' => array( __( 'Card badges: text (all)', 'galaxie-woo' ), '.galaxie-pm-badge', array( 'size' => 'text-xs', 'bold' => 'font-weight-bold' ) ),
+			)
+		);
 
 		// Each badge says something different — this is the card used by default,
 		// this one is about to expire, this one no longer works — so each gets its
 		// own colours on top of the shared shape and text above. Left on Default,
 		// a badge keeps the shared look.
 		$badges = array(
-			'default'  => __( 'Badge: default card', 'galaxie-woo' ),
-			'expiring' => __( 'Badge: expiring soon', 'galaxie-woo' ),
-			'expired'  => __( 'Badge: expired', 'galaxie-woo' ),
+			'default'  => __( 'Card badge: "default"', 'galaxie-woo' ),
+			'expiring' => __( 'Card badge: "expiring soon"', 'galaxie-woo' ),
+			'expired'  => __( 'Card badge: "expired"', 'galaxie-woo' ),
 		);
 
 		foreach ( $badges as $type => $label ) {
@@ -306,9 +305,15 @@ final class AccountPaymentMethodsWidget extends Widget_Base {
 			$this->end_controls_section();
 		}
 
-		AccountParts::add_area_controls( $this, 'pm_add_area', '{{WRAPPER}} .galaxie-pm-toolbar', __( 'Add card area', 'galaxie-woo' ) );
+		$this->text_sections(
+			array(
+				'pm_empty_body' => array( __( 'List: no cards message', 'galaxie-woo' ), '.galaxie-pm-empty', array( 'bold' => '' ) ),
+			)
+		);
 
-		$this->start_controls_section( 'pm_form_style', array( 'label' => __( 'Add card form', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
+		AccountParts::add_area_controls( $this, 'pm_add_area', '{{WRAPPER}} .galaxie-pm-toolbar', __( 'Add card button: area and separator', 'galaxie-woo' ) );
+
+		$this->start_controls_section( 'pm_form_style', array( 'label' => __( 'Add card form: box and spacing', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
 
 		PixfortControls::surface( $this, 'pm_form', '{{WRAPPER}} .galaxie-pm-form', array( 'rounded' => 'rounded-lg' ) );
 
@@ -365,20 +370,47 @@ final class AccountPaymentMethodsWidget extends Widget_Base {
 
 		$this->end_controls_section();
 
-		$texts = array(
-			'pm_heading_text' => array( __( 'Heading', 'galaxie-woo' ), '.galaxie-pm-heading', array( 'size' => 'text-20', 'bold' => 'font-weight-bold' ), true ),
-			'pm_form_title_text' => array( __( 'Add card form: title', 'galaxie-woo' ), '.galaxie-pm-form-title', array( 'size' => 'text-18', 'bold' => 'font-weight-bold' ), true ),
-			'pm_field_label'  => array( __( 'Add card form: labels', 'galaxie-woo' ), '.galaxie-pm-field-label', array( 'size' => 'text-sm', 'bold' => 'font-weight-bold' ) ),
-			'pm_intro_text'   => array( __( 'Intro text', 'galaxie-woo' ), '.galaxie-pm-intro', array( 'bold' => '' ), true ),
-			'pm_number_text'  => array( __( 'Card number', 'galaxie-woo' ), '.galaxie-pm-number', array( 'size' => 'text-20', 'bold' => '' ) ),
-			'pm_expiry_text'  => array( __( 'Expiry', 'galaxie-woo' ), '.galaxie-pm-expiry', array( 'size' => 'text-sm', 'bold' => '' ) ),
-			'pm_brand_text'   => array( __( 'Brand name', 'galaxie-woo' ), '.galaxie-pm-brand-name', array( 'size' => 'text-sm', 'bold' => 'font-weight-bold' ) ),
-			'pm_badge_text'   => array( __( 'Badges: text', 'galaxie-woo' ), '.galaxie-pm-badge', array( 'size' => 'text-xs', 'bold' => 'font-weight-bold' ) ),
-			'pm_empty_body'   => array( __( 'Empty list text', 'galaxie-woo' ), '.galaxie-pm-empty', array( 'bold' => '' ) ),
+		$this->text_sections(
+			array(
+				'pm_form_title_text' => array( __( 'Add card form: title', 'galaxie-woo' ), '.galaxie-pm-form-title', array( 'size' => 'text-18', 'bold' => 'font-weight-bold' ), true ),
+				'pm_field_label'     => array( __( 'Add card form: field labels', 'galaxie-woo' ), '.galaxie-pm-field-label', array( 'size' => 'text-sm', 'bold' => 'font-weight-bold' ) ),
+			)
 		);
 
-		// A fourth `true` marks text drawn by pixfort's Text element; the rest are
-		// classes on this widget's own markup, which carry fewer controls.
+		Dialog::controls(
+			$this,
+			'pm_confirm',
+			array(
+				'label' => __( 'Delete card dialog', 'galaxie-woo' ),
+				'title' => __( 'Remover cartão', 'galaxie-woo' ),
+				'text'  => __( 'Excluir este cartão?', 'galaxie-woo' ),
+				'yes'   => __( 'Sim, remover', 'galaxie-woo' ),
+				'no'    => __( 'Cancelar', 'galaxie-woo' ),
+			)
+		);
+
+		Dialog::controls(
+			$this,
+			'pm_default_ask',
+			array(
+				'label'        => __( 'Make default dialog', 'galaxie-woo' ),
+				'title'        => __( 'Cartão salvo', 'galaxie-woo' ),
+				'text'         => __( 'Usar este cartão como padrão nos próximos pagamentos?', 'galaxie-woo' ),
+				'yes'          => __( 'Usar como padrão', 'galaxie-woo' ),
+				'no'           => __( 'Agora não', 'galaxie-woo' ),
+				'yes_defaults' => array( 'size' => 'sm' ),
+			)
+		);
+	}
+
+	/**
+	 * Text style sections, in the order given. A fourth `true` marks text drawn
+	 * by pixfort's Text element; the rest are classes on this widget's own
+	 * markup, which carry fewer controls.
+	 *
+	 * @param array<string,array<int,mixed>> $texts
+	 */
+	private function text_sections( array $texts ): void {
 		foreach ( $texts as $prefix => $text ) {
 			$this->start_controls_section( $prefix . '_style', array( 'label' => $text[0], 'tab' => Controls_Manager::TAB_STYLE ) );
 			PixfortControls::text( $this, $prefix, array_merge( $text[2], array( 'remove_pb_padding' => 'm-0' ) ), array(), '{{WRAPPER}} ' . $text[1], 'text', empty( $text[3] ) ? array( 'position', 'inline' ) : array( 'position' ) );

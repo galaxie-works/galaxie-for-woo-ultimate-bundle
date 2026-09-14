@@ -65,13 +65,18 @@ final class Dialog {
 
 		$widget->end_controls_section();
 
-		$buttons = array( 'yes' => array( __( 'Dialog: confirm button', 'galaxie-woo' ), $args['yes'], array( 'size' => 'sm' ) ) );
+		// Every section is named after its dialog: a widget with two of them
+		// otherwise lists two identical "confirm button" sections.
+		/* translators: 1: the dialog's name, e.g. "Delete card dialog". */
+		$named = static fn( string $part ): string => sprintf( __( '%1$s: %2$s', 'galaxie-woo' ), $args['label'], $part );
+
+		$buttons = array( 'yes' => array( $named( __( 'confirm button', 'galaxie-woo' ) ), $args['yes'], array( 'size' => 'sm' ) ) );
 
 		if ( null !== ( $args['no'] ?? null ) ) {
 			$buttons['yes'][2] = $args['yes_defaults'] ?? array( 'color' => 'red', 'text_color' => 'white', 'size' => 'sm' );
-			$buttons['no']     = array( __( 'Dialog: cancel button', 'galaxie-woo' ), $args['no'], array( 'style' => 'link', 'size' => 'sm' ) );
+			$buttons['no']     = array( $named( __( 'cancel button', 'galaxie-woo' ) ), $args['no'], array( 'style' => 'link', 'size' => 'sm' ) );
 		} else {
-			$buttons['yes'][0] = __( 'Dialog: button', 'galaxie-woo' );
+			$buttons['yes'][0] = $named( __( 'button', 'galaxie-woo' ) );
 		}
 
 		foreach ( $buttons as $key => $button ) {
@@ -82,7 +87,7 @@ final class Dialog {
 
 		$box = '{{WRAPPER}} .galaxie-dialog[data-dialog="' . $prefix . '"]';
 
-		$widget->start_controls_section( $prefix . '_box_style', array( 'label' => __( 'Dialog', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
+		$widget->start_controls_section( $prefix . '_box_style', array( 'label' => $named( __( 'box', 'galaxie-woo' ) ), 'tab' => Controls_Manager::TAB_STYLE ) );
 
 		PixfortControls::surface( $widget, $prefix . '_box', $box, array( 'rounded' => 'rounded-xl', 'shadow' => '4' ) );
 
@@ -139,8 +144,8 @@ final class Dialog {
 		$widget->end_controls_section();
 
 		$texts = array(
-			'title_text' => array( __( 'Dialog: title', 'galaxie-woo' ), '.galaxie-dialog-title', array( 'size' => 'text-18', 'bold' => 'font-weight-bold' ) ),
-			'body_text'  => array( __( 'Dialog: message', 'galaxie-woo' ), '.galaxie-dialog-text', array( 'bold' => '' ) ),
+			'title_text' => array( $named( __( 'title', 'galaxie-woo' ) ), '.galaxie-dialog-title', array( 'size' => 'text-18', 'bold' => 'font-weight-bold' ) ),
+			'body_text'  => array( $named( __( 'message', 'galaxie-woo' ) ), '.galaxie-dialog-text', array( 'bold' => '' ) ),
 		);
 
 		foreach ( $texts as $key => $text ) {

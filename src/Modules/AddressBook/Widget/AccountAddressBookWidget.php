@@ -97,19 +97,7 @@ final class AccountAddressBookWidget extends Widget_Base {
 			$this->end_controls_section();
 		}
 
-		Dialog::controls(
-			$this,
-			'ab_confirm',
-			array(
-				'label' => __( 'Delete confirmation', 'galaxie-woo' ),
-				'title' => __( 'Excluir endereço', 'galaxie-woo' ),
-				'text'  => __( 'Excluir este endereço?', 'galaxie-woo' ),
-				'yes'   => __( 'Sim, excluir', 'galaxie-woo' ),
-				'no'    => __( 'Cancelar', 'galaxie-woo' ),
-			)
-		);
-
-		$this->start_controls_section( 'ab_card_style', array( 'label' => __( 'Cards', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
+		$this->start_controls_section( 'ab_card_style', array( 'label' => __( 'Card: box and layout', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
 		PixfortControls::surface( $this, 'ab_card', '{{WRAPPER}} .galaxie-ab-card, {{WRAPPER}} .galaxie-ab-form', array( 'rounded' => 'rounded-lg' ) );
 
 		$this->add_responsive_control(
@@ -125,26 +113,26 @@ final class AccountAddressBookWidget extends Widget_Base {
 
 		$this->end_controls_section();
 
-		$this->start_controls_section( 'ab_box_style', array( 'label' => __( 'Address box', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
+		$this->start_controls_section( 'ab_box_style', array( 'label' => __( 'Card: address box', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
 		PixfortControls::surface( $this, 'ab_box', '{{WRAPPER}} .galaxie-ab-address' );
 		$this->end_controls_section();
 
-		$this->start_controls_section( 'ab_badge_style', array( 'label' => __( 'Default badges', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
+		$this->start_controls_section( 'ab_badge_style', array( 'label' => __( 'Card badges: shape (all)', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
 		PixfortControls::surface( $this, 'ab_badge', '{{WRAPPER}} .galaxie-ab-badge', array( 'rounded' => 'rounded-pill' ) );
 		$this->end_controls_section();
 
-		AccountParts::add_area_controls( $this, 'ab_add_area', '{{WRAPPER}} .galaxie-ab-toolbar', __( 'Add address area', 'galaxie-woo' ) );
+		AccountParts::add_area_controls( $this, 'ab_add_area', '{{WRAPPER}} .galaxie-ab-toolbar', __( 'Add address button: area and separator', 'galaxie-woo' ) );
 
 		$texts = array(
-			'ab_heading_text' => array( __( 'Heading', 'galaxie-woo' ), '.galaxie-ab-heading', array( 'size' => 'text-20', 'bold' => 'font-weight-bold' ), true ),
-			'ab_intro_text'   => array( __( 'Intro text', 'galaxie-woo' ), '.galaxie-ab-intro', array( 'bold' => '' ), true ),
-			'ab_label_text'   => array( __( 'Nicknames', 'galaxie-woo' ), '.galaxie-ab-label', array( 'size' => 'text-18', 'bold' => 'font-weight-bold' ) ),
-			'ab_address_text' => array( __( 'Address text', 'galaxie-woo' ), '.galaxie-ab-address', array( 'bold' => '' ) ),
-			'ab_badge_text'   => array( __( 'Badge text', 'galaxie-woo' ), '.galaxie-ab-badge', array( 'size' => 'text-xs', 'bold' => 'font-weight-bold' ) ),
-			'ab_empty_body'   => array( __( 'Empty list text', 'galaxie-woo' ), '.galaxie-ab-empty', array( 'bold' => '' ) ),
-			'ab_form_title'   => array( __( 'Form title', 'galaxie-woo' ), '.galaxie-ab-form-title', array( 'size' => 'text-18', 'bold' => 'font-weight-bold' ) ),
-			'ab_field_label'  => array( __( 'Form labels', 'galaxie-woo' ), '.galaxie-ab-form label', array( 'size' => 'text-sm', 'bold' => 'font-weight-bold' ) ),
-			'ab_msg_text'     => array( __( 'Messages', 'galaxie-woo' ), '.galaxie-account-message', array( 'size' => 'text-sm', 'bold' => '' ) ),
+			'ab_heading_text' => array( __( 'Header: heading', 'galaxie-woo' ), '.galaxie-ab-heading', array( 'size' => 'text-20', 'bold' => 'font-weight-bold' ), true ),
+			'ab_intro_text'   => array( __( 'Header: intro text', 'galaxie-woo' ), '.galaxie-ab-intro', array( 'bold' => '' ), true ),
+			'ab_label_text'   => array( __( 'Card: nickname', 'galaxie-woo' ), '.galaxie-ab-label', array( 'size' => 'text-18', 'bold' => 'font-weight-bold' ) ),
+			'ab_address_text' => array( __( 'Card: address text', 'galaxie-woo' ), '.galaxie-ab-address', array( 'bold' => '' ) ),
+			'ab_badge_text'   => array( __( 'Card badges: text (all)', 'galaxie-woo' ), '.galaxie-ab-badge', array( 'size' => 'text-xs', 'bold' => 'font-weight-bold' ) ),
+			'ab_empty_body'   => array( __( 'List: no addresses message', 'galaxie-woo' ), '.galaxie-ab-empty', array( 'bold' => '' ) ),
+			'ab_form_title'   => array( __( 'Address form: title', 'galaxie-woo' ), '.galaxie-ab-form-title', array( 'size' => 'text-18', 'bold' => 'font-weight-bold' ) ),
+			'ab_field_label'  => array( __( 'Address form: field labels', 'galaxie-woo' ), '.galaxie-ab-form label', array( 'size' => 'text-sm', 'bold' => 'font-weight-bold' ) ),
+			'ab_msg_text'     => array( __( 'Saved and error messages', 'galaxie-woo' ), '.galaxie-account-message', array( 'size' => 'text-sm', 'bold' => '' ) ),
 		);
 
 		// A fourth `true` marks text drawn by pixfort's Text element; the rest are
@@ -155,7 +143,7 @@ final class AccountAddressBookWidget extends Widget_Base {
 			$this->end_controls_section();
 		}
 
-		$this->start_controls_section( 'ab_field_style', array( 'label' => __( 'Form fields', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
+		$this->start_controls_section( 'ab_field_style', array( 'label' => __( 'Address form: fields', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
 
 		PixfortControls::surface( $this, 'ab_field', '{{WRAPPER}} .galaxie-ab-form .form-control' );
 
@@ -173,6 +161,19 @@ final class AccountAddressBookWidget extends Widget_Base {
 		PixfortControls::palette_control( $this, 'ab_required', __( 'Required marker', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-ab-form .required', 'color' );
 
 		$this->end_controls_section();
+
+		// Last in both tabs, after everything that is on the screen by default.
+		Dialog::controls(
+			$this,
+			'ab_confirm',
+			array(
+				'label' => __( 'Delete address dialog', 'galaxie-woo' ),
+				'title' => __( 'Excluir endereço', 'galaxie-woo' ),
+				'text'  => __( 'Excluir este endereço?', 'galaxie-woo' ),
+				'yes'   => __( 'Sim, excluir', 'galaxie-woo' ),
+				'no'    => __( 'Cancelar', 'galaxie-woo' ),
+			)
+		);
 	}
 
 	protected function render(): void {
