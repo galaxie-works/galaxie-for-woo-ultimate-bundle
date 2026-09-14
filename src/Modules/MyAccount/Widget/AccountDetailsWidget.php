@@ -17,7 +17,9 @@ use Galaxie\Woo\Support\ProfileFields;
 defined( 'ABSPATH' ) || exit;
 
 /**
- * Name, social name, date of birth, CPF and gender, saved without a reload.
+ * Name, social name, mobile phone, date of birth, CPF and gender, saved
+ * without a reload. The phone is WooCommerce's billing phone — the one checkout
+ * fills in and the store calls — so there is only ever one number to keep right.
  *
  * The same fields and the same `galaxie_myaccount_save_details` handler the
  * React tab used, so customer data and the FluentCRM sync behind
@@ -35,6 +37,7 @@ final class AccountDetailsWidget extends Widget_Base {
 		'last_name'   => array( 'Sobrenome', true ),
 		'social_name' => array( 'Nome social', false ),
 		'email'       => array( 'E-mail', true ),
+		'phone'       => array( 'Celular', false ),
 		'birthdate'   => array( 'Data de nascimento', false ),
 		'cpf'         => array( 'CPF', false ),
 		'gender'      => array( 'Gênero', false ),
@@ -158,6 +161,7 @@ final class AccountDetailsWidget extends Widget_Base {
 			'last_name'   => $user->last_name,
 			'social_name' => (string) get_user_meta( $user->ID, ProfileFields::SOCIAL_NAME, true ),
 			'email'       => $user->user_email,
+			'phone'       => (string) get_user_meta( $user->ID, 'billing_phone', true ),
 			'birthdate'   => (string) get_user_meta( $user->ID, ProfileFields::BIRTHDATE, true ),
 			'cpf'         => (string) get_user_meta( $user->ID, ProfileFields::CPF, true ),
 			'gender'      => (string) get_user_meta( $user->ID, ProfileFields::GENDER, true ),
@@ -204,6 +208,7 @@ final class AccountDetailsWidget extends Widget_Base {
 					'last_name'   => 'type="text" autocomplete="family-name" required',
 					'social_name' => 'type="text" autocomplete="nickname"',
 					'email'       => 'type="email" readonly',
+					'phone'       => 'type="tel" inputmode="tel" autocomplete="tel" placeholder="(11) 91234-5678" maxlength="15"',
 					'birthdate'   => 'type="date" autocomplete="bday"',
 					'cpf'         => 'type="text" inputmode="numeric" placeholder="000.000.000-00" maxlength="14"',
 				);

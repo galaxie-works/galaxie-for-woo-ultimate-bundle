@@ -307,9 +307,15 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 		$birthdate   = isset( $_POST['birthdate'] ) ? sanitize_text_field( wp_unslash( $_POST['birthdate'] ) ) : '';
 		$cpf         = isset( $_POST['cpf'] ) ? sanitize_text_field( wp_unslash( $_POST['cpf'] ) ) : '';
 		$gender      = isset( $_POST['gender'] ) ? sanitize_text_field( wp_unslash( $_POST['gender'] ) ) : '';
+		// Absent when the widget hides the field — then it is left alone. Present
+		// and empty means the customer erased it.
+		$phone = isset( $_POST['phone'] ) ? sanitize_text_field( wp_unslash( $_POST['phone'] ) ) : null;
 
 		if ( '' === $first_name || '' === $last_name ) {
 			wp_send_json_error( array( 'message' => __( 'Please enter your first and last name.', 'galaxie-woo' ) ) );
+		}
+		if ( null !== $phone && '' !== $phone && ! preg_match( '/^\d{10,11}$/', (string) preg_replace( '/\D+/', '', $phone ) ) ) {
+			wp_send_json_error( array( 'message' => __( 'Please enter a valid phone number, with area code.', 'galaxie-woo' ) ) );
 		}
 		if ( '' !== $cpf && ! Cpf::is_valid( $cpf ) ) {
 			wp_send_json_error( array( 'message' => __( 'Please enter a valid CPF.', 'galaxie-woo' ) ) );
@@ -338,6 +344,9 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 			update_user_meta( $user_id, ProfileFields::CPF, Cpf::format( $cpf ) );
 		}
 		update_user_meta( $user_id, ProfileFields::GENDER, $gender );
+		if ( null !== $phone ) {
+			update_user_meta( $user_id, 'billing_phone', $phone );
+		}
 
 		/** Fires after a My Account details save — FluentCRM's module re-syncs core fields on this. */
 		do_action( 'galaxie_woo/profile_updated', $user_id );
@@ -413,6 +422,9 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 		} else {
 			FluentCRMApi::detach_tags( $user->user_email, array( $tag_id ) );
 		}
+
+		/** Fires after a customer picks or drops an interest — the FluentCRM module notes it on the contact. */
+		do_action( 'galaxie_woo/interest_changed', $user->ID, $tag_id, $selected );
 
 		wp_send_json_success();
 	}

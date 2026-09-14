@@ -43,6 +43,13 @@ defined( 'ABSPATH' ) || exit;
  *    user meta itself rather than at each screen that writes it (My Account
  *    details, the address book, the checkout's profile step, wp-admin), so a
  *    new screen cannot forget to sync, and flushed once per request.
+ *
+ *    A field the customer empties is emptied on the contact too, so the
+ *    contact never shows data the customer took back. What it held is not
+ *    lost: every change — profile fields, addresses, the communication consent,
+ *    interests, saved cards added, deleted or made the default (brand, last
+ *    four digits, expiry) — is written on the contact's Notes tab as before → after, with
+ *    the date and time, where it was made and who made it.
  */
 final class Module implements ModuleContract, ProvidesSettings {
 
@@ -81,9 +88,21 @@ final class Module implements ModuleContract, ProvidesSettings {
 		// PasswordlessAuth/MyAccount) rather than those modules calling this one
 		// directly, so this module can be off without breaking them.
 		add_action( 'galaxie_woo/customer_registered', array( $this, 'on_customer_registered' ), 10, 2 );
-		if ( ! empty( $this->settings()['profile_sync'] ?? true ) ) {
+		$settings            = $this->settings();
+		$this->sync_contacts = ! empty( $settings['profile_sync'] ?? true );
+		$this->log_changes   = ! empty( $settings['profile_notes'] ?? true );
+
+		if ( $this->sync_contacts || $this->log_changes ) {
 			add_action( 'galaxie_woo/profile_updated', array( $this, 'queue_profile_sync' ) );
 			add_action( 'profile_update', array( $this, 'queue_profile_sync' ) );
+			add_action( 'galaxie_woo/interest_changed', array( $this, 'remember_interest' ), 10, 3 );
+			add_action( 'woocommerce_new_payment_token', array( $this, 'remember_card_added' ), 10, 2 );
+			add_action( 'woocommerce_payment_token_deleted', array( $this, 'remember_card_deleted' ), 10, 2 );
+			add_action( 'woocommerce_payment_token_set_default', array( $this, 'remember_card_default' ), 10, 2 );
+
+			foreach ( array( 'add_user_metadata', 'update_user_metadata', 'delete_user_metadata' ) as $hook ) {
+				add_filter( $hook, array( $this, 'remember_old_meta' ), 10, 3 );
+			}
 
 			foreach ( array( 'added_user_meta', 'updated_user_meta', 'deleted_user_meta' ) as $hook ) {
 				add_action( $hook, array( $this, 'watch_user_meta' ), 10, 3 );
@@ -155,6 +174,9 @@ final class Module implements ModuleContract, ProvidesSettings {
 		ProfileFields::BIRTHDATE,
 		ProfileFields::GENDER,
 		ProfileFields::SOCIAL_NAME,
+		// Noted, not synced: the contact has no column for either.
+		ProfileFields::MARKETING_OPT_IN,
+		\Galaxie\Woo\Support\AddressBook::META_KEY,
 	);
 
 	/** FluentCRM has no columns for these, so they are custom contact fields. */
@@ -168,6 +190,109 @@ final class Module implements ModuleContract, ProvidesSettings {
 	private array $profile_queue = array();
 
 	private bool $profile_flushing = false;
+
+	private bool $sync_contacts = true;
+
+	private bool $log_changes = true;
+
+	/** @var array<int,array<string,mixed>> Each watched field's value before this request first touched it. */
+	private array $old_meta = array();
+
+	/** @var array<int,array<int,string>> Changes that are not user meta — interests, saved cards — in this request. */
+	private array $event_log = array();
+
+	/**
+	 * Keeps what a field held before its first write in this request, so the
+	 * note can say before → after. A filter that changes nothing.
+	 *
+	 * @param mixed $check
+	 * @param mixed $user_id
+	 * @param mixed $meta_key
+	 * @return mixed
+	 */
+	public function remember_old_meta( $check, $user_id, $meta_key ) {
+		$user_id = (int) $user_id;
+		$key     = (string) $meta_key;
+
+		if ( ! $this->profile_flushing && $user_id > 0 && in_array( $key, self::PROFILE_META, true ) && ! array_key_exists( $key, $this->old_meta[ $user_id ] ?? array() ) ) {
+			$this->old_meta[ $user_id ][ $key ] = get_user_meta( $user_id, $key, true );
+		}
+
+		return $check;
+	}
+
+	/**
+	 * @param mixed $user_id
+	 * @param mixed $tag_id
+	 * @param mixed $selected
+	 */
+	public function remember_interest( $user_id, $tag_id, $selected ): void {
+		$label = '#' . (int) $tag_id;
+
+		foreach ( (array) ( $this->settings()['interest_options'] ?? array() ) as $row ) {
+			$row = (array) $row;
+
+			if ( (int) ( $row['tag_id'] ?? 0 ) === (int) $tag_id ) {
+				$label = trim( (string) ( $row['icon'] ?? '' ) . ' ' . (string) ( $row['label'] ?? '' ) );
+				break;
+			}
+		}
+
+		$this->event_log[ (int) $user_id ][] = ( $selected ? __( 'Interesse marcado', 'galaxie-woo' ) : __( 'Interesse desmarcado', 'galaxie-woo' ) ) . ': ' . $label;
+		$this->queue_profile_sync( $user_id );
+	}
+
+	/**
+	 * Saved cards, noted by brand, last four digits and expiry — what is needed
+	 * to trace a card in a fraud dispute, and nothing a card could be used with.
+	 *
+	 * @param mixed $token_id
+	 * @param mixed $token
+	 */
+	public function remember_card_added( $token_id, $token ): void {
+		$this->remember_card( $token, __( 'Cartão incluído', 'galaxie-woo' ) );
+	}
+
+	/**
+	 * @param mixed $token_id
+	 * @param mixed $token
+	 */
+	public function remember_card_deleted( $token_id, $token ): void {
+		$this->remember_card( $token, __( 'Cartão excluído', 'galaxie-woo' ) );
+	}
+
+	/**
+	 * @param mixed $token_id
+	 * @param mixed $token
+	 */
+	public function remember_card_default( $token_id, $token ): void {
+		$this->remember_card( $token, __( 'Cartão definido como padrão', 'galaxie-woo' ) );
+	}
+
+	/** @param mixed $token */
+	private function remember_card( $token, string $what ): void {
+		if ( ! $token instanceof \WC_Payment_Token || ! $token->get_user_id() ) {
+			return;
+		}
+
+		if ( $token instanceof \WC_Payment_Token_CC ) {
+			$card = sprintf(
+				/* translators: 1: card brand, 2: last four digits, 3: expiry month, 4: expiry year. */
+				__( '%1$s final %2$s, validade %3$s/%4$s', 'galaxie-woo' ),
+				ucfirst( (string) $token->get_card_type() ),
+				(string) $token->get_last4(),
+				str_pad( (string) $token->get_expiry_month(), 2, '0', STR_PAD_LEFT ),
+				(string) $token->get_expiry_year()
+			);
+		} else {
+			$card = wp_strip_all_tags( (string) $token->get_display_name() );
+		}
+
+		$gateway = (string) $token->get_gateway_id();
+
+		$this->event_log[ (int) $token->get_user_id() ][] = $what . ': ' . $card . ( '' !== $gateway ? ' (' . $gateway . ')' : '' );
+		$this->queue_profile_sync( $token->get_user_id() );
+	}
 
 	/** @param mixed $user_id */
 	public function queue_profile_sync( $user_id ): void {
@@ -199,13 +324,213 @@ final class Module implements ModuleContract, ProvidesSettings {
 		$users                  = array_keys( $this->profile_queue );
 		$this->profile_queue    = array();
 
-		FluentCRMApi::ensure_custom_fields( self::CUSTOM_FIELDS );
-
-		foreach ( $users as $user_id ) {
-			$this->sync_profile( (int) $user_id );
+		if ( $this->sync_contacts ) {
+			FluentCRMApi::ensure_custom_fields( self::CUSTOM_FIELDS );
 		}
 
+		foreach ( $users as $user_id ) {
+			$user = get_userdata( (int) $user_id );
+
+			if ( ! $user ) {
+				continue;
+			}
+
+			// The note first: it records the account's own before and after,
+			// whatever the contact happened to hold.
+			if ( $this->log_changes ) {
+				$this->log_profile_changes( $user );
+			}
+
+			if ( $this->sync_contacts ) {
+				$this->sync_profile( (int) $user_id );
+			}
+		}
+
+		$this->old_meta         = array();
+		$this->event_log        = array();
 		$this->profile_flushing = false;
+	}
+
+	/** Every change in this request, as one note on the contact. */
+	private function log_profile_changes( \WP_User $user ): void {
+		$lines = array();
+
+		foreach ( $this->old_meta[ $user->ID ] ?? array() as $key => $old ) {
+			$new = get_user_meta( $user->ID, $key, true );
+
+			if ( \Galaxie\Woo\Support\AddressBook::META_KEY === $key ) {
+				$lines = array_merge( $lines, $this->address_book_changes( is_array( $old ) ? $old : array(), is_array( $new ) ? $new : array() ) );
+				continue;
+			}
+
+			$before = $this->display_value( $key, is_scalar( $old ) ? (string) $old : '' );
+			$after  = $this->display_value( $key, is_scalar( $new ) ? (string) $new : '' );
+
+			if ( $before !== $after ) {
+				$lines[] = sprintf( '<strong>%1$s:</strong> %2$s → %3$s', esc_html( $this->field_label( $key ) ), esc_html( $before ), esc_html( $after ) );
+			}
+		}
+
+		foreach ( $this->event_log[ $user->ID ] ?? array() as $entry ) {
+			$lines[] = esc_html( $entry );
+		}
+
+		if ( ! $lines ) {
+			return;
+		}
+
+		$actor = get_current_user_id();
+		$who   = $actor ? get_userdata( $actor ) : false;
+		$by    = $actor === $user->ID ? __( 'o próprio cliente', 'galaxie-woo' ) : ( $who ? (string) $who->display_name : __( 'sistema', 'galaxie-woo' ) );
+
+		$description = sprintf(
+			'<p><strong>%1$s</strong> %2$s<br><strong>%3$s</strong> %4$s<br><strong>%5$s</strong> %6$s</p><ul><li>%7$s</li></ul>',
+			esc_html__( 'Data e hora:', 'galaxie-woo' ),
+			esc_html( wp_date( 'd/m/Y H:i:s' ) ),
+			esc_html__( 'Origem:', 'galaxie-woo' ),
+			esc_html( $this->change_source() ),
+			esc_html__( 'Alterado por:', 'galaxie-woo' ),
+			esc_html( $by ),
+			implode( '</li><li>', $lines )
+		);
+
+		FluentCRMApi::add_note( $user->user_email, __( 'Alteração de perfil', 'galaxie-woo' ), $description );
+	}
+
+	/**
+	 * @param array<string,mixed> $old
+	 * @param array<string,mixed> $new
+	 * @return string[] Escaped lines.
+	 */
+	private function address_book_changes( array $old, array $new ): array {
+		$show = static function ( $entry ): string {
+			$entry   = (array) $entry;
+			$address = html_entity_decode( wp_strip_all_tags( (string) preg_replace( '#<br\s*/?>#i', ', ', \Galaxie\Woo\Support\AddressBook::format( $entry ) ) ), ENT_QUOTES );
+			$phone   = trim( (string) ( $entry['phone'] ?? '' ) );
+			$label   = trim( (string) ( $entry['label'] ?? '' ) );
+
+			return ( '' !== $label ? $label . ' — ' : '' ) . $address . ( '' !== $phone ? ' — ' . $phone : '' );
+		};
+
+		$lines = array();
+
+		foreach ( $new as $id => $entry ) {
+			if ( ! isset( $old[ $id ] ) ) {
+				$lines[] = '<strong>' . esc_html__( 'Endereço incluído:', 'galaxie-woo' ) . '</strong> ' . esc_html( $show( $entry ) );
+			} elseif ( $show( $old[ $id ] ) !== $show( $entry ) ) {
+				$lines[] = '<strong>' . esc_html__( 'Endereço alterado:', 'galaxie-woo' ) . '</strong> ' . esc_html( $show( $old[ $id ] ) ) . ' → ' . esc_html( $show( $entry ) );
+			}
+		}
+
+		foreach ( $old as $id => $entry ) {
+			if ( ! isset( $new[ $id ] ) ) {
+				$lines[] = '<strong>' . esc_html__( 'Endereço removido:', 'galaxie-woo' ) . '</strong> ' . esc_html( $show( $entry ) );
+			}
+		}
+
+		return $lines;
+	}
+
+	private function display_value( string $key, string $value ): string {
+		$value = trim( $value );
+
+		if ( '' === $value ) {
+			return __( '(vazio)', 'galaxie-woo' );
+		}
+
+		if ( ProfileFields::BIRTHDATE === $key && preg_match( '/^(\d{4})-(\d{2})-(\d{2})$/', $value, $date ) ) {
+			return $date[3] . '/' . $date[2] . '/' . $date[1];
+		}
+
+		if ( ProfileFields::GENDER === $key ) {
+			return ProfileFields::gender_label( $value );
+		}
+
+		if ( ProfileFields::MARKETING_OPT_IN === $key ) {
+			return 'yes' === $value ? __( 'Sim', 'galaxie-woo' ) : __( 'Não', 'galaxie-woo' );
+		}
+
+		if ( in_array( $key, array( 'billing_country', 'shipping_country' ), true ) && function_exists( 'WC' ) ) {
+			return (string) ( WC()->countries->get_countries()[ $value ] ?? $value );
+		}
+
+		return $value;
+	}
+
+	private function field_label( string $key ): string {
+		$labels = array(
+			'first_name'                    => __( 'Nome', 'galaxie-woo' ),
+			'last_name'                     => __( 'Sobrenome', 'galaxie-woo' ),
+			'billing_first_name'            => __( 'Nome (cobrança)', 'galaxie-woo' ),
+			'billing_last_name'             => __( 'Sobrenome (cobrança)', 'galaxie-woo' ),
+			'billing_phone'                 => __( 'Celular', 'galaxie-woo' ),
+			'shipping_phone'                => __( 'Telefone (entrega)', 'galaxie-woo' ),
+			ProfileFields::CPF              => __( 'CPF', 'galaxie-woo' ),
+			ProfileFields::BIRTHDATE        => __( 'Data de nascimento', 'galaxie-woo' ),
+			ProfileFields::GENDER           => __( 'Gênero', 'galaxie-woo' ),
+			ProfileFields::SOCIAL_NAME      => __( 'Nome social', 'galaxie-woo' ),
+			ProfileFields::MARKETING_OPT_IN => __( 'Aceita receber comunicações', 'galaxie-woo' ),
+		);
+
+		if ( isset( $labels[ $key ] ) ) {
+			return $labels[ $key ];
+		}
+
+		$parts = array(
+			'address_1' => __( 'Endereço', 'galaxie-woo' ),
+			'address_2' => __( 'Complemento', 'galaxie-woo' ),
+			'city'      => __( 'Cidade', 'galaxie-woo' ),
+			'state'     => __( 'Estado', 'galaxie-woo' ),
+			'postcode'  => __( 'CEP', 'galaxie-woo' ),
+			'country'   => __( 'País', 'galaxie-woo' ),
+		);
+
+		foreach ( array( 'billing' => __( 'cobrança', 'galaxie-woo' ), 'shipping' => __( 'entrega', 'galaxie-woo' ) ) as $type => $name ) {
+			foreach ( $parts as $part => $label ) {
+				if ( $type . '_' . $part === $key ) {
+					return $label . ' (' . $name . ')';
+				}
+			}
+		}
+
+		return $key;
+	}
+
+	/** Where the change was made, from the request that made it. */
+	private function change_source(): string {
+		$action = isset( $_REQUEST['action'] ) ? sanitize_key( wp_unslash( $_REQUEST['action'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read to label a note; the handler checked its own nonce.
+
+		$screens = array(
+			'galaxie_myaccount_save_details'       => __( 'Minha conta — Informações pessoais', 'galaxie-woo' ),
+			'galaxie_myaccount_save_communication' => __( 'Minha conta — Comunicação', 'galaxie-woo' ),
+			'galaxie_myaccount_toggle_interest'    => __( 'Minha conta — Interesses', 'galaxie-woo' ),
+			'galaxie_address_book_save'            => __( 'Minha conta — Endereços', 'galaxie-woo' ),
+			'galaxie_address_book_delete'          => __( 'Minha conta — Endereços', 'galaxie-woo' ),
+			'galaxie_address_book_default'         => __( 'Minha conta — Endereços', 'galaxie-woo' ),
+			'galaxie_save_profile'                 => __( 'Checkout — dados pessoais', 'galaxie-woo' ),
+			'galaxie_save_address'                 => __( 'Checkout — endereço', 'galaxie-woo' ),
+			'galaxie_stripe_save_card'             => __( 'Minha conta — Formas de pagamento', 'galaxie-woo' ),
+			'wc_stripe_create_and_confirm_setup_intent' => __( 'Minha conta — Formas de pagamento', 'galaxie-woo' ),
+		);
+
+		if ( isset( $screens[ $action ] ) ) {
+			return $screens[ $action ];
+		}
+
+		// Deleting a card or making it the default is a link WooCommerce handles.
+		if ( function_exists( 'is_wc_endpoint_url' ) && ( is_wc_endpoint_url( 'delete-payment-method' ) || is_wc_endpoint_url( 'set-default-payment-method' ) || is_wc_endpoint_url( 'add-payment-method' ) ) ) {
+			return __( 'Minha conta — Formas de pagamento', 'galaxie-woo' );
+		}
+
+		if ( defined( 'REST_REQUEST' ) && REST_REQUEST ) {
+			return __( 'Checkout', 'galaxie-woo' );
+		}
+
+		if ( is_admin() && ! wp_doing_ajax() ) {
+			return __( 'wp-admin', 'galaxie-woo' );
+		}
+
+		return __( 'Site', 'galaxie-woo' );
 	}
 
 	/**
@@ -344,6 +669,13 @@ final class Module implements ModuleContract, ProvidesSettings {
 				label: __( 'Keep contacts up to date', 'galaxie-woo' ),
 				type: Field::TYPE_TOGGLE,
 				description: __( 'Whenever a customer\'s account changes — in My Account, at checkout or in wp-admin — their FluentCRM contact follows: name, phone, date of birth, billing address (shipping when there is none), and CPF, gender and social name as custom fields, created in FluentCRM if missing. Only contacts that already exist are updated.', 'galaxie-woo' ),
+				default: true
+			),
+			new Field(
+				key: 'profile_notes',
+				label: __( 'Record profile changes in contact notes', 'galaxie-woo' ),
+				type: Field::TYPE_TOGGLE,
+				description: __( 'Every change a customer makes — profile fields, addresses, communication consent, interests, saved cards (brand, last four digits, expiry) — is written on their FluentCRM contact\'s Notes tab as before → after, with the date and time, where it was made and who made it. Keeps a record of data the contact itself no longer shows.', 'galaxie-woo' ),
 				default: true
 			),
 		);

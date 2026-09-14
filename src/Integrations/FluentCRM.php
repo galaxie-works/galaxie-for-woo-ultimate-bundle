@@ -125,6 +125,37 @@ final class FluentCRM {
 	}
 
 	/**
+	 * A note on the contact's Notes tab, dated by FluentCRM and credited to the
+	 * signed-in user. Nothing when there is no contact to write it on.
+	 *
+	 * @param string $description HTML, already escaped by the caller.
+	 */
+	public static function add_note( string $email, string $title, string $description ): bool {
+		if ( ! self::is_active() || '' === $email || ! class_exists( '\FluentCrm\App\Models\SubscriberNote' ) ) {
+			return false;
+		}
+		try {
+			$contact = \FluentCrmApi( 'contacts' )->getContact( $email );
+			if ( ! $contact ) {
+				return false;
+			}
+
+			\FluentCrm\App\Models\SubscriberNote::create(
+				array(
+					'subscriber_id' => (int) $contact->id,
+					'type'          => 'note',
+					'title'         => $title,
+					'description'   => $description,
+				)
+			);
+
+			return true;
+		} catch ( \Throwable $e ) {
+			return false;
+		}
+	}
+
+	/**
 	 * Adds the custom contact fields that are missing, leaving every field the
 	 * store already has — and its values — as it is.
 	 *
