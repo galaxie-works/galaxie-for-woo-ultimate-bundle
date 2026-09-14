@@ -631,6 +631,18 @@ final class AccountPaymentMethodsWidget extends Widget_Base {
 	}
 
 	/**
+	 * A card action link that lands on My Account.
+	 *
+	 * WooCommerce builds these off the current page's permalink. A screen drawn
+	 * by an Elementor template has none that is My Account, so the links came
+	 * out at the site root — /set-default-payment-method/2/ — and 404'd. Rebuilt
+	 * here on the My Account page, with the nonce WooCommerce checks.
+	 */
+	private static function action_url( string $endpoint, string $token_id ): string {
+		return (string) wp_nonce_url( wc_get_endpoint_url( $endpoint, $token_id, wc_get_page_permalink( 'myaccount' ) ), $endpoint . '-' . $token_id );
+	}
+
+	/**
 	 * @param array<string,mixed> $s
 	 * @param array<string,mixed> $method
 	 */
@@ -651,14 +663,17 @@ final class AccountPaymentMethodsWidget extends Widget_Base {
 			$badges .= sprintf( '<span class="galaxie-pm-badge is-%1$s %2$s">%3$s</span>', esc_attr( $state ), esc_attr( $badge ), esc_html( (string) ( $s[ 'pm_badge_' . $state ] ?? '' ) ) );
 		}
 
-		$buttons = '';
+		$buttons  = '';
+		$token_id = self::token_id( $actions );
 
 		if ( ! empty( $actions['default']['url'] ) ) {
-			$buttons .= AccountParts::link_button( $s, 'pm_default', (string) ( $s['pm_default_text'] ?? '' ), (string) $actions['default']['url'], 'galaxie-pm-default' );
+			$url      = '' !== $token_id ? self::action_url( 'set-default-payment-method', $token_id ) : (string) $actions['default']['url'];
+			$buttons .= AccountParts::link_button( $s, 'pm_default', (string) ( $s['pm_default_text'] ?? '' ), $url, 'galaxie-pm-default' );
 		}
 
 		if ( ! empty( $actions['delete']['url'] ) ) {
-			$buttons .= AccountParts::link_button( $s, 'pm_delete', (string) ( $s['pm_delete_text'] ?? '' ), (string) $actions['delete']['url'], 'galaxie-pm-delete' );
+			$url      = '' !== $token_id ? self::action_url( 'delete-payment-method', $token_id ) : (string) $actions['delete']['url'];
+			$buttons .= AccountParts::link_button( $s, 'pm_delete', (string) ( $s['pm_delete_text'] ?? '' ), $url, 'galaxie-pm-delete' );
 		}
 
 		$has_date = '' !== $expires && preg_match( '#\d#', $expires );
@@ -681,7 +696,7 @@ final class AccountPaymentMethodsWidget extends Widget_Base {
 			$has_date ? sprintf( '<div class="galaxie-pm-expiry %1$s"><span class="galaxie-pm-expiry-label">%2$s</span> %3$s</div>', esc_attr( PixfortControls::text_classes( $s, 'pm_expiry_text' ) ), esc_html( (string) ( $s['pm_expires_label'] ?? '' ) ), esc_html( $expires ) ) : '<span></span>',
 			'yes' === ( $s['pm_show_brand_name'] ?? 'yes' ) && '' !== $brand ? sprintf( '<span class="galaxie-pm-brand-name %1$s">%2$s</span>', esc_attr( PixfortControls::text_classes( $s, 'pm_brand_text' ) ), esc_html( $brand ) ) : '',
 			'' !== $buttons ? '<div class="galaxie-pm-card-actions">' . $buttons . '</div>' : '',
-			esc_attr( self::token_id( $actions ) )
+			esc_attr( $token_id )
 		);
 	}
 }
