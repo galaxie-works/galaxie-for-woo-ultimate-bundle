@@ -269,6 +269,12 @@ final class ShippingCalculatorWidget extends Widget_Base {
 			return;
 		}
 
+		// A cart whose destination is already decided — a gift from a shared
+		// wish list — has nothing for the shopper to type here.
+		if ( apply_filters( 'galaxie_cart_shipping_calculator_hidden', false ) ) {
+			return;
+		}
+
 		$settings = $this->get_settings_for_display();
 		$label    = PixfortControls::text_classes( $settings, 'calc_label' );
 		$show     = array();

@@ -133,7 +133,7 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 			),
 		);
 
-		// A gift checkout learns who it is for and the area — never the street.
+		// A gift checkout learns who it is for and the area — never the street or the CEP.
 		$gift = function_exists( 'is_checkout' ) && is_checkout() ? Gifts::cart_gift() : null;
 
 		if ( $gift ) {
@@ -143,11 +143,11 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 				'firstName'   => $gift['name'],
 				'city'        => $gift['address']['city'],
 				'state'       => $gift['address']['state'],
-				'postcode'    => $gift['address']['postcode'],
+				'postcode'    => Gifts::placeholder_postcode( $gift['address'] ),
 				'country'     => $gift['address']['country'],
 				/* translators: 1: the list owner's first name, 2: city/state. */
 				'notice'      => sprintf( __( 'Presente para %1$s · entrega em %2$s, no endereço que %1$s cadastrou.', 'galaxie-woo' ), $gift['name'], $place ),
-				'placeholder' => __( 'Endereço de quem recebe o presente', 'galaxie-woo' ),
+				'placeholder' => Gifts::address_placeholder(),
 			);
 		}
 

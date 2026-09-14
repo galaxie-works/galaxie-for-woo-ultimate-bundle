@@ -72,6 +72,21 @@ final class BrazilianPostcode {
 	}
 
 	/**
+	 * The first CEP of a state ("SP" → "01000-000"), or null for a code with no
+	 * range. A stand-in that says the state and nothing more.
+	 */
+	public static function first_of( string $state ): ?string {
+		foreach ( self::RANGES as $range ) {
+			if ( strtoupper( $state ) === $range[2] ) {
+				$digits = sprintf( '%08d', $range[0] );
+				return substr( $digits, 0, 5 ) . '-' . substr( $digits, 5 );
+			}
+		}
+
+		return null;
+	}
+
+	/**
 	 * WooCommerce's state code for this CEP ("SP", "PE"), or null.
 	 */
 	public static function state( string $postcode ): ?string {

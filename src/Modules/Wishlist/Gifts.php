@@ -7,6 +7,8 @@
 
 namespace Galaxie\Woo\Modules\Wishlist;
 
+use Galaxie\Woo\Support\BrazilianPostcode;
+
 defined( 'ABSPATH' ) || exit;
 
 /**
@@ -16,8 +18,12 @@ defined( 'ABSPATH' ) || exit;
  *
  * Where the address could leak, and what stops it:
  *
- * - The cart. Rates need a destination, so only the owner's country, state,
- *   city and postcode are put on the session; the street never is.
+ * - The cart. Rates are quoted on the server, with the owner's real address
+ *   put on the shipping packages only. The session — and so everything the
+ *   browser is sent — holds the owner's country, state and city with a stand-in
+ *   CEP of that state, and every Store API answer has its addresses cut down
+ *   to that before it leaves. The "Shipping to" lines and the calculator are
+ *   not drawn for a gift.
  * - The checkout. The block checkout sends the shipping address it holds back
  *   to the server and saves it on the buyer's account. Placeholder values are
  *   sent by the gift script, and the buyer's own saved address is put back on
@@ -46,6 +52,11 @@ final class Gifts {
 		add_filter( 'woocommerce_add_cart_item_data', array( self::class, 'attach' ), 10, 2 );
 		add_filter( 'woocommerce_get_item_data', array( self::class, 'item_data' ), 10, 2 );
 		add_action( 'woocommerce_before_calculate_totals', array( self::class, 'ship_to_owner_area' ), 5 );
+		add_filter( 'woocommerce_cart_shipping_packages', array( self::class, 'ship_packages' ), 5 );
+		add_filter( 'rest_request_after_callbacks', array( self::class, 'scrub_store_api' ), 10, 3 );
+		add_filter( 'galaxie_cart_shipping_destination', array( self::class, 'hide_destination' ) );
+		add_filter( 'galaxie_cart_shipping_calculator_hidden', array( self::class, 'hide_calculator' ) );
+		add_filter( 'body_class', array( self::class, 'body_class' ) );
 		add_action( 'woocommerce_store_api_checkout_update_customer_from_request', array( self::class, 'keep_buyer_address' ), 10, 1 );
 		add_action( 'woocommerce_store_api_checkout_update_order_from_request', array( self::class, 'address_order' ), 10, 1 );
 		add_action( 'woocommerce_checkout_create_order', array( self::class, 'address_order' ), 10, 1 );
@@ -196,7 +207,30 @@ final class Gifts {
 		return $data;
 	}
 
-	/** Rates to the owner's area: country, state, postcode and city — never the street. */
+	/**
+	 * A CEP of the owner's state, for everything the browser sees; the real one
+	 * stays on the server. Outside Brazil there is no range to pick from, and the
+	 * real postcode is used — the store ships within Brazil.
+	 *
+	 * @param array<string,string> $address
+	 */
+	public static function placeholder_postcode( array $address ): string {
+		if ( 'BR' === strtoupper( (string) ( $address['country'] ?? '' ) ) ) {
+			$first = BrazilianPostcode::first_of( (string) ( $address['state'] ?? '' ) );
+
+			if ( null !== $first ) {
+				return $first;
+			}
+		}
+
+		return (string) ( $address['postcode'] ?? '' );
+	}
+
+	public static function address_placeholder(): string {
+		return __( 'Endereço de quem recebe o presente', 'galaxie-woo' );
+	}
+
+	/** The session's shipping location: the owner's country, state and city, with a stand-in CEP. */
 	public static function ship_to_owner_area(): void {
 		static $running = false;
 
@@ -211,8 +245,129 @@ final class Gifts {
 		}
 
 		$running = true;
-		WC()->customer->set_shipping_location( $gift['address']['country'], $gift['address']['state'], $gift['address']['postcode'], $gift['address']['city'] );
+		WC()->customer->set_shipping_location( $gift['address']['country'], $gift['address']['state'], self::placeholder_postcode( $gift['address'] ), $gift['address']['city'] );
 		$running = false;
+	}
+
+	/**
+	 * Rates quoted to the owner's real address. Carriers and zones read the
+	 * package's destination, so this is where it goes — and nowhere the browser
+	 * is sent.
+	 *
+	 * @param array<int,array<string,mixed>> $packages
+	 */
+	public static function ship_packages( $packages ) {
+		$gift = is_array( $packages ) ? self::cart_gift() : null;
+
+		if ( ! $gift ) {
+			return $packages;
+		}
+
+		foreach ( $packages as $index => $package ) {
+			$packages[ $index ]['destination'] = array_merge(
+				(array) ( $package['destination'] ?? array() ),
+				array_intersect_key( $gift['address'], array_flip( array( 'country', 'state', 'postcode', 'city', 'address_1', 'address_2' ) ) )
+			);
+		}
+
+		return $packages;
+	}
+
+	/**
+	 * Store API answers — the cart, its rates, the checkout, an order — with
+	 * every address in them cut down to the area, whenever a gift is involved.
+	 * Runs per request inside a batch, and for the data a block page preloads.
+	 *
+	 * @param mixed $response
+	 * @param mixed $handler
+	 * @param mixed $request
+	 */
+	public static function scrub_store_api( $response, $handler, $request ) {
+		if ( ! $response instanceof \WP_REST_Response || ! $request instanceof \WP_REST_Request || 0 !== strpos( $request->get_route(), '/wc/store' ) ) {
+			return $response;
+		}
+
+		$data = $response->get_data();
+
+		if ( ! is_array( $data ) ) {
+			return $response;
+		}
+
+		$gift    = self::cart_gift();
+		$address = $gift ? $gift['address'] : null;
+
+		if ( null === $address ) {
+			$order = self::response_order( $request->get_route(), $data );
+
+			if ( ! $order || ! $order->get_meta( self::ORDER_OWNER ) || current_user_can( 'edit_shop_orders' ) || get_current_user_id() === (int) $order->get_meta( self::ORDER_OWNER ) ) {
+				return $response;
+			}
+
+			$address = array( 'country' => $order->get_shipping_country(), 'state' => $order->get_shipping_state(), 'postcode' => $order->get_shipping_postcode() );
+		}
+
+		$response->set_data( self::scrub( $data, self::placeholder_postcode( $address ) ) );
+
+		return $response;
+	}
+
+	/** @param array<string,mixed> $data */
+	private static function response_order( string $route, array $data ): ?\WC_Order {
+		$id    = preg_match( '#/order/(\d+)#', $route, $match ) ? (int) $match[1] : (int) ( $data['order_id'] ?? 0 );
+		$order = $id ? wc_get_order( $id ) : null;
+
+		return $order instanceof \WC_Order ? $order : null;
+	}
+
+	/**
+	 * @param array<string,mixed> $data
+	 * @return array<string,mixed>
+	 */
+	private static function scrub( array $data, string $postcode ): array {
+		foreach ( $data as $key => $value ) {
+			if ( ! is_array( $value ) ) {
+				continue;
+			}
+
+			if ( in_array( $key, array( 'shipping_address', 'destination' ), true ) && array_key_exists( 'postcode', $value ) ) {
+				$value['postcode'] = $postcode;
+
+				if ( array_key_exists( 'address_1', $value ) ) {
+					$value['address_1'] = self::address_placeholder();
+				}
+
+				foreach ( array( 'address_2', 'company', 'phone' ) as $field ) {
+					if ( array_key_exists( $field, $value ) ) {
+						$value[ $field ] = '';
+					}
+				}
+			}
+
+			$data[ $key ] = self::scrub( $value, $postcode );
+		}
+
+		return $data;
+	}
+
+	/** Our cart widgets' "Shipping to …" line, which would print the stand-in. */
+	public static function hide_destination( $destination ) {
+		return self::cart_gift() ? '' : $destination;
+	}
+
+	/** A calculator for a parcel whose destination is already decided, and hidden. */
+	public static function hide_calculator( $hidden ) {
+		return $hidden || (bool) self::cart_gift();
+	}
+
+	/** @param array<int,string> $classes */
+	public static function body_class( $classes ) {
+		$page = ( function_exists( 'is_cart' ) && is_cart() ) || ( function_exists( 'is_checkout' ) && is_checkout() );
+
+		if ( $page && is_array( $classes ) && self::cart_gift() ) {
+			$classes[] = 'galaxie-gift-checkout';
+		}
+
+		return $classes;
 	}
 
 	/** The placeholders the checkout sent must not replace the buyer's own saved address. */

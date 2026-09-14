@@ -2848,6 +2848,17 @@ address.galaxie-order-body {
   display: none !important;
 }
 
+/* The block cart and checkout's "Shipping to …" lines and their change-address
+   links: the address they would print is a stand-in. */
+.galaxie-gift-checkout .wc-block-components-shipping-address,
+.galaxie-gift-checkout .wc-block-components-totals-shipping-address-summary,
+.galaxie-gift-checkout .wc-block-components-totals-shipping__change-address__link,
+.galaxie-gift-checkout .wc-block-components-totals-shipping__change-address-button,
+.galaxie-gift-checkout .wc-block-components-shipping-calculator,
+.galaxie-gift-checkout .wc-block-components-shipping-calculator-address {
+  display: none !important;
+}
+
 .galaxie-gift-notice {
   margin-bottom: 16px;
   padding: 14px 16px;

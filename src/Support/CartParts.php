@@ -1446,7 +1446,7 @@ final class CartParts {
 
 		if ( $listed && ( $args['show_destination'] ?? true ) ) {
 			$package     = reset( $packages );
-			$destination = WC()->countries->get_formatted_address( (array) ( $package['destination'] ?? array() ), ', ' );
+			$destination = (string) apply_filters( 'galaxie_cart_shipping_destination', WC()->countries->get_formatted_address( (array) ( $package['destination'] ?? array() ), ', ' ), $package );
 
 			if ( '' !== $destination ) {
 				printf(
