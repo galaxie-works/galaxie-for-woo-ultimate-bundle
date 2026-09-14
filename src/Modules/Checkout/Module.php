@@ -161,6 +161,8 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 
 	public function ajax_save_profile(): void {
 		$this->check_nonce_and_login();
+		/** Where the FluentCRM change notes say this change is made. */
+		do_action( 'galaxie_woo/change_source', __( 'Checkout — dados pessoais', 'galaxie-woo' ) );
 
 		$user_id = get_current_user_id();
 
@@ -204,6 +206,7 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 
 	public function ajax_save_address(): void {
 		$this->check_nonce_and_login();
+		do_action( 'galaxie_woo/change_source', __( 'Checkout — endereço', 'galaxie-woo' ) );
 
 		$user_id = get_current_user_id();
 

@@ -111,6 +111,7 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 
 	public function ajax_save(): void {
 		$this->check_nonce_and_login();
+		$this->declare_source();
 
 		$user_id = get_current_user_id();
 		$id      = isset( $_POST['id'] ) ? sanitize_key( wp_unslash( $_POST['id'] ) ) : '';
@@ -129,6 +130,7 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 
 	public function ajax_delete(): void {
 		$this->check_nonce_and_login();
+		$this->declare_source();
 
 		$user_id = get_current_user_id();
 		$id      = isset( $_POST['id'] ) ? sanitize_key( wp_unslash( $_POST['id'] ) ) : '';
@@ -138,6 +140,7 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 
 	public function ajax_default(): void {
 		$this->check_nonce_and_login();
+		$this->declare_source();
 
 		$user_id = get_current_user_id();
 		$id      = isset( $_POST['id'] ) ? sanitize_key( wp_unslash( $_POST['id'] ) ) : '';
@@ -149,6 +152,9 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 	/** An address saved on WooCommerce's own edit-address screen joins the book. */
 	public function file_edited_address( int $user_id, string $load_address ): void {
 		if ( in_array( $load_address, array( 'billing', 'shipping' ), true ) ) {
+			/** WooCommerce's own edit-address form, as opposed to the book's. */
+			do_action( 'galaxie_woo/change_source', __( 'Minha conta — Endereços (formulário do WooCommerce)', 'galaxie-woo' ) );
+
 			AddressBook::add_if_new( $user_id, AddressBook::wc_address( $user_id, $load_address ) );
 		}
 	}
@@ -178,6 +184,14 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 		}
 
 		AddressBook::add_if_new( (int) $order->get_customer_id(), $address );
+	}
+
+	/**
+	 * Tells the FluentCRM change notes where this change is made, instead of
+	 * leaving them to guess from the request.
+	 */
+	private function declare_source(): void {
+		do_action( 'galaxie_woo/change_source', __( 'Minha conta — Endereços', 'galaxie-woo' ) );
 	}
 
 	/** @param true|string|\WP_Error $result */

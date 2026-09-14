@@ -70,6 +70,9 @@ final class StripeCards {
 			self::fail( __( 'Sua sessão expirou. Recarregue a página e tente de novo.', 'galaxie-woo' ), 403 );
 		}
 
+		/** Where the FluentCRM change notes say the card was added. */
+		do_action( 'galaxie_woo/change_source', __( 'Minha conta — Formas de pagamento', 'galaxie-woo' ) );
+
 		// The notices already waiting before anything below runs, so a failure
 		// can take back only what this request added (see fail()).
 		if ( function_exists( 'wc_get_notices' ) && function_exists( 'WC' ) && WC()->session ) {
