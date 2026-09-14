@@ -150,17 +150,28 @@ final class PixfortControls {
 		) );
 
 		if ( self::available() ) {
+			$text_colors = self::colors( array( 'defaultValue' => array( '' => __( 'Default', 'galaxie-woo' ) ), 'mainLight' => true ) );
+
+			// pixfort still gets the class, but the class alone loses: the Link,
+			// Underline and outline styles print `text-{Button color}` on the same
+			// element, and whichever comes later in pixfort's stylesheet wins. The
+			// same choice is therefore also written against this button alone,
+			// which outranks both. A gradient stays pixfort's, painted on the inner
+			// text it wraps.
 			self::add( $target, $condition, $prefix . '_text_color', array(
-				'label'   => __( 'Text color', 'galaxie-woo' ),
-				'type'    => Controls_Manager::SELECT,
-				'groups'  => self::colors( array( 'defaultValue' => array( '' => __( 'Default', 'galaxie-woo' ) ), 'mainLight' => true ) ),
-				'default' => $d( 'text_color', '' ),
+				'label'                => __( 'Text color', 'galaxie-woo' ),
+				'type'                 => Controls_Manager::SELECT,
+				'groups'               => $text_colors,
+				'default'              => $d( 'text_color', '' ),
+				'selectors_dictionary' => self::text_color_dictionary( $text_colors ),
+				'selectors'            => array( self::button_selector( $prefix, $scope ) => '{{VALUE}}' ),
 			) );
 
 			self::add( $target, $condition, $prefix . '_text_custom_color', array(
 				'label'     => __( 'Text custom color', 'galaxie-woo' ),
 				'type'      => Controls_Manager::COLOR,
 				'default'   => '',
+				'selectors' => array( self::button_selector( $prefix, $scope ) => 'color: {{VALUE}} !important;' ),
 				'condition' => array( $prefix . '_text_color' => 'custom' ),
 			) );
 		}
@@ -211,13 +222,18 @@ final class PixfortControls {
 
 			$icon_colors = self::colors( array( 'defaultValue' => array( '' => __( 'Default', 'galaxie-woo' ) ), 'mainLight' => true, 'gradients' => false ) );
 
+			// This button's icon only. With the whole widget as the scope every
+			// button's icon rule was the same selector, so one colour painted them
+			// all — the same trap button_hover() explains.
+			$icon = self::button_selector( $prefix, $scope ) . ' .pixfort-icon';
+
 			self::add( $target, $condition, $prefix . '_icon_color', array(
 				'label'                => __( 'Icon color', 'galaxie-woo' ),
 				'type'                 => Controls_Manager::SELECT,
 				'groups'               => $icon_colors,
 				'default'              => '',
 				'selectors_dictionary' => self::icon_color_dictionary( $icon_colors ),
-				'selectors'            => array( $scope . ' .btn .pixfort-icon' => '{{VALUE}}' ),
+				'selectors'            => array( $icon => '{{VALUE}}' ),
 				'condition'            => array( $prefix . '_icon!' => '' ),
 			) );
 
@@ -225,7 +241,7 @@ final class PixfortControls {
 				'label'      => __( 'Icon custom color', 'galaxie-woo' ),
 				'type'       => Controls_Manager::COLOR,
 				'default'    => '',
-				'selectors'  => array( $scope . ' .btn .pixfort-icon' => 'color: {{VALUE}} !important; --pf-icon-color: {{VALUE}} !important;' ),
+				'selectors'  => array( $icon => 'color: {{VALUE}} !important; --pf-icon-color: {{VALUE}} !important;' ),
 				'condition'  => array( $prefix . '_icon!' => '', $prefix . '_icon_color' => 'custom' ),
 			) );
 
@@ -327,6 +343,15 @@ final class PixfortControls {
 		return 'galaxie-btn-' . sanitize_html_class( $prefix );
 	}
 
+	/**
+	 * The one button a prefix configures. With the whole widget as the scope
+	 * that takes its own class; a narrower scope already names one button and
+	 * keeps the `.btn` inside it, for buttons drawn by someone else's markup.
+	 */
+	private static function button_selector( string $prefix, string $scope ): string {
+		return '{{WRAPPER}}' === $scope ? $scope . ' .' . self::button_class( $prefix ) : $scope . ' .btn';
+	}
+
 	private static function button_hover( object $target, string $prefix, array $condition, string $scope ): void {
 		// The button's own hover, not the scope's: with `{{WRAPPER}}` as the scope,
 		// `{{WRAPPER}}:hover .btn` paints every button in the widget the moment the
@@ -339,7 +364,7 @@ final class PixfortControls {
 		// The configuration's own class tells them apart. A narrower scope already
 		// does, and is kept for buttons drawn by someone else's markup.
 		$own     = '{{WRAPPER}}' === $scope;
-		$button  = $own ? $scope . ' .' . self::button_class( $prefix ) : $scope;
+		$button  = $own ? self::button_selector( $prefix, $scope ) : $scope;
 		$hovered = $own ? $button . ':hover' : $scope . ' .btn:hover';
 
 		self::add( $target, $condition, $prefix . '_hover_heading', array(
@@ -1251,6 +1276,31 @@ final class PixfortControls {
 	}
 
 
+
+	/**
+	 * A button's text colour as a declaration of its own, next to the class
+	 * pixfort prints; see the Text color control for why both.
+	 *
+	 * @param array<int,array<string,mixed>> $groups
+	 * @return array<string,string>
+	 */
+	private static function text_color_dictionary( array $groups ): array {
+		$dictionary = array( '' => '', 'custom' => '' );
+
+		foreach ( $groups as $group ) {
+			if ( empty( $group['options'] ) || ! is_array( $group['options'] ) ) {
+				continue;
+			}
+			foreach ( array_keys( $group['options'] ) as $value ) {
+				if ( '' === $value || 'custom' === $value ) {
+					continue;
+				}
+				$dictionary[ $value ] = 0 === strpos( (string) $value, 'gradient' ) ? '' : 'color: var(--pix-' . $value . ') !important;';
+			}
+		}
+
+		return $dictionary;
+	}
 
 	/**
 	 * pixfort colours the icon through a CSS variable rather than a class, so
