@@ -412,10 +412,13 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 		// Same sanitising filter WC_Form_Handler::update_cart_action() applies.
 		$quantity = apply_filters( 'woocommerce_stock_amount_cart_item', $quantity, $key );
 
-		// The remove link skips validation exactly as WooCommerce's own remove
-		// link does; every other change goes through the checks WooCommerce's
-		// cart form runs, so pack sizes and limits enforced there hold here too.
-		if ( ! $remove && $quantity !== $values['quantity'] ) {
+		// A removal is never validated: not from the remove link (WooCommerce's
+		// own remove link skips it too) and not from a stepper taken down to
+		// zero, which the quantity field allows. Minimum and pack-size rules
+		// commonly reject zero, and they are there to shape a quantity, not to
+		// keep an unwanted product in the cart. Every other change goes through
+		// the checks WooCommerce's cart form runs.
+		if ( ! $remove && $quantity > 0 && $quantity !== $values['quantity'] ) {
 			wc_clear_notices();
 
 			$passed = apply_filters( 'woocommerce_update_cart_validation', true, $key, $values, $quantity );

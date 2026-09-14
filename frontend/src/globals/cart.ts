@@ -44,6 +44,7 @@ const PENDING = 'is-galaxie-updating'
 interface JQueryLike {
   trigger: (e: string, args?: unknown[]) => void
   on: (events: string, selector: string, handler: (event: { target: unknown }) => void) => void
+  replaceWith?: (html: string) => unknown
 }
 
 function jq(): ((el: unknown) => JQueryLike) | undefined {
@@ -79,16 +80,31 @@ function debounceByKey(key: string, fn: () => void): void {
  * page load does not paint the old mini cart from storage, and announce it.
  */
 function applyWooFragments(fragments: Record<string, string>, cartHash?: string): void {
+  const jQuery = jq()
+
   for (const [selector, html] of Object.entries(fragments)) {
-    let targets: NodeListOf<Element>
-    try {
-      targets = document.querySelectorAll(selector)
-    } catch {
-      continue // A plugin's selector the DOM API will not parse.
+    // Keys are handed to jQuery by WooCommerce, so jQuery-only selectors
+    // (`:first`, `:eq()`) are valid ones that querySelectorAll rejects. Use
+    // jQuery's engine when it is on the page, the DOM API only without it.
+    if (jQuery) {
+      try {
+        const $targets = jQuery(selector)
+        if ($targets.replaceWith) {
+          $targets.replaceWith(html)
+          continue
+        }
+      } catch {
+        continue // A selector even jQuery will not parse.
+      }
     }
-    targets.forEach((el) => {
-      el.outerHTML = html
-    })
+
+    try {
+      document.querySelectorAll(selector).forEach((el) => {
+        el.outerHTML = html
+      })
+    } catch {
+      // A selector the DOM API will not parse.
+    }
   }
 
   const params = (window as unknown as { wc_cart_fragments_params?: { fragment_name?: string; cart_hash_key?: string } })
@@ -208,10 +224,6 @@ function apply(line: HTMLElement, data: NonNullable<CartResponse['data']>): void
 
   applyFreeShipping(data.freeShipping)
 
-  // A new quantity changes what the carriers quote and what a coupon takes
-  // off, and those live in widgets this response does not carry.
-  void refreshFragments()
-
   // WooCommerce's own fragments (the header mini cart among them) arrive in
   // the same response, so they are put in the page here rather than merely
   // announced — triggering `wc_fragments_refreshed` alone changed nothing.
@@ -292,21 +304,34 @@ export function bootCart(config?: CartConfig): void {
   form.dataset.galaxieBound = '1'
   form.classList.add('is-galaxie-auto')
 
-  const update = async (line: HTMLElement, quantity: number, remove = false): Promise<void> => {
-    const key = line.dataset.galaxieKey
-    if (!key) return
+  /**
+   * Cart updates run one at a time, across every line.
+   *
+   * Each response carries the whole cart's totals, fragments and hash, and the
+   * server writes one cart session. Two lines changed together used to send
+   * overlapping requests: an older snapshot could land last and overwrite the
+   * newer totals, and concurrent session writes could keep only one change.
+   * Now they queue, responses apply in the order they were sent, and the last
+   * one is the cart. A line changed again while it waits in the queue does
+   * not queue twice: its waiting entry just takes the newer quantity.
+   */
+  const queued = new Map<string, { line: HTMLElement; quantity: number; remove: boolean }>()
+  let chain: Promise<void> = Promise.resolve()
 
-    line.classList.add(PENDING)
+  const run = async (key: string): Promise<void> => {
+    const job = queued.get(key)
+    queued.delete(key)
+    if (!job) return
 
     try {
-      const json = await send(config, key, quantity, remove)
+      const json = await send(config, key, job.quantity, job.remove)
       if (json.success && json.data) {
-        apply(line, json.data)
+        apply(job.line, json.data)
       } else if (json.data) {
         // Refused by WooCommerce's cart validation (a pack size, a limit):
         // nothing changed on the server, so the stepper goes back to what the
         // cart holds and the reason is shown the way WooCommerce shows it.
-        const input = line.querySelector<HTMLInputElement>('input.qty')
+        const input = job.line.querySelector<HTMLInputElement>('input.qty')
         if (input && typeof json.data.quantity === 'number') input.value = String(json.data.quantity)
         if (json.data.message) showError(form, json.data.message)
       }
@@ -317,7 +342,34 @@ export function bootCart(config?: CartConfig): void {
       return
     }
 
-    line.classList.remove(PENDING)
+    if (!queued.has(key)) job.line.classList.remove(PENDING)
+
+    // A new quantity changes what the carriers quote and what a coupon takes
+    // off, and those live in widgets this response does not carry. Fetched
+    // once the queue is empty, and awaited inside it, so the page it reads
+    // already holds every change and no later update can be overtaken by it.
+    if (queued.size === 0) {
+      try {
+        await refreshFragments()
+      } catch {
+        // The totals and fragments above are already current.
+      }
+    }
+  }
+
+  const update = (line: HTMLElement, quantity: number, remove = false): void => {
+    const key = line.dataset.galaxieKey
+    if (!key) return
+
+    line.classList.add(PENDING)
+
+    const waiting = queued.get(key)
+
+    // A removal already waiting stays a removal.
+    queued.set(key, waiting?.remove ? waiting : { line, quantity, remove })
+    if (waiting) return
+
+    chain = chain.then(() => run(key)).catch(() => undefined)
   }
 
   const onQuantity = (event: Event): void => {
@@ -333,7 +385,7 @@ export function bootCart(config?: CartConfig): void {
       const quantity = Number.parseInt(input.value, 10)
       if (Number.isNaN(quantity) || quantity < 0) return
 
-      void update(line, quantity)
+      update(line, quantity)
     })
   }
 
@@ -371,6 +423,6 @@ export function bootCart(config?: CartConfig): void {
       timers.delete(key)
     }
 
-    void update(line, 0, true)
+    update(line, 0, true)
   })
 }
