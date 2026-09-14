@@ -960,8 +960,31 @@ final class AccountParts {
 	 * and background from the palette, because "cancelled" and "completed" in
 	 * one colour is a list nobody can scan.
 	 */
-	public static function register_status_controls( object $widget ): void {
-		$widget->start_controls_section( 'status_names_section', array( 'label' => __( 'Status names', 'galaxie-woo' ) ) );
+	public static function register_status_controls( object $widget, bool $inherit = false ): void {
+		$own = array();
+
+		// The order page follows the orders list by default: the same status, in
+		// the same colours, is styled once — on Galaxie Account Orders.
+		if ( $inherit ) {
+			$widget->start_controls_section( 'status_inherit_section', array( 'label' => __( 'Status badges', 'galaxie-woo' ) ) );
+
+			$widget->add_control(
+				'status_inherit',
+				array(
+					'label'        => __( 'Same as Galaxie Account Orders', 'galaxie-woo' ),
+					'description'  => __( 'The status badges and the Pay, Cancel and other action buttons look exactly as they do on the Galaxie Account Orders widget. Turn off to style them here on their own.', 'galaxie-woo' ),
+					'type'         => Controls_Manager::SWITCHER,
+					'return_value' => 'yes',
+					'default'      => 'yes',
+				)
+			);
+
+			$widget->end_controls_section();
+
+			$own = array( 'condition' => array( 'status_inherit!' => 'yes' ) );
+		}
+
+		$widget->start_controls_section( 'status_names_section', array( 'label' => __( 'Status names', 'galaxie-woo' ) ) + $own );
 
 		foreach ( array_keys( self::STATUS_COLOURS ) as $status ) {
 			$widget->add_control(
@@ -977,7 +1000,7 @@ final class AccountParts {
 
 		$widget->end_controls_section();
 
-		$widget->start_controls_section( 'status_badge_style', array( 'label' => __( 'Status badge', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
+		$widget->start_controls_section( 'status_badge_style', array( 'label' => __( 'Status badge', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) + $own );
 
 		foreach ( self::STATUS_COLOURS as $status => $colours ) {
 			$id = 'status_' . str_replace( '-', '_', $status );
@@ -1007,8 +1030,242 @@ final class AccountParts {
 		return $labels[ $status ] ?? wc_get_order_status_name( $status );
 	}
 
+	/** Where the orders list's status look is kept for the order page to follow. */
+	private const STATUS_LOOK_OPTION = 'galaxie_woo_order_status_look';
+
+	/**
+	 * What the order page takes from the orders list: the status badges and
+	 * the Pay, Cancel and plugin action buttons — the parts both screens show.
+	 */
+	public const LOOK_PREFIXES = array( 'status_', 'orders_pay_', 'orders_cancel_', 'orders_action_' );
+
+	private static function is_look_key( string $key ): bool {
+		if ( 'status_inherit' === $key ) {
+			return false;
+		}
+
+		foreach ( self::LOOK_PREFIXES as $prefix ) {
+			if ( 0 === strpos( $key, $prefix ) ) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * An order's Pay, Cancel and plugin action buttons, as button sections:
+	 * label, defaults, controls skipped, condition. Shared by the orders list and
+	 * the order page, whose ids are the same so one can follow the other.
+	 *
+	 * Pay and Cancel start without text of their own and read WooCommerce's
+	 * words; plugin actions ("Order again"…) always do.
+	 *
+	 * @param array<string,mixed> $condition
+	 * @return array<string,array{0:string,1:array<string,string>,2:array<int,string>,3:array<string,mixed>}>
+	 */
+	public static function order_action_buttons( array $condition = array() ): array {
+		return array(
+			'orders_pay'    => array( __( 'Order: pay button', 'galaxie-woo' ), array( 'style' => 'link', 'size' => 'sm', 'icon' => 'Line/pixfort-icon-credit-card-1' ), array(), $condition ),
+			'orders_cancel' => array( __( 'Order: cancel button', 'galaxie-woo' ), array( 'style' => 'link', 'size' => 'sm', 'icon' => 'Line/pixfort-icon-cross-circle-1' ), array(), $condition ),
+			'orders_action' => array( __( 'Order: other actions (added by plugins)', 'galaxie-woo' ), array( 'style' => 'link', 'size' => 'sm' ), array( 'text' ), $condition ),
+		);
+	}
+
+	/**
+	 * The CSS Elementor would write for these values had they been set on this
+	 * widget: its selector-driven controls (hover, text and icon colours…) for
+	 * the given prefixes, scoped to this one element.
+	 *
+	 * Copying values into a widget's settings reaches only what becomes a
+	 * class; everything a control writes as a selector lives in the CSS file of
+	 * the document the values were saved in. This writes those rules again,
+	 * through Elementor's own parser, for a widget that follows another's look.
+	 *
+	 * @param array<string,mixed> $values
+	 * @param array<int,string>   $prefixes
+	 */
+	public static function inherited_css( \Elementor\Widget_Base $widget, array $values, array $prefixes ): string {
+		if ( ! $values || ! class_exists( '\Elementor\Core\Files\CSS\Post' ) ) {
+			return '';
+		}
+
+		try {
+			$controls = array_filter(
+				$widget->get_controls(),
+				static function ( $control, $id ) use ( $prefixes ): bool {
+					if ( empty( $control['selectors'] ) ) {
+						return false;
+					}
+
+					foreach ( $prefixes as $prefix ) {
+						if ( 0 === strpos( (string) $id, $prefix ) ) {
+							return true;
+						}
+					}
+
+					return false;
+				},
+				ARRAY_FILTER_USE_BOTH
+			);
+
+			if ( ! $controls ) {
+				return '';
+			}
+
+			// A fresh file object: Post::create() hands back the page's own, cached
+			// one, and its stylesheet must not collect rules it never had.
+			$css      = new \Elementor\Core\Files\CSS\Post( 0 );
+			$settings = array_merge( $widget->get_settings(), $values );
+
+			$css->add_controls_stack_style_rules(
+				$widget,
+				$css->get_style_controls( $widget, $controls, $settings ),
+				$settings,
+				array( '{{ID}}', '{{WRAPPER}}' ),
+				array( $widget->get_id(), '.elementor-element.elementor-element-' . $widget->get_id() )
+			);
+
+			$rules = trim( (string) $css->get_stylesheet() );
+
+			return '' !== $rules ? '<style>' . $rules . '</style>' : '';
+		} catch ( \Throwable $e ) {
+			return '';
+		}
+	}
+
+	/**
+	 * WooCommerce's actions for an order, View left out, each on the button
+	 * configured for it.
+	 *
+	 * @param array<string,mixed> $settings
+	 */
+	public static function order_actions( array $settings, \WC_Order $order ): string {
+		$out = '';
+
+		foreach ( wc_get_account_orders_actions( $order ) as $key => $action ) {
+			if ( 'view' === $key ) {
+				continue;
+			}
+
+			$prefix = array( 'pay' => 'orders_pay', 'cancel' => 'orders_cancel' )[ $key ] ?? 'orders_action';
+			$label  = 'orders_action' === $prefix ? '' : trim( (string) ( $settings[ $prefix . '_text' ] ?? '' ) );
+
+			$out .= self::link_button( $settings, $prefix, '' !== $label ? $label : (string) $action['name'], (string) $action['url'], 'is-' . sanitize_html_class( (string) $key ) );
+		}
+
+		return $out;
+	}
+
+	/**
+	 * Keeps the status look of the Galaxie Account Orders widget in a saved
+	 * document, so the order page can follow it without being styled again.
+	 *
+	 * Taken on save, not on display: the dashboard can draw its own unstyled
+	 * Orders widget, and a display would overwrite the merchant's colours with
+	 * its defaults.
+	 *
+	 * @param mixed $document An Elementor document.
+	 */
+	public static function sync_status_look( $document ): void {
+		if ( ! is_object( $document ) || ! method_exists( $document, 'get_elements_data' ) ) {
+			return;
+		}
+
+		$look = self::status_look_in( (array) $document->get_elements_data() );
+
+		if ( null !== $look ) {
+			update_option( self::STATUS_LOOK_OPTION, $look, false );
+		}
+	}
+
+	/**
+	 * The status settings of the first styled Orders widget among these
+	 * elements; an empty array when every Orders widget is left at its defaults;
+	 * null when there is none.
+	 *
+	 * @param array<int,mixed> $elements
+	 * @return array<string,mixed>|null
+	 */
+	private static function status_look_in( array $elements ): ?array {
+		$found = null;
+
+		foreach ( $elements as $element ) {
+			if ( ! is_array( $element ) ) {
+				continue;
+			}
+
+			if ( 'galaxie-account-orders' === ( $element['widgetType'] ?? '' ) ) {
+				$look = array_filter(
+					(array) ( $element['settings'] ?? array() ),
+					static fn( $value, $key ): bool => self::is_look_key( (string) $key ),
+					ARRAY_FILTER_USE_BOTH
+				);
+
+				if ( $look ) {
+					return $look;
+				}
+
+				$found = array();
+			}
+
+			$inner = self::status_look_in( (array) ( $element['elements'] ?? array() ) );
+
+			if ( $inner ) {
+				return $inner;
+			}
+
+			$found = $found ?? $inner;
+		}
+
+		return $found;
+	}
+
+	/**
+	 * The look kept by {@see sync_status_look()}. The first time it is asked for
+	 * — before any Orders widget was saved with this in place — it is read from
+	 * the Orders widgets already on the site, newest first.
+	 *
+	 * @return array<string,mixed>
+	 */
+	public static function orders_look(): array {
+		$look = get_option( self::STATUS_LOOK_OPTION, null );
+
+		if ( is_array( $look ) ) {
+			return $look;
+		}
+
+		global $wpdb;
+
+		$ids = $wpdb->get_col( // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- one-off lookup, cached in the option below.
+			"SELECT p.ID FROM {$wpdb->posts} p INNER JOIN {$wpdb->postmeta} m ON m.post_id = p.ID
+			WHERE m.meta_key = '_elementor_data' AND m.meta_value LIKE '%galaxie-account-orders%'
+			AND p.post_status IN ('publish','private') ORDER BY p.post_modified DESC LIMIT 20"
+		);
+
+		$look = array();
+
+		foreach ( (array) $ids as $id ) {
+			$data  = json_decode( (string) get_post_meta( (int) $id, '_elementor_data', true ), true );
+			$found = is_array( $data ) ? self::status_look_in( $data ) : null;
+
+			if ( $found ) {
+				$look = $found;
+				break;
+			}
+		}
+
+		update_option( self::STATUS_LOOK_OPTION, $look, false );
+
+		return $look;
+	}
+
 	/** @param array<string,mixed> $settings */
 	public static function status_badge( array $settings, \WC_Order $order ): string {
+		if ( 'yes' === ( $settings['status_inherit'] ?? '' ) ) {
+			$settings = array_merge( $settings, self::orders_look() );
+		}
+
 		$status = $order->get_status();
 		$id     = 'status_' . str_replace( '-', '_', $status );
 		$label  = trim( (string) ( $settings[ $id . '_label' ] ?? '' ) );

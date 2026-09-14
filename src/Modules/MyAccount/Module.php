@@ -60,6 +60,9 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 		add_action( 'wp_ajax_galaxie_myaccount_save_communication', array( $this, 'ajax_save_communication' ) );
 
 		\Galaxie\Woo\Support\StripeCards::hooks();
+
+		// The order page's status badges follow the orders list's.
+		add_action( 'elementor/document/after_save', array( \Galaxie\Woo\Support\AccountParts::class, 'sync_status_look' ) );
 	}
 
 	public function boot_data(): array {

@@ -114,12 +114,16 @@ final class AccountOrderWidget extends Widget_Base {
 		PixfortControls::button( $this, 'order_back', array( 'text' => __( 'Voltar para pedidos', 'galaxie-woo' ), 'style' => 'link', 'size' => 'sm', 'icon' => 'Line/pixfort-icon-arrow-left-1' ) );
 		$this->end_controls_section();
 
-		$this->start_controls_section( 'order_action_button_section', array( 'label' => __( 'Action buttons', 'galaxie-woo' ), 'condition' => array( 'order_show_actions' => 'yes' ) ) );
-		// No text field: the labels are WooCommerce's own ("Pay", "Cancel").
-		PixfortControls::button( $this, 'order_action', array( 'style' => 'outline', 'size' => 'sm' ), array(), '{{WRAPPER}}', array( 'text' ) );
-		$this->end_controls_section();
+		AccountParts::register_status_controls( $this, true );
 
-		AccountParts::register_status_controls( $this );
+		// The same buttons, under the same ids, as Galaxie Account Orders — which
+		// is what lets this page follow that widget's look. Shown only to style
+		// them here instead.
+		foreach ( AccountParts::order_action_buttons( array( 'order_show_actions' => 'yes', 'status_inherit!' => 'yes' ) ) as $prefix => $button ) {
+			$this->start_controls_section( $prefix . '_button_section', array( 'label' => $button[0], 'condition' => $button[3] ) );
+			PixfortControls::button( $this, $prefix, $button[1], array(), '{{WRAPPER}}', $button[2] );
+			$this->end_controls_section();
+		}
 
 		$this->start_controls_section( 'order_cards_style', array( 'label' => __( 'Cards', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
 
@@ -234,16 +238,12 @@ final class AccountOrderWidget extends Widget_Base {
 		);
 
 		if ( 'yes' === ( $s['order_show_actions'] ?? 'yes' ) ) {
-			$actions = '';
-
-			foreach ( wc_get_account_orders_actions( $order ) as $key => $action ) {
-				if ( 'view' !== $key ) {
-					$actions .= AccountParts::link_button( $s, 'order_action', (string) $action['name'], (string) $action['url'], 'is-' . sanitize_html_class( (string) $key ) );
-				}
-			}
+			$look    = 'yes' === ( $s['status_inherit'] ?? '' ) ? AccountParts::orders_look() : array();
+			$actions = AccountParts::order_actions( array_merge( $s, $look ), $order );
 
 			if ( '' !== $actions ) {
-				$out .= '<div class="galaxie-order-card-actions">' . $actions . '</div>';
+				$css  = $look ? AccountParts::inherited_css( $this, $look, array( 'orders_pay_', 'orders_cancel_', 'orders_action_' ) ) : '';
+				$out .= $css . '<div class="galaxie-order-card-actions">' . $actions . '</div>';
 			}
 		}
 

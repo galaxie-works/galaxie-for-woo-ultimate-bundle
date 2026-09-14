@@ -186,9 +186,7 @@ final class AccountOrdersWidget extends Widget_Base {
 		$actions = array( 'orders_show_actions' => 'yes' );
 		$buttons = array(
 			'orders_view'   => array( __( 'Order card: view button', 'galaxie-woo' ), array( 'text' => __( 'Ver pedido', 'galaxie-woo' ), 'style' => 'outline', 'size' => 'sm' ), array(), array() ),
-			'orders_pay'    => array( __( 'Order card: pay button', 'galaxie-woo' ), array( 'style' => 'link', 'size' => 'sm', 'icon' => 'Line/pixfort-icon-credit-card-1' ), array(), $actions ),
-			'orders_cancel' => array( __( 'Order card: cancel button', 'galaxie-woo' ), array( 'style' => 'link', 'size' => 'sm', 'icon' => 'Line/pixfort-icon-cross-circle-1' ), array(), $actions ),
-			'orders_action' => array( __( 'Order card: other actions (added by plugins)', 'galaxie-woo' ), array( 'style' => 'link', 'size' => 'sm' ), array( 'text' ), $actions ),
+		) + AccountParts::order_action_buttons( $actions ) + array(
 			'orders_all'    => array( __( 'List: "see every order" button', 'galaxie-woo' ), array( 'style' => 'link', 'size' => 'sm', 'icon' => 'Line/pixfort-icon-arrow-right-1', 'icon_position' => 'after' ), array( 'text' ), array( 'orders_source' => 'recent' ) ),
 			'orders_prev'   => array( __( 'List: previous page button', 'galaxie-woo' ), array( 'style' => 'outline', 'size' => 'sm', 'icon' => 'Line/pixfort-icon-arrow-left-1' ), array( 'text' ), array( 'orders_source' => 'all' ) ),
 			'orders_next'   => array( __( 'List: next page button', 'galaxie-woo' ), array( 'style' => 'outline', 'size' => 'sm', 'icon' => 'Line/pixfort-icon-arrow-right-1', 'icon_position' => 'after' ), array( 'text' ), array( 'orders_source' => 'all' ) ),
@@ -348,16 +346,7 @@ final class AccountOrdersWidget extends Widget_Base {
 		$actions = '';
 
 		if ( 'yes' === ( $s['orders_show_actions'] ?? 'yes' ) ) {
-			foreach ( wc_get_account_orders_actions( $order ) as $key => $action ) {
-				if ( 'view' === $key ) {
-					continue;
-				}
-
-				$prefix = array( 'pay' => 'orders_pay', 'cancel' => 'orders_cancel' )[ $key ] ?? 'orders_action';
-				$label  = 'orders_action' === $prefix ? '' : trim( (string) ( $s[ $prefix . '_text' ] ?? '' ) );
-
-				$actions .= AccountParts::link_button( $s, $prefix, '' !== $label ? $label : (string) $action['name'], (string) $action['url'], 'is-' . sanitize_html_class( (string) $key ) );
-			}
+			$actions = AccountParts::order_actions( $s, $order );
 		}
 
 		$thumbs = '';
