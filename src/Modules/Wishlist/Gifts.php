@@ -308,6 +308,11 @@ final class Gifts {
 
 		$response->set_data( self::scrub( $data, self::placeholder_postcode( $address ) ) );
 
+		// A gift answer belongs to one shopper. LiteSpeed caches REST answers
+		// unless told not to, and served one of these to every visitor.
+		$response->header( 'X-LiteSpeed-Cache-Control', 'no-cache' );
+		do_action( 'litespeed_control_set_nocache', 'galaxie gift cart' );
+
 		return $response;
 	}
 
@@ -320,33 +325,64 @@ final class Gifts {
 	}
 
 	/**
-	 * @param array<string,mixed> $data
-	 * @return array<string,mixed>
+	 * Walks arrays and plain objects alike: the Store API casts its addresses
+	 * and each package's destination to `(object)` so they encode as `{}`, and
+	 * a walk over arrays alone passed straight over them.
+	 *
+	 * @param mixed $data
+	 * @return mixed
 	 */
-	private static function scrub( array $data, string $postcode ): array {
-		foreach ( $data as $key => $value ) {
-			if ( ! is_array( $value ) ) {
-				continue;
+	private static function scrub( $data, string $postcode ) {
+		$is_object = $data instanceof \stdClass;
+
+		if ( ! $is_object && ! is_array( $data ) ) {
+			return $data;
+		}
+
+		foreach ( $is_object ? get_object_vars( $data ) : $data as $key => $value ) {
+			if ( in_array( $key, array( 'shipping_address', 'destination' ), true ) ) {
+				$value = self::hide_address( $value, $postcode );
 			}
 
-			if ( in_array( $key, array( 'shipping_address', 'destination' ), true ) && array_key_exists( 'postcode', $value ) ) {
-				$value['postcode'] = $postcode;
+			$value = self::scrub( $value, $postcode );
 
-				if ( array_key_exists( 'address_1', $value ) ) {
-					$value['address_1'] = self::address_placeholder();
-				}
-
-				foreach ( array( 'address_2', 'company', 'phone' ) as $field ) {
-					if ( array_key_exists( $field, $value ) ) {
-						$value[ $field ] = '';
-					}
-				}
+			if ( $is_object ) {
+				$data->{$key} = $value;
+			} else {
+				$data[ $key ] = $value;
 			}
-
-			$data[ $key ] = self::scrub( $value, $postcode );
 		}
 
 		return $data;
+	}
+
+	/**
+	 * One address down to its area, in the shape it came in.
+	 *
+	 * @param mixed $address
+	 * @return mixed
+	 */
+	private static function hide_address( $address, string $postcode ) {
+		$is_object = $address instanceof \stdClass;
+		$fields    = $is_object ? get_object_vars( $address ) : $address;
+
+		if ( ! is_array( $fields ) || ! array_key_exists( 'postcode', $fields ) ) {
+			return $address;
+		}
+
+		$fields['postcode'] = $postcode;
+
+		if ( array_key_exists( 'address_1', $fields ) ) {
+			$fields['address_1'] = self::address_placeholder();
+		}
+
+		foreach ( array( 'address_2', 'company', 'phone' ) as $field ) {
+			if ( array_key_exists( $field, $fields ) ) {
+				$fields[ $field ] = '';
+			}
+		}
+
+		return $is_object ? (object) $fields : $fields;
 	}
 
 	/** Our cart widgets' "Shipping to …" line, which would print the stand-in. */
