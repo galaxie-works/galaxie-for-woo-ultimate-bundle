@@ -282,14 +282,29 @@ final class AccountPaymentMethodsWidget extends Widget_Base {
 
 		$this->end_controls_section();
 
-		$this->start_controls_section( 'pm_badge_style', array( 'label' => __( 'Badges', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
+		$this->start_controls_section( 'pm_badge_style', array( 'label' => __( 'Badges: all', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
 		PixfortControls::surface( $this, 'pm_badge', '{{WRAPPER}} .galaxie-pm-badge', array( 'rounded' => 'rounded-pill' ) );
-
-		$this->add_control( 'pm_warning_heading', array( 'label' => __( 'Expiring and expired', 'galaxie-woo' ), 'type' => Controls_Manager::HEADING, 'separator' => 'before' ) );
-		PixfortControls::palette_control( $this, 'pm_warning_color', __( 'Text color', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-pm-badge.is-expiring, {{WRAPPER}} .galaxie-pm-badge.is-expired', 'color' );
-		PixfortControls::palette_control( $this, 'pm_warning_bg', __( 'Background', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-pm-badge.is-expiring, {{WRAPPER}} .galaxie-pm-badge.is-expired', 'background-color' );
-
 		$this->end_controls_section();
+
+		// Each badge says something different — this is the card used by default,
+		// this one is about to expire, this one no longer works — so each gets its
+		// own colours on top of the shared shape and text above. Left on Default,
+		// a badge keeps the shared look.
+		$badges = array(
+			'default'  => __( 'Badge: default card', 'galaxie-woo' ),
+			'expiring' => __( 'Badge: expiring soon', 'galaxie-woo' ),
+			'expired'  => __( 'Badge: expired', 'galaxie-woo' ),
+		);
+
+		foreach ( $badges as $type => $label ) {
+			$selector = '{{WRAPPER}} .galaxie-pm-badge.is-' . $type;
+
+			$this->start_controls_section( 'pm_badge_' . $type . '_style', array( 'label' => $label, 'tab' => Controls_Manager::TAB_STYLE ) );
+			PixfortControls::palette_control( $this, 'pm_badge_' . $type . '_bg', __( 'Background', 'galaxie-woo' ), $selector, 'background-color' );
+			PixfortControls::palette_control( $this, 'pm_badge_' . $type . '_color', __( 'Text color', 'galaxie-woo' ), $selector, 'color' );
+			PixfortControls::palette_control( $this, 'pm_badge_' . $type . '_border', __( 'Border color', 'galaxie-woo' ), $selector, 'border-color' );
+			$this->end_controls_section();
+		}
 
 		AccountParts::add_area_controls( $this, 'pm_add_area', '{{WRAPPER}} .galaxie-pm-toolbar', __( 'Add card area', 'galaxie-woo' ) );
 
@@ -358,7 +373,7 @@ final class AccountPaymentMethodsWidget extends Widget_Base {
 			'pm_number_text'  => array( __( 'Card number', 'galaxie-woo' ), '.galaxie-pm-number', array( 'size' => 'text-20', 'bold' => '' ) ),
 			'pm_expiry_text'  => array( __( 'Expiry', 'galaxie-woo' ), '.galaxie-pm-expiry', array( 'size' => 'text-sm', 'bold' => '' ) ),
 			'pm_brand_text'   => array( __( 'Brand name', 'galaxie-woo' ), '.galaxie-pm-brand-name', array( 'size' => 'text-sm', 'bold' => 'font-weight-bold' ) ),
-			'pm_badge_text'   => array( __( 'Badge text', 'galaxie-woo' ), '.galaxie-pm-badge', array( 'size' => 'text-xs', 'bold' => 'font-weight-bold' ) ),
+			'pm_badge_text'   => array( __( 'Badges: text', 'galaxie-woo' ), '.galaxie-pm-badge', array( 'size' => 'text-xs', 'bold' => 'font-weight-bold' ) ),
 			'pm_empty_body'   => array( __( 'Empty list text', 'galaxie-woo' ), '.galaxie-pm-empty', array( 'bold' => '' ) ),
 		);
 
