@@ -1117,11 +1117,179 @@ final class AccountParts {
 
 			$prefix = array( 'pay' => 'orders_pay', 'cancel' => 'orders_cancel' )[ $key ] ?? 'orders_action';
 			$label  = 'orders_action' === $prefix ? '' : trim( (string) ( $settings[ $prefix . '_text' ] ?? '' ) );
+			$url    = (string) $action['url'];
 
-			$out .= self::link_button( $settings, $prefix, '' !== $label ? $label : (string) $action['name'], (string) $action['url'], 'is-' . sanitize_html_class( (string) $key ) );
+			// WooCommerce's cancel link sends the customer to the dashboard. Ours
+			// returns to the screen the widget chose, marked so it can say so.
+			if ( 'cancel' === $key ) {
+				$target = 'orders' === ( $settings['cancel_redirect'] ?? 'order' ) ? AccountEndpoints::url( 'orders' ) : $order->get_view_order_url();
+				$url    = $order->get_cancel_order_url( add_query_arg( self::CANCELLED_ARG, $order->get_id(), $target ) );
+			}
+
+			$out .= self::link_button( $settings, $prefix, '' !== $label ? $label : (string) $action['name'], $url, 'is-' . sanitize_html_class( (string) $key ) );
 		}
 
 		return $out;
+	}
+
+	/** The query argument a cancel link returns with: the cancelled order's id. */
+	public const CANCELLED_ARG = 'galaxie_cancelled';
+
+	/**
+	 * Cancelling an order, set on the widget that shows the Cancel button: where
+	 * the customer lands, the alert that tells them it worked, and the dialog
+	 * that asks first — WooCommerce itself cancels on the first click.
+	 *
+	 * @param array<string,mixed> $condition
+	 */
+	public static function cancel_controls( object $widget, string $default_redirect, array $condition ): void {
+		$widget->start_controls_section( 'cancel_section', array( 'label' => __( 'Cancelling an order', 'galaxie-woo' ), 'condition' => $condition ) );
+
+		$widget->add_control(
+			'cancel_note',
+			array(
+				'type'            => Controls_Manager::RAW_HTML,
+				'raw'             => esc_html__( 'Customers can cancel orders that are awaiting payment or failed. The dialog below asks first; the alert confirms it on the screen they return to.', 'galaxie-woo' ),
+				'content_classes' => 'elementor-descriptor',
+			)
+		);
+
+		$widget->add_control(
+			'cancel_redirect',
+			array(
+				'label'   => __( 'After cancelling, go to', 'galaxie-woo' ),
+				'type'    => Controls_Manager::SELECT,
+				'options' => array(
+					'order'  => __( 'The order details', 'galaxie-woo' ),
+					'orders' => __( 'The orders list', 'galaxie-woo' ),
+				),
+				'default' => $default_redirect,
+			)
+		);
+
+		$widget->add_control( 'cancel_alert_heading', array( 'label' => __( 'Alert after cancelling', 'galaxie-woo' ), 'type' => Controls_Manager::HEADING, 'separator' => 'before' ) );
+
+		$widget->add_control(
+			'cancel_alert_text',
+			array(
+				'label'       => __( 'Message', 'galaxie-woo' ),
+				'description' => __( '{number} is the order number. Leave empty for no alert.', 'galaxie-woo' ),
+				'label_block' => true,
+				'type'        => Controls_Manager::TEXTAREA,
+				'rows'        => 2,
+				'default'     => __( 'Pedido #{number} cancelado.', 'galaxie-woo' ),
+			)
+		);
+
+		$shown = array( 'cancel_alert_text!' => '' );
+
+		$widget->add_control(
+			'cancel_alert_type',
+			array(
+				'label'     => __( 'Alert type', 'galaxie-woo' ),
+				'type'      => Controls_Manager::SELECT,
+				'options'   => PixfortControls::alert_types(),
+				'default'   => 'success',
+				'condition' => $shown,
+			)
+		);
+
+		PixfortControls::icon_select( $widget, 'cancel_alert_icon', __( 'Icon', 'galaxie-woo' ), 'Line/pixfort-icon-check-circle-1', $shown + array( 'cancel_alert_media_type' => 'icon' ) );
+
+		$widget->add_control(
+			'cancel_alert_preview',
+			array(
+				'label'        => __( 'Show in the editor', 'galaxie-woo' ),
+				'type'         => Controls_Manager::SWITCHER,
+				'return_value' => 'yes',
+				'condition'    => $shown,
+			)
+		);
+
+		$widget->add_control( 'cancel_alert_style_heading', array( 'label' => __( 'Alert appearance', 'galaxie-woo' ), 'type' => Controls_Manager::HEADING, 'separator' => 'before', 'condition' => $shown ) );
+		PixfortControls::alert( $widget, 'cancel_alert', array(), $shown, '{{WRAPPER}} .galaxie-order-cancelled' );
+
+		$widget->end_controls_section();
+
+		Dialog::controls(
+			$widget,
+			'cancel_confirm',
+			array(
+				'label' => __( 'Cancel order dialog', 'galaxie-woo' ),
+				'title' => __( 'Cancelar pedido', 'galaxie-woo' ),
+				'text'  => __( 'Cancelar este pedido? Isso não pode ser desfeito.', 'galaxie-woo' ),
+				'yes'   => __( 'Sim, cancelar', 'galaxie-woo' ),
+				'no'    => __( 'Voltar', 'galaxie-woo' ),
+			)
+		);
+	}
+
+	/**
+	 * The alert for an order the customer has just cancelled, on the screen
+	 * the cancel link returned to — or a sample in the editor when asked for.
+	 *
+	 * @param array<string,mixed> $settings
+	 */
+	public static function cancelled_alert( array $settings ): string {
+		$text = trim( (string) ( $settings['cancel_alert_text'] ?? '' ) );
+
+		if ( '' === $text ) {
+			return '';
+		}
+
+		$id      = isset( $_GET[ self::CANCELLED_ARG ] ) ? absint( wp_unslash( $_GET[ self::CANCELLED_ARG ] ) ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- display only; the cancelling itself was WooCommerce's, nonce and all.
+		$order   = $id ? wc_get_order( $id ) : null;
+		$preview = self::editing() && 'yes' === ( $settings['cancel_alert_preview'] ?? '' );
+
+		// Only for an order of this customer that really is cancelled now: the
+		// argument is in the address bar, and anyone can type it.
+		$real = $order instanceof \WC_Order && (int) $order->get_customer_id() === get_current_user_id() && $order->has_status( 'cancelled' );
+
+		if ( ! $real && ! $preview ) {
+			return '';
+		}
+
+		$number = $real ? $order->get_order_number() : '1234';
+		$text   = wp_kses_post( str_replace( '{number}', esc_html( (string) $number ), $text ) );
+		$type   = (string) ( $settings['cancel_alert_type'] ?? 'success' );
+
+		if ( ! PixfortControls::available() ) {
+			return sprintf( '<div class="galaxie-order-cancelled" role="status"><div class="alert alert-%1$s">%2$s</div></div>', esc_attr( $type ), $text );
+		}
+
+		if ( defined( 'PIX_CORE_PLUGIN_URI' ) && defined( 'PIXFORT_PLUGIN_VERSION' ) ) {
+			wp_enqueue_style( 'pixfort-alert-style', PIX_CORE_PLUGIN_URI . 'includes/assets/css/elements/alert.min.css', array(), PIXFORT_PLUGIN_VERSION );
+		}
+
+		return sprintf(
+			'<div class="galaxie-order-cancelled" role="status">%s</div>',
+			(string) \PixfortCore::instance()->elementsManager->renderElement( 'Alert', PixfortControls::alert_attr( $settings, 'cancel_alert', $text, $type, PixfortControls::icon_value( $settings, 'cancel_alert_icon' ) ) )
+		);
+	}
+
+	/**
+	 * WooCommerce queues "Your order was cancelled." for the next page; ours says
+	 * it in the widget's alert, so the loose notice is dropped when the cancel
+	 * link came back to one of our screens.
+	 */
+	public static function drop_cancelled_notice(): void {
+		if ( ! isset( $_GET[ self::CANCELLED_ARG ] ) || ! function_exists( 'wc_get_notices' ) || ! function_exists( 'WC' ) || ! WC()->session ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- only removes a message.
+			return;
+		}
+
+		$message = (string) apply_filters( 'woocommerce_order_cancelled_notice', __( 'Your order was cancelled.', 'woocommerce' ) ); // phpcs:ignore WordPress.WP.I18n.TextDomainMismatch -- WooCommerce's own string, to match it.
+		$notices = wc_get_notices();
+
+		foreach ( $notices as $type => $list ) {
+			$notices[ $type ] = array_values(
+				array_filter(
+					(array) $list,
+					static fn( $notice ): bool => ( is_array( $notice ) ? (string) ( $notice['notice'] ?? '' ) : (string) $notice ) !== $message
+				)
+			);
+		}
+
+		wc_set_notices( $notices );
 	}
 
 	/**

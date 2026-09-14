@@ -12,6 +12,7 @@ use Elementor\Widget_Base;
 use Galaxie\Woo\Support\AccountEndpoints;
 use Galaxie\Woo\Support\AccountParts;
 use Galaxie\Woo\Support\Assets;
+use Galaxie\Woo\Support\Dialog;
 use Galaxie\Woo\Support\PixfortControls;
 
 defined( 'ABSPATH' ) || exit;
@@ -205,6 +206,8 @@ final class AccountOrdersWidget extends Widget_Base {
 			$this->end_controls_section();
 		}
 
+		AccountParts::cancel_controls( $this, 'orders', array( 'orders_show_actions' => 'yes' ) );
+
 		AccountParts::register_status_controls( $this );
 
 		$this->start_controls_section( 'orders_card_style', array( 'label' => __( 'Card or row', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
@@ -293,6 +296,9 @@ final class AccountOrdersWidget extends Widget_Base {
 		if ( '' !== $heading ) {
 			printf( '<div class="galaxie-account-orders-heading">%s</div>', PixfortControls::render_text( $s, 'orders_heading_text', esc_html( $heading ) ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pixfort's own element around escaped text.
 		}
+
+		echo AccountParts::cancelled_alert( $s ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped inside, and pixfort's own alert.
+		echo Dialog::render( $s, 'cancel_confirm' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built from escaped parts.
 
 		if ( ! $data['orders'] ) {
 			printf(

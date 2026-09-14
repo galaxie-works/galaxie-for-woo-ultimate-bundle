@@ -184,6 +184,18 @@ export function bootAccountScreens(wishlist?: WishlistConfig): void {
     }
   })
 
+  // Orders: WooCommerce cancels an order on a plain link, so ask first.
+  document.addEventListener('click', (event) => {
+    const link = (event.target as Element | null)?.closest?.<HTMLAnchorElement>('.galaxie-account-button.is-cancel')
+    const root = link?.closest<HTMLElement>('.galaxie-account-orders, .galaxie-account-order')
+    if (!link || !root) return
+
+    event.preventDefault()
+    void ask(root, 'cancel_confirm', 'Cancelar este pedido?').then((yes) => {
+      if (yes) window.location.href = link.href
+    })
+  })
+
   // Payment methods: WooCommerce deletes a saved card on a plain link, so ask first.
   document.addEventListener('click', (event) => {
     const link = (event.target as Element | null)?.closest?.<HTMLAnchorElement>('.galaxie-pm-delete')

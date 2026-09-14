@@ -12,6 +12,7 @@ use Elementor\Widget_Base;
 use Galaxie\Woo\Support\AccountEndpoints;
 use Galaxie\Woo\Support\AccountParts;
 use Galaxie\Woo\Support\Assets;
+use Galaxie\Woo\Support\Dialog;
 use Galaxie\Woo\Support\PixfortControls;
 
 defined( 'ABSPATH' ) || exit;
@@ -151,6 +152,8 @@ final class AccountOrderWidget extends Widget_Base {
 			$this->end_controls_section();
 		}
 
+		AccountParts::cancel_controls( $this, 'order', array( 'order_show_actions' => 'yes' ) );
+
 		$this->start_controls_section( 'order_cards_style', array( 'label' => __( 'Cards', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
 
 		PixfortControls::surface( $this, 'order_card', '{{WRAPPER}} .galaxie-order-section', array( 'rounded' => 'rounded-lg' ) );
@@ -266,7 +269,7 @@ final class AccountOrderWidget extends Widget_Base {
 		}
 
 		$date = $order->get_date_created();
-		$out  = '';
+		$out  = AccountParts::cancelled_alert( $s ) . Dialog::render( $s, 'cancel_confirm' );
 
 		// Header: back link, title, date, status.
 		$back = trim( (string) ( $s['order_back_text'] ?? '' ) );

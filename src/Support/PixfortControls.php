@@ -1099,6 +1099,20 @@ final class PixfortControls {
 		) );
 	}
 
+	/** pixfort's own alert palette, verbatim. @return array<string,string> */
+	public static function alert_types(): array {
+		return array(
+			'success'   => __( 'Success', 'galaxie-woo' ),
+			'secondary' => __( 'Secondary', 'galaxie-woo' ),
+			'primary'   => __( 'Primary', 'galaxie-woo' ),
+			'danger'    => __( 'Danger', 'galaxie-woo' ),
+			'warning'   => __( 'Warning', 'galaxie-woo' ),
+			'info'      => __( 'Info', 'galaxie-woo' ),
+			'light'     => __( 'Light', 'galaxie-woo' ),
+			'dark'      => __( 'Dark', 'galaxie-woo' ),
+		);
+	}
+
 	/**
 	 * Maps a prefixed settings array onto the unprefixed keys `PixAlert::render()`
 	 * reads, for one message.
