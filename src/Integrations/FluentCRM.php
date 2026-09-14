@@ -156,6 +156,73 @@ final class FluentCRM {
 	}
 
 	/**
+	 * The slug of a custom contact field, found by slug first and by its label
+	 * when the slug is not there — a field the merchant created by hand keeps
+	 * working if they rename its slug. Null when neither matches.
+	 */
+	public static function find_custom_field( string $slug, string $label ): ?string {
+		if ( ! class_exists( '\FluentCrm\App\Models\CustomContactField' ) ) {
+			return null;
+		}
+		try {
+			$fields = (array) ( ( new \FluentCrm\App\Models\CustomContactField() )->getGlobalFields()['fields'] ?? array() );
+
+			foreach ( $fields as $field ) {
+				if ( (string) ( $field['slug'] ?? '' ) === $slug ) {
+					return $slug;
+				}
+			}
+
+			foreach ( $fields as $field ) {
+				if ( 0 === strcasecmp( trim( (string) ( $field['label'] ?? '' ) ), trim( $label ) ) ) {
+					return (string) $field['slug'];
+				}
+			}
+		} catch ( \Throwable $e ) {
+			return null;
+		}
+
+		return null;
+	}
+
+	/**
+	 * Adds lines to a multi-line custom field and never takes one away: a line
+	 * goes at the end unless its key is already somewhere in the field.
+	 *
+	 * @param array<string,string> $lines Key to look for => line to add.
+	 */
+	public static function append_to_custom_field( string $email, string $slug, array $lines ): bool {
+		if ( ! self::is_active() || '' === $email || '' === $slug || ! $lines ) {
+			return false;
+		}
+		try {
+			$contact = \FluentCrmApi( 'contacts' )->getContact( $email );
+			if ( ! $contact ) {
+				return false;
+			}
+
+			$current = (string) ( $contact->custom_fields()[ $slug ] ?? '' );
+			$added   = array();
+
+			foreach ( $lines as $key => $line ) {
+				if ( '' !== trim( (string) $key ) && false === mb_stripos( $current, (string) $key ) ) {
+					$added[] = $line;
+				}
+			}
+
+			if ( ! $added ) {
+				return true;
+			}
+
+			$contact->syncCustomFieldValues( array( $slug => ltrim( rtrim( $current ) . "\n" . implode( "\n", $added ) ) ), false );
+
+			return true;
+		} catch ( \Throwable $e ) {
+			return false;
+		}
+	}
+
+	/**
 	 * Adds the custom contact fields that are missing, leaving every field the
 	 * store already has — and its values — as it is.
 	 *

@@ -186,6 +186,13 @@ final class Module implements ModuleContract, ProvidesSettings {
 		array( 'slug' => 'nome_social', 'label' => 'Nome social', 'type' => 'text' ),
 	);
 
+	/**
+	 * The merchant's own multi-line field for the addresses that are not the
+	 * contact's main one. Found by label too, in case its slug is renamed.
+	 */
+	private const OTHER_ADDRESSES_SLUG  = 'outros_endereços_cadastra';
+	private const OTHER_ADDRESSES_LABEL = 'Outros endereços que o usuário cadastrou';
+
 	/** @var array<int,true> Users whose contact is re-synced at the end of this request. */
 	private array $profile_queue = array();
 
@@ -403,14 +410,7 @@ final class Module implements ModuleContract, ProvidesSettings {
 	 * @return string[] Escaped lines.
 	 */
 	private function address_book_changes( array $old, array $new ): array {
-		$show = static function ( $entry ): string {
-			$entry   = (array) $entry;
-			$address = html_entity_decode( wp_strip_all_tags( (string) preg_replace( '#<br\s*/?>#i', ', ', \Galaxie\Woo\Support\AddressBook::format( $entry ) ) ), ENT_QUOTES );
-			$phone   = trim( (string) ( $entry['phone'] ?? '' ) );
-			$label   = trim( (string) ( $entry['label'] ?? '' ) );
-
-			return ( '' !== $label ? $label . ' — ' : '' ) . $address . ( '' !== $phone ? ' — ' . $phone : '' );
-		};
+		$show = fn( $entry ): string => $this->address_line( (array) $entry );
 
 		$lines = array();
 
@@ -580,6 +580,61 @@ final class Module implements ModuleContract, ProvidesSettings {
 				'nome_social' => $meta( ProfileFields::SOCIAL_NAME ),
 			)
 		);
+
+		$this->append_other_addresses( $user, $type );
+	}
+
+	/**
+	 * The address book's other addresses, added to the merchant's field and never
+	 * removed from it: a record of every place the customer has kept, dated the
+	 * day it was first seen. The contact's main address is left out while it is
+	 * the main one, and joins the list the day it stops being it.
+	 */
+	private function append_other_addresses( \WP_User $user, string $main_type ): void {
+		if ( ! class_exists( '\Galaxie\Woo\Support\AddressBook' ) ) {
+			return;
+		}
+
+		$slug = FluentCRMApi::find_custom_field( self::OTHER_ADDRESSES_SLUG, self::OTHER_ADDRESSES_LABEL );
+
+		if ( null === $slug ) {
+			return;
+		}
+
+		$lines = array();
+
+		foreach ( \Galaxie\Woo\Support\AddressBook::for_js( $user->ID ) as $entry ) {
+			if ( ! empty( $entry[ $main_type ] ) ) {
+				continue;
+			}
+
+			$text = $this->address_line( array_merge( (array) $entry['values'], array( 'label' => (string) $entry['label'] ) ) );
+
+			if ( '' !== $text ) {
+				/* translators: 1: the address, 2: the date it was recorded. */
+				$lines[ $text ] = sprintf( __( '%1$s (registrado em %2$s)', 'galaxie-woo' ), $text, wp_date( 'd/m/Y' ) );
+			}
+		}
+
+		FluentCRMApi::append_to_custom_field( $user->user_email, $slug, $lines );
+	}
+
+	/**
+	 * One address book entry on one line: its label, the address as WooCommerce
+	 * formats it for the country, and its phone.
+	 *
+	 * @param array<string,mixed> $entry
+	 */
+	private function address_line( array $entry ): string {
+		$address = html_entity_decode( wp_strip_all_tags( (string) preg_replace( '#<br\s*/?>#i', ', ', \Galaxie\Woo\Support\AddressBook::format( $entry ) ) ), ENT_QUOTES );
+		$phone   = trim( (string) ( $entry['phone'] ?? '' ) );
+		$label   = trim( (string) ( $entry['label'] ?? '' ) );
+
+		if ( '' === trim( $address ) ) {
+			return '';
+		}
+
+		return ( '' !== $label ? $label . ' — ' : '' ) . $address . ( '' !== $phone ? ' — ' . $phone : '' );
 	}
 
 	public function on_order_paid( int $order_id ): void {
@@ -668,7 +723,7 @@ final class Module implements ModuleContract, ProvidesSettings {
 				key: 'profile_sync',
 				label: __( 'Keep contacts up to date', 'galaxie-woo' ),
 				type: Field::TYPE_TOGGLE,
-				description: __( 'Whenever a customer\'s account changes — in My Account, at checkout or in wp-admin — their FluentCRM contact follows: name, phone, date of birth, billing address (shipping when there is none), and CPF, gender and social name as custom fields, created in FluentCRM if missing. Only contacts that already exist are updated.', 'galaxie-woo' ),
+				description: __( 'Whenever a customer\'s account changes — in My Account, at checkout or in wp-admin — their FluentCRM contact follows: name, phone, date of birth, billing address (shipping when there is none), and CPF, gender and social name as custom fields, created in FluentCRM if missing. The address book\'s other addresses are appended, never removed, to a multi-line custom field labelled "Outros endereços que o usuário cadastrou" when the store has one. Only contacts that already exist are updated.', 'galaxie-woo' ),
 				default: true
 			),
 			new Field(
