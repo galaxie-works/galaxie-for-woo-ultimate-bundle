@@ -344,6 +344,80 @@ final class PixfortControls {
 	}
 
 	/**
+	 * The rules a button's selector-driven controls write — text colour, icon
+	 * colour, hover colours and lift — for a button drawn with settings that
+	 * were saved on another widget, which Elementor wrote no CSS for here.
+	 *
+	 * Built from the same dictionaries the controls use, so a colour means the
+	 * same declaration whichever of the two writes it.
+	 *
+	 * @param array<string,mixed> $settings
+	 * @param string              $wrapper  The element the button sits in, e.g. `.elementor-element-abc123`.
+	 */
+	public static function button_css( array $settings, string $prefix, string $wrapper ): string {
+		$button = $wrapper . ' .' . self::button_class( $prefix );
+		$rules  = array();
+		$slug   = static fn( $value ): string => is_string( $value ) ? sanitize_key( $value ) : '';
+		$custom = static fn( $value ): string => is_string( $value ) && preg_match( '/^[#a-zA-Z0-9(),.%\s-]+$/', $value ) ? trim( $value ) : '';
+
+		$text = $slug( $settings[ $prefix . '_text_color' ] ?? '' );
+
+		if ( 'custom' === $text ) {
+			$colour = $custom( $settings[ $prefix . '_text_custom_color' ] ?? '' );
+			if ( '' !== $colour ) {
+				$rules[ $button ][] = 'color: ' . $colour . ' !important;';
+			}
+		} elseif ( '' !== $text && 0 !== strpos( $text, 'gradient' ) ) {
+			$rules[ $button ][] = 'color: var(--pix-' . $text . ') !important;';
+		}
+
+		if ( '' !== self::icon_value( $settings, $prefix . '_icon' ) ) {
+			$icon = $slug( $settings[ $prefix . '_icon_color' ] ?? '' );
+
+			if ( 'custom' === $icon ) {
+				$colour = $custom( $settings[ $prefix . '_icon_custom_color' ] ?? '' );
+				if ( '' !== $colour ) {
+					$rules[ $button . ' .pixfort-icon' ][] = 'color: ' . $colour . ' !important; --pf-icon-color: ' . $colour . ' !important;';
+				}
+			} elseif ( '' !== $icon ) {
+				$rules[ $button . ' .pixfort-icon' ][] = 'color: var(--pix-' . $icon . ', currentColor) !important; --pf-icon-color: var(--pix-' . $icon . ', currentColor) !important;';
+			}
+		}
+
+		// The hover trio, as palette_control() writes it.
+		foreach ( array( 'bg' => 'background-color', 'color' => 'color', 'border_color' => 'border-color' ) as $key => $property ) {
+			$id    = $prefix . '_hover_' . ( 'border_color' === $key ? 'border' : $key );
+			$value = $slug( $settings[ $id ] ?? '' );
+			$extra = 'border-color' === $property ? ' border-style: solid !important;' : '';
+
+			if ( 'custom' === $value ) {
+				$colour = $custom( $settings[ $id . '_custom' ] ?? '' );
+				if ( '' !== $colour ) {
+					$rules[ $button . ':hover' ][] = $property . ': ' . $colour . ' !important;' . $extra;
+				}
+			} elseif ( 'background-color' === $property && 0 === strpos( $value, 'gradient-' ) ) {
+				$rules[ $button . ':hover' ][] = 'background-image: var(--pix-' . $value . ') !important;';
+			} elseif ( '' !== $value ) {
+				$rules[ $button . ':hover' ][] = $property . ': var(--pix-' . $value . ') !important;' . $extra;
+			}
+		}
+
+		$lift = $settings[ $prefix . '_hover_lift' ] ?? null;
+
+		if ( is_array( $lift ) && is_numeric( $lift['size'] ?? null ) ) {
+			$rules[ $button ][] = '--galaxie-hover-lift: ' . (float) $lift['size'] . 'px;';
+		}
+
+		$css = '';
+
+		foreach ( $rules as $selector => $declarations ) {
+			$css .= $selector . '{' . implode( ' ', $declarations ) . '}';
+		}
+
+		return $css;
+	}
+
+	/**
 	 * The one button a prefix configures. With the whole widget as the scope
 	 * that takes its own class; a narrower scope already names one button and
 	 * keeps the `.btn` inside it, for buttons drawn by someone else's markup.

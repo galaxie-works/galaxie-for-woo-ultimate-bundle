@@ -242,8 +242,17 @@ final class AccountOrderWidget extends Widget_Base {
 			$actions = AccountParts::order_actions( array_merge( $s, $look ), $order );
 
 			if ( '' !== $actions ) {
-				$css  = $look ? AccountParts::inherited_css( $this, $look, array( 'orders_pay_', 'orders_cancel_', 'orders_action_' ) ) : '';
-				$out .= $css . '<div class="galaxie-order-card-actions">' . $actions . '</div>';
+				$css = '';
+
+				// The colours and hover those buttons have on Galaxie Account Orders
+				// live in that page's CSS, not here: written again for this element.
+				if ( $look ) {
+					foreach ( array( 'orders_pay', 'orders_cancel', 'orders_action' ) as $prefix ) {
+						$css .= PixfortControls::button_css( array_merge( $s, $look ), $prefix, '.elementor-element-' . $this->get_id() );
+					}
+				}
+
+				$out .= ( '' !== $css ? '<style>' . $css . '</style>' : '' ) . '<div class="galaxie-order-card-actions">' . $actions . '</div>';
 			}
 		}
 

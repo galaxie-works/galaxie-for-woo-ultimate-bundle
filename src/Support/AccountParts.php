@@ -1031,7 +1031,7 @@ final class AccountParts {
 	}
 
 	/** Where the orders list's status look is kept for the order page to follow. */
-	private const STATUS_LOOK_OPTION = 'galaxie_woo_order_status_look';
+	private const STATUS_LOOK_OPTION = 'galaxie_woo_orders_look_v2';
 
 	/**
 	 * What the order page takes from the orders list: the status badges and
@@ -1073,64 +1073,25 @@ final class AccountParts {
 	}
 
 	/**
-	 * The CSS Elementor would write for these values had they been set on this
-	 * widget: its selector-driven controls (hover, text and icon colours…) for
-	 * the given prefixes, scoped to this one element.
+	 * An element's settings with its widget's defaults filled in, from its
+	 * saved data. Falls back to what was saved when Elementor cannot build it.
 	 *
-	 * Copying values into a widget's settings reaches only what becomes a
-	 * class; everything a control writes as a selector lives in the CSS file of
-	 * the document the values were saved in. This writes those rules again,
-	 * through Elementor's own parser, for a widget that follows another's look.
-	 *
-	 * @param array<string,mixed> $values
-	 * @param array<int,string>   $prefixes
+	 * @param array<string,mixed> $element
+	 * @return array<string,mixed>
 	 */
-	public static function inherited_css( \Elementor\Widget_Base $widget, array $values, array $prefixes ): string {
-		if ( ! $values || ! class_exists( '\Elementor\Core\Files\CSS\Post' ) ) {
-			return '';
+	private static function full_settings( array $element ): array {
+		$saved = (array) ( $element['settings'] ?? array() );
+
+		if ( ! class_exists( '\Elementor\Plugin' ) || empty( \Elementor\Plugin::$instance->elements_manager ) ) {
+			return $saved;
 		}
 
 		try {
-			$controls = array_filter(
-				$widget->get_controls(),
-				static function ( $control, $id ) use ( $prefixes ): bool {
-					if ( empty( $control['selectors'] ) ) {
-						return false;
-					}
+			$instance = \Elementor\Plugin::$instance->elements_manager->create_element_instance( $element );
 
-					foreach ( $prefixes as $prefix ) {
-						if ( 0 === strpos( (string) $id, $prefix ) ) {
-							return true;
-						}
-					}
-
-					return false;
-				},
-				ARRAY_FILTER_USE_BOTH
-			);
-
-			if ( ! $controls ) {
-				return '';
-			}
-
-			// A fresh file object: Post::create() hands back the page's own, cached
-			// one, and its stylesheet must not collect rules it never had.
-			$css      = new \Elementor\Core\Files\CSS\Post( 0 );
-			$settings = array_merge( $widget->get_settings(), $values );
-
-			$css->add_controls_stack_style_rules(
-				$widget,
-				$css->get_style_controls( $widget, $controls, $settings ),
-				$settings,
-				array( '{{ID}}', '{{WRAPPER}}' ),
-				array( $widget->get_id(), '.elementor-element.elementor-element-' . $widget->get_id() )
-			);
-
-			$rules = trim( (string) $css->get_stylesheet() );
-
-			return '' !== $rules ? '<style>' . $rules . '</style>' : '';
+			return $instance ? array_merge( (array) $instance->get_settings(), $saved ) : $saved;
 		} catch ( \Throwable $e ) {
-			return '';
+			return $saved;
 		}
 	}
 
@@ -1196,14 +1157,18 @@ final class AccountParts {
 			}
 
 			if ( 'galaxie-account-orders' === ( $element['widgetType'] ?? '' ) ) {
-				$look = array_filter(
-					(array) ( $element['settings'] ?? array() ),
+				$only_look = static fn( array $settings ): array => array_filter(
+					$settings,
 					static fn( $value, $key ): bool => self::is_look_key( (string) $key ),
 					ARRAY_FILTER_USE_BOTH
 				);
 
-				if ( $look ) {
-					return $look;
+				// Saved settings hold only what was changed. The rest — a badge left
+				// bold, an icon left as it came — must travel too, or the order page's
+				// own values would show through, so the widget's full settings are
+				// taken, defaults included.
+				if ( $only_look( (array) ( $element['settings'] ?? array() ) ) ) {
+					return $only_look( self::full_settings( $element ) );
 				}
 
 				$found = array();
