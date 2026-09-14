@@ -362,8 +362,22 @@ final class Module implements ModuleContract, ProvidesSettings {
 					continue;
 				}
 
-				$rate->set_cost( $cost - $cap );
-				$rate->set_taxes( array() );
+				$reduced = $cost - $cap;
+
+				// The shopper still pays part of the quote, and that part is
+				// still taxable. Each tax line is scaled by the share of the
+				// cost that remains rather than recomputed, so whatever built
+				// them (per-item rates, a shipping tax class, a carrier plugin)
+				// is kept. WooCommerce stores rate taxes as rate id => unrounded
+				// amount, and this keeps that shape.
+				$taxes = array();
+
+				foreach ( (array) $rate->get_taxes() as $rate_id => $tax ) {
+					$taxes[ $rate_id ] = (float) $tax * ( $reduced / $cost );
+				}
+
+				$rate->set_cost( $reduced );
+				$rate->set_taxes( $taxes );
 				continue;
 			}
 
