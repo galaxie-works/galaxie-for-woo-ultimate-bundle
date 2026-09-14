@@ -154,6 +154,22 @@ final class AccountOrderWidget extends Widget_Base {
 
 		AccountParts::cancel_controls( $this, 'order', array( 'order_show_actions' => 'yes', 'status_inherit!' => 'yes' ) );
 
+		// Following the orders list hides the cancelling sections, and with them
+		// the way to see the alert here. Only that stays: its look is set there.
+		$this->start_controls_section( 'order_cancel_preview_section', array( 'label' => __( 'Cancelled order alert', 'galaxie-woo' ), 'condition' => array( 'order_show_actions' => 'yes', 'status_inherit' => 'yes' ) ) );
+
+		$this->add_control(
+			'order_cancel_preview',
+			array(
+				'label'        => __( 'Show the cancelled alert in the editor', 'galaxie-woo' ),
+				'description'  => __( 'Its message and look are set on Galaxie Account Orders.', 'galaxie-woo' ),
+				'type'         => Controls_Manager::SWITCHER,
+				'return_value' => 'yes',
+			)
+		);
+
+		$this->end_controls_section();
+
 		$this->start_controls_section( 'order_cards_style', array( 'label' => __( 'Cards', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
 
 		PixfortControls::surface( $this, 'order_card', '{{WRAPPER}} .galaxie-order-section', array( 'rounded' => 'rounded-lg' ) );
@@ -272,7 +288,7 @@ final class AccountOrderWidget extends Widget_Base {
 		// Cancelling follows Galaxie Account Orders too: its dialog, its alert and
 		// its return screen, with the rules its CSS file holds written here.
 		$inherit = 'yes' === ( $s['status_inherit'] ?? '' );
-		$cancel  = $inherit ? array_merge( $s, AccountParts::orders_look() ) : $s;
+		$cancel  = $inherit ? array_merge( $s, AccountParts::orders_look(), array( 'cancel_alert_preview' => (string) ( $s['order_cancel_preview'] ?? '' ) ) ) : $s;
 		$scope   = '.elementor-element-' . $this->get_id();
 		$css     = $inherit ? Dialog::css( $cancel, 'cancel_confirm', $scope ) . AccountParts::cancelled_alert_css( $cancel, $scope ) : '';
 		$out     = ( '' !== $css ? '<style>' . $css . '</style>' : '' ) . AccountParts::cancelled_alert( $cancel ) . Dialog::render( $cancel, 'cancel_confirm' );

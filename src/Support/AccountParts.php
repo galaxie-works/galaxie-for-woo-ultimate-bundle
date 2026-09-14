@@ -1155,6 +1155,18 @@ final class AccountParts {
 			)
 		);
 
+		// First in the section: the alert only appears after a real cancellation,
+		// so styling it starts with seeing it.
+		$widget->add_control(
+			'cancel_alert_preview',
+			array(
+				'label'        => __( 'Show the cancelled alert in the editor', 'galaxie-woo' ),
+				'description'  => __( 'A sample alert at the top of the widget while you style it. Visitors only see it after cancelling.', 'galaxie-woo' ),
+				'type'         => Controls_Manager::SWITCHER,
+				'return_value' => 'yes',
+			)
+		);
+
 		$widget->add_control(
 			'cancel_redirect',
 			array(
@@ -1196,16 +1208,6 @@ final class AccountParts {
 		);
 
 		PixfortControls::icon_select( $widget, 'cancel_alert_icon', __( 'Icon', 'galaxie-woo' ), 'Line/pixfort-icon-check-circle-1', $shown + array( 'cancel_alert_media_type' => 'icon' ) );
-
-		$widget->add_control(
-			'cancel_alert_preview',
-			array(
-				'label'        => __( 'Show in the editor', 'galaxie-woo' ),
-				'type'         => Controls_Manager::SWITCHER,
-				'return_value' => 'yes',
-				'condition'    => $shown,
-			)
-		);
 
 		$widget->add_control( 'cancel_alert_style_heading', array( 'label' => __( 'Alert appearance', 'galaxie-woo' ), 'type' => Controls_Manager::HEADING, 'separator' => 'before', 'condition' => $shown ) );
 		PixfortControls::alert( $widget, 'cancel_alert', array(), $shown, '{{WRAPPER}} .galaxie-order-cancelled' );
