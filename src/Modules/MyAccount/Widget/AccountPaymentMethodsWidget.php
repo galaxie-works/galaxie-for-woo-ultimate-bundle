@@ -562,8 +562,14 @@ final class AccountPaymentMethodsWidget extends Widget_Base {
 			// Stripe with "Saved cards" off still reports the feature, and hides
 			// itself only once on the add-payment-method screen — which would
 			// then offer nothing.
-			if ( $gateway instanceof \WC_Stripe_UPE_Payment_Gateway && method_exists( $gateway, 'is_saved_cards_enabled' ) && ! $gateway->is_saved_cards_enabled() ) {
-				continue;
+			if ( $gateway instanceof \WC_Stripe_UPE_Payment_Gateway ) {
+				$saved_cards = method_exists( $gateway, 'is_saved_cards_enabled' )
+					? (bool) $gateway->is_saved_cards_enabled()
+					: 'yes' === $gateway->get_option( 'saved_cards' );
+
+				if ( ! $saved_cards ) {
+					continue;
+				}
 			}
 
 			if ( $gateway->supports( 'add_payment_method' ) ) {
