@@ -10,6 +10,7 @@ namespace Galaxie\Woo\Modules\VariationSwatches\Widget;
 use Elementor\Controls_Manager;
 use Elementor\Group_Control_Typography;
 use Elementor\Widget_Base;
+use Galaxie\Woo\Support\PixfortControls;
 use Galaxie\Woo\Support\QuantityField;
 
 defined( 'ABSPATH' ) || exit;
