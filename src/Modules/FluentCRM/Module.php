@@ -12,6 +12,7 @@ use Galaxie\Woo\Core\Module as ModuleContract;
 use Galaxie\Woo\Core\Plugin;
 use Galaxie\Woo\Core\ProvidesSettings;
 use Galaxie\Woo\Integrations\FluentCRM as FluentCRMApi;
+use Galaxie\Woo\Support\AddressBook;
 use Galaxie\Woo\Support\ProfileFields;
 
 defined( 'ABSPATH' ) || exit;
@@ -43,6 +44,11 @@ defined( 'ABSPATH' ) || exit;
  *    user meta itself rather than at each screen that writes it (My Account
  *    details, the address book, the checkout's profile step, wp-admin), so a
  *    new screen cannot forget to sync, and flushed once per request.
+ *
+ *    Only what changed in the request is sent: a contact also gathers data
+ *    from forms, imports and the merchant's own edits, and a customer changing
+ *    their phone must not overwrite the rest with what the account happens to
+ *    hold. Edits made in FluentCRM's own admin are never pushed back over.
  *
  *    A field the customer empties is emptied on the contact too, so the
  *    contact never shows data the customer took back. What it held is not
@@ -93,22 +99,16 @@ final class Module implements ModuleContract, ProvidesSettings {
 		$this->log_changes   = ! empty( $settings['profile_notes'] ?? true );
 
 		if ( $this->sync_contacts || $this->log_changes ) {
-			add_action( 'galaxie_woo/profile_updated', array( $this, 'queue_profile_sync' ) );
-			add_action( 'profile_update', array( $this, 'queue_profile_sync' ) );
-			add_action( 'galaxie_woo/interest_changed', array( $this, 'remember_interest' ), 10, 3 );
-			add_action( 'woocommerce_new_payment_token', array( $this, 'remember_card_added' ), 10, 2 );
-			add_action( 'woocommerce_payment_token_deleted', array( $this, 'remember_card_deleted' ), 10, 2 );
-			add_action( 'woocommerce_payment_token_set_default', array( $this, 'remember_card_default' ), 10, 2 );
-
-			foreach ( array( 'add_user_metadata', 'update_user_metadata', 'delete_user_metadata' ) as $hook ) {
-				add_filter( $hook, array( $this, 'remember_old_meta' ), 10, 3 );
+			// Watched only when FluentCRM is there to take the notes and changes —
+			// otherwise every profile save would pay for capturing old values that
+			// go nowhere. The check waits for init: this boot runs on plugins_loaded,
+			// possibly before FluentCRM has defined its API, and init still comes
+			// before any handler that saves a profile.
+			if ( did_action( 'init' ) ) {
+				$this->register_profile_watchers();
+			} else {
+				add_action( 'init', array( $this, 'register_profile_watchers' ), 0 );
 			}
-
-			foreach ( array( 'added_user_meta', 'updated_user_meta', 'deleted_user_meta' ) as $hook ) {
-				add_action( $hook, array( $this, 'watch_user_meta' ), 10, 3 );
-			}
-
-			add_action( 'shutdown', array( $this, 'flush_profile_sync' ) );
 		}
 
 		add_action( 'woocommerce_order_status_processing', array( $this, 'on_order_paid' ) );
@@ -208,9 +208,75 @@ final class Module implements ModuleContract, ProvidesSettings {
 	/** @var array<int,array<int,string>> Changes that are not user meta — interests, saved cards — in this request. */
 	private array $event_log = array();
 
+	/** @var array<int,true> Accounts created in this request: what registration writes is not a change. */
+	private array $registered = array();
+
+	/** @var array<int,string> user id => the e-mail the account had before this request. */
+	private array $email_changes = array();
+
+	/** Where the change was made, as the handler that made it declared. */
+	private ?string $declared_source = null;
+
+	/** Memo of store_api_request(). */
+	private ?string $store_api = null;
+
+	/**
+	 * Old values set aside by Store API customer updates, for the checkout to
+	 * note and sync. Not in PROFILE_META, so writing it is not itself a change.
+	 */
+	private const PENDING_META = '_galaxie_fcrm_pending_old';
+
+	public function register_profile_watchers(): void {
+		if ( ! FluentCRMApi::is_active() ) {
+			return;
+		}
+
+		add_action( 'galaxie_woo/profile_updated', array( $this, 'queue_profile_sync' ) );
+		add_action( 'galaxie_woo/change_source', array( $this, 'declare_change_source' ) );
+		add_action( 'profile_update', array( $this, 'on_profile_update' ), 10, 2 );
+		add_action( 'user_register', array( $this, 'mark_registered' ) );
+		add_action( 'galaxie_woo/customer_registered', array( $this, 'mark_registered' ), 1 );
+		add_action( 'galaxie_woo/interest_changed', array( $this, 'remember_interest' ), 10, 3 );
+		add_action( 'woocommerce_new_payment_token', array( $this, 'remember_card_added' ), 10, 2 );
+		add_action( 'woocommerce_payment_token_deleted', array( $this, 'remember_card_deleted' ), 10, 2 );
+		add_action( 'woocommerce_payment_token_set_default', array( $this, 'remember_card_default' ), 10, 2 );
+
+		foreach ( array( 'add_user_metadata', 'update_user_metadata', 'delete_user_metadata' ) as $hook ) {
+			add_filter( $hook, array( $this, 'remember_old_meta' ), 10, 3 );
+		}
+
+		foreach ( array( 'added_user_meta', 'updated_user_meta', 'deleted_user_meta' ) as $hook ) {
+			add_action( $hook, array( $this, 'watch_user_meta' ), 10, 3 );
+		}
+
+		add_action( 'wp_loaded', array( $this, 'queue_pending_changes' ) );
+		add_action( 'shutdown', array( $this, 'flush_profile_sync' ) );
+	}
+
+	/**
+	 * A customer who edits their address in the block checkout and leaves
+	 * without ordering has it saved on the account but only set aside for the
+	 * contact (see carry_over()). Their next request of any kind queues them,
+	 * so the flush at its end writes the note and syncs — or, when that request
+	 * is another Store API customer update, just keeps the values set aside.
+	 */
+	public function queue_pending_changes(): void {
+		$user_id = get_current_user_id();
+
+		if ( $user_id > 0 && is_array( get_user_meta( $user_id, self::PENDING_META, true ) ) ) {
+			$this->queue_profile_sync( $user_id );
+		}
+	}
+
 	/**
 	 * Keeps what a field held before its first write in this request, so the
 	 * note can say before → after. A filter that changes nothing.
+	 *
+	 * Another filter may short-circuit the write (a gift checkout keeps the
+	 * buyer's shipping address this way). The value captured is then simply the
+	 * current one, no `updated_user_meta` follows, and at the flush old equals
+	 * new — no note, no sync. A real write later in the request still compares
+	 * against the right value, since nothing changed in between.
 	 *
 	 * @param mixed $check
 	 * @param mixed $user_id
@@ -311,6 +377,62 @@ final class Module implements ModuleContract, ProvidesSettings {
 	}
 
 	/**
+	 * An account created in this request. `user_register` fires after
+	 * wp_insert_user() has written the name, and the signup goes on writing
+	 * billing fields, the CPF and the opt-in before `customer_registered` —
+	 * none of it a change of the customer's mind, so none of it is noted. The
+	 * flag is read at the flush, which is after all of them.
+	 *
+	 * @param mixed $user_id
+	 */
+	public function mark_registered( $user_id ): void {
+		if ( (int) $user_id > 0 ) {
+			$this->registered[ (int) $user_id ] = true;
+		}
+	}
+
+	/**
+	 * `profile_update` fires on every wp_update_user(), checkout's customer
+	 * save included, so it queues nothing by itself: the meta watchers already
+	 * see every field that really changed. The one thing they cannot see is the
+	 * e-mail, which lives on the user row.
+	 *
+	 * @param mixed $user_id
+	 * @param mixed $old_user_data
+	 */
+	public function on_profile_update( $user_id, $old_user_data = null ): void {
+		$user_id = (int) $user_id;
+
+		if ( $this->profile_flushing || $user_id <= 0 || ! $old_user_data instanceof \WP_User ) {
+			return;
+		}
+
+		$user = get_userdata( $user_id );
+
+		if ( ! $user || 0 === strcasecmp( (string) $old_user_data->user_email, (string) $user->user_email ) ) {
+			return;
+		}
+
+		if ( ! isset( $this->email_changes[ $user_id ] ) ) {
+			$this->email_changes[ $user_id ] = (string) $old_user_data->user_email;
+		}
+
+		$this->queue_profile_sync( $user_id );
+	}
+
+	/**
+	 * A handler saying where its change is made:
+	 * `do_action( 'galaxie_woo/change_source', 'Minha conta — Informações pessoais' )`.
+	 *
+	 * @param mixed $label
+	 */
+	public function declare_change_source( $label ): void {
+		if ( is_string( $label ) && '' !== trim( $label ) ) {
+			$this->declared_source = sanitize_text_field( $label );
+		}
+	}
+
+	/**
 	 * @param mixed  $meta_id  Unused; an array of ids on deleted_user_meta.
 	 * @param mixed  $user_id
 	 * @param string $meta_key
@@ -323,6 +445,16 @@ final class Module implements ModuleContract, ProvidesSettings {
 
 	/** One sync per user per request, however many fields a save touched. */
 	public function flush_profile_sync(): void {
+		$store_api = $this->store_api_request();
+		$customer  = get_current_user_id();
+
+		// The checkout picks up what the cart's customer updates set aside
+		// (see carry_over()); saving the same values again changes nothing, so
+		// without this the addresses typed at checkout would never be noted.
+		if ( 'checkout' === $store_api && $customer > 0 && is_array( get_user_meta( $customer, self::PENDING_META, true ) ) ) {
+			$this->queue_profile_sync( $customer );
+		}
+
 		if ( ! $this->profile_queue || ! FluentCRMApi::is_active() ) {
 			return;
 		}
@@ -331,9 +463,10 @@ final class Module implements ModuleContract, ProvidesSettings {
 		$users                  = array_keys( $this->profile_queue );
 		$this->profile_queue    = array();
 
-		if ( $this->sync_contacts ) {
-			FluentCRMApi::ensure_custom_fields( self::CUSTOM_FIELDS );
-		}
+		// The merchant editing a contact in FluentCRM's admin makes FluentCRM
+		// write the name into the account. Pushing the account back would revert
+		// the merchant's own edit, so such a request only takes notes.
+		$from_crm = $this->is_fluentcrm_request();
 
 		foreach ( $users as $user_id ) {
 			$user = get_userdata( (int) $user_id );
@@ -342,36 +475,152 @@ final class Module implements ModuleContract, ProvidesSettings {
 				continue;
 			}
 
-			// The note first: it records the account's own before and after,
-			// whatever the contact happened to hold.
-			if ( $this->log_changes ) {
-				$this->log_profile_changes( $user );
+			// Block checkout posts the customer to the Store API on every field
+			// it leaves, each call saving the account: one note and one sync per
+			// keystroke pause. Those calls only set the old values aside.
+			if ( 'other' === $store_api ) {
+				$this->carry_over( $user->ID );
+				continue;
 			}
 
-			if ( $this->sync_contacts ) {
-				$this->sync_profile( (int) $user_id );
+			$old     = $this->old_values( $user->ID, ! $from_crm );
+			$changed = array();
+
+			foreach ( $old as $key => $value ) {
+				if ( $this->differs( (string) $key, $value, get_user_meta( $user->ID, (string) $key, true ) ) ) {
+					$changed[ (string) $key ] = true;
+				}
+			}
+
+			$old_email = $this->email_changes[ $user->ID ] ?? '';
+
+			if ( 0 === strcasecmp( $old_email, (string) $user->user_email ) ) {
+				$old_email = '';
+			}
+
+			// The contact moves to the new address before anything else looks for it.
+			if ( $this->sync_contacts && ! $from_crm && '' !== $old_email ) {
+				FluentCRMApi::change_contact_email( $user->ID, $old_email, (string) $user->user_email );
+			}
+
+			// The note first: it records the account's own before and after,
+			// whatever the contact happened to hold.
+			if ( $this->log_changes && ! isset( $this->registered[ $user->ID ] ) ) {
+				// Changes that are all set aside from checkout's customer updates
+				// were made at checkout, whatever page flushes them.
+				$own_changes = '' !== $old_email || ! empty( $this->event_log[ $user->ID ] );
+
+				foreach ( $this->old_meta[ $user->ID ] ?? array() as $key => $value ) {
+					if ( ! $own_changes && $this->differs( (string) $key, $value, get_user_meta( $user->ID, (string) $key, true ) ) ) {
+						$own_changes = true;
+					}
+				}
+
+				$this->log_profile_changes( $user, $old, $old_email, $changed && ! $own_changes ? __( 'Checkout', 'galaxie-woo' ) : null );
+			}
+
+			if ( $this->sync_contacts && ! $from_crm && $changed ) {
+				$this->sync_profile( $user, $old, $changed );
 			}
 		}
 
 		$this->old_meta         = array();
 		$this->event_log        = array();
+		$this->email_changes    = array();
 		$this->profile_flushing = false;
 	}
 
-	/** Every change in this request, as one note on the contact. */
-	private function log_profile_changes( \WP_User $user ): void {
+	/**
+	 * What the watched fields held before this request — and, when $with_pending,
+	 * before the Store API calls that preceded it, which were earlier still and
+	 * so take precedence. Those are consumed here.
+	 *
+	 * @return array<string,mixed>
+	 */
+	private function old_values( int $user_id, bool $with_pending ): array {
+		$old = $this->old_meta[ $user_id ] ?? array();
+
+		if ( ! $with_pending ) {
+			return $old;
+		}
+
+		$pending = get_user_meta( $user_id, self::PENDING_META, true );
+
+		if ( is_array( $pending ) ) {
+			delete_user_meta( $user_id, self::PENDING_META );
+			$old = array_merge( $old, array_intersect_key( $pending, array_flip( self::PROFILE_META ) ) );
+		}
+
+		return $old;
+	}
+
+	/**
+	 * Sets this request's old values aside for the checkout, keeping the
+	 * earliest value of each field; a field back where it started is dropped.
+	 */
+	private function carry_over( int $user_id ): void {
+		$pending = get_user_meta( $user_id, self::PENDING_META, true );
+		$pending = ( is_array( $pending ) ? $pending : array() ) + ( $this->old_meta[ $user_id ] ?? array() );
+
+		foreach ( $pending as $key => $value ) {
+			if ( ! in_array( (string) $key, self::PROFILE_META, true ) || ! $this->differs( (string) $key, $value, get_user_meta( $user_id, (string) $key, true ) ) ) {
+				unset( $pending[ $key ] );
+			}
+		}
+
+		if ( $pending ) {
+			update_user_meta( $user_id, self::PENDING_META, $pending );
+		} else {
+			delete_user_meta( $user_id, self::PENDING_META );
+		}
+	}
+
+	/**
+	 * @param mixed $old
+	 * @param mixed $new
+	 */
+	private function differs( string $key, $old, $new ): bool {
+		if ( AddressBook::META_KEY === $key ) {
+			return maybe_serialize( $old ) !== maybe_serialize( $new );
+		}
+
+		return $this->scalar( $old ) !== $this->scalar( $new );
+	}
+
+	/** @param mixed $value */
+	private function scalar( $value ): string {
+		return is_scalar( $value ) ? trim( (string) $value ) : '';
+	}
+
+	/**
+	 * Every change in this request, as one note on the contact.
+	 *
+	 * @param array<string,mixed> $old
+	 */
+	private function log_profile_changes( \WP_User $user, array $old, string $old_email, ?string $source = null ): void {
 		$lines = array();
 
-		foreach ( $this->old_meta[ $user->ID ] ?? array() as $key => $old ) {
+		if ( '' !== $old_email ) {
+			$lines[] = sprintf( '<strong>%1$s:</strong> %2$s → %3$s', esc_html__( 'E-mail', 'galaxie-woo' ), esc_html( $old_email ), esc_html( (string) $user->user_email ) );
+		}
+
+		foreach ( $old as $key => $value ) {
+			$key = (string) $key;
 			$new = get_user_meta( $user->ID, $key, true );
 
-			if ( \Galaxie\Woo\Support\AddressBook::META_KEY === $key ) {
-				$lines = array_merge( $lines, $this->address_book_changes( is_array( $old ) ? $old : array(), is_array( $new ) ? $new : array() ) );
+			if ( AddressBook::META_KEY === $key ) {
+				// Not an array before means the book was created in this request
+				// from the billing and shipping addresses already on the account —
+				// AddressBook::entries() seeds it on its first read, a page view
+				// included. Nothing the customer did.
+				if ( is_array( $value ) ) {
+					$lines = array_merge( $lines, $this->address_book_changes( $value, is_array( $new ) ? $new : array() ) );
+				}
 				continue;
 			}
 
-			$before = $this->display_value( $key, is_scalar( $old ) ? (string) $old : '' );
-			$after  = $this->display_value( $key, is_scalar( $new ) ? (string) $new : '' );
+			$before = $this->display_value( $key, $this->scalar( $value ) );
+			$after  = $this->display_value( $key, $this->scalar( $new ) );
 
 			if ( $before !== $after ) {
 				$lines[] = sprintf( '<strong>%1$s:</strong> %2$s → %3$s', esc_html( $this->field_label( $key ) ), esc_html( $before ), esc_html( $after ) );
@@ -395,13 +644,13 @@ final class Module implements ModuleContract, ProvidesSettings {
 			esc_html__( 'Data e hora:', 'galaxie-woo' ),
 			esc_html( wp_date( 'd/m/Y H:i:s' ) ),
 			esc_html__( 'Origem:', 'galaxie-woo' ),
-			esc_html( $this->change_source() ),
+			esc_html( $source ?? $this->change_source() ),
 			esc_html__( 'Alterado por:', 'galaxie-woo' ),
 			esc_html( $by ),
 			implode( '</li><li>', $lines )
 		);
 
-		FluentCRMApi::add_note( $user->user_email, __( 'Alteração de perfil', 'galaxie-woo' ), $description );
+		FluentCRMApi::add_note( (string) $user->user_email, __( 'Alteração de perfil', 'galaxie-woo' ), $description, $user->ID, $old_email );
 	}
 
 	/**
@@ -434,6 +683,12 @@ final class Module implements ModuleContract, ProvidesSettings {
 	private function display_value( string $key, string $value ): string {
 		$value = trim( $value );
 
+		// Never answered is consenting — the default — so it reads "Sim", and
+		// a first explicit "yes" is not noted as a change.
+		if ( ProfileFields::MARKETING_OPT_IN === $key ) {
+			return '' === $value || 'yes' === $value ? __( 'Sim', 'galaxie-woo' ) : __( 'Não', 'galaxie-woo' );
+		}
+
 		if ( '' === $value ) {
 			return __( '(vazio)', 'galaxie-woo' );
 		}
@@ -444,10 +699,6 @@ final class Module implements ModuleContract, ProvidesSettings {
 
 		if ( ProfileFields::GENDER === $key ) {
 			return ProfileFields::gender_label( $value );
-		}
-
-		if ( ProfileFields::MARKETING_OPT_IN === $key ) {
-			return 'yes' === $value ? __( 'Sim', 'galaxie-woo' ) : __( 'Não', 'galaxie-woo' );
 		}
 
 		if ( in_array( $key, array( 'billing_country', 'shipping_country' ), true ) && function_exists( 'WC' ) ) {
@@ -496,34 +747,49 @@ final class Module implements ModuleContract, ProvidesSettings {
 		return $key;
 	}
 
-	/** Where the change was made, from the request that made it. */
+	/**
+	 * Where the change was made: as the handler declared it, else from the
+	 * request that made it.
+	 */
 	private function change_source(): string {
-		$action = isset( $_REQUEST['action'] ) ? sanitize_key( wp_unslash( $_REQUEST['action'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read to label a note; the handler checked its own nonce.
+		if ( null !== $this->declared_source ) {
+			return $this->declared_source;
+		}
 
-		$screens = array(
-			'galaxie_myaccount_save_details'       => __( 'Minha conta — Informações pessoais', 'galaxie-woo' ),
-			'galaxie_myaccount_save_communication' => __( 'Minha conta — Comunicação', 'galaxie-woo' ),
-			'galaxie_myaccount_toggle_interest'    => __( 'Minha conta — Interesses', 'galaxie-woo' ),
-			'galaxie_address_book_save'            => __( 'Minha conta — Endereços', 'galaxie-woo' ),
-			'galaxie_address_book_delete'          => __( 'Minha conta — Endereços', 'galaxie-woo' ),
-			'galaxie_address_book_default'         => __( 'Minha conta — Endereços', 'galaxie-woo' ),
-			'galaxie_save_profile'                 => __( 'Checkout — dados pessoais', 'galaxie-woo' ),
-			'galaxie_save_address'                 => __( 'Checkout — endereço', 'galaxie-woo' ),
-			'galaxie_stripe_save_card'             => __( 'Minha conta — Formas de pagamento', 'galaxie-woo' ),
-			'wc_stripe_create_and_confirm_setup_intent' => __( 'Minha conta — Formas de pagamento', 'galaxie-woo' ),
-		);
+		if ( '' !== $this->rest_route() ) {
+			if ( $this->is_fluentcrm_request() ) {
+				return __( 'FluentCRM (painel)', 'galaxie-woo' );
+			}
 
-		if ( isset( $screens[ $action ] ) ) {
-			return $screens[ $action ];
+			return 'checkout' === $this->store_api_request() ? __( 'Checkout', 'galaxie-woo' ) : __( 'API', 'galaxie-woo' );
+		}
+
+		if ( wp_doing_ajax() ) {
+			// The fallback for handlers that declare nothing. `action` is the
+			// visitor's word, so it counts only for our own actions, and only when
+			// admin-ajax really had a handler to dispatch it to.
+			$action = isset( $_REQUEST['action'] ) ? sanitize_key( wp_unslash( $_REQUEST['action'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read to label a note; the handler checked its own nonce.
+
+			$screens = array(
+				'galaxie_myaccount_save_details'       => __( 'Minha conta — Informações pessoais', 'galaxie-woo' ),
+				'galaxie_myaccount_save_communication' => __( 'Minha conta — Comunicação', 'galaxie-woo' ),
+				'galaxie_myaccount_toggle_interest'    => __( 'Minha conta — Interesses', 'galaxie-woo' ),
+				'galaxie_address_book_save'            => __( 'Minha conta — Endereços', 'galaxie-woo' ),
+				'galaxie_address_book_delete'          => __( 'Minha conta — Endereços', 'galaxie-woo' ),
+				'galaxie_address_book_default'         => __( 'Minha conta — Endereços', 'galaxie-woo' ),
+				'galaxie_save_profile'                 => __( 'Checkout — dados pessoais', 'galaxie-woo' ),
+				'galaxie_save_address'                 => __( 'Checkout — endereço', 'galaxie-woo' ),
+				'galaxie_stripe_save_card'             => __( 'Minha conta — Formas de pagamento', 'galaxie-woo' ),
+			);
+
+			if ( isset( $screens[ $action ] ) && has_action( 'wp_ajax_' . $action ) ) {
+				return $screens[ $action ];
+			}
 		}
 
 		// Deleting a card or making it the default is a link WooCommerce handles.
 		if ( function_exists( 'is_wc_endpoint_url' ) && ( is_wc_endpoint_url( 'delete-payment-method' ) || is_wc_endpoint_url( 'set-default-payment-method' ) || is_wc_endpoint_url( 'add-payment-method' ) ) ) {
 			return __( 'Minha conta — Formas de pagamento', 'galaxie-woo' );
-		}
-
-		if ( defined( 'REST_REQUEST' ) && REST_REQUEST ) {
-			return __( 'Checkout', 'galaxie-woo' );
 		}
 
 		if ( is_admin() && ! wp_doing_ajax() ) {
@@ -533,55 +799,185 @@ final class Module implements ModuleContract, ProvidesSettings {
 		return __( 'Site', 'galaxie-woo' );
 	}
 
-	/**
-	 * The account, as the contact should show it. The address is the billing
-	 * one, where the customer lives and pays; the shipping one only when there is
-	 * no billing address. An emptied field empties the contact's too — except the
-	 * name, which a contact keeps.
-	 */
-	private function sync_profile( int $user_id ): void {
-		$user = get_userdata( $user_id );
-
-		if ( ! $user ) {
-			return;
+	/** The REST route this request serves ('/wc/store/v1/checkout'), or '' outside the REST API. */
+	private function rest_route(): string {
+		if ( ! defined( 'REST_REQUEST' ) || ! REST_REQUEST ) {
+			return '';
 		}
 
-		$meta  = static fn( string $key ): string => trim( (string) get_user_meta( $user_id, $key, true ) );
-		$type  = '' !== $meta( 'billing_address_1' ) ? 'billing' : 'shipping';
-		$birth = $meta( ProfileFields::BIRTHDATE );
+		$route = '';
 
-		$columns = array(
-			'first_name'     => trim( (string) $user->first_name ) ?: $meta( 'billing_first_name' ),
-			'last_name'      => trim( (string) $user->last_name ) ?: $meta( 'billing_last_name' ),
-			'phone'          => $meta( 'billing_phone' ) ?: $meta( 'shipping_phone' ),
-			'date_of_birth'  => preg_match( '/^\d{4}-\d{2}-\d{2}$/', $birth ) ? $birth : null,
-			'address_line_1' => $meta( $type . '_address_1' ),
-			'address_line_2' => $meta( $type . '_address_2' ),
-			'city'           => $meta( $type . '_city' ),
-			'state'          => $meta( $type . '_state' ),
-			'postal_code'    => $meta( $type . '_postcode' ),
-			'country'        => $meta( $type . '_country' ),
-		);
+		if ( isset( $GLOBALS['wp'] ) && $GLOBALS['wp'] instanceof \WP && isset( $GLOBALS['wp']->query_vars['rest_route'] ) ) {
+			$route = (string) $GLOBALS['wp']->query_vars['rest_route'];
+		}
 
-		foreach ( array( 'first_name', 'last_name' ) as $name ) {
-			if ( '' === $columns[ $name ] ) {
-				unset( $columns[ $name ] );
+		if ( '' === $route && isset( $_SERVER['REQUEST_URI'] ) ) {
+			$path   = (string) wp_parse_url( (string) wp_unslash( $_SERVER['REQUEST_URI'] ), PHP_URL_PATH ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- only matched against route patterns.
+			$prefix = '/' . trim( rest_get_url_prefix(), '/' ) . '/';
+			$at     = strpos( $path, $prefix );
+
+			if ( false !== $at ) {
+				$route = substr( $path, $at + strlen( $prefix ) );
 			}
 		}
 
-		$gender = $meta( ProfileFields::GENDER );
+		return '/' . trim( $route, '/' );
+	}
 
-		FluentCRMApi::update_contact(
-			$user->user_email,
-			$columns,
-			array(
-				'cpf'         => $meta( ProfileFields::CPF ),
-				'genero'      => '' !== $gender ? ProfileFields::gender_label( $gender ) : '',
-				'nome_social' => $meta( ProfileFields::SOCIAL_NAME ),
-			)
+	private function is_fluentcrm_request(): bool {
+		return 0 === strpos( $this->rest_route(), '/fluent-crm/' );
+	}
+
+	/**
+	 * 'checkout' for the Store API checkout (a batch counts when it carries
+	 * one), 'other' for the rest of the Store API — the cart's customer updates
+	 * above all — and '' when this is not a Store API request.
+	 */
+	private function store_api_request(): string {
+		if ( null !== $this->store_api ) {
+			return $this->store_api;
+		}
+
+		$this->store_api = '';
+
+		if ( ! preg_match( '#^/wc/store(?:/v\d+)?(/.*)?$#', $this->rest_route(), $match ) ) {
+			return $this->store_api;
+		}
+
+		$endpoint        = $match[1] ?? '';
+		$this->store_api = $this->is_checkout_endpoint( $endpoint ) ? 'checkout' : 'other';
+
+		if ( '/batch' === $endpoint ) {
+			$body = json_decode( (string) file_get_contents( 'php://input' ), true );
+
+			foreach ( is_array( $body ) && is_array( $body['requests'] ?? null ) ? $body['requests'] : array() as $request ) {
+				$path = is_array( $request ) ? (string) wp_parse_url( (string) ( $request['path'] ?? '' ), PHP_URL_PATH ) : '';
+
+				if ( preg_match( '#^/wc/store(?:/v\d+)?(/.*)?$#', $path, $inner ) && $this->is_checkout_endpoint( $inner[1] ?? '' ) ) {
+					$this->store_api = 'checkout';
+					break;
+				}
+			}
+		}
+
+		return $this->store_api;
+	}
+
+	/** '/checkout', or '/checkout/123' when an existing order is paid. */
+	private function is_checkout_endpoint( string $endpoint ): bool {
+		return (bool) preg_match( '#^/checkout(?:/\d+)?/?$#', $endpoint );
+	}
+
+	/**
+	 * What changed in this request, as the contact should show it — and nothing
+	 * else, so data the contact gathered elsewhere (forms, imports, the
+	 * merchant's edits) stays. The address is the billing one, where the
+	 * customer lives and pays; the shipping one only when there is no billing
+	 * address, and it goes as a whole, since its parts only make sense
+	 * together. A field is cleared on the contact only when the customer
+	 * emptied it in this request — and never the name, which a contact keeps.
+	 *
+	 * @param array<string,mixed> $old     Values before the request.
+	 * @param array<string,true>  $changed The watched keys that changed.
+	 */
+	private function sync_profile( \WP_User $user, array $old, array $changed ): void {
+		$user_id = $user->ID;
+		$meta    = fn( string $key ): string => $this->scalar( get_user_meta( $user_id, $key, true ) );
+		$emptied = fn( string $key ): bool => isset( $changed[ $key ] ) && '' === $meta( $key ) && '' !== $this->scalar( $old[ $key ] ?? '' );
+		$columns = array();
+
+		foreach ( array( 'first_name', 'last_name' ) as $name ) {
+			// The billing name stands in only while the account has none. With
+			// the account name set, a checkout's billing name is not the
+			// contact's name, and must not resend it over whatever the contact holds.
+			if ( isset( $changed[ $name ] ) || ( isset( $changed[ 'billing_' . $name ] ) && '' === $meta( $name ) ) ) {
+				$value = $meta( $name ) ?: $meta( 'billing_' . $name );
+
+				if ( '' !== $value ) {
+					$columns[ $name ] = $value;
+				}
+			}
+		}
+
+		// The billing phone when it changed, emptied included: a customer who
+		// just erased it must not find the shipping phone put in its place.
+		if ( isset( $changed['billing_phone'] ) ) {
+			$columns['phone'] = $meta( 'billing_phone' );
+		} elseif ( isset( $changed['shipping_phone'] ) && '' === $meta( 'billing_phone' ) ) {
+			$columns['phone'] = $meta( 'shipping_phone' );
+		}
+
+		if ( isset( $changed[ ProfileFields::BIRTHDATE ] ) ) {
+			$birth = $meta( ProfileFields::BIRTHDATE );
+
+			if ( '' === $birth ) {
+				$columns['date_of_birth'] = null;
+			} elseif ( preg_match( '/^\d{4}-\d{2}-\d{2}$/', $birth ) ) {
+				$columns['date_of_birth'] = $birth;
+			}
+		}
+
+		$parts = array(
+			'address_1' => 'address_line_1',
+			'address_2' => 'address_line_2',
+			'city'      => 'city',
+			'state'     => 'state',
+			'postcode'  => 'postal_code',
+			'country'   => 'country',
 		);
 
-		$this->append_other_addresses( $user, $type );
+		$type    = '' !== $meta( 'billing_address_1' ) ? 'billing' : 'shipping';
+		$touched = static fn( string $prefix ): bool => (bool) array_intersect_key(
+			$changed,
+			array_flip( array_map( static fn( string $part ): string => $prefix . '_' . $part, array_keys( $parts ) ) )
+		);
+
+		// Which address the contact showed before this request. When that switches
+		// (a first billing address over the shipping one, or billing emptied back
+		// to shipping), every part comes from the new source, blanks included: a
+		// part the new source never had would otherwise keep the old one's value
+		// and leave the contact with a mixed address.
+		$was_billing = array_key_exists( 'billing_address_1', $old ) ? $this->scalar( $old['billing_address_1'] ) : $meta( 'billing_address_1' );
+		$switched    = ( '' !== $was_billing ? 'billing' : 'shipping' ) !== $type;
+
+		// A change to the shipping address is the contact's business only while
+		// the shipping address is the one it shows.
+		if ( $switched || $touched( 'billing' ) || ( 'shipping' === $type && $touched( 'shipping' ) ) ) {
+			foreach ( $parts as $part => $column ) {
+				$value = $meta( $type . '_' . $part );
+
+				if ( $switched || '' !== $value || $emptied( 'billing_' . $part ) || ( 'shipping' === $type && $emptied( 'shipping_' . $part ) ) ) {
+					$columns[ $column ] = $value;
+				}
+			}
+		}
+
+		$custom = array();
+
+		if ( isset( $changed[ ProfileFields::CPF ] ) ) {
+			$custom['cpf'] = $meta( ProfileFields::CPF );
+		}
+
+		if ( isset( $changed[ ProfileFields::GENDER ] ) ) {
+			$gender           = $meta( ProfileFields::GENDER );
+			$custom['genero'] = '' !== $gender ? ProfileFields::gender_label( $gender ) : '';
+		}
+
+		if ( isset( $changed[ ProfileFields::SOCIAL_NAME ] ) ) {
+			$custom['nome_social'] = $meta( ProfileFields::SOCIAL_NAME );
+		}
+
+		if ( $custom ) {
+			FluentCRMApi::ensure_custom_fields( array_values( array_filter( self::CUSTOM_FIELDS, static fn( array $field ): bool => isset( $custom[ $field['slug'] ] ) ) ) );
+		}
+
+		if ( $columns || $custom ) {
+			FluentCRMApi::update_contact( (string) $user->user_email, $columns, $custom, $user_id );
+		}
+
+		if ( isset( $changed[ AddressBook::META_KEY ] ) || $touched( 'billing' ) || $touched( 'shipping' ) ) {
+			$this->append_other_addresses( $user, $type );
+		}
 	}
 
 	/**
@@ -589,9 +985,12 @@ final class Module implements ModuleContract, ProvidesSettings {
 	 * removed from it: a record of every place the customer has kept, dated the
 	 * day it was first seen. The contact's main address is left out while it is
 	 * the main one, and joins the list the day it stops being it.
+	 *
+	 * Only with the Address Book module on: reading the book creates it, and a
+	 * store that turned the module off has not asked for one.
 	 */
 	private function append_other_addresses( \WP_User $user, string $main_type ): void {
-		if ( ! class_exists( '\Galaxie\Woo\Support\AddressBook' ) ) {
+		if ( ! Plugin::instance()->modules()->is_enabled_by_id( 'address-book' ) ) {
 			return;
 		}
 
@@ -603,34 +1002,54 @@ final class Module implements ModuleContract, ProvidesSettings {
 
 		$lines = array();
 
-		foreach ( \Galaxie\Woo\Support\AddressBook::for_js( $user->ID ) as $entry ) {
+		foreach ( AddressBook::for_js( $user->ID ) as $entry ) {
 			if ( ! empty( $entry[ $main_type ] ) ) {
 				continue;
 			}
 
-			$text = $this->address_line( array_merge( (array) $entry['values'], array( 'label' => (string) $entry['label'] ) ) );
+			$values = (array) $entry['values'];
+			$place  = $this->address_text( $values );
 
-			if ( '' !== $text ) {
-				/* translators: 1: the address, 2: the date it was recorded. */
-				$lines[ $text ] = sprintf( __( '%1$s (registrado em %2$s)', 'galaxie-woo' ), $text, wp_date( 'd/m/Y' ) );
+			if ( '' === $place ) {
+				continue;
 			}
+
+			// Keyed on the place alone: the same address under a new label or
+			// with a new phone is not a new place, and is not appended again.
+			/* translators: 1: the address, 2: the date it was recorded. */
+			$lines[ $place ] = sprintf( __( '%1$s (registrado em %2$s)', 'galaxie-woo' ), $this->address_line( array_merge( $values, array( 'label' => (string) $entry['label'] ) ) ), wp_date( 'd/m/Y' ) );
 		}
 
-		FluentCRMApi::append_to_custom_field( $user->user_email, $slug, $lines );
+		FluentCRMApi::append_to_custom_field( (string) $user->user_email, $slug, $lines, $user->ID );
 	}
 
 	/**
-	 * One address book entry on one line: its label, the address as WooCommerce
-	 * formats it for the country, and its phone.
+	 * The address alone, as WooCommerce formats it for the country, on one line
+	 * of plain text.
+	 *
+	 * AddressBook::format() escapes each value, so what a shopper typed is
+	 * entity-encoded in it. Decoded first and stripped after: the other way
+	 * round, an `&lt;img …&gt;` typed into a field would come out as real markup.
+	 *
+	 * @param array<string,mixed> $entry
+	 */
+	private function address_text( array $entry ): string {
+		$html = (string) preg_replace( '#<br\s*/?>#i', ', ', AddressBook::format( $entry ) );
+
+		return trim( wp_strip_all_tags( html_entity_decode( $html, ENT_QUOTES, 'UTF-8' ) ) );
+	}
+
+	/**
+	 * One address book entry on one line: its label, the address, and its phone.
 	 *
 	 * @param array<string,mixed> $entry
 	 */
 	private function address_line( array $entry ): string {
-		$address = html_entity_decode( wp_strip_all_tags( (string) preg_replace( '#<br\s*/?>#i', ', ', \Galaxie\Woo\Support\AddressBook::format( $entry ) ) ), ENT_QUOTES );
+		$address = $this->address_text( $entry );
 		$phone   = trim( (string) ( $entry['phone'] ?? '' ) );
 		$label   = trim( (string) ( $entry['label'] ?? '' ) );
 
-		if ( '' === trim( $address ) ) {
+		if ( '' === $address ) {
 			return '';
 		}
 
@@ -839,6 +1258,12 @@ final class Module implements ModuleContract, ProvidesSettings {
 			?>
 			<button type="button" class="button" id="gxf-interests-sync"><?php esc_html_e( 'Import and update from FluentCRM', 'galaxie-woo' ); ?></button>
 			<input type="hidden" id="gxf-interests-sync-input" name="fields[interests_sync]" value="" />
+			<?php
+			// Says the builder was drawn. An empty list posts no rows at all, so
+			// without it a save with the builder missing (FluentCRM inactive or
+			// unreadable) would look like every interest removed.
+			?>
+			<input type="hidden" name="fields[interests_present]" value="1" />
 		</p>
 
 		<template id="gxf-interest-row-template">
@@ -1063,8 +1488,28 @@ final class Module implements ModuleContract, ProvidesSettings {
 		$sanitized = Field::sanitize_all( $this->settings_fields(), $submitted );
 
 		foreach ( self::SCALAR_KEYS as $key ) {
-			$raw               = $submitted[ $key ] ?? '';
+			// Absent is not "— none —": the selects are not drawn at all when
+			// FluentCRM is inactive or unreadable, and saving the tab then must not
+			// wipe the mapping.
+			if ( ! array_key_exists( $key, $submitted ) ) {
+				if ( array_key_exists( $key, $current ) ) {
+					$sanitized[ $key ] = $current[ $key ];
+				}
+				continue;
+			}
+
+			$raw               = $submitted[ $key ];
 			$sanitized[ $key ] = '' === $raw ? '' : absint( $raw );
+		}
+
+		// Same for the interests builder, which says it was drawn: without it,
+		// keep the list and push nothing into FluentCRM.
+		if ( empty( $submitted['interests_present'] ) ) {
+			if ( array_key_exists( 'interest_options', $current ) ) {
+				$sanitized['interest_options'] = $current['interest_options'];
+			}
+
+			return $sanitized;
 		}
 
 		$rows     = $this->sanitize_interests( (array) ( $submitted['interests'] ?? array() ) );
