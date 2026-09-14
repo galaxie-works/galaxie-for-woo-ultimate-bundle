@@ -1959,11 +1959,19 @@ address.galaxie-order-body {
    scoped selectors outrank this. `border-style` rather than a width, because
    pixfort's width carries `!important`. */
 .galaxie-account-addresses address.galaxie-address-body,
-.galaxie-address-book address.galaxie-ab-address {
+.galaxie-address-book address.galaxie-ab-address,
+.galaxie-account-order address.galaxie-ab-address,
+.galaxie-account-order address.galaxie-order-body {
   background: transparent;
   border-style: none;
   border-radius: 0;
   padding: 0;
+}
+
+/* An order's address card drawn in the address book's look: that look decides
+   its border, not the order page's default hairline. */
+.galaxie-account-order .galaxie-order-section.galaxie-ab-card {
+  border-width: 0;
 }
 
 .galaxie-address-card-actions {

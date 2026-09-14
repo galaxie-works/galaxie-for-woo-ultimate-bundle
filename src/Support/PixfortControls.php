@@ -418,6 +418,70 @@ final class PixfortControls {
 	}
 
 	/**
+	 * The rules a {@see surface()} writes through selectors — background,
+	 * custom radius, padding and border — for a box drawn with settings saved on
+	 * another widget. Radius and shadow classes come from surface_classes().
+	 *
+	 * @param array<string,mixed> $settings
+	 */
+	public static function surface_css( array $settings, string $prefix, string $selector ): string {
+		$slug   = static fn( $value ): string => is_string( $value ) ? sanitize_key( $value ) : '';
+		$custom = static fn( $value ): string => is_string( $value ) && preg_match( '/^[#a-zA-Z0-9(),.%\s-]+$/', $value ) ? trim( $value ) : '';
+		$number = static fn( $value ): string => is_numeric( $value ) ? (string) (float) $value : '';
+		$sides  = static function ( $value ) use ( $number ): string {
+			if ( ! is_array( $value ) ) {
+				return '';
+			}
+
+			$unit = in_array( $value['unit'] ?? 'px', array( 'px', 'rem', 'em', '%' ), true ) ? (string) ( $value['unit'] ?? 'px' ) : 'px';
+			$out  = array();
+
+			foreach ( array( 'top', 'right', 'bottom', 'left' ) as $side ) {
+				$out[] = ( '' !== $number( $value[ $side ] ?? '' ) ? $number( $value[ $side ] ) : '0' ) . $unit;
+			}
+
+			return '' !== implode( '', array_map( static fn( $side ) => (string) ( $value[ $side ] ?? '' ), array( 'top', 'right', 'bottom', 'left' ) ) ) ? implode( ' ', $out ) : '';
+		};
+
+		$rules = array();
+
+		$bg = $slug( $settings[ $prefix . '_bg' ] ?? '' );
+
+		if ( 'custom' === $bg ) {
+			$colour = $custom( $settings[ $prefix . '_bg_custom' ] ?? '' );
+			if ( '' !== $colour ) {
+				$rules[] = 'background-color: ' . $colour . ' !important;';
+			}
+		} elseif ( 0 === strpos( $bg, 'gradient-' ) ) {
+			$rules[] = 'background-image: var(--pix-' . $bg . ') !important;';
+		} elseif ( '' !== $bg ) {
+			$rules[] = 'background-color: var(--pix-' . $bg . ') !important;';
+		}
+
+		$radius = $settings[ $prefix . '_radius' ] ?? null;
+
+		if ( 'custom' === ( $settings[ $prefix . '_rounded' ] ?? '' ) && is_array( $radius ) && '' !== $number( $radius['size'] ?? '' ) ) {
+			$rules[] = 'border-radius: ' . $number( $radius['size'] ) . 'px;';
+		}
+
+		$padding = $sides( $settings[ $prefix . '_padding' ] ?? null );
+
+		if ( '' !== $padding ) {
+			$rules[] = 'padding: ' . $padding . ';';
+		}
+
+		$border = $slug( $settings[ $prefix . '_border_color' ] ?? '' );
+		$colour = 'custom' === $border ? $custom( $settings[ $prefix . '_border_color_custom' ] ?? '' ) : ( '' !== $border ? 'var(--pix-' . $border . ')' : '' );
+
+		if ( '' !== $colour ) {
+			$width   = $sides( $settings[ $prefix . '_border_width' ] ?? null );
+			$rules[] = 'border-color: ' . $colour . ' !important; border-style: solid; border-width: ' . ( '' !== $width ? $width : '1px' ) . ';';
+		}
+
+		return $rules ? $selector . '{' . implode( ' ', $rules ) . '}' : '';
+	}
+
+	/**
 	 * The one button a prefix configures. With the whole widget as the scope
 	 * that takes its own class; a narrower scope already names one button and
 	 * keeps the `.btn` inside it, for buttons drawn by someone else's markup.

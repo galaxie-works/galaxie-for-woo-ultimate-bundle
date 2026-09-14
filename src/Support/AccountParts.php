@@ -1030,21 +1030,27 @@ final class AccountParts {
 		return $labels[ $status ] ?? wc_get_order_status_name( $status );
 	}
 
-	/** Where the orders list's status look is kept for the order page to follow. */
-	private const STATUS_LOOK_OPTION = 'galaxie_woo_orders_look_v2';
-
 	/**
-	 * What the order page takes from the orders list: the status badges and
-	 * the Pay, Cancel and plugin action buttons — the parts both screens show.
+	 * Looks the order page follows instead of being styled again: widget it is
+	 * taken from, option it is kept in, setting prefixes it is made of.
+	 *
+	 * - orders: the status badges and the Pay, Cancel and plugin action buttons
+	 *   of Galaxie Account Orders — the parts both screens show.
+	 * - addresses: the card, address box and texts of Galaxie Account Address
+	 *   Book, for the order's billing and shipping cards.
 	 */
-	public const LOOK_PREFIXES = array( 'status_', 'orders_pay_', 'orders_cancel_', 'orders_action_' );
+	private const LOOKS = array(
+		'orders'    => array( 'galaxie-account-orders', 'galaxie_woo_orders_look_v2', array( 'status_', 'orders_pay_', 'orders_cancel_', 'orders_action_' ) ),
+		'addresses' => array( 'galaxie-account-address-book', 'galaxie_woo_addresses_look', array( 'ab_card_', 'ab_box_', 'ab_address_text_', 'ab_label_text_' ) ),
+	);
 
-	private static function is_look_key( string $key ): bool {
+	/** @param array<int,string> $prefixes */
+	private static function is_look_key( string $key, array $prefixes ): bool {
 		if ( 'status_inherit' === $key ) {
 			return false;
 		}
 
-		foreach ( self::LOOK_PREFIXES as $prefix ) {
+		foreach ( $prefixes as $prefix ) {
 			if ( 0 === strpos( $key, $prefix ) ) {
 				return true;
 			}
@@ -1119,8 +1125,8 @@ final class AccountParts {
 	}
 
 	/**
-	 * Keeps the status look of the Galaxie Account Orders widget in a saved
-	 * document, so the order page can follow it without being styled again.
+	 * Keeps the looks of the widgets the order page follows (see LOOKS) when a
+	 * document holding them is saved, so that page is not styled again.
 	 *
 	 * Taken on save, not on display: the dashboard can draw its own unstyled
 	 * Orders widget, and a display would overwrite the merchant's colours with
@@ -1128,27 +1134,32 @@ final class AccountParts {
 	 *
 	 * @param mixed $document An Elementor document.
 	 */
-	public static function sync_status_look( $document ): void {
+	public static function sync_looks( $document ): void {
 		if ( ! is_object( $document ) || ! method_exists( $document, 'get_elements_data' ) ) {
 			return;
 		}
 
-		$look = self::status_look_in( (array) $document->get_elements_data() );
+		$elements = (array) $document->get_elements_data();
 
-		if ( null !== $look ) {
-			update_option( self::STATUS_LOOK_OPTION, $look, false );
+		foreach ( self::LOOKS as $look_def ) {
+			$look = self::look_in( $elements, $look_def[0], $look_def[2] );
+
+			if ( null !== $look ) {
+				update_option( $look_def[1], $look, false );
+			}
 		}
 	}
 
 	/**
-	 * The status settings of the first styled Orders widget among these
-	 * elements; an empty array when every Orders widget is left at its defaults;
-	 * null when there is none.
+	 * The look of the first styled widget of this type among these elements; an
+	 * empty array when every such widget is left at its defaults; null when
+	 * there is none.
 	 *
-	 * @param array<int,mixed> $elements
+	 * @param array<int,mixed>  $elements
+	 * @param array<int,string> $prefixes
 	 * @return array<string,mixed>|null
 	 */
-	private static function status_look_in( array $elements ): ?array {
+	private static function look_in( array $elements, string $widget, array $prefixes ): ?array {
 		$found = null;
 
 		foreach ( $elements as $element ) {
@@ -1156,10 +1167,10 @@ final class AccountParts {
 				continue;
 			}
 
-			if ( 'galaxie-account-orders' === ( $element['widgetType'] ?? '' ) ) {
+			if ( $widget === ( $element['widgetType'] ?? '' ) ) {
 				$only_look = static fn( array $settings ): array => array_filter(
 					$settings,
-					static fn( $value, $key ): bool => self::is_look_key( (string) $key ),
+					static fn( $value, $key ): bool => self::is_look_key( (string) $key, $prefixes ),
 					ARRAY_FILTER_USE_BOTH
 				);
 
@@ -1174,7 +1185,7 @@ final class AccountParts {
 				$found = array();
 			}
 
-			$inner = self::status_look_in( (array) ( $element['elements'] ?? array() ) );
+			$inner = self::look_in( (array) ( $element['elements'] ?? array() ), $widget, $prefixes );
 
 			if ( $inner ) {
 				return $inner;
@@ -1187,14 +1198,20 @@ final class AccountParts {
 	}
 
 	/**
-	 * The look kept by {@see sync_status_look()}. The first time it is asked for
-	 * — before any Orders widget was saved with this in place — it is read from
-	 * the Orders widgets already on the site, newest first.
+	 * A look kept by {@see sync_looks()}: 'orders' or 'addresses'. The first
+	 * time it is asked for — before its widget was saved with this in place — it
+	 * is read from the widgets already on the site, newest first.
 	 *
 	 * @return array<string,mixed>
 	 */
-	public static function orders_look(): array {
-		$look = get_option( self::STATUS_LOOK_OPTION, null );
+	public static function look( string $name ): array {
+		if ( ! isset( self::LOOKS[ $name ] ) ) {
+			return array();
+		}
+
+		[ $widget, $option, $prefixes ] = self::LOOKS[ $name ];
+
+		$look = get_option( $option, null );
 
 		if ( is_array( $look ) ) {
 			return $look;
@@ -1203,16 +1220,19 @@ final class AccountParts {
 		global $wpdb;
 
 		$ids = $wpdb->get_col( // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- one-off lookup, cached in the option below.
-			"SELECT p.ID FROM {$wpdb->posts} p INNER JOIN {$wpdb->postmeta} m ON m.post_id = p.ID
-			WHERE m.meta_key = '_elementor_data' AND m.meta_value LIKE '%galaxie-account-orders%'
-			AND p.post_status IN ('publish','private') ORDER BY p.post_modified DESC LIMIT 20"
+			$wpdb->prepare(
+				"SELECT p.ID FROM {$wpdb->posts} p INNER JOIN {$wpdb->postmeta} m ON m.post_id = p.ID
+				WHERE m.meta_key = '_elementor_data' AND m.meta_value LIKE %s
+				AND p.post_status IN ('publish','private') ORDER BY p.post_modified DESC LIMIT 20",
+				'%' . $wpdb->esc_like( '"widgetType":"' . $widget . '"' ) . '%'
+			)
 		);
 
 		$look = array();
 
 		foreach ( (array) $ids as $id ) {
 			$data  = json_decode( (string) get_post_meta( (int) $id, '_elementor_data', true ), true );
-			$found = is_array( $data ) ? self::status_look_in( $data ) : null;
+			$found = is_array( $data ) ? self::look_in( $data, $widget, $prefixes ) : null;
 
 			if ( $found ) {
 				$look = $found;
@@ -1220,9 +1240,14 @@ final class AccountParts {
 			}
 		}
 
-		update_option( self::STATUS_LOOK_OPTION, $look, false );
+		update_option( $option, $look, false );
 
 		return $look;
+	}
+
+	/** @return array<string,mixed> The orders list's look, see LOOKS. */
+	public static function orders_look(): array {
+		return self::look( 'orders' );
 	}
 
 	/** @param array<string,mixed> $settings */

@@ -61,8 +61,9 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 
 		\Galaxie\Woo\Support\StripeCards::hooks();
 
-		// The order page's status badges follow the orders list's.
-		add_action( 'elementor/document/after_save', array( \Galaxie\Woo\Support\AccountParts::class, 'sync_status_look' ) );
+		// The order page follows the orders list's badges and buttons, and the
+		// address book's cards.
+		add_action( 'elementor/document/after_save', array( \Galaxie\Woo\Support\AccountParts::class, 'sync_looks' ) );
 	}
 
 	public function boot_data(): array {

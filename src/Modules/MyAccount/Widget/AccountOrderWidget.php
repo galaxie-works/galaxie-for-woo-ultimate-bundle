@@ -82,6 +82,18 @@ final class AccountOrderWidget extends Widget_Base {
 			$first = false;
 		}
 
+		$this->add_control(
+			'order_addresses_inherit',
+			array(
+				'label'        => __( 'Addresses look like Galaxie Account Address Book', 'galaxie-woo' ),
+				'description'  => __( 'The billing and shipping cards take the card, address box and text styles saved on the address book widget. Turn off to style them with this widget\'s Cards and text sections.', 'galaxie-woo' ),
+				'type'         => Controls_Manager::SWITCHER,
+				'return_value' => 'yes',
+				'default'      => 'yes',
+				'condition'    => array( 'order_show_addresses' => 'yes' ),
+			)
+		);
+
 		$labels = array(
 			'order_items_heading'    => array( __( 'Items heading', 'galaxie-woo' ), __( 'Itens', 'galaxie-woo' ) ),
 			'order_totals_heading'   => array( __( 'Totals heading', 'galaxie-woo' ), __( 'Resumo', 'galaxie-woo' ) ),
@@ -112,6 +124,20 @@ final class AccountOrderWidget extends Widget_Base {
 
 		$this->start_controls_section( 'order_back_button_section', array( 'label' => __( 'Back button', 'galaxie-woo' ) ) );
 		PixfortControls::button( $this, 'order_back', array( 'text' => __( 'Voltar para pedidos', 'galaxie-woo' ), 'style' => 'link', 'size' => 'sm', 'icon' => 'Line/pixfort-icon-arrow-left-1' ) );
+
+		$this->add_responsive_control(
+			'order_back_space',
+			array(
+				'label'       => __( 'Space below', 'galaxie-woo' ),
+				'description' => __( 'Between this button and the order title. Added to the header\'s usual spacing.', 'galaxie-woo' ),
+				'type'        => Controls_Manager::SLIDER,
+				'size_units'  => array( 'px' ),
+				'range'       => array( 'px' => array( 'min' => 0, 'max' => 80 ) ),
+				'separator'   => 'before',
+				'selectors'   => array( '{{WRAPPER}} .galaxie-order-back' => 'margin-bottom: {{SIZE}}{{UNIT}};' ),
+			)
+		);
+
 		$this->end_controls_section();
 
 		AccountParts::register_status_controls( $this, true );
@@ -196,6 +222,26 @@ final class AccountOrderWidget extends Widget_Base {
 			esc_attr( PixfortControls::surface_classes( $s, 'order_card' ) ),
 			'' !== $heading ? '<div class="galaxie-order-section-heading">' . PixfortControls::render_text( $s, 'order_heading', esc_html( $heading ) ) . '</div>' : '',
 			$body
+		);
+	}
+
+	/**
+	 * An address card in the address book's markup and saved look: its card,
+	 * its nickname style for the heading, its address box and text.
+	 *
+	 * @param array<string,mixed> $s
+	 * @param array<string,mixed> $book The address book widget's settings.
+	 */
+	private function address_card( array $s, array $book, string $heading_id, string $html, string $class ): string {
+		$heading = trim( (string) ( $s[ $heading_id ] ?? '' ) );
+
+		return sprintf(
+			'<section class="galaxie-order-section galaxie-ab-card card %1$s %2$s">%3$s<address class="galaxie-ab-address %4$s">%5$s</address></section>',
+			esc_attr( $class ),
+			esc_attr( PixfortControls::surface_classes( $book, 'ab_card' ) ),
+			'' !== $heading ? '<header class="galaxie-ab-card-head"><span class="galaxie-ab-label ' . esc_attr( PixfortControls::text_classes( $book, 'ab_label_text' ) ) . '">' . esc_html( $heading ) . '</span></header>' : '',
+			esc_attr( trim( PixfortControls::text_classes( $book, 'ab_address_text' ) . ' ' . PixfortControls::surface_classes( $book, 'ab_box' ) ) ),
+			$html
 		);
 	}
 
@@ -313,24 +359,37 @@ final class AccountOrderWidget extends Widget_Base {
 
 		// Addresses.
 		if ( 'yes' === ( $s['order_show_addresses'] ?? 'yes' ) ) {
-			$body = static fn( string $html ): string => '<address class="galaxie-order-body ' . esc_attr( PixfortControls::text_classes( $s, 'order_body' ) ) . '">' . $html . '</address>';
-			$grid = '';
-
-			$billing = $order->get_formatted_billing_address();
+			$addresses = array();
+			$billing   = $order->get_formatted_billing_address();
+			$shipping  = $order->needs_shipping_address() ? $order->get_formatted_shipping_address() : '';
 
 			if ( $billing ) {
-				$extra = array_filter( array( esc_html( $order->get_billing_phone() ), esc_html( $order->get_billing_email() ) ) );
-				$grid .= $this->section( $s, 'order_billing_heading', $body( wp_kses_post( $billing ) . ( $extra ? '<br />' . implode( '<br />', $extra ) : '' ) ), 'is-billing' );
+				$extra       = array_filter( array( esc_html( $order->get_billing_phone() ), esc_html( $order->get_billing_email() ) ) );
+				$addresses[] = array( 'order_billing_heading', wp_kses_post( $billing ) . ( $extra ? '<br />' . implode( '<br />', $extra ) : '' ), 'is-billing' );
 			}
 
-			$shipping = $order->needs_shipping_address() ? $order->get_formatted_shipping_address() : '';
-
 			if ( $shipping ) {
-				$grid .= $this->section( $s, 'order_shipping_heading', $body( wp_kses_post( $shipping ) ), 'is-shipping' );
+				$addresses[] = array( 'order_shipping_heading', wp_kses_post( $shipping ), 'is-shipping' );
+			}
+
+			// The address book's look when it has one saved, so an address reads
+			// the same on the order as on the customer's own address cards.
+			$book = 'yes' === ( $s['order_addresses_inherit'] ?? '' ) ? AccountParts::look( 'addresses' ) : array();
+			$grid = '';
+
+			foreach ( $addresses as $address ) {
+				$grid .= $book ? $this->address_card( $s, $book, $address[0], $address[1], $address[2] ) : $this->section( $s, $address[0], '<address class="galaxie-order-body ' . esc_attr( PixfortControls::text_classes( $s, 'order_body' ) ) . '">' . $address[1] . '</address>', $address[2] );
 			}
 
 			if ( '' !== $grid ) {
-				$out .= '<div class="galaxie-order-addresses">' . $grid . '</div>';
+				$css = '';
+
+				if ( $book ) {
+					$scope = '.elementor-element.elementor-element-' . $this->get_id() . ' .galaxie-order-addresses';
+					$css   = PixfortControls::surface_css( $book, 'ab_card', $scope . ' .galaxie-ab-card' ) . PixfortControls::surface_css( $book, 'ab_box', $scope . ' address.galaxie-ab-address' );
+				}
+
+				$out .= ( '' !== $css ? '<style>' . $css . '</style>' : '' ) . '<div class="galaxie-order-addresses">' . $grid . '</div>';
 			}
 		}
 
