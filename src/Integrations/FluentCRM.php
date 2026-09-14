@@ -22,6 +22,12 @@ defined( 'ABSPATH' ) || exit;
  */
 final class FluentCRM {
 
+	/** @var array<string,true> Custom field slugs already checked in this request. */
+	private static array $ensured_fields = array();
+
+	/** @var array<string,string|null> find_custom_field() answers, per request. */
+	private static array $found_fields = array();
+
 	public static function is_active(): bool {
 		return function_exists( 'FluentCrmApi' );
 	}
@@ -90,31 +96,82 @@ final class FluentCRM {
 	 *
 	 * Written through the model rather than `createOrUpdate()`, which drops empty
 	 * values — so a phone or an address the customer erased would stay behind in
-	 * FluentCRM for ever.
+	 * FluentCRM for ever. Only what the caller passes is touched, so the caller
+	 * decides what changed; a column already holding the value is left out, so
+	 * an unchanged date of birth does not make the contact dirty.
 	 *
 	 * @param array<string,string|null> $columns Contact columns; '' (or null for dates) clears one.
 	 * @param array<string,string>      $custom  Custom field slug => value; '' clears one.
+	 * @param int                       $user_id The account behind the contact, found by it first.
 	 */
-	public static function update_contact( string $email, array $columns, array $custom = array() ): bool {
-		if ( ! self::is_active() || '' === $email ) {
+	public static function update_contact( string $email, array $columns, array $custom = array(), int $user_id = 0 ): bool {
+		if ( ! self::is_active() || ( '' === $email && $user_id <= 0 ) ) {
 			return false;
 		}
 		try {
-			$contact = \FluentCrmApi( 'contacts' )->getContact( $email );
+			$contact = self::find_contact( $email, $user_id );
 			if ( ! $contact ) {
 				return false;
 			}
 
-			$contact->fill( $columns );
-			$dirty = $contact->getDirty();
+			foreach ( $columns as $column => $value ) {
+				if ( self::column_value( $column, $contact->{$column} ?? null ) === self::column_value( $column, $value ) ) {
+					unset( $columns[ $column ] );
+				}
+			}
+
+			$dirty = array();
+
+			if ( $columns ) {
+				$contact->fill( $columns );
+				$dirty = $contact->getDirty();
+
+				if ( $dirty ) {
+					$contact->save();
+				}
+			}
+
+			// FluentCRM only deletes a custom value sent as '' when told to, so the
+			// flag is raised only when a value is being cleared.
+			$clears  = in_array( '', array_map( 'strval', $custom ), true );
+			$changed = $custom ? (array) $contact->syncCustomFieldValues( $custom, $clears ) : array();
+
+			if ( $dirty || $changed ) {
+				do_action( 'fluent_crm/contact_updated', $contact, $dirty );
+			}
+
+			return true;
+		} catch ( \Throwable $e ) {
+			return false;
+		}
+	}
+
+	/**
+	 * Moves the contact of an account whose e-mail changed to the new address,
+	 * so later syncs, notes and tags still find it. Left alone when a contact
+	 * already has the new address: merging two contacts is the merchant's call.
+	 */
+	public static function change_contact_email( int $user_id, string $old_email, string $new_email ): bool {
+		if ( ! self::is_active() || '' === $new_email || 0 === strcasecmp( $old_email, $new_email ) ) {
+			return false;
+		}
+		try {
+			$api = \FluentCrmApi( 'contacts' );
+
+			if ( $api->getContact( $new_email ) ) {
+				return false;
+			}
+
+			$contact = self::find_contact( $old_email, $user_id );
+			if ( ! $contact ) {
+				return false;
+			}
+
+			$contact->email = $new_email;
+			$dirty          = $contact->getDirty();
 
 			if ( $dirty ) {
 				$contact->save();
-			}
-
-			$changed = $custom ? (array) $contact->syncCustomFieldValues( $custom, true ) : array();
-
-			if ( $dirty || $changed ) {
 				do_action( 'fluent_crm/contact_updated', $contact, $dirty );
 			}
 
@@ -129,13 +186,15 @@ final class FluentCRM {
 	 * signed-in user. Nothing when there is no contact to write it on.
 	 *
 	 * @param string $description HTML, already escaped by the caller.
+	 * @param int    $user_id     The account behind the contact, found by it first.
+	 * @param string $alt_email   Another address to try — the old one, when the e-mail just changed.
 	 */
-	public static function add_note( string $email, string $title, string $description ): bool {
-		if ( ! self::is_active() || '' === $email || ! class_exists( '\FluentCrm\App\Models\SubscriberNote' ) ) {
+	public static function add_note( string $email, string $title, string $description, int $user_id = 0, string $alt_email = '' ): bool {
+		if ( ! self::is_active() || ! class_exists( '\FluentCrm\App\Models\SubscriberNote' ) ) {
 			return false;
 		}
 		try {
-			$contact = \FluentCrmApi( 'contacts' )->getContact( $email );
+			$contact = self::find_contact( $email, $user_id, $alt_email );
 			if ( ! $contact ) {
 				return false;
 			}
@@ -158,31 +217,48 @@ final class FluentCRM {
 	/**
 	 * The slug of a custom contact field, found by slug first and by its label
 	 * when the slug is not there — a field the merchant created by hand keeps
-	 * working if they rename its slug. Null when neither matches.
+	 * working if they rename its slug. Null when neither matches. Remembered for
+	 * the request: the global fields are one option read each time otherwise.
 	 */
 	public static function find_custom_field( string $slug, string $label ): ?string {
+		$cache_key = $slug . '|' . $label;
+
+		if ( array_key_exists( $cache_key, self::$found_fields ) ) {
+			return self::$found_fields[ $cache_key ];
+		}
+
 		if ( ! class_exists( '\FluentCrm\App\Models\CustomContactField' ) ) {
 			return null;
 		}
+
+		$found = null;
+
 		try {
 			$fields = (array) ( ( new \FluentCrm\App\Models\CustomContactField() )->getGlobalFields()['fields'] ?? array() );
 
 			foreach ( $fields as $field ) {
 				if ( (string) ( $field['slug'] ?? '' ) === $slug ) {
-					return $slug;
+					$found = $slug;
+					break;
 				}
 			}
 
-			foreach ( $fields as $field ) {
-				if ( 0 === strcasecmp( trim( (string) ( $field['label'] ?? '' ) ), trim( $label ) ) ) {
-					return (string) $field['slug'];
+			if ( null === $found ) {
+				foreach ( $fields as $field ) {
+					if ( 0 === strcasecmp( trim( (string) ( $field['label'] ?? '' ) ), trim( $label ) ) ) {
+						$found = (string) $field['slug'];
+						break;
+					}
 				}
 			}
 		} catch ( \Throwable $e ) {
+			// Not remembered: a read that failed may succeed later in the request.
 			return null;
 		}
 
-		return null;
+		self::$found_fields[ $cache_key ] = $found;
+
+		return $found;
 	}
 
 	/**
@@ -191,12 +267,12 @@ final class FluentCRM {
 	 *
 	 * @param array<string,string> $lines Key to look for => line to add.
 	 */
-	public static function append_to_custom_field( string $email, string $slug, array $lines ): bool {
-		if ( ! self::is_active() || '' === $email || '' === $slug || ! $lines ) {
+	public static function append_to_custom_field( string $email, string $slug, array $lines, int $user_id = 0 ): bool {
+		if ( ! self::is_active() || '' === $slug || ! $lines ) {
 			return false;
 		}
 		try {
-			$contact = \FluentCrmApi( 'contacts' )->getContact( $email );
+			$contact = self::find_contact( $email, $user_id );
 			if ( ! $contact ) {
 				return false;
 			}
@@ -224,12 +300,16 @@ final class FluentCRM {
 
 	/**
 	 * Adds the custom contact fields that are missing, leaving every field the
-	 * store already has — and its values — as it is.
+	 * store already has — and its values — as it is. Checked once per request:
+	 * the caller runs it just before writing a custom value, which can happen
+	 * for several users in one request.
 	 *
 	 * @param array<int,array{slug:string,label:string,type:string}> $fields
 	 */
 	public static function ensure_custom_fields( array $fields ): void {
-		if ( ! class_exists( '\FluentCrm\App\Models\CustomContactField' ) ) {
+		$fields = array_values( array_filter( $fields, static fn( array $field ): bool => ! isset( self::$ensured_fields[ $field['slug'] ] ) ) );
+
+		if ( ! $fields || ! class_exists( '\FluentCrm\App\Models\CustomContactField' ) ) {
 			return;
 		}
 		try {
@@ -239,6 +319,8 @@ final class FluentCRM {
 			$added    = false;
 
 			foreach ( $fields as $field ) {
+				self::$ensured_fields[ $field['slug'] ] = true;
+
 				if ( in_array( $field['slug'], $slugs, true ) ) {
 					continue;
 				}
@@ -255,10 +337,60 @@ final class FluentCRM {
 
 			if ( $added ) {
 				$model->saveGlobalFields( $existing );
+				self::$found_fields = array();
 			}
 		} catch ( \Throwable $e ) {
 			// Non-fatal: the columns still sync without the custom fields.
 		}
+	}
+
+	/**
+	 * The contact of an account: by the WordPress user first, which survives an
+	 * e-mail change once FluentCRM has linked the two, then by address.
+	 *
+	 * @return object|null FluentCRM Subscriber model.
+	 */
+	private static function find_contact( string $email, int $user_id = 0, string $alt_email = '' ) {
+		$api = \FluentCrmApi( 'contacts' );
+
+		if ( $user_id > 0 && is_callable( array( $api, 'getContactByUserRef' ) ) ) {
+			try {
+				$contact = $api->getContactByUserRef( $user_id );
+				if ( $contact ) {
+					return $contact;
+				}
+			} catch ( \Throwable $e ) {
+				// Older FluentCRM: fall back to the address.
+			}
+		}
+
+		foreach ( array_unique( array( $email, $alt_email ) ) as $address ) {
+			if ( '' !== $address ) {
+				$contact = $api->getContact( $address );
+				if ( $contact ) {
+					return $contact;
+				}
+			}
+		}
+
+		return null;
+	}
+
+	/**
+	 * A column's value as it compares: null, '' and a zero date are all "empty",
+	 * and a date is its day, whether it arrives as a string or a Carbon.
+	 *
+	 * @param mixed $value
+	 */
+	private static function column_value( string $column, $value ): string {
+		$value = null === $value ? '' : trim( (string) $value );
+
+		if ( 'date_of_birth' === $column ) {
+			$value = substr( $value, 0, 10 );
+			return '0000-00-00' === $value ? '' : $value;
+		}
+
+		return $value;
 	}
 
 	/**
