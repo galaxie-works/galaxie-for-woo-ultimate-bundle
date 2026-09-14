@@ -135,7 +135,7 @@ final class AccountWishlistWidget extends Widget_Base {
 		);
 
 		$this->start_controls_section( 'wl_tabs_style', array( 'label' => __( 'Lists: tabs', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
-		PixfortControls::surface( $this, 'wl_tab', '{{WRAPPER}} .galaxie-wishlist-tab', array( 'rounded' => 'rounded-pill' ) );
+		PixfortControls::surface( $this, 'wl_tab', '{{WRAPPER}} .galaxie-wishlist-tab', array( 'rounded' => 'badge-pill', 'radius_set' => 'badge' ) );
 		$this->add_control( 'wl_tab_current_heading', array( 'label' => __( 'Current list', 'galaxie-woo' ), 'type' => Controls_Manager::HEADING, 'separator' => 'before' ) );
 		PixfortControls::palette_control( $this, 'wl_tab_current_bg', __( 'Background', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-wishlist-tab.is-current', 'background-color' );
 		PixfortControls::palette_control( $this, 'wl_tab_current_color', __( 'Text color', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-wishlist-tab.is-current', 'color' );
@@ -151,7 +151,7 @@ final class AccountWishlistWidget extends Widget_Base {
 		);
 
 		$this->start_controls_section( 'wl_list_badge_style', array( 'label' => __( 'List: badges', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
-		PixfortControls::surface( $this, 'wl_list_badge', '{{WRAPPER}} .galaxie-wishlist-list-badge', array( 'rounded' => 'rounded-pill' ) );
+		PixfortControls::surface( $this, 'wl_list_badge', '{{WRAPPER}} .galaxie-wishlist-list-badge', array( 'rounded' => 'badge-pill', 'radius_set' => 'badge' ) );
 		$this->end_controls_section();
 
 		$this->start_controls_section( 'wl_share_style', array( 'label' => __( 'Share panel: box', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
@@ -207,7 +207,7 @@ final class AccountWishlistWidget extends Widget_Base {
 
 		foreach ( array( 'sale' => __( 'Card badge: "on sale"', 'galaxie-woo' ), 'stock' => __( 'Card badge: "out of stock"', 'galaxie-woo' ) ) as $type => $label ) {
 			$this->start_controls_section( 'wl_badge_' . $type . '_style', array( 'label' => $label, 'tab' => Controls_Manager::TAB_STYLE, 'condition' => array( 'wl_show_' . $type => 'yes' ) ) );
-			PixfortControls::surface( $this, 'wl_badge_' . $type, '{{WRAPPER}} .galaxie-wishlist-badge.is-' . $type, array( 'rounded' => 'rounded-pill' ) );
+			PixfortControls::surface( $this, 'wl_badge_' . $type, '{{WRAPPER}} .galaxie-wishlist-badge.is-' . $type, array( 'rounded' => 'badge-pill', 'radius_set' => 'badge' ) );
 			PixfortControls::text( $this, 'wl_badge_' . $type . '_text', array( 'size' => 'text-xs', 'bold' => 'font-weight-bold', 'remove_pb_padding' => 'm-0' ), array(), '{{WRAPPER}} .galaxie-wishlist-badge.is-' . $type, 'text', array( 'position', 'inline' ) );
 			$this->end_controls_section();
 		}

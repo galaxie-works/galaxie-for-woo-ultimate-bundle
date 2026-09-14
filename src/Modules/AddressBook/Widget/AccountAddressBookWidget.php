@@ -118,7 +118,7 @@ final class AccountAddressBookWidget extends Widget_Base {
 		$this->end_controls_section();
 
 		$this->start_controls_section( 'ab_badge_style', array( 'label' => __( 'Card badges: shape (all)', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
-		PixfortControls::surface( $this, 'ab_badge', '{{WRAPPER}} .galaxie-ab-badge', array( 'rounded' => 'rounded-pill' ) );
+		PixfortControls::surface( $this, 'ab_badge', '{{WRAPPER}} .galaxie-ab-badge', array( 'rounded' => 'badge-pill', 'radius_set' => 'badge' ) );
 		$this->end_controls_section();
 
 		AccountParts::add_area_controls( $this, 'ab_add_area', '{{WRAPPER}} .galaxie-ab-toolbar', __( 'Add address button: area and separator', 'galaxie-woo' ) );

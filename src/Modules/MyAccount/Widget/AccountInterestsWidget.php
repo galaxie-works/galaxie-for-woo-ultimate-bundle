@@ -136,7 +136,7 @@ final class AccountInterestsWidget extends Widget_Base {
 
 		$this->start_controls_section( 'interests_pill_style', array( 'label' => __( 'Pills', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
 
-		PixfortControls::surface( $this, 'interests_pill', '{{WRAPPER}} .galaxie-interest', array( 'rounded' => 'rounded-pill' ) );
+		PixfortControls::surface( $this, 'interests_pill', '{{WRAPPER}} .galaxie-interest', array( 'rounded' => 'badge-pill', 'radius_set' => 'badge' ) );
 
 		$this->add_responsive_control(
 			'interests_gap',

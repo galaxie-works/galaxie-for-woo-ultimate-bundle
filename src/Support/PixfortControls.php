@@ -1699,12 +1699,16 @@ final class PixfortControls {
 
 		self::palette_control( $target, $prefix . '_bg', __( 'Background', 'galaxie-woo' ), $selector, 'background-color', $condition );
 
+		// A badge-shaped box (a tag, a tab, a status) gets the badge list, which
+		// is the one with Pill in it; any other box gets the container scale.
+		$radius = 'badge' === $d( 'radius_set', '' )
+			? self::radius_options()
+			: array( '' => __( 'None', 'galaxie-woo' ) ) + self::container_radius_options();
+
 		self::add( $target, $condition, $prefix . '_rounded', array(
 			'label'   => __( 'Rounded corners', 'galaxie-woo' ),
 			'type'    => Controls_Manager::SELECT,
-			'options' => array( '' => __( 'None', 'galaxie-woo' ) )
-				+ self::container_radius_options()
-				+ array( 'custom' => __( 'Custom', 'galaxie-woo' ) ),
+			'options' => $radius + array( 'custom' => __( 'Custom', 'galaxie-woo' ) ),
 			'default' => $d( 'rounded', '' ),
 		) );
 
