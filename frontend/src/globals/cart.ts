@@ -331,8 +331,11 @@ export function bootCart(config?: CartConfig): void {
         // Refused by WooCommerce's cart validation (a pack size, a limit):
         // nothing changed on the server, so the stepper goes back to what the
         // cart holds and the reason is shown the way WooCommerce shows it.
+        // A newer edit to this line, still in its pause or waiting in the
+        // queue, is left alone: it will be sent and answered on its own.
         const input = job.line.querySelector<HTMLInputElement>('input.qty')
-        if (input && typeof json.data.quantity === 'number') input.value = String(json.data.quantity)
+        const newer = timers.has(key) || queued.has(key)
+        if (input && !newer && typeof json.data.quantity === 'number') input.value = String(json.data.quantity)
         if (json.data.message) showError(form, json.data.message)
       }
     } catch {

@@ -627,14 +627,12 @@ final class AccountEndpoints {
 
 		$taken = array_filter( array_map( array( self::class, 'core_slug' ), array_keys( self::CORE ) ) );
 
-		// Our own screens' addresses are taken too: the slug just submitted for
-		// each, else the one already saved, else the default. All three are
-		// reserved whether or not their module is on right now, so switching one
-		// on later cannot land it on a custom screen's path.
-		$saved_endpoints = (array) ( self::settings()['endpoints'] ?? array() );
-
+		// Our own screens' addresses are taken too: the slug this save keeps for
+		// each, else the default. A screen whose module is off is not on the
+		// form, and this save drops its old slug, so what it will use when
+		// switched back on is the default, and that is what gets reserved.
 		foreach ( self::GALAXIE_SLUGS as $galaxie_key => $default_slug ) {
-			$galaxie_slug = $endpoints[ $galaxie_key ]['slug'] ?? sanitize_title( (string) ( $saved_endpoints[ $galaxie_key ]['slug'] ?? '' ) );
+			$galaxie_slug = (string) ( $endpoints[ $galaxie_key ]['slug'] ?? '' );
 			$taken[]      = '' !== $galaxie_slug ? $galaxie_slug : $default_slug;
 		}
 
