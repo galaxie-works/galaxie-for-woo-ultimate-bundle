@@ -249,7 +249,23 @@ final class Module implements ModuleContract, ProvidesSettings {
 			add_action( $hook, array( $this, 'watch_user_meta' ), 10, 3 );
 		}
 
+		add_action( 'wp_loaded', array( $this, 'queue_pending_changes' ) );
 		add_action( 'shutdown', array( $this, 'flush_profile_sync' ) );
+	}
+
+	/**
+	 * A customer who edits their address in the block checkout and leaves
+	 * without ordering has it saved on the account but only set aside for the
+	 * contact (see carry_over()). Their next request of any kind queues them,
+	 * so the flush at its end writes the note and syncs — or, when that request
+	 * is another Store API customer update, just keeps the values set aside.
+	 */
+	public function queue_pending_changes(): void {
+		$user_id = get_current_user_id();
+
+		if ( $user_id > 0 && is_array( get_user_meta( $user_id, self::PENDING_META, true ) ) ) {
+			$this->queue_profile_sync( $user_id );
+		}
 	}
 
 	/**
@@ -490,7 +506,17 @@ final class Module implements ModuleContract, ProvidesSettings {
 			// The note first: it records the account's own before and after,
 			// whatever the contact happened to hold.
 			if ( $this->log_changes && ! isset( $this->registered[ $user->ID ] ) ) {
-				$this->log_profile_changes( $user, $old, $old_email );
+				// Changes that are all set aside from checkout's customer updates
+				// were made at checkout, whatever page flushes them.
+				$own_changes = '' !== $old_email || ! empty( $this->event_log[ $user->ID ] );
+
+				foreach ( $this->old_meta[ $user->ID ] ?? array() as $key => $value ) {
+					if ( ! $own_changes && $this->differs( (string) $key, $value, get_user_meta( $user->ID, (string) $key, true ) ) ) {
+						$own_changes = true;
+					}
+				}
+
+				$this->log_profile_changes( $user, $old, $old_email, $changed && ! $own_changes ? __( 'Checkout', 'galaxie-woo' ) : null );
 			}
 
 			if ( $this->sync_contacts && ! $from_crm && $changed ) {
@@ -571,7 +597,7 @@ final class Module implements ModuleContract, ProvidesSettings {
 	 *
 	 * @param array<string,mixed> $old
 	 */
-	private function log_profile_changes( \WP_User $user, array $old, string $old_email ): void {
+	private function log_profile_changes( \WP_User $user, array $old, string $old_email, ?string $source = null ): void {
 		$lines = array();
 
 		if ( '' !== $old_email ) {
@@ -618,7 +644,7 @@ final class Module implements ModuleContract, ProvidesSettings {
 			esc_html__( 'Data e hora:', 'galaxie-woo' ),
 			esc_html( wp_date( 'd/m/Y H:i:s' ) ),
 			esc_html__( 'Origem:', 'galaxie-woo' ),
-			esc_html( $this->change_source() ),
+			esc_html( $source ?? $this->change_source() ),
 			esc_html__( 'Alterado por:', 'galaxie-woo' ),
 			esc_html( $by ),
 			implode( '</li><li>', $lines )
