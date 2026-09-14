@@ -482,6 +482,9 @@ final class Gifts {
 				$before[ $field ] = is_callable( array( WC()->customer, $getter ) ) ? (string) WC()->customer->{$getter}( 'edit' ) : '';
 			}
 
+			// Whose fields these are: a guest's snapshot is not a logged-in account's address.
+			$before['user'] = get_current_user_id();
+
 			WC()->session->set( self::AREA_BEFORE, $before );
 		}
 
@@ -506,6 +509,20 @@ final class Gifts {
 		}
 
 		WC()->session->set( self::AREA_BEFORE, null );
+
+		// Taken for someone else — a guest who has since logged in, or had an
+		// account made at checkout: the guest session's fields are not this
+		// account's address. After login WooCommerce reads the account and lays
+		// the session's customer data over it, which still holds the gift's
+		// placeholders, so the account's own saved shipping address is put back.
+		// A new account has none (see block_shipping_meta()), and gets blanks.
+		$user = get_current_user_id();
+
+		if ( $user && (int) ( $before['user'] ?? 0 ) !== $user ) {
+			foreach ( self::FIELDS as $field ) {
+				$before[ $field ] = (string) get_user_meta( $user, 'shipping_' . $field, true );
+			}
+		}
 
 		foreach ( $before as $field => $value ) {
 			$setter = 'set_shipping_' . $field;
