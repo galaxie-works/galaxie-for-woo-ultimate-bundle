@@ -89,7 +89,8 @@ final class SharedPage {
 			return get_404_template() ?: $template;
 		}
 
-		nocache_headers();
+		// Drawn differently for its owner and for everyone else.
+		self::no_cache();
 
 		return __DIR__ . '/templates/shared-wishlist.php';
 	}
@@ -158,9 +159,24 @@ final class SharedPage {
 			WC()->session->set_customer_session_cookie( true );
 		}
 
-		// The page says whose gift this is; a cached copy would say it to strangers.
-		nocache_headers();
+		// The page says whose gift this is; a cached copy would say it to strangers
+		// — and, served without PHP, would start no session to remember the gift.
+		self::no_cache();
 
 		WC()->session->set( Gifts::PENDING, array( 'token' => $token, 'product' => $product ) );
+	}
+
+	/**
+	 * Out of every cache. `nocache_headers()` reaches browsers and proxies;
+	 * LiteSpeed caches regardless unless told through its own control.
+	 */
+	private static function no_cache(): void {
+		nocache_headers();
+
+		if ( ! headers_sent() ) {
+			header( 'X-LiteSpeed-Cache-Control: no-cache' );
+		}
+
+		do_action( 'litespeed_control_set_nocache', 'galaxie shared wish list' );
 	}
 }
