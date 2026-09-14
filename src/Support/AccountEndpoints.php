@@ -52,6 +52,13 @@ final class AccountEndpoints {
 		'customer-logout' => 'woocommerce_logout_endpoint',
 	);
 
+	/** Our own screens' default addresses: key => slug. A saved slug overrides it. */
+	private const GALAXIE_SLUGS = array(
+		'galaxie-interests'     => 'interesses',
+		'galaxie-communication' => 'comunicacao',
+		'galaxie-wishlist'      => 'lista-de-desejos',
+	);
+
 	/** Suggested icons for the menu widget's starting list. */
 	public const ICONS = array(
 		'dashboard'       => 'Line/pixfort-icon-dashboard-1',
@@ -124,13 +131,13 @@ final class AccountEndpoints {
 		$fluent = Plugin::instance()->settings()->module_settings( 'fluentcrm' );
 
 		if ( $modules->is_enabled_by_id( 'fluentcrm' ) && \Galaxie\Woo\Integrations\FluentCRM::is_active() && ! empty( $fluent['interests_enabled'] ) && ! empty( $fluent['interest_options'] ) ) {
-			$screens['galaxie-interests'] = array( __( 'Interesses', 'galaxie-woo' ), 'interesses' );
+			$screens['galaxie-interests'] = array( __( 'Interesses', 'galaxie-woo' ), self::GALAXIE_SLUGS['galaxie-interests'] );
 		}
 
-		$screens['galaxie-communication'] = array( __( 'Comunicação', 'galaxie-woo' ), 'comunicacao' );
+		$screens['galaxie-communication'] = array( __( 'Comunicação', 'galaxie-woo' ), self::GALAXIE_SLUGS['galaxie-communication'] );
 
 		if ( $modules->is_enabled_by_id( 'wishlist' ) ) {
-			$screens['galaxie-wishlist'] = array( __( 'Lista de desejos', 'galaxie-woo' ), 'lista-de-desejos' );
+			$screens['galaxie-wishlist'] = array( __( 'Lista de desejos', 'galaxie-woo' ), self::GALAXIE_SLUGS['galaxie-wishlist'] );
 		}
 
 		return $screens;
@@ -618,7 +625,19 @@ final class AccountEndpoints {
 			}
 		}
 
-		$taken  = array_filter( array_map( array( self::class, 'core_slug' ), array_keys( self::CORE ) ) );
+		$taken = array_filter( array_map( array( self::class, 'core_slug' ), array_keys( self::CORE ) ) );
+
+		// Our own screens' addresses are taken too: the slug just submitted for
+		// each, else the one already saved, else the default. All three are
+		// reserved whether or not their module is on right now, so switching one
+		// on later cannot land it on a custom screen's path.
+		$saved_endpoints = (array) ( self::settings()['endpoints'] ?? array() );
+
+		foreach ( self::GALAXIE_SLUGS as $galaxie_key => $default_slug ) {
+			$galaxie_slug = $endpoints[ $galaxie_key ]['slug'] ?? sanitize_title( (string) ( $saved_endpoints[ $galaxie_key ]['slug'] ?? '' ) );
+			$taken[]      = '' !== $galaxie_slug ? $galaxie_slug : $default_slug;
+		}
+
 		$before = wp_list_pluck( self::custom_rows(), 'slug', 'key' );
 		$custom = array();
 
