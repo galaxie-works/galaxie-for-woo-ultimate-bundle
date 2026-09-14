@@ -138,6 +138,20 @@ final class AccountParts {
 			)
 		);
 
+		// An opened order has no menu item of its own — it belongs to Orders — so
+		// the item that lists the orders is where its template is chosen too.
+		$repeater->add_control(
+			'order_template',
+			array(
+				'label'       => __( 'Order details template', 'galaxie-woo' ),
+				'type'        => Controls_Manager::SELECT,
+				'options'     => array( '' => __( 'As set under Galaxie → My Account', 'galaxie-woo' ) ) + AccountEndpoints::templates(),
+				'default'     => '',
+				'description' => __( 'The screen that opens from "View order". Put the Galaxie Account Order widget in it.', 'galaxie-woo' ),
+				'condition'   => array( 'item_type' => 'endpoint', 'endpoint' => 'orders' ),
+			)
+		);
+
 		$defaults = array();
 
 		foreach ( AccountEndpoints::all() as $key => $screen ) {
@@ -494,6 +508,12 @@ final class AccountParts {
 
 			if ( '' !== $key && $template ) {
 				$out[ $key ] = $template;
+			}
+
+			$order_template = absint( $item['order_template'] ?? 0 );
+
+			if ( 'orders' === $key && $order_template ) {
+				$out['view-order'] = $order_template;
 			}
 		}
 
