@@ -301,15 +301,23 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 		$this->check_nonce_and_login();
 		$user_id = get_current_user_id();
 
-		$first_name  = isset( $_POST['first_name'] ) ? sanitize_text_field( wp_unslash( $_POST['first_name'] ) ) : '';
-		$last_name   = isset( $_POST['last_name'] ) ? sanitize_text_field( wp_unslash( $_POST['last_name'] ) ) : '';
-		$social_name = isset( $_POST['social_name'] ) ? sanitize_text_field( wp_unslash( $_POST['social_name'] ) ) : '';
-		$birthdate   = isset( $_POST['birthdate'] ) ? sanitize_text_field( wp_unslash( $_POST['birthdate'] ) ) : '';
-		$cpf         = isset( $_POST['cpf'] ) ? sanitize_text_field( wp_unslash( $_POST['cpf'] ) ) : '';
-		$gender      = isset( $_POST['gender'] ) ? sanitize_text_field( wp_unslash( $_POST['gender'] ) ) : '';
-		// Absent when the widget hides the field — then it is left alone. Present
-		// and empty means the customer erased it.
-		$phone = isset( $_POST['phone'] ) ? sanitize_text_field( wp_unslash( $_POST['phone'] ) ) : null;
+		/** Labels the FluentCRM note for whatever this save changes. */
+		do_action( 'galaxie_woo/change_source', __( 'Minha conta — Informações pessoais', 'galaxie-woo' ) );
+
+		$first_name = isset( $_POST['first_name'] ) ? sanitize_text_field( wp_unslash( $_POST['first_name'] ) ) : '';
+		$last_name  = isset( $_POST['last_name'] ) ? sanitize_text_field( wp_unslash( $_POST['last_name'] ) ) : '';
+		// Every optional field: absent when the widget hides it — then it is left
+		// alone, whatever it holds. Present and empty means the customer erased
+		// it, and it is erased. That holds for the CPF and the date of birth too,
+		// which used to ignore an empty value: neither is required anywhere a
+		// customer saves it (the widget marks both optional, and the profile
+		// completeness check only lists them as missing), so clearing breaks no
+		// rule, and keeping a value the customer removed would be the surprise.
+		$social_name = isset( $_POST['social_name'] ) ? sanitize_text_field( wp_unslash( $_POST['social_name'] ) ) : null;
+		$birthdate   = isset( $_POST['birthdate'] ) ? sanitize_text_field( wp_unslash( $_POST['birthdate'] ) ) : null;
+		$cpf         = isset( $_POST['cpf'] ) ? sanitize_text_field( wp_unslash( $_POST['cpf'] ) ) : null;
+		$gender      = isset( $_POST['gender'] ) ? sanitize_text_field( wp_unslash( $_POST['gender'] ) ) : null;
+		$phone       = isset( $_POST['phone'] ) ? sanitize_text_field( wp_unslash( $_POST['phone'] ) ) : null;
 
 		if ( '' === $first_name || '' === $last_name ) {
 			wp_send_json_error( array( 'message' => __( 'Please enter your first and last name.', 'galaxie-woo' ) ) );
@@ -317,13 +325,13 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 		if ( null !== $phone && '' !== $phone && ! preg_match( '/^\d{10,11}$/', (string) preg_replace( '/\D+/', '', $phone ) ) ) {
 			wp_send_json_error( array( 'message' => __( 'Please enter a valid phone number, with area code.', 'galaxie-woo' ) ) );
 		}
-		if ( '' !== $cpf && ! Cpf::is_valid( $cpf ) ) {
+		if ( null !== $cpf && '' !== $cpf && ! Cpf::is_valid( $cpf ) ) {
 			wp_send_json_error( array( 'message' => __( 'Please enter a valid CPF.', 'galaxie-woo' ) ) );
 		}
-		if ( '' !== $birthdate && ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $birthdate ) ) {
+		if ( null !== $birthdate && '' !== $birthdate && ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $birthdate ) ) {
 			wp_send_json_error( array( 'message' => __( 'Please enter a valid date of birth.', 'galaxie-woo' ) ) );
 		}
-		if ( '' !== $gender && ! array_key_exists( $gender, ProfileFields::gender_options() ) ) {
+		if ( null !== $gender && '' !== $gender && ! array_key_exists( $gender, ProfileFields::gender_options() ) ) {
 			wp_send_json_error( array( 'message' => __( 'Please choose a valid option.', 'galaxie-woo' ) ) );
 		}
 
@@ -336,14 +344,18 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 		);
 		update_user_meta( $user_id, 'billing_first_name', $first_name );
 		update_user_meta( $user_id, 'billing_last_name', $last_name );
-		update_user_meta( $user_id, ProfileFields::SOCIAL_NAME, $social_name );
-		if ( '' !== $birthdate ) {
+		if ( null !== $social_name ) {
+			update_user_meta( $user_id, ProfileFields::SOCIAL_NAME, $social_name );
+		}
+		if ( null !== $birthdate ) {
 			update_user_meta( $user_id, ProfileFields::BIRTHDATE, $birthdate );
 		}
-		if ( '' !== $cpf ) {
-			update_user_meta( $user_id, ProfileFields::CPF, Cpf::format( $cpf ) );
+		if ( null !== $cpf ) {
+			update_user_meta( $user_id, ProfileFields::CPF, '' === $cpf ? '' : Cpf::format( $cpf ) );
 		}
-		update_user_meta( $user_id, ProfileFields::GENDER, $gender );
+		if ( null !== $gender ) {
+			update_user_meta( $user_id, ProfileFields::GENDER, $gender );
+		}
 		if ( null !== $phone ) {
 			update_user_meta( $user_id, 'billing_phone', $phone );
 		}
