@@ -63,7 +63,7 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 
 		// The order page follows the orders list's badges and buttons, and the
 		// address book's cards.
-		add_action( 'elementor/document/after_save', array( \Galaxie\Woo\Support\AccountParts::class, 'sync_looks' ) );
+		add_action( 'elementor/document/after_save', array( \Galaxie\Woo\Support\AccountParts::class, 'sync_looks' ), 10, 2 );
 
 		// A cancelled order is announced by the widget's own alert, not by
 		// WooCommerce's loose notice.

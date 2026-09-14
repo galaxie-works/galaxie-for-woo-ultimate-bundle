@@ -1316,21 +1316,41 @@ final class AccountParts {
 	 * Orders widget, and a display would overwrite the merchant's colours with
 	 * its defaults.
 	 *
-	 * @param mixed $document An Elementor document.
+	 * Never through `get_elements_data()`: on a document not yet built with
+	 * Elementor — a template just created — that converts it, and converting
+	 * SAVES it, which fires this hook again. Opening a new footer in the editor
+	 * recursed until PHP ran out of stack. The elements are read from what the
+	 * save handed over, or from what it wrote, and never while already running.
+	 *
+	 * @param mixed               $document An Elementor document.
+	 * @param array<string,mixed> $data     What was saved, as Elementor passes it.
 	 */
-	public static function sync_looks( $document ): void {
-		if ( ! is_object( $document ) || ! method_exists( $document, 'get_elements_data' ) ) {
+	public static function sync_looks( $document, $data = array() ): void {
+		static $running = false;
+
+		if ( $running || ! is_object( $document ) || ! method_exists( $document, 'get_main_id' ) ) {
 			return;
 		}
 
-		$elements = (array) $document->get_elements_data();
+		$running = true;
 
-		foreach ( self::LOOKS as $look_def ) {
-			$look = self::look_in( $elements, $look_def[0], $look_def[2] );
-
-			if ( null !== $look ) {
-				update_option( $look_def[1], $look, false );
+		try {
+			if ( is_array( $data ) && isset( $data['elements'] ) && is_array( $data['elements'] ) ) {
+				$elements = $data['elements'];
+			} else {
+				$saved    = json_decode( (string) get_post_meta( (int) $document->get_main_id(), '_elementor_data', true ), true );
+				$elements = is_array( $saved ) ? $saved : array();
 			}
+
+			foreach ( $elements ? self::LOOKS : array() as $look_def ) {
+				$look = self::look_in( $elements, $look_def[0], $look_def[2] );
+
+				if ( null !== $look ) {
+					update_option( $look_def[1], $look, false );
+				}
+			}
+		} finally {
+			$running = false;
 		}
 	}
 
