@@ -84,6 +84,86 @@ final class FluentCRM {
 	}
 
 	/**
+	 * An existing contact brought in line with the account. Never creates one:
+	 * a contact is born where there is consent or a reason for it, not because
+	 * someone edited their address.
+	 *
+	 * Written through the model rather than `createOrUpdate()`, which drops empty
+	 * values — so a phone or an address the customer erased would stay behind in
+	 * FluentCRM for ever.
+	 *
+	 * @param array<string,string|null> $columns Contact columns; '' (or null for dates) clears one.
+	 * @param array<string,string>      $custom  Custom field slug => value; '' clears one.
+	 */
+	public static function update_contact( string $email, array $columns, array $custom = array() ): bool {
+		if ( ! self::is_active() || '' === $email ) {
+			return false;
+		}
+		try {
+			$contact = \FluentCrmApi( 'contacts' )->getContact( $email );
+			if ( ! $contact ) {
+				return false;
+			}
+
+			$contact->fill( $columns );
+			$dirty = $contact->getDirty();
+
+			if ( $dirty ) {
+				$contact->save();
+			}
+
+			$changed = $custom ? (array) $contact->syncCustomFieldValues( $custom, true ) : array();
+
+			if ( $dirty || $changed ) {
+				do_action( 'fluent_crm/contact_updated', $contact, $dirty );
+			}
+
+			return true;
+		} catch ( \Throwable $e ) {
+			return false;
+		}
+	}
+
+	/**
+	 * Adds the custom contact fields that are missing, leaving every field the
+	 * store already has — and its values — as it is.
+	 *
+	 * @param array<int,array{slug:string,label:string,type:string}> $fields
+	 */
+	public static function ensure_custom_fields( array $fields ): void {
+		if ( ! class_exists( '\FluentCrm\App\Models\CustomContactField' ) ) {
+			return;
+		}
+		try {
+			$model    = new \FluentCrm\App\Models\CustomContactField();
+			$existing = array_values( (array) ( $model->getGlobalFields()['fields'] ?? array() ) );
+			$slugs    = array_column( $existing, 'slug' );
+			$added    = false;
+
+			foreach ( $fields as $field ) {
+				if ( in_array( $field['slug'], $slugs, true ) ) {
+					continue;
+				}
+
+				$existing[] = array(
+					'field_key' => $field['type'],
+					'type'      => $field['type'],
+					'label'     => $field['label'],
+					'slug'      => $field['slug'],
+					'group'     => 'default',
+				);
+				$added      = true;
+			}
+
+			if ( $added ) {
+				$model->saveGlobalFields( $existing );
+			}
+		} catch ( \Throwable $e ) {
+			// Non-fatal: the columns still sync without the custom fields.
+		}
+	}
+
+	/**
 	 * Finds (creating if needed) the contact, then runs $callback( $contact ).
 	 * Non-fatal on any failure.
 	 *

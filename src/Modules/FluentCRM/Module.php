@@ -12,6 +12,7 @@ use Galaxie\Woo\Core\Module as ModuleContract;
 use Galaxie\Woo\Core\Plugin;
 use Galaxie\Woo\Core\ProvidesSettings;
 use Galaxie\Woo\Integrations\FluentCRM as FluentCRMApi;
+use Galaxie\Woo\Support\ProfileFields;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -36,6 +37,12 @@ defined( 'ABSPATH' ) || exit;
  *    plus an emoji/icon. The front-end picker (ported from
  *    eir-my-account-ux's interests UI) displays the list alphabetically by
  *    label and syncs the customer's selection to their FluentCRM tags.
+ *
+ * 3. **Profile sync** — the customer's contact follows their account: name,
+ *    phone, date of birth, address, CPF, gender and social name. Watched at the
+ *    user meta itself rather than at each screen that writes it (My Account
+ *    details, the address book, the checkout's profile step, wp-admin), so a
+ *    new screen cannot forget to sync, and flushed once per request.
  */
 final class Module implements ModuleContract, ProvidesSettings {
 
@@ -74,7 +81,16 @@ final class Module implements ModuleContract, ProvidesSettings {
 		// PasswordlessAuth/MyAccount) rather than those modules calling this one
 		// directly, so this module can be off without breaking them.
 		add_action( 'galaxie_woo/customer_registered', array( $this, 'on_customer_registered' ), 10, 2 );
-		add_action( 'galaxie_woo/profile_updated', array( $this, 'on_profile_updated' ) );
+		if ( ! empty( $this->settings()['profile_sync'] ?? true ) ) {
+			add_action( 'galaxie_woo/profile_updated', array( $this, 'queue_profile_sync' ) );
+			add_action( 'profile_update', array( $this, 'queue_profile_sync' ) );
+
+			foreach ( array( 'added_user_meta', 'updated_user_meta', 'deleted_user_meta' ) as $hook ) {
+				add_action( $hook, array( $this, 'watch_user_meta' ), 10, 3 );
+			}
+
+			add_action( 'shutdown', array( $this, 'flush_profile_sync' ) );
+		}
 
 		add_action( 'woocommerce_order_status_processing', array( $this, 'on_order_paid' ) );
 		add_action( 'woocommerce_order_status_completed', array( $this, 'on_order_paid' ) );
@@ -115,17 +131,128 @@ final class Module implements ModuleContract, ProvidesSettings {
 		}
 	}
 
-	/** Re-syncs core fields after a My Account details edit — never re-applies signup/tag logic. */
-	public function on_profile_updated( int $user_id ): void {
+	/** The user meta a contact is built from. */
+	private const PROFILE_META = array(
+		'first_name',
+		'last_name',
+		'billing_first_name',
+		'billing_last_name',
+		'billing_phone',
+		'billing_address_1',
+		'billing_address_2',
+		'billing_city',
+		'billing_state',
+		'billing_postcode',
+		'billing_country',
+		'shipping_phone',
+		'shipping_address_1',
+		'shipping_address_2',
+		'shipping_city',
+		'shipping_state',
+		'shipping_postcode',
+		'shipping_country',
+		ProfileFields::CPF,
+		ProfileFields::BIRTHDATE,
+		ProfileFields::GENDER,
+		ProfileFields::SOCIAL_NAME,
+	);
+
+	/** FluentCRM has no columns for these, so they are custom contact fields. */
+	private const CUSTOM_FIELDS = array(
+		array( 'slug' => 'cpf', 'label' => 'CPF', 'type' => 'text' ),
+		array( 'slug' => 'genero', 'label' => 'Gênero', 'type' => 'text' ),
+		array( 'slug' => 'nome_social', 'label' => 'Nome social', 'type' => 'text' ),
+	);
+
+	/** @var array<int,true> Users whose contact is re-synced at the end of this request. */
+	private array $profile_queue = array();
+
+	private bool $profile_flushing = false;
+
+	/** @param mixed $user_id */
+	public function queue_profile_sync( $user_id ): void {
+		// FluentCRM writes the name back to the user while it saves the contact;
+		// that echo must not queue another round.
+		if ( ! $this->profile_flushing && (int) $user_id > 0 ) {
+			$this->profile_queue[ (int) $user_id ] = true;
+		}
+	}
+
+	/**
+	 * @param mixed  $meta_id  Unused; an array of ids on deleted_user_meta.
+	 * @param mixed  $user_id
+	 * @param string $meta_key
+	 */
+	public function watch_user_meta( $meta_id, $user_id, $meta_key ): void {
+		if ( in_array( (string) $meta_key, self::PROFILE_META, true ) ) {
+			$this->queue_profile_sync( $user_id );
+		}
+	}
+
+	/** One sync per user per request, however many fields a save touched. */
+	public function flush_profile_sync(): void {
+		if ( ! $this->profile_queue || ! FluentCRMApi::is_active() ) {
+			return;
+		}
+
+		$this->profile_flushing = true;
+		$users                  = array_keys( $this->profile_queue );
+		$this->profile_queue    = array();
+
+		FluentCRMApi::ensure_custom_fields( self::CUSTOM_FIELDS );
+
+		foreach ( $users as $user_id ) {
+			$this->sync_profile( (int) $user_id );
+		}
+
+		$this->profile_flushing = false;
+	}
+
+	/**
+	 * The account, as the contact should show it. The address is the billing
+	 * one, where the customer lives and pays; the shipping one only when there is
+	 * no billing address. An emptied field empties the contact's too — except the
+	 * name, which a contact keeps.
+	 */
+	private function sync_profile( int $user_id ): void {
 		$user = get_userdata( $user_id );
+
 		if ( ! $user ) {
 			return;
 		}
-		FluentCRMApi::sync_contact(
+
+		$meta  = static fn( string $key ): string => trim( (string) get_user_meta( $user_id, $key, true ) );
+		$type  = '' !== $meta( 'billing_address_1' ) ? 'billing' : 'shipping';
+		$birth = $meta( ProfileFields::BIRTHDATE );
+
+		$columns = array(
+			'first_name'     => trim( (string) $user->first_name ) ?: $meta( 'billing_first_name' ),
+			'last_name'      => trim( (string) $user->last_name ) ?: $meta( 'billing_last_name' ),
+			'phone'          => $meta( 'billing_phone' ) ?: $meta( 'shipping_phone' ),
+			'date_of_birth'  => preg_match( '/^\d{4}-\d{2}-\d{2}$/', $birth ) ? $birth : null,
+			'address_line_1' => $meta( $type . '_address_1' ),
+			'address_line_2' => $meta( $type . '_address_2' ),
+			'city'           => $meta( $type . '_city' ),
+			'state'          => $meta( $type . '_state' ),
+			'postal_code'    => $meta( $type . '_postcode' ),
+			'country'        => $meta( $type . '_country' ),
+		);
+
+		foreach ( array( 'first_name', 'last_name' ) as $name ) {
+			if ( '' === $columns[ $name ] ) {
+				unset( $columns[ $name ] );
+			}
+		}
+
+		$gender = $meta( ProfileFields::GENDER );
+
+		FluentCRMApi::update_contact(
 			$user->user_email,
+			$columns,
 			array(
-				'first_name' => $user->first_name,
-				'last_name'  => $user->last_name,
+				'cpf'         => $meta( ProfileFields::CPF ),
+				'genero'      => '' !== $gender ? ProfileFields::gender_label( $gender ) : '',
+				'nome_social' => $meta( ProfileFields::SOCIAL_NAME ),
 			)
 		);
 	}
@@ -211,6 +338,13 @@ final class Module implements ModuleContract, ProvidesSettings {
 				type: Field::TYPE_TOGGLE,
 				description: __( 'Let customers declare interests (e.g. "Lavanda") in My Account. This is self-reported — a customer explicitly saying what they like, not FluentCRM inferring it from behavior.', 'galaxie-woo' ),
 				default: false
+			),
+			new Field(
+				key: 'profile_sync',
+				label: __( 'Keep contacts up to date', 'galaxie-woo' ),
+				type: Field::TYPE_TOGGLE,
+				description: __( 'Whenever a customer\'s account changes — in My Account, at checkout or in wp-admin — their FluentCRM contact follows: name, phone, date of birth, billing address (shipping when there is none), and CPF, gender and social name as custom fields, created in FluentCRM if missing. Only contacts that already exist are updated.', 'galaxie-woo' ),
+				default: true
 			),
 		);
 	}
