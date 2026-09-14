@@ -34,6 +34,13 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 
 	private const PENDING_COOKIE = 'galaxie_wishlist_pending';
 
+	/**
+	 * A random key this browser was given alongside the pending cookie. The
+	 * pending value is signed with it and the site's salt, so it cannot be
+	 * written by anything but this module answering this browser.
+	 */
+	private const PENDING_KEY_COOKIE = 'galaxie_wishlist_pending_key';
+
 	/** AJAX action suffix => handler. Every one needs an account. */
 	private const ACTIONS = array(
 		'toggle'  => 'ajax_toggle',
@@ -76,6 +83,9 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 		add_action( 'wp_ajax_nopriv_galaxie_wishlist_save_shared', array( $this, 'ajax_save_shared' ) );
 
 		add_action( 'template_redirect', array( $this, 'apply_pending' ) );
+
+		// A shared computer: what a visitor tapped must not wait for whoever signs in next.
+		add_action( 'wp_logout', array( self::class, 'clear_pending' ) );
 		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue' ) );
 
 		SharedPage::hooks();
@@ -308,11 +318,18 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 		}
 
 		$pending = json_decode( wp_unslash( (string) $_COOKIE[ self::PENDING_COOKIE ] ), true ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- decoded and validated field by field below.
+		$key     = isset( $_COOKIE[ self::PENDING_KEY_COOKIE ] ) ? sanitize_text_field( wp_unslash( (string) $_COOKIE[ self::PENDING_KEY_COOKIE ] ) ) : '';
 
-		self::set_pending_cookie( '', time() - HOUR_IN_SECONDS );
+		self::clear_pending();
 
-		$product_id = is_array( $pending ) ? absint( $pending['p'] ?? 0 ) : 0;
-		$token      = is_array( $pending ) ? sanitize_key( (string) ( $pending['s'] ?? '' ) ) : '';
+		// Only what this module wrote for this browser, within the hour. The
+		// cookie's own expiry is the browser's to honour; this one is ours.
+		if ( ! is_array( $pending ) || ! self::pending_is_valid( $pending, $key ) ) {
+			return;
+		}
+
+		$product_id = absint( $pending['p'] ?? 0 );
+		$token      = sanitize_key( (string) ( $pending['s'] ?? '' ) );
 		$user_id    = get_current_user_id();
 
 		if ( '' !== $token ) {
@@ -387,13 +404,22 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 			return $user_id;
 		}
 
+		// The guest nonce is the same for every visitor, so on its own it proves
+		// nothing about where the request came from. A form on another site could
+		// otherwise plant a product or a list for whoever signs in next in this
+		// browser. The browser says where a request came from; a missing header
+		// (an old browser, a privacy extension) is let through.
+		if ( self::cross_site_request() ) {
+			wp_send_json_error( array( 'message' => __( 'Pedido recusado.', 'galaxie-woo' ) ), 403 );
+		}
+
 		$product_id = isset( $_POST['product_id'] ) ? absint( $_POST['product_id'] ) : 0;
 		$token      = isset( $_POST['token'] ) ? sanitize_key( wp_unslash( $_POST['token'] ) ) : '';
 		$return     = isset( $_POST['return'] ) ? wp_validate_redirect( esc_url_raw( wp_unslash( $_POST['return'] ) ), '' ) : '';
 
 		// What they were saving — a product, or a whole shared list — for after sign-in.
 		if ( '' !== $token || ( $product_id && wc_get_product( $product_id ) ) ) {
-			self::set_pending_cookie( (string) wp_json_encode( array( 'p' => $product_id, 's' => $token, 'r' => $return ) ), time() + HOUR_IN_SECONDS );
+			self::remember_pending( array( 'p' => $product_id, 's' => $token, 'r' => $return ) );
 		}
 
 		wp_send_json_error(
@@ -433,13 +459,86 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 		);
 	}
 
-	private static function set_pending_cookie( string $value, int $expires ): void {
+	/**
+	 * Whether the browser reports this request as coming from another site.
+	 *
+	 * `Sec-Fetch-Site` first: `same-site` is allowed because the shop's own
+	 * subdomains share the registrable domain. Otherwise `Origin`, checked
+	 * against the home and site URLs. Neither header present: allowed.
+	 */
+	private static function cross_site_request(): bool {
+		$fetch = isset( $_SERVER['HTTP_SEC_FETCH_SITE'] ) ? strtolower( sanitize_text_field( wp_unslash( $_SERVER['HTTP_SEC_FETCH_SITE'] ) ) ) : '';
+
+		if ( '' !== $fetch ) {
+			return ! in_array( $fetch, array( 'same-origin', 'same-site', 'none' ), true );
+		}
+
+		$origin = isset( $_SERVER['HTTP_ORIGIN'] ) ? trim( sanitize_text_field( wp_unslash( $_SERVER['HTTP_ORIGIN'] ) ) ) : '';
+
+		if ( '' === $origin ) {
+			return false;
+		}
+
+		return ! is_allowed_http_origin( $origin );
+	}
+
+	/**
+	 * Stores what a visitor was saving, signed for this browser.
+	 *
+	 * @param array{p:int,s:string,r:string} $pending
+	 */
+	private static function remember_pending( array $pending ): void {
+		$key            = wp_generate_password( 32, false );
+		$pending['t']   = time();
+		$pending['sig'] = self::pending_signature( $pending, $key );
+		$expires        = time() + HOUR_IN_SECONDS;
+
+		self::set_cookie( self::PENDING_KEY_COOKIE, $key, $expires );
+		self::set_cookie( self::PENDING_COOKIE, (string) wp_json_encode( $pending ), $expires );
+	}
+
+	/** @param array<string,mixed> $pending */
+	private static function pending_is_valid( array $pending, string $key ): bool {
+		$issued = (int) ( $pending['t'] ?? 0 );
+
+		if ( '' === $key || ! is_string( $pending['sig'] ?? null ) || $issued <= 0 || time() - $issued > HOUR_IN_SECONDS ) {
+			return false;
+		}
+
+		return hash_equals( self::pending_signature( $pending, $key ), $pending['sig'] );
+	}
+
+	/** @param array<string,mixed> $pending */
+	private static function pending_signature( array $pending, string $key ): string {
+		$payload = implode(
+			'|',
+			array(
+				absint( $pending['p'] ?? 0 ),
+				(string) ( $pending['s'] ?? '' ),
+				(string) ( $pending['r'] ?? '' ),
+				(int) ( $pending['t'] ?? 0 ),
+			)
+		);
+
+		return hash_hmac( 'sha256', $payload, $key . wp_salt( 'nonce' ) );
+	}
+
+	/** Forgets anything pending in this browser. */
+	public static function clear_pending(): void {
+		$past = time() - HOUR_IN_SECONDS;
+
+		self::set_cookie( self::PENDING_COOKIE, '', $past );
+		self::set_cookie( self::PENDING_KEY_COOKIE, '', $past );
+		unset( $_COOKIE[ self::PENDING_COOKIE ], $_COOKIE[ self::PENDING_KEY_COOKIE ] );
+	}
+
+	private static function set_cookie( string $name, string $value, int $expires ): void {
 		if ( headers_sent() ) {
 			return;
 		}
 
 		setcookie(
-			self::PENDING_COOKIE,
+			$name,
 			$value,
 			array(
 				'expires'  => $expires,

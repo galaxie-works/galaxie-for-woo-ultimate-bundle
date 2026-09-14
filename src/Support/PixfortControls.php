@@ -344,6 +344,86 @@ final class PixfortControls {
 	}
 
 	/**
+	 * Escaped text made inert for pixfort's text sinks.
+	 *
+	 * pixfort's Button, Alert, Badge and Text elements run what they print
+	 * through `do_shortcode()`, and Alert/Button/Badge first apply
+	 * `pix_unescape_vc()`, which turns `` `{` `` into `[`. `esc_html()` leaves
+	 * brackets and backticks alone, so a shopper's first name of `[products]`
+	 * would execute for every visitor who sees it. Encoding the five characters
+	 * as entities renders them identically and gives neither step anything to
+	 * match. For values the shopper controls; a merchant's own labels keep the
+	 * shortcodes pixfort has always allowed them.
+	 *
+	 * @param string $escaped Already HTML-escaped text.
+	 */
+	public static function shortcode_safe( string $escaped ): string {
+		return strtr(
+			$escaped,
+			array(
+				'['  => '&#91;',
+				']'  => '&#93;',
+				'`'  => '&#96;',
+				'{'  => '&#123;',
+				'}'  => '&#125;',
+			)
+		);
+	}
+
+	/**
+	 * A colour value safe inside a pixfort `style="…"` attribute, or ''.
+	 * Same whitelist {@see button_css()} and {@see surface_css()} use.
+	 *
+	 * @param mixed $value
+	 */
+	private static function css_colour( $value ): string {
+		return is_string( $value ) && preg_match( '/^[#a-zA-Z0-9(),.%\s-]+$/', $value ) ? trim( $value ) : '';
+	}
+
+	/**
+	 * A CSS length (`12`, `1.5rem`, `40%`) safe inside a style attribute, or ''.
+	 * A bare number gets `px`, which is what pixfort's own fields assume.
+	 *
+	 * @param mixed $value
+	 */
+	private static function css_length( $value ): string {
+		if ( is_int( $value ) || is_float( $value ) ) {
+			$value = (string) $value;
+		}
+
+		if ( ! is_string( $value ) || ! preg_match( '/^\s*(\d+(?:\.\d+)?)\s*(px|rem|em|%|vw|vh|pt)?\s*$/', $value, $m ) ) {
+			return '';
+		}
+
+		return $m[1] . ( isset( $m[2] ) && '' !== $m[2] ? $m[2] : 'px' );
+	}
+
+	/**
+	 * A space-separated class list with every token passed through
+	 * `sanitize_html_class()`, so a value can never leave its attribute.
+	 *
+	 * @param mixed $value
+	 */
+	private static function class_list( $value ): string {
+		if ( ! is_string( $value ) ) {
+			return '';
+		}
+
+		$tokens = preg_split( '/\s+/', trim( $value ) );
+
+		return implode( ' ', array_filter( array_map( 'sanitize_html_class', is_array( $tokens ) ? $tokens : array() ) ) );
+	}
+
+	/**
+	 * A plain number for pixfort's `data-anim-delay` and size attributes.
+	 *
+	 * @param mixed $value
+	 */
+	private static function number( $value, string $fallback = '' ): string {
+		return is_numeric( $value ) ? (string) (float) $value : $fallback;
+	}
+
+	/**
 	 * The rules a button's selector-driven controls write — text colour, icon
 	 * colour, hover colours and lift — for a button drawn with settings that
 	 * were saved on another widget, which Elementor wrote no CSS for here.
@@ -556,7 +636,10 @@ final class PixfortControls {
 
 		$attr = array(
 			'is_elementor' => 'true',
-			'btn_text'     => $text,
+			// PixButton prints this unescaped (through do_shortcode). Every caller
+			// hands over a plain label, and esc_html() does not double-encode an
+			// entity a caller may already have written.
+			'btn_text'     => esc_html( $text ),
 			// Empty on purpose: PixButton renders a <span> rather than an <a>,
 			// which is what belongs inside our own <button>/form.
 			'btn_link'     => '',
@@ -572,7 +655,12 @@ final class PixfortControls {
 
 		// A class naming this configuration, so its hover rules reach this button
 		// and no other one in the widget — see button_hover().
-		$attr['btn_extra_classes'] = trim( $attr['btn_extra_classes'] . ' ' . self::button_class( $prefix ) );
+		$attr['btn_extra_classes'] = trim( self::class_list( $attr['btn_extra_classes'] ) . ' ' . self::button_class( $prefix ) );
+
+		// PixButton writes these straight into style="" and data-* attributes.
+		$attr['btn_text_custom_color'] = self::css_colour( $attr['btn_text_custom_color'] );
+		$attr['btn_icon_custom_color'] = self::css_colour( $attr['btn_icon_custom_color'] );
+		$attr['btn_anim_delay']        = self::number( $attr['btn_anim_delay'], '0' );
 
 		return $attr;
 	}
@@ -750,11 +838,12 @@ final class PixfortControls {
 			'italic'               => $settings[ $prefix . '_italic' ] ?? '',
 			'secondary_font'       => $settings[ $prefix . '_secondary_font' ] ?? '',
 			'content_color'        => $settings[ $prefix . '_content_color' ] ?? '',
-			'content_custom_color' => $settings[ $prefix . '_content_custom_color' ] ?? '',
+			// PixText prints both inside style="" unescaped.
+			'content_custom_color' => self::css_colour( $settings[ $prefix . '_content_custom_color' ] ?? '' ),
 			'position'             => $position,
-			'max_width'            => $settings[ $prefix . '_max_width' ] ?? '',
+			'max_width'            => self::css_length( $settings[ $prefix . '_max_width' ] ?? '' ),
 			'animation'            => $settings[ $prefix . '_animation' ] ?? '',
-			'delay'                => $settings[ $prefix . '_delay' ] ?? '',
+			'delay'                => self::number( $settings[ $prefix . '_delay' ] ?? '', '0' ),
 			'remove_pb_padding'    => $settings[ $prefix . '_remove_pb_padding' ] ?? '',
 		);
 	}
@@ -929,9 +1018,11 @@ final class PixfortControls {
 
 	/**
 	 * @param array<string,mixed> $settings
+	 * @param bool                $html     True when `$text` is markup meant to render — a `wc_price()`
+	 *                                      amount — which is then kses-filtered instead of escaped.
 	 * @return array<string,mixed>
 	 */
-	public static function badge_attr( array $settings, string $prefix, string $text ): array {
+	public static function badge_attr( array $settings, string $prefix, string $text, bool $html = false ): array {
 		$keys = array(
 			'text_color', 'text_custom_color', 'text_size', 'text_custom_size',
 			'bold', 'italic', 'secondary_font', 'rounded', 'bg_color',
@@ -943,12 +1034,33 @@ final class PixfortControls {
 		// text_size seeds pixfort's own default rather than an empty string:
 		// PixBadge emits it as a class, and '' produces a badge carrying no
 		// size at all — which is not what "default" means anywhere in pixfort.
-		$attr = array( 'text' => $text, 'text_size' => 'h6' );
+		//
+		// PixBadge prints the text through do_shortcode() with no escaping.
+		$attr = array( 'text' => $html ? wp_kses_post( $text ) : esc_html( $text ), 'text_size' => 'h6' );
 
 		foreach ( $keys as $key ) {
 			if ( isset( $settings[ $prefix . '_' . $key ] ) ) {
 				$attr[ $key ] = $settings[ $prefix . '_' . $key ];
 			}
+		}
+
+		// Written into style="" and class="" by PixBadge as they come.
+		foreach ( array( 'text_custom_color', 'custom_bg_color' ) as $key ) {
+			if ( isset( $attr[ $key ] ) ) {
+				$attr[ $key ] = self::css_colour( $attr[ $key ] );
+			}
+		}
+
+		if ( isset( $attr['text_custom_size'] ) ) {
+			$attr['text_custom_size'] = self::css_length( $attr['text_custom_size'] );
+		}
+
+		if ( isset( $attr['extra_classes'] ) ) {
+			$attr['extra_classes'] = self::class_list( $attr['extra_classes'] );
+		}
+
+		if ( isset( $attr['delay'] ) ) {
+			$attr['delay'] = self::number( $attr['delay'], '0' );
 		}
 
 		return $attr;
@@ -1128,24 +1240,46 @@ final class PixfortControls {
 		);
 
 		$attr = array(
-			'title'        => $title,
-			'alert_type_1' => '' !== $type ? $type : 'warning',
+			// Markup is legitimate here — the messages are merchant rich text — so
+			// kses rather than escape. PixAlert prints it through do_shortcode();
+			// a caller putting shopper-controlled text in must pass it through
+			// shortcode_safe() first.
+			'title'        => wp_kses_post( $title ),
+			'alert_type_1' => self::class_list( '' !== $type ? $type : 'warning' ),
 			// PixAlert calls the radius attribute `rounded_img` even when there is
 			// no image; it is simply appended to the alert's class list.
-			'rounded_img'  => (string) ( $settings[ $prefix . '_rounded' ] ?? 'rounded-lg' ),
+			'rounded_img'  => self::class_list( (string) ( $settings[ $prefix . '_rounded' ] ?? 'rounded-lg' ) ),
 			// PixAlert keys its whole link branch off `link_text`: with it empty the
 			// alert renders as a plain block, and with it set it grows a slot at
 			// `order-2`, immediately left of the close button at `order-3`. That
 			// is the slot the cart link belongs in — no markup of ours required.
 			'link'         => $link['link'] ?? '',
-			'link_text'    => $link['link_text'] ?? '',
-			'link_color'   => $link['link_color'] ?? 'alert-default',
+			// Printed unescaped through do_shortcode(), and link_color becomes a class.
+			'link_text'    => esc_html( (string) ( $link['link_text'] ?? '' ) ),
+			'link_color'   => self::class_list( (string) ( $link['link_color'] ?? 'alert-default' ) ),
 		);
 
 		foreach ( $keys as $key ) {
 			if ( isset( $settings[ $prefix . '_' . $key ] ) ) {
 				$attr[ $key ] = $settings[ $prefix . '_' . $key ];
 			}
+		}
+
+		// PixAlert writes these into style="", data-* and the icon's markup as they come.
+		if ( isset( $attr['custom_icon_color'] ) ) {
+			$attr['custom_icon_color'] = self::css_colour( $attr['custom_icon_color'] );
+		}
+
+		if ( isset( $attr['icon_size'] ) ) {
+			$attr['icon_size'] = self::number( $attr['icon_size'], '30' );
+		}
+
+		if ( isset( $attr['delay'] ) ) {
+			$attr['delay'] = self::number( $attr['delay'], '0' );
+		}
+
+		if ( isset( $attr['char'] ) ) {
+			$attr['char'] = esc_html( (string) $attr['char'] );
 		}
 
 		// The icon travels with the message rather than with the skin: a warning
