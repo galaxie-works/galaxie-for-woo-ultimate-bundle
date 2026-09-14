@@ -67,14 +67,18 @@ final class StripeCards {
 		$failed = __( 'Não foi possível salvar o cartão. Tente de novo.', 'galaxie-woo' );
 
 		if ( ! check_ajax_referer( self::NONCE_ACTION, 'nonce', false ) || ! is_user_logged_in() ) {
-			wp_send_json_error( array( 'message' => __( 'Sua sessão expirou. Recarregue a página e tente de novo.', 'galaxie-woo' ) ), 403 );
+			self::fail( __( 'Sua sessão expirou. Recarregue a página e tente de novo.', 'galaxie-woo' ), 403 );
 		}
 
 		$intent_id = isset( $_POST['setup_intent'] ) ? sanitize_text_field( wp_unslash( $_POST['setup_intent'] ) ) : '';
 		$gateway   = self::gateway();
 
-		if ( ! $gateway || 0 !== strpos( $intent_id, 'seti_' ) ) {
-			wp_send_json_error( array( 'message' => $failed ) );
+		if ( ! $gateway ) {
+			self::fail( __( 'Não é possível salvar cartões nesta loja no momento.', 'galaxie-woo' ) );
+		}
+
+		if ( 0 !== strpos( $intent_id, 'seti_' ) ) {
+			self::fail( $failed );
 		}
 
 		try {
@@ -82,8 +86,27 @@ final class StripeCards {
 			$customer = new \WC_Stripe_Customer( get_current_user_id() );
 			$owner    = is_object( $intent->customer ?? null ) ? (string) $intent->customer->id : (string) ( $intent->customer ?? '' );
 
-			if ( ! empty( $intent->error ) || 'succeeded' !== ( $intent->status ?? '' ) || '' === $owner || $owner !== (string) $customer->get_id() ) {
-				throw new \RuntimeException( 'The setup intent is not a confirmed intent of this customer.' );
+			if ( ! empty( $intent->error ) || '' === $owner || $owner !== (string) $customer->get_id() ) {
+				throw new \RuntimeException( 'The setup intent is not an intent of this customer.' );
+			}
+
+			$status = (string) ( $intent->status ?? '' );
+
+			// Stripe's plugin counts processing, requires_action and
+			// requires_confirmation as a successful setup too, but none of them
+			// is a card that can be charged yet: saving it now would put a card
+			// in the list that may still be declined. Only a succeeded intent is
+			// saved; the others get a message saying where it stands.
+			if ( 'processing' === $status ) {
+				self::fail( __( 'O banco ainda está confirmando este cartão, por isso ele não foi salvo. Aguarde alguns minutos e tente de novo.', 'galaxie-woo' ), null, 'processing' );
+			}
+
+			if ( in_array( $status, array( 'requires_action', 'requires_confirmation' ), true ) ) {
+				self::fail( __( 'A confirmação do cartão com o banco não foi concluída, por isso ele não foi salvo. Tente de novo.', 'galaxie-woo' ), null, $status );
+			}
+
+			if ( 'succeeded' !== $status ) {
+				throw new \RuntimeException( 'The setup intent did not succeed: ' . $status );
 			}
 
 			$token = $gateway->create_token_from_setup_intent( $intent_id, wp_get_current_user() );
@@ -98,10 +121,40 @@ final class StripeCards {
 				\WC_Stripe_Logger::error( 'Galaxie: could not save a card from the account screen.', array( 'error_message' => $e->getMessage() ) );
 			}
 
-			wp_send_json_error( array( 'message' => $failed ) );
+			self::fail( $failed );
 		}
 	}
 
+	/**
+	 * Refuses the save with a message for the widget.
+	 *
+	 * The Stripe plugin reports its own failures with wc_add_notice() — among
+	 * them create_token_from_setup_intent(). In an AJAX request nothing prints
+	 * that notice, so it would wait in the session and greet the customer on
+	 * the next page they open. The widget already says what went wrong.
+	 */
+	private static function fail( string $message, ?int $http_status = null, string $intent_status = '' ): void {
+		if ( function_exists( 'wc_clear_notices' ) && function_exists( 'WC' ) && WC()->session ) {
+			wc_clear_notices();
+		}
+
+		$data = array( 'message' => $message );
+
+		if ( '' !== $intent_status ) {
+			$data['status'] = $intent_status;
+		}
+
+		wp_send_json_error( $data, $http_status );
+	}
+
+	/**
+	 * The Stripe gateway, when it can save a card for this customer: enabled,
+	 * with a publishable key, and with the merchant's "Saved cards" setting on.
+	 * With that setting off Stripe would still attach the card and WooCommerce
+	 * would still store a token, but the gateway filters every saved card out
+	 * of the list — the customer would see nothing, and each retry would attach
+	 * one more card.
+	 */
 	private static function gateway(): ?\WC_Stripe_UPE_Payment_Gateway {
 		if ( ! class_exists( 'WC_Stripe_UPE_Payment_Gateway' ) || ! function_exists( 'WC' ) || ! WC()->payment_gateways() ) {
 			return null;
@@ -113,6 +166,10 @@ final class StripeCards {
 			return null;
 		}
 
-		return $gateway;
+		$saved_cards = method_exists( $gateway, 'is_saved_cards_enabled' )
+			? (bool) $gateway->is_saved_cards_enabled()
+			: 'yes' === $gateway->get_option( 'saved_cards' );
+
+		return $saved_cards ? $gateway : null;
 	}
 }

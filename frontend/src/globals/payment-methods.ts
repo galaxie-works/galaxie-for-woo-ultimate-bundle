@@ -48,6 +48,14 @@ interface StripeInstance {
   elements: (options?: Record<string, unknown>) => StripeElements
   createPaymentMethod: (options: Record<string, unknown>) => Promise<StripeResult>
   handleNextAction: (options: { clientSecret: string }) => Promise<StripeResult>
+  confirmCardSetup: (clientSecret: string) => Promise<StripeResult>
+  retrieveSetupIntent: (clientSecret: string) => Promise<StripeResult>
+}
+
+interface SetupIntentAnswer {
+  status: string
+  id: string
+  client_secret: string
 }
 
 type StripeFactory = (key: string, options?: Record<string, unknown>) => StripeInstance
@@ -66,6 +74,13 @@ interface OpenForm {
 
 const STRIPE_JS = 'https://js.stripe.com/v3/'
 const GENERIC_ERROR = 'Não foi possível salvar o cartão. Tente de novo.'
+const PENDING_ERROR = 'O banco ainda está confirmando este cartão, por isso ele não foi salvo. Aguarde alguns minutos e tente de novo.'
+const DEFAULT_ERROR = 'Não foi possível atualizar o cartão padrão. Tente de novo.'
+const SAVED_FALLBACK = 'Cartão salvo.'
+
+/** How long a SetupIntent still "processing" is watched before giving up: 8 × 2 s. */
+const PROCESSING_CHECKS = 8
+const PROCESSING_INTERVAL = 2000
 
 const open = new WeakMap<HTMLElement, OpenForm>()
 
@@ -239,11 +254,23 @@ async function postForm<T>(url: string, body: Record<string, string>): Promise<A
   return (await response.json()) as AjaxResponse<T>
 }
 
-/** The widget as the server draws it now, swapped in place of the old one. */
+/**
+ * The widget as the server draws it now, swapped in place of the old one; null
+ * when the page could not be fetched or no longer holds the widget.
+ */
 async function redraw(root: HTMLElement): Promise<HTMLElement | null> {
   const all = [...document.querySelectorAll<HTMLElement>('.galaxie-payment-methods')]
   const index = all.indexOf(root)
-  const html = await (await fetch(window.location.href, { credentials: 'same-origin' })).text()
+
+  let html: string
+  try {
+    const response = await fetch(window.location.href, { credentials: 'same-origin' })
+    if (!response.ok) return null
+    html = await response.text()
+  } catch {
+    return null
+  }
+
   const fresh = new DOMParser().parseFromString(html, 'text/html').querySelectorAll<HTMLElement>('.galaxie-payment-methods')[index]
 
   if (!fresh) return null
@@ -254,13 +281,70 @@ async function redraw(root: HTMLElement): Promise<HTMLElement | null> {
 }
 
 /**
+ * The list could not be redrawn, but the server has already changed it: the
+ * page is reloaded instead of leaving an old list on screen — a list the
+ * customer would "fix" by saving the same card a second time.
+ */
+function reloadAfter(root: HTMLElement, text: string): void {
+  busy(root, true)
+  message(root, text, true)
+  window.location.reload()
+}
+
+const wait = (ms: number) => new Promise<void>((resolve) => window.setTimeout(resolve, ms))
+
+/**
+ * Brings the SetupIntent the Stripe plugin answered with to `succeeded`, and
+ * returns its id. The plugin counts `requires_action`, `requires_confirmation`
+ * and `processing` as success, yet none of them is a card that can be saved:
+ * the bank's authentication is run, a confirmation still owed is made, and a
+ * `processing` intent is watched for a while. One still processing after that
+ * is reported as pending — the card is not saved — rather than as an error.
+ */
+async function settleIntent(stripe: StripeInstance, answer: SetupIntentAnswer): Promise<string> {
+  let { id, status } = answer
+  const secret = answer.client_secret
+
+  for (let step = 0; step < 4 && status !== 'succeeded'; step++) {
+    let result: StripeResult
+
+    if (status === 'requires_action') {
+      result = await stripe.handleNextAction({ clientSecret: secret })
+    } else if (status === 'requires_confirmation') {
+      result = await stripe.confirmCardSetup(secret)
+    } else if (status === 'processing') {
+      result = {}
+      for (let check = 0; check < PROCESSING_CHECKS; check++) {
+        await wait(PROCESSING_INTERVAL)
+        result = await stripe.retrieveSetupIntent(secret)
+        if (result.error || result.setupIntent?.status !== 'processing') break
+      }
+      if (!result.error && result.setupIntent?.status === 'processing') throw new Error(PENDING_ERROR)
+    } else {
+      break
+    }
+
+    if (result.error || !result.setupIntent) throw new Error(result.error?.message ?? GENERIC_ERROR)
+
+    id = result.setupIntent.id
+    status = result.setupIntent.status
+  }
+
+  if (status === 'processing') throw new Error(PENDING_ERROR)
+  if (status !== 'succeeded') throw new Error(GENERIC_ERROR)
+
+  return id
+}
+
+/**
  * With other cards already saved, the new one is not the default — WooCommerce
  * only makes the first card default by itself. Its own "make default" link is
  * on the redrawn card; following it in the background is exactly what a click
  * on that button would have done.
  */
 async function offerDefault(root: HTMLElement, token: string): Promise<void> {
-  const link = root.querySelector<HTMLAnchorElement>(`.galaxie-pm-item[data-token="${token}"] .galaxie-pm-default`)
+  const card = `.galaxie-pm-item[data-token="${token}"]`
+  const link = root.querySelector<HTMLAnchorElement>(`${card} .galaxie-pm-default`)
   if (!link) return
 
   const yes = await ask(root, 'pm_default_ask', 'Usar este cartão como padrão nos próximos pagamentos?')
@@ -268,13 +352,33 @@ async function offerDefault(root: HTMLElement, token: string): Promise<void> {
 
   busy(root, true)
 
+  let reached = false
   try {
-    await fetch(link.href, { credentials: 'same-origin' })
-    const fresh = await redraw(root)
-    if (fresh) message(fresh, root.dataset.defaultSaved ?? '', true)
+    reached = (await fetch(link.href, { credentials: 'same-origin' })).ok
   } catch {
+    reached = false
+  }
+
+  if (!reached) {
     busy(root, false)
-    message(root, 'Não foi possível atualizar o cartão padrão. Tente de novo.', false)
+    message(root, DEFAULT_ERROR, false)
+    return
+  }
+
+  const fresh = await redraw(root)
+
+  if (!fresh) {
+    reloadAfter(root, '')
+    return
+  }
+
+  // WooCommerce answers a refused change — an expired nonce, a card that is
+  // not this customer's — with an error notice and a redirect to an ordinary
+  // page, so a successful fetch proves nothing. The redrawn card must say it.
+  if (fresh.querySelector(`${card} .galaxie-pm-card.is-default`)) {
+    message(fresh, root.dataset.defaultSaved ?? '', true)
+  } else {
+    message(fresh, DEFAULT_ERROR, false)
   }
 }
 
@@ -286,11 +390,13 @@ async function saveCard(root: HTMLElement, config: StripeConfig): Promise<void> 
   busy(form, true)
   message(root, '', true)
 
+  let token = ''
+
   try {
     const created = await fields.stripe.createPaymentMethod({ type: 'card', card: fields.number })
     if (created.error || !created.paymentMethod) throw new Error(created.error?.message ?? GENERIC_ERROR)
 
-    const intent = await postForm<{ status: string; id: string; client_secret: string }>(config.ajaxUrl, {
+    const intent = await postForm<SetupIntentAnswer>(config.ajaxUrl, {
       action: 'wc_stripe_create_and_confirm_setup_intent',
       _ajax_nonce: config.intentNonce,
       'wc-stripe-payment-method': created.paymentMethod.id,
@@ -299,15 +405,7 @@ async function saveCard(root: HTMLElement, config: StripeConfig): Promise<void> 
 
     if (!intent.success || !intent.data) throw new Error(intent.data?.error?.message ?? GENERIC_ERROR)
 
-    let setupIntentId = intent.data.id
-
-    if (intent.data.status === 'requires_action') {
-      const authenticated = await fields.stripe.handleNextAction({ clientSecret: intent.data.client_secret })
-      if (authenticated.error || authenticated.setupIntent?.status !== 'succeeded') {
-        throw new Error(authenticated.error?.message ?? GENERIC_ERROR)
-      }
-      setupIntentId = authenticated.setupIntent.id
-    }
+    const setupIntentId = await settleIntent(fields.stripe, intent.data)
 
     const saved = await postForm<{ token: number }>(config.ajaxUrl, {
       action: 'galaxie_stripe_save_card',
@@ -317,17 +415,28 @@ async function saveCard(root: HTMLElement, config: StripeConfig): Promise<void> 
 
     if (!saved.success) throw new Error(saved.data?.message ?? GENERIC_ERROR)
 
-    closeForm(root)
-
-    const fresh = await redraw(root)
-    if (!fresh) return
-
-    message(fresh, root.dataset.saved ?? '', true)
-    if (saved.data?.token) await offerDefault(fresh, String(saved.data.token))
+    token = saved.data?.token ? String(saved.data.token) : ''
   } catch (error) {
     busy(form, false)
     message(root, error instanceof Error && error.message ? error.message : GENERIC_ERROR, false)
+    return
   }
+
+  // From here the card is saved. Nothing below may look like a failure: a
+  // retry would save it a second time.
+  closeForm(root)
+  busy(form, false)
+
+  const savedText = root.dataset.saved ?? ''
+  const fresh = await redraw(root)
+
+  if (!fresh) {
+    reloadAfter(root, savedText || SAVED_FALLBACK)
+    return
+  }
+
+  message(fresh, savedText, true)
+  if (token) await offerDefault(fresh, token)
 }
 
 export function bootPaymentMethods(): void {

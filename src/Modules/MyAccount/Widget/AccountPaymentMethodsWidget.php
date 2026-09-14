@@ -504,16 +504,42 @@ final class AccountPaymentMethodsWidget extends Widget_Base {
 		echo '</div>';
 	}
 
+	/** The key each list item carries its token id under, added by {@see methods()}. */
+	private const TOKEN_KEY = 'galaxie_token_id';
+
 	/**
 	 * WooCommerce's saved-methods list, flattened across method types, with the
 	 * default first.
+	 *
+	 * The list WooCommerce hands over carries a card's action links but not its
+	 * token id. WooCommerce passes each item through
+	 * `woocommerce_payment_methods_list_item` together with its token, so the id
+	 * is written onto the item there — last, after the gateways have added their
+	 * own details — for just this call. Reading it off the links instead broke
+	 * as soon as a merchant renamed the endpoints under Settings → Advanced.
 	 *
 	 * @return array<int,array<string,mixed>>
 	 */
 	private static function methods( int $user_id ): array {
 		$flat = array();
 
-		foreach ( (array) wc_get_customer_saved_methods_list( $user_id ) as $items ) {
+		$tag_token = static function ( $item, $token ) {
+			if ( is_array( $item ) && $token instanceof \WC_Payment_Token ) {
+				$item[ self::TOKEN_KEY ] = (string) $token->get_id();
+			}
+
+			return $item;
+		};
+
+		add_filter( 'woocommerce_payment_methods_list_item', $tag_token, PHP_INT_MAX, 2 );
+
+		try {
+			$list = (array) wc_get_customer_saved_methods_list( $user_id );
+		} finally {
+			remove_filter( 'woocommerce_payment_methods_list_item', $tag_token, PHP_INT_MAX );
+		}
+
+		foreach ( $list as $items ) {
 			foreach ( (array) $items as $item ) {
 				if ( is_array( $item ) ) {
 					$flat[] = $item;
@@ -533,6 +559,13 @@ final class AccountPaymentMethodsWidget extends Widget_Base {
 		}
 
 		foreach ( WC()->payment_gateways()->get_available_payment_gateways() as $gateway ) {
+			// Stripe with "Saved cards" off still reports the feature, and hides
+			// itself only once on the add-payment-method screen — which would
+			// then offer nothing.
+			if ( $gateway instanceof \WC_Stripe_UPE_Payment_Gateway && method_exists( $gateway, 'is_saved_cards_enabled' ) && ! $gateway->is_saved_cards_enabled() ) {
+				continue;
+			}
+
 			if ( $gateway->supports( 'add_payment_method' ) ) {
 				return true;
 			}
@@ -614,20 +647,16 @@ final class AccountPaymentMethodsWidget extends Widget_Base {
 	}
 
 	/**
-	 * The saved token's id, read off its WooCommerce action links — the list
-	 * WooCommerce hands over carries the links but not the id itself. The
+	 * The saved token's id, as {@see methods()} wrote it onto the item; empty
+	 * for an item a plugin added to the list without a WooCommerce token. The
 	 * script uses it to find the card it has just saved.
 	 *
-	 * @param array<string,mixed> $actions
+	 * @param array<string,mixed> $method
 	 */
-	private static function token_id( array $actions ): string {
-		foreach ( array( 'delete', 'default' ) as $action ) {
-			if ( preg_match( '#(?:delete|set-default)-payment-method[/=](\d+)#', (string) ( $actions[ $action ]['url'] ?? '' ), $match ) ) {
-				return $match[1];
-			}
-		}
+	private static function token_id( array $method ): string {
+		$id = (string) ( $method[ self::TOKEN_KEY ] ?? '' );
 
-		return '';
+		return ctype_digit( $id ) ? $id : '';
 	}
 
 	/**
@@ -637,6 +666,8 @@ final class AccountPaymentMethodsWidget extends Widget_Base {
 	 * by an Elementor template has none that is My Account, so the links came
 	 * out at the site root — /set-default-payment-method/2/ — and 404'd. Rebuilt
 	 * here on the My Account page, with the nonce WooCommerce checks.
+	 * wc_get_endpoint_url() turns the endpoint key into whatever slug the
+	 * merchant gave it.
 	 */
 	private static function action_url( string $endpoint, string $token_id ): string {
 		return (string) wp_nonce_url( wc_get_endpoint_url( $endpoint, $token_id, wc_get_page_permalink( 'myaccount' ) ), $endpoint . '-' . $token_id );
@@ -664,7 +695,7 @@ final class AccountPaymentMethodsWidget extends Widget_Base {
 		}
 
 		$buttons  = '';
-		$token_id = self::token_id( $actions );
+		$token_id = self::token_id( $method );
 
 		if ( ! empty( $actions['default']['url'] ) ) {
 			$url      = '' !== $token_id ? self::action_url( 'set-default-payment-method', $token_id ) : (string) $actions['default']['url'];
