@@ -406,10 +406,53 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 			wp_send_json_error( array( 'message' => __( 'That item is no longer in your cart.', 'galaxie-woo' ) ) );
 		}
 
+		$values = WC()->cart->get_cart_item( $key );
+		$remove = ! empty( $_POST['remove'] ); // The remove link, not the stepper.
+
+		// Same sanitising filter WC_Form_Handler::update_cart_action() applies.
+		$quantity = apply_filters( 'woocommerce_stock_amount_cart_item', $quantity, $key );
+
+		// The remove link skips validation exactly as WooCommerce's own remove
+		// link does; every other change goes through the checks WooCommerce's
+		// cart form runs, so pack sizes and limits enforced there hold here too.
+		if ( ! $remove && $quantity !== $values['quantity'] ) {
+			wc_clear_notices();
+
+			$passed = apply_filters( 'woocommerce_update_cart_validation', true, $key, $values, $quantity );
+
+			if ( $values['data']->is_sold_individually() && $quantity > 1 ) {
+				/* translators: %s: product name. */
+				wc_add_notice( sprintf( __( 'You can only have 1 %s in your cart.', 'woocommerce' ), $values['data']->get_name() ), 'error' );
+				$passed = false;
+			}
+
+			if ( ! $passed ) {
+				$messages = array();
+
+				foreach ( wc_get_notices( 'error' ) as $notice ) {
+					$messages[] = wp_strip_all_tags( is_array( $notice ) ? (string) ( $notice['notice'] ?? '' ) : (string) $notice );
+				}
+
+				wc_clear_notices();
+
+				wp_send_json_error(
+					array(
+						'message'  => implode( ' ', array_filter( $messages ) ) ?: __( 'That quantity could not be saved.', 'galaxie-woo' ),
+						// What the cart still holds, so the stepper can go back to it.
+						'quantity' => (float) $values['quantity'],
+					)
+				);
+			}
+		}
+
 		WC()->cart->set_quantity( $key, (int) $quantity, true );
 		WC()->cart->calculate_totals();
 
 		$item = WC()->cart->get_cart_item( $key );
+
+		ob_start();
+		woocommerce_mini_cart();
+		$mini_cart = ob_get_clean();
 
 		wp_send_json_success(
 			array(
@@ -428,9 +471,17 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 				// from. Threshold comes from WooCommerce here; a widget set to
 				// a typed one sends its own along with the request.
 				'freeShipping' => self::free_shipping_state(),
-				// WooCommerce's own fragments, so a mini cart in the header
-				// updates from the same response instead of going stale.
-				'fragments' => apply_filters( 'woocommerce_add_to_cart_fragments', array() ),
+				// WooCommerce's own fragments, built the way
+				// WC_AJAX::get_refreshed_fragments() builds them (mini cart
+				// included), so a mini cart in the header updates from the
+				// same response instead of going stale.
+				'fragments' => apply_filters(
+					'woocommerce_add_to_cart_fragments',
+					array(
+						'div.widget_shopping_cart_content' => '<div class="widget_shopping_cart_content">' . $mini_cart . '</div>',
+					)
+				),
+				'cart_hash' => WC()->cart->get_cart_hash(),
 			)
 		);
 	}

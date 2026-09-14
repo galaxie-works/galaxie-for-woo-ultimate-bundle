@@ -32,6 +32,10 @@ interface CartResponse {
     totals?: string
     freeShipping?: { percent: number; achieved: boolean; remaining: string } | null
     fragments?: Record<string, string>
+    cart_hash?: string
+    // Only on failure: why, and what the cart still holds.
+    message?: string
+    quantity?: number
   }
 }
 
@@ -50,13 +54,83 @@ function jq(): ((el: unknown) => JQueryLike) | undefined {
  * A quantity typed digit by digit would otherwise fire a request per keystroke
  * — "12" asking for 1, then 12. The pause is long enough to finish typing and
  * short enough that nobody reaches for a button that is not there.
+ *
+ * One timer per cart line, not one for the form: with a single timer, changing
+ * product A and then product B inside the pause cancelled A's update.
  */
-function debounce<T extends (...args: never[]) => void>(fn: T, ms: number): T {
-  let timer = 0
-  return ((...args: never[]) => {
-    window.clearTimeout(timer)
-    timer = window.setTimeout(() => fn(...args), ms)
-  }) as T
+const DEBOUNCE_MS = 400
+const timers = new Map<string, number>()
+
+function debounceByKey(key: string, fn: () => void): void {
+  window.clearTimeout(timers.get(key))
+  timers.set(
+    key,
+    window.setTimeout(() => {
+      timers.delete(key)
+      fn()
+    }, DEBOUNCE_MS)
+  )
+}
+
+/**
+ * Put WooCommerce's fragments into the page the way its own add-to-cart.js and
+ * cart-fragments.js do: each key is a selector, each value replaces what it
+ * matches. Then keep cart-fragments.js's session cache in step, so the next
+ * page load does not paint the old mini cart from storage, and announce it.
+ */
+function applyWooFragments(fragments: Record<string, string>, cartHash?: string): void {
+  for (const [selector, html] of Object.entries(fragments)) {
+    let targets: NodeListOf<Element>
+    try {
+      targets = document.querySelectorAll(selector)
+    } catch {
+      continue // A plugin's selector the DOM API will not parse.
+    }
+    targets.forEach((el) => {
+      el.outerHTML = html
+    })
+  }
+
+  const params = (window as unknown as { wc_cart_fragments_params?: { fragment_name?: string; cart_hash_key?: string } })
+    .wc_cart_fragments_params
+
+  if (params?.fragment_name) {
+    try {
+      sessionStorage.setItem(params.fragment_name, JSON.stringify(fragments))
+      if (params.cart_hash_key && cartHash !== undefined) {
+        sessionStorage.setItem(params.cart_hash_key, cartHash)
+        localStorage.setItem(params.cart_hash_key, cartHash)
+      }
+    } catch {
+      // Storage blocked: cart-fragments.js falls back to asking the server.
+    }
+  }
+
+  const $ = jq()
+  if ($) {
+    $(document.body).trigger('wc_fragments_loaded')
+    $(document.body).trigger('wc_fragments_refreshed')
+  }
+}
+
+/** WooCommerce's error notice, shown above the cart form. */
+function showError(form: HTMLElement, message: string): void {
+  const wrapper = document.querySelector('.woocommerce-notices-wrapper')
+  const notice = document.createElement('ul')
+  notice.className = 'woocommerce-error'
+  notice.setAttribute('role', 'alert')
+  const li = document.createElement('li')
+  li.textContent = message
+  notice.appendChild(li)
+
+  if (wrapper) {
+    wrapper.replaceChildren(notice)
+  } else {
+    form.querySelector(':scope > .woocommerce-error')?.remove()
+    form.prepend(notice)
+  }
+
+  notice.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
 }
 
 /**
@@ -78,12 +152,14 @@ function totalsOrigin(): Record<string, string> {
   return elementId && postId ? { element_id: elementId, elementor_post: postId } : {}
 }
 
-async function send(config: CartConfig, key: string, quantity: number): Promise<CartResponse> {
+async function send(config: CartConfig, key: string, quantity: number, remove = false): Promise<CartResponse> {
   const body = new URLSearchParams({
     action: 'galaxie_cart_update',
     nonce: config.nonce,
     cart_item_key: key,
     quantity: String(quantity),
+    // The remove link skips cart validation, as WooCommerce's own does.
+    ...(remove ? { remove: '1' } : {}),
     ...totalsOrigin(),
   })
 
@@ -136,11 +212,13 @@ function apply(line: HTMLElement, data: NonNullable<CartResponse['data']>): void
   // off, and those live in widgets this response does not carry.
   void refreshFragments()
 
-  // The mini cart in the header listens for this, and WooCommerce's own
-  // fragments arrive in the same response — so the two never disagree.
-  const $ = jq()
-  if ($ && data.fragments) {
-    $(document.body).trigger('wc_fragments_refreshed')
+  // WooCommerce's own fragments (the header mini cart among them) arrive in
+  // the same response, so they are put in the page here rather than merely
+  // announced — triggering `wc_fragments_refreshed` alone changed nothing.
+  if (data.fragments) {
+    applyWooFragments(data.fragments, data.cart_hash)
+  } else {
+    jq()?.(document.body).trigger('wc_fragment_refresh')
   }
 }
 
@@ -214,15 +292,24 @@ export function bootCart(config?: CartConfig): void {
   form.dataset.galaxieBound = '1'
   form.classList.add('is-galaxie-auto')
 
-  const update = async (line: HTMLElement, quantity: number): Promise<void> => {
+  const update = async (line: HTMLElement, quantity: number, remove = false): Promise<void> => {
     const key = line.dataset.galaxieKey
     if (!key) return
 
     line.classList.add(PENDING)
 
     try {
-      const json = await send(config, key, quantity)
-      if (json.success && json.data) apply(line, json.data)
+      const json = await send(config, key, quantity, remove)
+      if (json.success && json.data) {
+        apply(line, json.data)
+      } else if (json.data) {
+        // Refused by WooCommerce's cart validation (a pack size, a limit):
+        // nothing changed on the server, so the stepper goes back to what the
+        // cart holds and the reason is shown the way WooCommerce shows it.
+        const input = line.querySelector<HTMLInputElement>('input.qty')
+        if (input && typeof json.data.quantity === 'number') input.value = String(json.data.quantity)
+        if (json.data.message) showError(form, json.data.message)
+      }
     } catch {
       // A failed request must not leave a cart showing a quantity the server
       // never accepted. Reloading shows what is actually there.
@@ -233,18 +320,22 @@ export function bootCart(config?: CartConfig): void {
     line.classList.remove(PENDING)
   }
 
-  const onQuantity = debounce((event: Event) => {
+  const onQuantity = (event: Event): void => {
     const input = event.target as HTMLInputElement | null
     if (!input || !input.classList.contains('qty')) return
 
     const line = lineOf(input)
-    if (!line) return
+    const key = line?.dataset.galaxieKey
+    if (!line || !key) return
 
-    const quantity = Number.parseInt(input.value, 10)
-    if (Number.isNaN(quantity) || quantity < 0) return
+    // The value is read when the pause ends, so the last digit typed wins.
+    debounceByKey(key, () => {
+      const quantity = Number.parseInt(input.value, 10)
+      if (Number.isNaN(quantity) || quantity < 0) return
 
-    void update(line, quantity)
-  }, 400)
+      void update(line, quantity)
+    })
+  }
 
   // Through jQuery when it is there, and this is the whole reason the stepper
   // appeared to do nothing: the theme's − and + are anchors that write
@@ -272,6 +363,14 @@ export function bootCart(config?: CartConfig): void {
     if (!line) return
 
     event.preventDefault()
-    void update(line, 0)
+
+    // A pending stepper change on this line is moot once it is removed.
+    const key = line.dataset.galaxieKey
+    if (key) {
+      window.clearTimeout(timers.get(key))
+      timers.delete(key)
+    }
+
+    void update(line, 0, true)
   })
 }
