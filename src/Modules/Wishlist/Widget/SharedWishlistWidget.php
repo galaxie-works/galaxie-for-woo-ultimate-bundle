@@ -158,8 +158,8 @@ final class SharedWishlistWidget extends Widget_Base {
 		$list     = $shared['list'];
 		$token    = (string) $list['share'];
 		$gift     = '' !== $token ? Gifts::for_token( $token ) : null;
-		$owner    = get_userdata( (int) $shared['user_id'] );
-		$name     = $gift['name'] ?? ( $owner && '' !== $owner->first_name ? $owner->first_name : ( $owner ? $owner->display_name : '' ) );
+		// Never the display name: for an account made from an e-mail address, that is the e-mail.
+		$name     = $gift['name'] ?? Gifts::owner_name( (int) $shared['user_id'] );
 		$products = array_filter( array_map( 'wc_get_product', array_reverse( (array) $list['items'] ) ), static fn( $p ) => $p instanceof \WC_Product && $p->is_visible() );
 
 		if ( ! $products && $editing ) {
