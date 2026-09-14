@@ -175,22 +175,37 @@ final class AccountOrdersWidget extends Widget_Base {
 
 		$this->end_controls_section();
 
-		// Also styles the previous and next page links, which is why the name says so.
-		$this->start_controls_section( 'orders_view_button_section', array( 'label' => __( 'View and page buttons', 'galaxie-woo' ) ) );
-		PixfortControls::button( $this, 'orders_view', array( 'text' => __( 'Ver pedido', 'galaxie-woo' ), 'style' => 'outline', 'size' => 'sm' ) );
-		$this->end_controls_section();
+		// One section per button, because each does something different and is
+		// told apart by its own look and icon. The ids of the view button, the
+		// plugin actions and the shop button are the ones they always had, so what
+		// was configured there stays.
+		//
+		// Pay and Cancel start empty: left so, they read WooCommerce's own words.
+		// Plugin actions ("Order again"…) and the list links keep their text where
+		// it already lives — WooCommerce, or the fields in the Orders section.
+		$actions = array( 'orders_show_actions' => 'yes' );
+		$buttons = array(
+			'orders_view'   => array( __( 'Order card: view button', 'galaxie-woo' ), array( 'text' => __( 'Ver pedido', 'galaxie-woo' ), 'style' => 'outline', 'size' => 'sm' ), array(), array() ),
+			'orders_pay'    => array( __( 'Order card: pay button', 'galaxie-woo' ), array( 'style' => 'link', 'size' => 'sm', 'icon' => 'Line/pixfort-icon-credit-card-1' ), array(), $actions ),
+			'orders_cancel' => array( __( 'Order card: cancel button', 'galaxie-woo' ), array( 'style' => 'link', 'size' => 'sm', 'icon' => 'Line/pixfort-icon-cross-circle-1' ), array(), $actions ),
+			'orders_action' => array( __( 'Order card: other actions (added by plugins)', 'galaxie-woo' ), array( 'style' => 'link', 'size' => 'sm' ), array( 'text' ), $actions ),
+			'orders_all'    => array( __( 'List: "see every order" button', 'galaxie-woo' ), array( 'style' => 'link', 'size' => 'sm', 'icon' => 'Line/pixfort-icon-arrow-right-1', 'icon_position' => 'after' ), array( 'text' ), array( 'orders_source' => 'recent' ) ),
+			'orders_prev'   => array( __( 'List: previous page button', 'galaxie-woo' ), array( 'style' => 'outline', 'size' => 'sm', 'icon' => 'Line/pixfort-icon-arrow-left-1' ), array( 'text' ), array( 'orders_source' => 'all' ) ),
+			'orders_next'   => array( __( 'List: next page button', 'galaxie-woo' ), array( 'style' => 'outline', 'size' => 'sm', 'icon' => 'Line/pixfort-icon-arrow-right-1', 'icon_position' => 'after' ), array( 'text' ), array( 'orders_source' => 'all' ) ),
+			'orders_shop'   => array( __( 'List: no orders button', 'galaxie-woo' ), array( 'text' => __( 'Ver produtos', 'galaxie-woo' ) ), array(), array() ),
+		);
 
-		// No condition on the actions switch: the "See every order" link wears this
-		// style too, and it stays on the page when the actions are turned off. No
-		// text field either: the labels are WooCommerce's ("Pay", "Cancel") or that
-		// link's own field above.
-		$this->start_controls_section( 'orders_action_button_section', array( 'label' => __( 'Action buttons', 'galaxie-woo' ) ) );
-		PixfortControls::button( $this, 'orders_action', array( 'style' => 'link', 'size' => 'sm' ), array(), '{{WRAPPER}}', array( 'text' ) );
-		$this->end_controls_section();
+		foreach ( $buttons as $prefix => $button ) {
+			$section = array( 'label' => $button[0] );
 
-		$this->start_controls_section( 'orders_empty_button_section', array( 'label' => __( 'Empty list button', 'galaxie-woo' ) ) );
-		PixfortControls::button( $this, 'orders_shop', array( 'text' => __( 'Ver produtos', 'galaxie-woo' ) ) );
-		$this->end_controls_section();
+			if ( $button[3] ) {
+				$section['condition'] = $button[3];
+			}
+
+			$this->start_controls_section( $prefix . '_button_section', $section );
+			PixfortControls::button( $this, $prefix, $button[1], array(), '{{WRAPPER}}', $button[2] );
+			$this->end_controls_section();
+		}
 
 		AccountParts::register_status_controls( $this );
 
@@ -306,17 +321,17 @@ final class AccountOrdersWidget extends Widget_Base {
 			$all = trim( (string) ( $s['orders_all_text'] ?? '' ) );
 
 			if ( '' !== $all ) {
-				printf( '<div class="galaxie-account-orders-more">%s</div>', AccountParts::link_button( $s, 'orders_action', $all, AccountEndpoints::url( 'orders' ) ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built from escaped parts.
+				printf( '<div class="galaxie-account-orders-more">%s</div>', AccountParts::link_button( $s, 'orders_all', $all, AccountEndpoints::url( 'orders' ) ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built from escaped parts.
 			}
 		} elseif ( $data['pages'] > 1 ) {
 			echo '<nav class="galaxie-account-orders-pages">';
 
 			if ( $data['page'] > 1 ) {
-				echo AccountParts::link_button( $s, 'orders_view', (string) ( $s['orders_prev_text'] ?? '' ), AccountEndpoints::url( 'orders', (string) ( $data['page'] - 1 ) ), 'is-prev' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built from escaped parts.
+				echo AccountParts::link_button( $s, 'orders_prev', (string) ( $s['orders_prev_text'] ?? '' ), AccountEndpoints::url( 'orders', (string) ( $data['page'] - 1 ) ), 'is-prev' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built from escaped parts.
 			}
 
 			if ( $data['page'] < $data['pages'] ) {
-				echo AccountParts::link_button( $s, 'orders_view', (string) ( $s['orders_next_text'] ?? '' ), AccountEndpoints::url( 'orders', (string) ( $data['page'] + 1 ) ), 'is-next' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built from escaped parts.
+				echo AccountParts::link_button( $s, 'orders_next', (string) ( $s['orders_next_text'] ?? '' ), AccountEndpoints::url( 'orders', (string) ( $data['page'] + 1 ) ), 'is-next' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built from escaped parts.
 			}
 
 			echo '</nav>';
@@ -338,7 +353,10 @@ final class AccountOrdersWidget extends Widget_Base {
 					continue;
 				}
 
-				$actions .= AccountParts::link_button( $s, 'orders_action', (string) $action['name'], (string) $action['url'], 'is-' . sanitize_html_class( (string) $key ) );
+				$prefix = array( 'pay' => 'orders_pay', 'cancel' => 'orders_cancel' )[ $key ] ?? 'orders_action';
+				$label  = 'orders_action' === $prefix ? '' : trim( (string) ( $s[ $prefix . '_text' ] ?? '' ) );
+
+				$actions .= AccountParts::link_button( $s, $prefix, '' !== $label ? $label : (string) $action['name'], (string) $action['url'], 'is-' . sanitize_html_class( (string) $key ) );
 			}
 		}
 
