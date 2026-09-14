@@ -419,6 +419,10 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 		// keep an unwanted product in the cart. Every other change goes through
 		// the checks WooCommerce's cart form runs.
 		if ( ! $remove && $quantity > 0 && $quantity !== $values['quantity'] ) {
+			// Notices already queued for the shopper (other plugins, earlier
+			// cart actions) are set aside and put back afterwards, so only
+			// errors raised by this validation are read, and none are lost.
+			$notices_before = wc_get_notices();
 			wc_clear_notices();
 
 			$passed = apply_filters( 'woocommerce_update_cart_validation', true, $key, $values, $quantity );
@@ -429,14 +433,15 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 				$passed = false;
 			}
 
+			$messages = array();
+
+			foreach ( wc_get_notices( 'error' ) as $notice ) {
+				$messages[] = wp_strip_all_tags( is_array( $notice ) ? (string) ( $notice['notice'] ?? '' ) : (string) $notice );
+			}
+
+			wc_set_notices( $notices_before );
+
 			if ( ! $passed ) {
-				$messages = array();
-
-				foreach ( wc_get_notices( 'error' ) as $notice ) {
-					$messages[] = wp_strip_all_tags( is_array( $notice ) ? (string) ( $notice['notice'] ?? '' ) : (string) $notice );
-				}
-
-				wc_clear_notices();
 
 				wp_send_json_error(
 					array(

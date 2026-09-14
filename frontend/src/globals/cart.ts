@@ -134,6 +134,7 @@ function showError(form: HTMLElement, message: string): void {
   const wrapper = document.querySelector('.woocommerce-notices-wrapper')
   const notice = document.createElement('ul')
   notice.className = 'woocommerce-error'
+  notice.dataset.galaxieCartError = '1'
   notice.setAttribute('role', 'alert')
   const li = document.createElement('li')
   li.textContent = message
@@ -326,6 +327,8 @@ export function bootCart(config?: CartConfig): void {
     try {
       const json = await send(config, key, job.quantity, job.remove)
       if (json.success && json.data) {
+        // A quantity refused earlier has been superseded by one that saved.
+        document.querySelectorAll('[data-galaxie-cart-error]').forEach((el) => el.remove())
         apply(job.line, json.data)
       } else if (json.data) {
         // Refused by WooCommerce's cart validation (a pack size, a limit):
