@@ -54,6 +54,9 @@ final class Gifts {
 		add_action( 'woocommerce_before_calculate_totals', array( self::class, 'ship_to_owner_area' ), 5 );
 		add_filter( 'woocommerce_cart_shipping_packages', array( self::class, 'ship_packages' ), 5 );
 		add_filter( 'rest_request_after_callbacks', array( self::class, 'scrub_store_api' ), 10, 3 );
+		// The block cart and checkout preload their Store API data by calling the
+		// route directly, which skips the REST filter above and fires this instead.
+		add_filter( 'woocommerce_hydration_request_after_callbacks', array( self::class, 'scrub_store_api' ), 10, 3 );
 		add_filter( 'galaxie_cart_shipping_destination', array( self::class, 'hide_destination' ) );
 		add_filter( 'galaxie_cart_shipping_calculator_hidden', array( self::class, 'hide_calculator' ) );
 		add_filter( 'body_class', array( self::class, 'body_class' ) );
