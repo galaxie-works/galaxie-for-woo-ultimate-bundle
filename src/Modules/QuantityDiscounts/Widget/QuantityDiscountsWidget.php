@@ -636,21 +636,25 @@ final class QuantityDiscountsWidget extends Widget_Base {
 	 */
 	private function render_text( string $text, string $prefix, array $settings ): string {
 		if ( $this->pixfort_active() ) {
+			// PixText runs its content through do_shortcode and writes the colour
+			// into style="" unescaped. The labels here come from settings and from
+			// wc_price() stripped to text; esc_html() leaves their entities as they are.
+			$safe = esc_html( $text );
 			$attr = array(
 				'content_type'         => 'simple',
-				'content'              => $text,
-				'size'                 => $settings[ $prefix . '_size' ] ?? '',
-				'bold'                 => $settings[ $prefix . '_bold' ] ?? '',
-				'italic'               => $settings[ $prefix . '_italic' ] ?? '',
-				'secondary_font'       => $settings[ $prefix . '_secondary_font' ] ?? '',
-				'content_color'        => $settings[ $prefix . '_content_color' ] ?? '',
-				'content_custom_color' => $settings[ $prefix . '_content_custom_color' ] ?? '',
-				'position'             => $settings[ $prefix . '_position' ] ?? 'text-left',
-				'animation'            => $settings[ $prefix . '_animation' ] ?? '',
-				'delay'                => $settings[ $prefix . '_delay' ] ?? '0',
-				'remove_pb_padding'    => $settings[ $prefix . '_remove_pb_padding' ] ?? 'm-0',
+				'content'              => $safe,
+				'size'                 => PixfortControls::class_list( $settings[ $prefix . '_size' ] ?? '' ),
+				'bold'                 => PixfortControls::class_list( $settings[ $prefix . '_bold' ] ?? '' ),
+				'italic'               => PixfortControls::class_list( $settings[ $prefix . '_italic' ] ?? '' ),
+				'secondary_font'       => PixfortControls::class_list( $settings[ $prefix . '_secondary_font' ] ?? '' ),
+				'content_color'        => PixfortControls::class_list( $settings[ $prefix . '_content_color' ] ?? '' ),
+				'content_custom_color' => PixfortControls::css_colour( $settings[ $prefix . '_content_custom_color' ] ?? '' ),
+				'position'             => PixfortControls::class_list( $settings[ $prefix . '_position' ] ?? 'text-left' ),
+				'animation'            => PixfortControls::class_list( $settings[ $prefix . '_animation' ] ?? '' ),
+				'delay'                => PixfortControls::number( $settings[ $prefix . '_delay' ] ?? '0', '0' ),
+				'remove_pb_padding'    => PixfortControls::class_list( $settings[ $prefix . '_remove_pb_padding' ] ?? 'm-0' ),
 			);
-			return \PixfortCore::instance()->elementsManager->renderElement( 'Text', $attr, $text );
+			return \PixfortCore::instance()->elementsManager->renderElement( 'Text', $attr, $safe );
 		}
 
 		$classes = array();
