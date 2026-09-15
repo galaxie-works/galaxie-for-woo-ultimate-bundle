@@ -31,17 +31,19 @@ defined( 'ABSPATH' ) || exit;
  *   y are sums of other footprints, which any packing can be pushed into), in
  *   bottom-left order so each layout is visited once. Failed states are
  *   remembered, and a conservative-scale bound proves most hopeless cases
- *   early. Past NODE_LIMIT steps it gives up and answers "does not fit" (never
- *   a box that will not close), counted the same way in both languages. Over
- *   13,770 checks of 1–12 candles (50g/190g) in floors from 10 × 10 to 35 × 35
- *   cm, every fit was found within 20,025 steps; 2 answers stayed undecided.
+ *   early. Past STEP_LIMIT units of work it gives up and answers "does not fit"
+ *   (never a box that will not close), counted the same way in both languages.
+ *   Square footprints (the Eir jars): over 13,770 checks of 1–12 candles
+ *   (50g/190g) in floors from 10 × 10 to 35 × 35 cm, every fit took at most
+ *   176,883 steps. Non-square footprints make a much finer grid of corners: in
+ *   big boxes with 9+ of them a real fit can come back "does not fit".
  * - Everything is compared in hundredths of a centimetre and prices in cents,
  *   so PHP floats and JS numbers cannot disagree.
  */
 final class GiftPacking {
 
-	/** Search steps before `fits()` gives up and says no. */
-	public const NODE_LIMIT = 50000;
+	/** Search work (states entered + corners tried) before `fits()` gives up and says no. */
+	public const STEP_LIMIT = 250000;
 
 	/** Failed search states remembered per `fits()` call. */
 	public const MEMO_LIMIT = 50000;
@@ -144,6 +146,7 @@ final class GiftPacking {
 			'ys'     => self::corners( $ys, $types, $by ),
 			'placed' => array(),
 			'nodes'  => 0,
+			'steps'  => 0,
 			'dead'   => array(),
 			'stop'   => false,
 			'proved' => false,
@@ -537,7 +540,9 @@ final class GiftPacking {
 			return false;
 		}
 
-		if ( ++$s['nodes'] > self::NODE_LIMIT ) {
+		++$s['nodes'];
+
+		if ( ++$s['steps'] > self::STEP_LIMIT ) {
 			$s['stop'] = true;
 			return false;
 		}
@@ -555,6 +560,7 @@ final class GiftPacking {
 		// Corners inside a placed candle can take nothing: start at the first free one.
 		$first = $last + 1;
 		for ( ; $first < $cells; $first++ ) {
+			++$s['steps'];
 			if ( ! self::covered( $s['placed'], $s['xs'][ $first % $cols ], $s['ys'][ intdiv( $first, $cols ) ] ) ) {
 				break;
 			}
@@ -583,6 +589,13 @@ final class GiftPacking {
 		}
 
 		for ( $idx = $first; $idx < $cells; $idx++ ) {
+			// Work, not just states, is what the limit counts: a fine grid of
+			// corners makes each state expensive.
+			if ( ++$s['steps'] > self::STEP_LIMIT ) {
+				$s['stop'] = true;
+				return false;
+			}
+
 			$row = intdiv( $idx, $cols );
 			$x   = $s['xs'][ $idx % $cols ];
 			$y   = $s['ys'][ $row ];

@@ -13,7 +13,7 @@
  *   that helps.
  * - The floor search is exact over "normal pattern" corners in bottom-left
  *   order, with remembered failures and a conservative-scale bound, and gives
- *   up (says "does not fit") after NODE_LIMIT steps — see GiftPacking.php for
+ *   up (says "does not fit") after STEP_LIMIT units of work — see GiftPacking.php for
  *   how often that happens.
  * - Sizes are compared in hundredths of a cm and prices in cents.
  *
@@ -51,8 +51,8 @@ export interface Gift<C extends Candle = Candle, B extends Box = Box> {
   candles: C[]
 }
 
-/** Search steps before `fits()` gives up and says no. */
-export const NODE_LIMIT = 50000
+/** Search work (states entered + corners tried) before `fits()` gives up and says no. */
+export const STEP_LIMIT = 250000
 
 /** Failed search states remembered per `fits()` call. */
 export const MEMO_LIMIT = 50000
@@ -80,6 +80,7 @@ interface Search {
   ys: number[]
   placed: [number, number, number, number][]
   nodes: number
+  steps: number
   dead: Set<string>
   /** Past NODE_LIMIT, or `proved`: unwind without searching further. */
   stop: boolean
@@ -152,6 +153,7 @@ export function fits(box: Box, candles: Candle[], options: PackingOptions = {}):
     ys: corners(ys, types, sy),
     placed: [],
     nodes: 0,
+    steps: 0,
     dead: new Set<string>(),
     stop: false,
     proved: false,
@@ -364,7 +366,9 @@ function place(s: Search, last: number, left: number, area: number): boolean {
 
   if (s.stop) return false
 
-  if (++s.nodes > NODE_LIMIT) {
+  s.nodes++
+
+  if (++s.steps > STEP_LIMIT) {
     s.stop = true
     return false
   }
@@ -381,7 +385,11 @@ function place(s: Search, last: number, left: number, area: number): boolean {
 
   // Corners inside a placed candle can take nothing: start at the first free one.
   let first = last + 1
-  while (first < cells && covered(s.placed, s.xs[first % cols], s.ys[Math.floor(first / cols)])) first++
+  while (first < cells) {
+    s.steps++
+    if (!covered(s.placed, s.xs[first % cols], s.ys[Math.floor(first / cols)])) break
+    first++
+  }
 
   if (first >= cells) return false
 
@@ -400,6 +408,13 @@ function place(s: Search, last: number, left: number, area: number): boolean {
   if (s.dead.has(key)) return false
 
   for (let idx = first; idx < cells; idx++) {
+    // Work, not just states, is what the limit counts: a fine grid of corners
+    // makes each state expensive.
+    if (++s.steps > STEP_LIMIT) {
+      s.stop = true
+      return false
+    }
+
     const row = Math.floor(idx / cols)
     const x = s.xs[idx % cols]
     const y = s.ys[row]
