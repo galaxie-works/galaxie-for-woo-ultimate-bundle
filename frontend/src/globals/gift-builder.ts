@@ -26,9 +26,9 @@
  * runs again on Confirm, in PHP, before anything reaches the cart.
  */
 
-import { fits, MAX_ITEMS, room } from '@/lib/gift-packing'
+import { fits, MAX_ITEMS } from '@/lib/gift-packing'
 import type { Box, Candle, PackingOptions } from '@/lib/gift-packing'
-import { arrangeAll, cardFor as cardIdFor, cleanMessage, fill, messageLength, total, validate } from '@/lib/gift-groups'
+import { arrangeAll, cardFor as cardIdFor, cleanMessage, fill, messageLength, roomCounts, total, validate } from '@/lib/gift-groups'
 import type { Plan, PlanCandle, PlanError, PlanGroup, PlanItem } from '@/lib/gift-groups'
 import type { AjaxResult } from '@/lib/wp'
 
@@ -668,13 +668,17 @@ function createController(root: HTMLElement, pending: PendingCandle, token: numb
     const wrap = slot(node, `${kind}-wrap`)
     const list = slot(node, kind)
 
-    // Optional steps: no category set, or nothing in it on sale, and the step —
-    // heading included — is not there at all. Boxes sold with their ribbon leave
-    // the ribbon category empty.
+    // Optional steps: no category set, nothing in it on sale, or no card for this
+    // box, and the step — heading included — is not there at all. Removed, not
+    // hidden: on test a popup stylesheet showed the hidden "Fitas" heading anyway.
     const offered = options.some((option) => option.stock !== 0)
 
-    if (wrap) wrap.hidden = !offered
-    if (!list || !offered) return
+    if (!offered) {
+      wrap?.remove()
+      return
+    }
+
+    if (!list) return
 
     const d = current()
 
@@ -885,12 +889,17 @@ function createController(root: HTMLElement, pending: PendingCandle, token: numb
   }
 
   /** "Cabe mais 1 × 50g ou 1 × 190g", or "Caixa cheia". */
+  /**
+   * "Cabe mais 2 × 190g ou 3 × 50g": how many of each size still go in, by the
+   * engine (roomCounts(): bounded, stops at the box's max). Only runs when a gift
+   * is drawn — on a change of box or candles.
+   */
   function roomText(box: Box, candles: Candle[]): string {
     const d = current()
     const labels = new Map(d.sizes.map((size) => [size.size, size.label]))
-    const more = candles.length < MAX_ITEMS ? room(box, candles, d.sizes, d.options) : []
+    const more = roomCounts(box, candles, d.sizes, d.options)
 
-    return more.length ? fillText(texts.room, more.map((size) => `1 × ${labels.get(size) ?? size}`).join(' ou ')) : (texts.full ?? '')
+    return more.length ? fillText(texts.room, more.map((entry) => `${entry.count} × ${labels.get(entry.size) ?? entry.size}`).join(' ou ')) : (texts.full ?? '')
   }
 
   function explainError(error: PlanError): string {

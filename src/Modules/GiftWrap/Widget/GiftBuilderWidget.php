@@ -814,10 +814,10 @@ final class GiftBuilderWidget extends Widget_Base {
 		if ( $box && $chosen ) {
 			$sizes  = GiftPacking::store_sizes( $attribute );
 			$labels = array_column( $sizes, 'label', 'size' );
-			$more   = GiftPacking::room( $box, $candles, $sizes, $options );
+			$more   = GiftGroups::room_counts( $box, $candles, $sizes, $options );
 			$fill   = GiftGroups::fill( $box, $candles, $sizes, $options );
 			$room   = $more
-				? self::fill_text( $texts['room'], implode( ' ou ', array_map( static fn( string $size ): string => '1 × ' . ( $labels[ $size ] ?? $size ), $more ) ) )
+				? self::fill_text( $texts['room'], implode( ' ou ', array_map( static fn( array $entry ): string => $entry['count'] . ' × ' . ( $labels[ $entry['size'] ] ?? $entry['size'] ), $more ) ) )
 				: $texts['full'];
 			$total += self::price( $chosen );
 		} elseif ( $example_box ) {
