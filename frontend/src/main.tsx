@@ -9,6 +9,8 @@ import { bootVariationSwatches } from '@/globals/variation-swatches'
 import { bootVariationSpotlight } from '@/globals/variation-spotlight'
 import { bootVariationBadgesWidget } from '@/globals/variation-badges-widget'
 import { bootBuyBox } from '@/globals/buy-box'
+import { bootGiftWrap } from '@/globals/gift-wrap'
+import type { GiftConfig } from '@/globals/gift-builder'
 import { bootWishlist } from '@/globals/wishlist'
 import { bootQuantityDiscounts } from '@/globals/quantity-discounts'
 import { bootProductData } from '@/globals/product-data'
@@ -41,6 +43,7 @@ interface GalaxieConfig {
   addressAutocomplete?: { country: string; placeholder: string }
   addressBook?: AddressBookConfig
   giftCheckout?: GiftCheckoutConfig
+  giftWrap?: GiftConfig
 }
 
 function boot(): void {
@@ -50,6 +53,7 @@ function boot(): void {
     (window as unknown as { __GALAXIE_WOO__?: GalaxieConfig }).__GALAXIE_WOO__ ?? {}
 
   bootBuyBox(config.variationSwatches?.buyBox)
+  bootGiftWrap(config.giftWrap)
   bootVariationBadgesWidget(config.variationSwatches?.buyBox)
   bootQuantityDiscounts()
   bootCartCountdown()
