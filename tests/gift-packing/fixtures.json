@@ -337,6 +337,140 @@
     { "name": "a candle no box can take stays loose, the rest are boxed", "candles": [["190g", 2], ["50g", 2]], "boxes": ["p11"], "options": { "gap": 0.5, "orientation": "upright" }, "expect": { "gifts": [{ "box": "p11", "candles": ["50g", "50g"] }], "loose": ["190g", "190g"] } },
     { "name": "no boxes: everything loose", "candles": [["50g", 13]], "boxes": [], "options": { "gap": 0.5, "orientation": "upright" }, "expect": { "gifts": [], "loose": ["50g", "50g", "50g", "50g", "50g", "50g", "50g", "50g", "50g", "50g", "50g", "50g", "50g"] } }
   ],
+  "card_for": [
+    { "name": "Quadrada box: the Quadrada card", "cards": [
+        { "id": 11, "parent": 10, "attrs": { "tamanho": "quadrada" }, "stock": null },
+        { "id": 12, "parent": 10, "attrs": { "tamanho": "grande" }, "stock": 5 },
+        { "id": 21, "parent": 20, "attrs": {}, "stock": null },
+        { "id": 31, "parent": 30, "attrs": { "tamanho-do-cartao": "quadrada" }, "stock": null },
+        { "id": 32, "parent": 30, "attrs": { "tamanho-do-cartao": "grande" }, "stock": null },
+        { "id": 41, "parent": 40, "attrs": { "cor": "quadrada" }, "stock": null },
+        { "id": 42, "parent": 40, "attrs": { "formato": "quadrada" }, "stock": null },
+        { "id": 51, "parent": 50, "attrs": { "tamanho": "quadrada" }, "stock": 0 },
+        { "id": 52, "parent": 50, "attrs": { "tamanho": "grande" }, "stock": null }
+      ], "parent": 10, "box": { "tamanho": "quadrada" }, "expect": 11 },
+    { "name": "Grande box: the Grande card", "cards": [
+        { "id": 11, "parent": 10, "attrs": { "tamanho": "quadrada" }, "stock": null },
+        { "id": 12, "parent": 10, "attrs": { "tamanho": "grande" }, "stock": 5 },
+        { "id": 21, "parent": 20, "attrs": {}, "stock": null },
+        { "id": 31, "parent": 30, "attrs": { "tamanho-do-cartao": "quadrada" }, "stock": null },
+        { "id": 32, "parent": 30, "attrs": { "tamanho-do-cartao": "grande" }, "stock": null },
+        { "id": 41, "parent": 40, "attrs": { "cor": "quadrada" }, "stock": null },
+        { "id": 42, "parent": 40, "attrs": { "formato": "quadrada" }, "stock": null },
+        { "id": 51, "parent": 50, "attrs": { "tamanho": "quadrada" }, "stock": 0 },
+        { "id": 52, "parent": 50, "attrs": { "tamanho": "grande" }, "stock": null }
+      ], "parent": 10, "box": { "tamanho": "grande" }, "expect": 12 },
+    { "name": "case-insensitive", "cards": [
+        { "id": 11, "parent": 10, "attrs": { "tamanho": "quadrada" }, "stock": null },
+        { "id": 12, "parent": 10, "attrs": { "tamanho": "grande" }, "stock": 5 },
+        { "id": 21, "parent": 20, "attrs": {}, "stock": null },
+        { "id": 31, "parent": 30, "attrs": { "tamanho-do-cartao": "quadrada" }, "stock": null },
+        { "id": 32, "parent": 30, "attrs": { "tamanho-do-cartao": "grande" }, "stock": null },
+        { "id": 41, "parent": 40, "attrs": { "cor": "quadrada" }, "stock": null },
+        { "id": 42, "parent": 40, "attrs": { "formato": "quadrada" }, "stock": null },
+        { "id": 51, "parent": 50, "attrs": { "tamanho": "quadrada" }, "stock": 0 },
+        { "id": 52, "parent": 50, "attrs": { "tamanho": "grande" }, "stock": null }
+      ], "parent": 10, "box": { "Tamanho": "Quadrada" }, "expect": 11 },
+    { "name": "no box: the first card in stock", "cards": [
+        { "id": 11, "parent": 10, "attrs": { "tamanho": "quadrada" }, "stock": null },
+        { "id": 12, "parent": 10, "attrs": { "tamanho": "grande" }, "stock": 5 },
+        { "id": 21, "parent": 20, "attrs": {}, "stock": null },
+        { "id": 31, "parent": 30, "attrs": { "tamanho-do-cartao": "quadrada" }, "stock": null },
+        { "id": 32, "parent": 30, "attrs": { "tamanho-do-cartao": "grande" }, "stock": null },
+        { "id": 41, "parent": 40, "attrs": { "cor": "quadrada" }, "stock": null },
+        { "id": 42, "parent": 40, "attrs": { "formato": "quadrada" }, "stock": null },
+        { "id": 51, "parent": 50, "attrs": { "tamanho": "quadrada" }, "stock": 0 },
+        { "id": 52, "parent": 50, "attrs": { "tamanho": "grande" }, "stock": null }
+      ], "parent": 10, "box": null, "expect": 11 },
+    { "name": "no box, first sold out: the next", "cards": [
+        { "id": 11, "parent": 10, "attrs": { "tamanho": "quadrada" }, "stock": null },
+        { "id": 12, "parent": 10, "attrs": { "tamanho": "grande" }, "stock": 5 },
+        { "id": 21, "parent": 20, "attrs": {}, "stock": null },
+        { "id": 31, "parent": 30, "attrs": { "tamanho-do-cartao": "quadrada" }, "stock": null },
+        { "id": 32, "parent": 30, "attrs": { "tamanho-do-cartao": "grande" }, "stock": null },
+        { "id": 41, "parent": 40, "attrs": { "cor": "quadrada" }, "stock": null },
+        { "id": 42, "parent": 40, "attrs": { "formato": "quadrada" }, "stock": null },
+        { "id": 51, "parent": 50, "attrs": { "tamanho": "quadrada" }, "stock": 0 },
+        { "id": 52, "parent": 50, "attrs": { "tamanho": "grande" }, "stock": null }
+      ], "parent": 50, "box": null, "expect": 52 },
+    { "name": "matching card sold out: none", "cards": [
+        { "id": 11, "parent": 10, "attrs": { "tamanho": "quadrada" }, "stock": null },
+        { "id": 12, "parent": 10, "attrs": { "tamanho": "grande" }, "stock": 5 },
+        { "id": 21, "parent": 20, "attrs": {}, "stock": null },
+        { "id": 31, "parent": 30, "attrs": { "tamanho-do-cartao": "quadrada" }, "stock": null },
+        { "id": 32, "parent": 30, "attrs": { "tamanho-do-cartao": "grande" }, "stock": null },
+        { "id": 41, "parent": 40, "attrs": { "cor": "quadrada" }, "stock": null },
+        { "id": 42, "parent": 40, "attrs": { "formato": "quadrada" }, "stock": null },
+        { "id": 51, "parent": 50, "attrs": { "tamanho": "quadrada" }, "stock": 0 },
+        { "id": 52, "parent": 50, "attrs": { "tamanho": "grande" }, "stock": null }
+      ], "parent": 50, "box": { "tamanho": "quadrada" }, "expect": 0 },
+    { "name": "a simple card goes with any box", "cards": [
+        { "id": 11, "parent": 10, "attrs": { "tamanho": "quadrada" }, "stock": null },
+        { "id": 12, "parent": 10, "attrs": { "tamanho": "grande" }, "stock": 5 },
+        { "id": 21, "parent": 20, "attrs": {}, "stock": null },
+        { "id": 31, "parent": 30, "attrs": { "tamanho-do-cartao": "quadrada" }, "stock": null },
+        { "id": 32, "parent": 30, "attrs": { "tamanho-do-cartao": "grande" }, "stock": null },
+        { "id": 41, "parent": 40, "attrs": { "cor": "quadrada" }, "stock": null },
+        { "id": 42, "parent": 40, "attrs": { "formato": "quadrada" }, "stock": null },
+        { "id": 51, "parent": 50, "attrs": { "tamanho": "quadrada" }, "stock": 0 },
+        { "id": 52, "parent": 50, "attrs": { "tamanho": "grande" }, "stock": null }
+      ], "parent": 20, "box": { "tamanho": "grande" }, "expect": 21 },
+    { "name": "shared label, no equal value: none", "cards": [
+        { "id": 11, "parent": 10, "attrs": { "tamanho": "quadrada" }, "stock": null },
+        { "id": 12, "parent": 10, "attrs": { "tamanho": "grande" }, "stock": 5 },
+        { "id": 21, "parent": 20, "attrs": {}, "stock": null },
+        { "id": 31, "parent": 30, "attrs": { "tamanho-do-cartao": "quadrada" }, "stock": null },
+        { "id": 32, "parent": 30, "attrs": { "tamanho-do-cartao": "grande" }, "stock": null },
+        { "id": 41, "parent": 40, "attrs": { "cor": "quadrada" }, "stock": null },
+        { "id": 42, "parent": 40, "attrs": { "formato": "quadrada" }, "stock": null },
+        { "id": 51, "parent": 50, "attrs": { "tamanho": "quadrada" }, "stock": 0 },
+        { "id": 52, "parent": 50, "attrs": { "tamanho": "grande" }, "stock": null }
+      ], "parent": 10, "box": { "tamanho": "media" }, "expect": 0 },
+    { "name": "labels differ: matched by value when exactly one card has it", "cards": [
+        { "id": 11, "parent": 10, "attrs": { "tamanho": "quadrada" }, "stock": null },
+        { "id": 12, "parent": 10, "attrs": { "tamanho": "grande" }, "stock": 5 },
+        { "id": 21, "parent": 20, "attrs": {}, "stock": null },
+        { "id": 31, "parent": 30, "attrs": { "tamanho-do-cartao": "quadrada" }, "stock": null },
+        { "id": 32, "parent": 30, "attrs": { "tamanho-do-cartao": "grande" }, "stock": null },
+        { "id": 41, "parent": 40, "attrs": { "cor": "quadrada" }, "stock": null },
+        { "id": 42, "parent": 40, "attrs": { "formato": "quadrada" }, "stock": null },
+        { "id": 51, "parent": 50, "attrs": { "tamanho": "quadrada" }, "stock": 0 },
+        { "id": 52, "parent": 50, "attrs": { "tamanho": "grande" }, "stock": null }
+      ], "parent": 30, "box": { "tamanho": "grande" }, "expect": 32 },
+    { "name": "labels differ, two cards have the value: none", "cards": [
+        { "id": 11, "parent": 10, "attrs": { "tamanho": "quadrada" }, "stock": null },
+        { "id": 12, "parent": 10, "attrs": { "tamanho": "grande" }, "stock": 5 },
+        { "id": 21, "parent": 20, "attrs": {}, "stock": null },
+        { "id": 31, "parent": 30, "attrs": { "tamanho-do-cartao": "quadrada" }, "stock": null },
+        { "id": 32, "parent": 30, "attrs": { "tamanho-do-cartao": "grande" }, "stock": null },
+        { "id": 41, "parent": 40, "attrs": { "cor": "quadrada" }, "stock": null },
+        { "id": 42, "parent": 40, "attrs": { "formato": "quadrada" }, "stock": null },
+        { "id": 51, "parent": 50, "attrs": { "tamanho": "quadrada" }, "stock": 0 },
+        { "id": 52, "parent": 50, "attrs": { "tamanho": "grande" }, "stock": null }
+      ], "parent": 40, "box": { "tamanho": "quadrada" }, "expect": 0 },
+    { "name": "another product's cards are not considered", "cards": [
+        { "id": 11, "parent": 10, "attrs": { "tamanho": "quadrada" }, "stock": null },
+        { "id": 12, "parent": 10, "attrs": { "tamanho": "grande" }, "stock": 5 },
+        { "id": 21, "parent": 20, "attrs": {}, "stock": null },
+        { "id": 31, "parent": 30, "attrs": { "tamanho-do-cartao": "quadrada" }, "stock": null },
+        { "id": 32, "parent": 30, "attrs": { "tamanho-do-cartao": "grande" }, "stock": null },
+        { "id": 41, "parent": 40, "attrs": { "cor": "quadrada" }, "stock": null },
+        { "id": 42, "parent": 40, "attrs": { "formato": "quadrada" }, "stock": null },
+        { "id": 51, "parent": 50, "attrs": { "tamanho": "quadrada" }, "stock": 0 },
+        { "id": 52, "parent": 50, "attrs": { "tamanho": "grande" }, "stock": null }
+      ], "parent": 99, "box": { "tamanho": "quadrada" }, "expect": 0 },
+    { "name": "a box with no attributes: only a simple card", "cards": [
+        { "id": 11, "parent": 10, "attrs": { "tamanho": "quadrada" }, "stock": null },
+        { "id": 12, "parent": 10, "attrs": { "tamanho": "grande" }, "stock": 5 },
+        { "id": 21, "parent": 20, "attrs": {}, "stock": null },
+        { "id": 31, "parent": 30, "attrs": { "tamanho-do-cartao": "quadrada" }, "stock": null },
+        { "id": 32, "parent": 30, "attrs": { "tamanho-do-cartao": "grande" }, "stock": null },
+        { "id": 41, "parent": 40, "attrs": { "cor": "quadrada" }, "stock": null },
+        { "id": 42, "parent": 40, "attrs": { "formato": "quadrada" }, "stock": null },
+        { "id": 51, "parent": 50, "attrs": { "tamanho": "quadrada" }, "stock": 0 },
+        { "id": 52, "parent": 50, "attrs": { "tamanho": "grande" }, "stock": null }
+      ], "parent": 10, "box": {}, "expect": 0 }
+  ],
   "total": [
     { "name": "cents, not floats", "lines": [{ "price": 19.9, "quantity": 2 }, { "price": 12, "quantity": 1 }, { "price": 0.1, "quantity": 3 }], "expect": 5210 },
     { "name": "nothing", "lines": [], "expect": 0 },

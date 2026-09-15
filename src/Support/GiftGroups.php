@@ -281,6 +281,72 @@ final class GiftGroups {
 	}
 
 	/**
+	 * Which card a gift gets from one card product, for its box.
+	 *
+	 * Cards come one size per box, told apart by an attribute the box has too
+	 * ("Tamanho" = Quadrada / Grande). In catalogue order, among the product's
+	 * cards in stock:
+	 * - no box: the first;
+	 * - a card with no attributes (a simple card): any box;
+	 * - a card sharing attribute labels with the box: every shared value equal;
+	 * - none sharing a label at all (the two products named the attribute
+	 *   differently): the one card whose values include one of the box's, but
+	 *   only when exactly one does.
+	 * Values compare case-insensitively. 0: no card for this box.
+	 *
+	 * @param array      $cards  [ { id, parent, attrs: { label: value }, stock: int|null } ].
+	 * @param int        $parent Card product id.
+	 * @param array|null $box    The box's attributes, or null for no box.
+	 */
+	public static function card_for( array $cards, int $parent, ?array $box ): int {
+		$lower      = static fn( array $attrs ): array => array_change_key_case( array_map( static fn( $v ): string => strtolower( (string) $v ), $attrs ), CASE_LOWER );
+		$candidates = array();
+
+		foreach ( $cards as $card ) {
+			if ( (int) ( $card['parent'] ?? 0 ) === $parent && 0 !== ( $card['stock'] ?? null ) ) {
+				$candidates[] = array(
+					'id'    => (int) ( $card['id'] ?? 0 ),
+					'attrs' => $lower( (array) ( $card['attrs'] ?? array() ) ),
+				);
+			}
+		}
+
+		if ( null === $box ) {
+			return $candidates ? $candidates[0]['id'] : 0;
+		}
+
+		$box    = $lower( $box );
+		$labels = false;
+
+		foreach ( $candidates as $card ) {
+			$shared = array_intersect_key( $card['attrs'], $box );
+
+			if ( ! $card['attrs'] ) {
+				return $card['id'];
+			}
+
+			if ( ! $shared ) {
+				continue;
+			}
+
+			$labels = true;
+
+			if ( array_intersect_assoc( $shared, $box ) === $shared ) {
+				return $card['id'];
+			}
+		}
+
+		if ( $labels || ! $box ) {
+			return 0;
+		}
+
+		$values  = array_values( $box );
+		$matches = array_values( array_filter( $candidates, static fn( array $card ): bool => (bool) array_intersect( array_values( $card['attrs'] ), $values ) ) );
+
+		return 1 === count( $matches ) ? $matches[0]['id'] : 0;
+	}
+
+	/**
 	 * The sum of price × quantity, in cents.
 	 *
 	 * @param array $lines [ { price, quantity } ].

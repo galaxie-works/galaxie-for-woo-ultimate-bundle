@@ -144,6 +144,10 @@ foreach ( $fixtures['arrange_all'] as $case ) {
 	$check( 'arrange_all', $case['name'] . ' (every box fits)', $sound, true );
 }
 
+foreach ( $fixtures['card_for'] as $case ) {
+	$check( 'card_for', $case['name'], GiftGroups::card_for( $case['cards'], $case['parent'], $case['box'] ), $case['expect'] );
+}
+
 // Timing, not pass/fail: the slowest 12-candle cases.
 echo "\n  timing (best of 5):\n";
 $time = static function ( string $label, callable $run ): void {

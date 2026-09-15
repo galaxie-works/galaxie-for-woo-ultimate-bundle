@@ -210,6 +210,48 @@ export function validate(plan: Plan, options: PackingOptions = {}): PlanError[] 
   return errors
 }
 
+export interface CardRow {
+  id: number
+  parent: number
+  attrs: Record<string, string>
+  stock: number | null
+}
+
+/**
+ * Which card a gift gets from one card product, for its box (null = no box):
+ * the first in stock with no box; a simple card for any box; the card whose
+ * shared attribute values all equal the box's; with no label shared at all,
+ * the one card whose values include one of the box's, only if exactly one
+ * does. Case-insensitive. 0: none. See GiftGroups::card_for().
+ */
+export function cardFor(cards: CardRow[], parent: number, box: Record<string, string> | null): number {
+  const lower = (attrs: Record<string, string>): Record<string, string> =>
+    Object.fromEntries(Object.entries(attrs).map(([label, value]) => [label.toLowerCase(), String(value).toLowerCase()]))
+
+  const candidates = cards.filter((card) => card.parent === parent && card.stock !== 0).map((card) => ({ id: card.id, attrs: lower(card.attrs ?? {}) }))
+
+  if (box === null) return candidates.length ? candidates[0].id : 0
+
+  const boxAttrs = lower(box)
+  let labels = false
+
+  for (const card of candidates) {
+    const shared = Object.keys(card.attrs).filter((label) => label in boxAttrs)
+
+    if (!Object.keys(card.attrs).length) return card.id
+    if (!shared.length) continue
+
+    labels = true
+    if (shared.every((label) => card.attrs[label] === boxAttrs[label])) return card.id
+  }
+
+  const values = Object.values(boxAttrs)
+  if (labels || !values.length) return 0
+
+  const matches = candidates.filter((card) => Object.values(card.attrs).some((value) => values.includes(value)))
+  return matches.length === 1 ? matches[0].id : 0
+}
+
 /** The sum of price × quantity, in cents. */
 export function total(lines: { price: number; quantity: number }[]): number {
   return lines.reduce((sum, line) => sum + cents(line.price) * Math.max(0, Math.trunc(line.quantity || 0)), 0)

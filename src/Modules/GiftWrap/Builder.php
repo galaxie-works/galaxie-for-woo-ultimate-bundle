@@ -539,44 +539,31 @@ final class Builder {
 	 * @param array<int,\WC_Product> $cards  The card offer, in catalogue order.
 	 */
 	private static function card_for( int $parent, ?\WC_Product $box, array $cards ): int {
-		$sizes = $box ? self::attributes( $box ) : array();
+		// One request, one offer: the rows are built once and every answer is
+		// kept per (card product, box), however many cards the plan names.
+		static $rows = null;
+		static $memo = array();
 
-		foreach ( $cards as $id => $card ) {
-			$owner = $card->is_type( 'variation' ) ? $card->get_parent_id() : $card->get_id();
+		$key = $parent . '|' . ( $box ? $box->get_id() : 0 );
 
-			if ( $owner !== $parent || 0 === self::stock( $card ) ) {
-				continue;
-			}
-
-			if ( ! $box || self::same_size( self::attributes( $card ), $sizes ) ) {
-				return (int) $id;
-			}
+		if ( isset( $memo[ $key ] ) ) {
+			return $memo[ $key ];
 		}
 
-		return 0;
-	}
+		if ( null === $rows ) {
+			$rows = array();
 
-	/**
-	 * Whether a card's attributes agree with a box's: every attribute both have
-	 * is equal. A card sharing none fits only when it has none (a simple card).
-	 *
-	 * @param array<string,string> $card From attributes().
-	 * @param array<string,string> $box  From attributes().
-	 */
-	private static function same_size( array $card, array $box ): bool {
-		$shared = array_intersect_key( $card, $box );
-
-		if ( ! $shared ) {
-			return ! $card;
-		}
-
-		foreach ( $shared as $name => $value ) {
-			if ( $box[ $name ] !== $value ) {
-				return false;
+			foreach ( $cards as $id => $card ) {
+				$rows[] = array(
+					'id'     => (int) $id,
+					'parent' => $card->is_type( 'variation' ) ? $card->get_parent_id() : $card->get_id(),
+					'attrs'  => self::attributes( $card ),
+					'stock'  => self::stock( $card ),
+				);
 			}
 		}
 
-		return true;
+		return $memo[ $key ] = GiftGroups::card_for( $rows, $parent, $box ? self::attributes( $box ) : null );
 	}
 
 	/**

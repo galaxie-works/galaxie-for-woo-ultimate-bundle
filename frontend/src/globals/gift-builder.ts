@@ -28,7 +28,7 @@
 
 import { fits, MAX_ITEMS, room } from '@/lib/gift-packing'
 import type { Box, Candle, PackingOptions } from '@/lib/gift-packing'
-import { arrangeAll, fill, messageLength, total, validate } from '@/lib/gift-groups'
+import { arrangeAll, cardFor as cardIdFor, fill, messageLength, total, validate } from '@/lib/gift-groups'
 import type { Plan, PlanCandle, PlanError, PlanGroup, PlanItem } from '@/lib/gift-groups'
 import { post } from '@/lib/wp'
 import type { AjaxResult } from '@/lib/wp'
@@ -784,19 +784,10 @@ function createController(root: HTMLElement, pending: PendingCandle, token: numb
   function cardFor(parent: number, boxId: number): Option | null {
     const d = current()
     const box = boxId ? d.boxes.find((option) => option.id === boxId) : undefined
+    const rows = d.cards.map((card) => ({ id: card.id, parent: card.parent ?? card.id, attrs: card.attrs ?? {}, stock: card.stock }))
+    const id = cardIdFor(rows, parent, boxId ? (box?.attrs ?? {}) : null)
 
-    for (const card of d.cards) {
-      if ((card.parent ?? card.id) !== parent || card.stock === 0) continue
-      if (!box || sameSize(card.attrs ?? {}, box.attrs ?? {})) return card
-    }
-
-    return null
-  }
-
-  function sameSize(card: Record<string, string>, box: Record<string, string>): boolean {
-    const shared = Object.keys(card).filter((name) => name in box)
-    if (!shared.length) return Object.keys(card).length === 0
-    return shared.every((name) => card[name] === box[name])
+    return id ? (d.cards.find((card) => card.id === id) ?? null) : null
   }
 
   /** One row per card product that has a card for this gift's box. */

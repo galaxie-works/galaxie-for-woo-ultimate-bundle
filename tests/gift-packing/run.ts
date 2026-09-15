@@ -10,7 +10,8 @@ import { isDeepStrictEqual } from 'node:util'
 
 import { arrange, cover, fits, room, summary } from '../../frontend/src/lib/gift-packing.ts'
 import type { Box, Candle, Gift, PackingOptions, SummaryRow } from '../../frontend/src/lib/gift-packing.ts'
-import { arrangeAll, fill, maxQuantity, total, validate } from '../../frontend/src/lib/gift-groups.ts'
+import { arrangeAll, cardFor, fill, maxQuantity, total, validate } from '../../frontend/src/lib/gift-groups.ts'
+import type { CardRow } from '../../frontend/src/lib/gift-groups.ts'
 import type { PlanError, PlanGroup, PlanItem } from '../../frontend/src/lib/gift-groups.ts'
 
 interface Fixtures {
@@ -33,6 +34,7 @@ interface Fixtures {
     expect: PlanError[]
   }[]
   total: { name: string; lines: { price: number; quantity: number }[]; expect: number }[]
+  card_for: { name: string; cards: CardRow[]; parent: number; box: Record<string, string> | null; expect: number }[]
   arrange_all: { name: string; candles: [string, number][]; boxes: string[]; options?: PackingOptions; expect: { gifts: { box: string; candles: string[] }[]; loose: string[] } | null }[]
 }
 
@@ -113,6 +115,10 @@ for (const c of fixtures.arrange_all) {
 
   const sound = result.gifts.every((gift) => gift.candles.length <= 12 && fits(gift.box, gift.candles, c.options ?? {}))
   check('arrange_all', `${c.name} (every box fits)`, sound, true)
+}
+
+for (const c of fixtures.card_for) {
+  check('card_for', c.name, cardFor(c.cards, c.parent, c.box), c.expect)
 }
 
 console.log('\n  timing (best of 5):')
