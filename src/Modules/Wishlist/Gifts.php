@@ -834,6 +834,10 @@ final class Gifts {
 
 		$order->update_meta_data( self::ORDER_OWNER, $gift['user_id'] );
 		$order->update_meta_data( self::ORDER_LIST, (string) $gift['list']['id'] );
+
+		// The same "Presente" tag an order marked as a gift on the product page
+		// carries, so wp-admin shows both alike (Modules\GiftWrap\AdminTag).
+		$order->update_meta_data( \Galaxie\Woo\Modules\GiftWrap\Flag::ORDER_META, 'yes' );
 	}
 
 	public static function line_item( $item, $cart_item_key, $values ): void {

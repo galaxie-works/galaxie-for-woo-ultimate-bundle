@@ -9,6 +9,7 @@ import { bootVariationSwatches } from '@/globals/variation-swatches'
 import { bootVariationSpotlight } from '@/globals/variation-spotlight'
 import { bootVariationBadgesWidget } from '@/globals/variation-badges-widget'
 import { bootBuyBox } from '@/globals/buy-box'
+import { bootGiftWrap } from '@/globals/gift-wrap'
 import { bootWishlist } from '@/globals/wishlist'
 import { bootQuantityDiscounts } from '@/globals/quantity-discounts'
 import { bootProductData } from '@/globals/product-data'
@@ -50,6 +51,7 @@ function boot(): void {
     (window as unknown as { __GALAXIE_WOO__?: GalaxieConfig }).__GALAXIE_WOO__ ?? {}
 
   bootBuyBox(config.variationSwatches?.buyBox)
+  bootGiftWrap()
   bootVariationBadgesWidget(config.variationSwatches?.buyBox)
   bootQuantityDiscounts()
   bootCartCountdown()
