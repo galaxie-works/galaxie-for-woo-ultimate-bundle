@@ -95,6 +95,8 @@ async function load(key: string, template: string, url: string, push: boolean): 
   const body = host.querySelector<HTMLElement>(BODY) ?? host
   body.innerHTML = res.data.html
   host.dataset.accountScreen = res.data.screen ?? key
+  // For behaviour a screen's fields need set up once they exist (the phone flag field).
+  document.dispatchEvent(new CustomEvent('galaxie:account-screen', { detail: body }))
 
   if (host.dataset.accountTitle === 'yes' && res.data.title) {
     const title = host.querySelector('.galaxie-account-content-title')

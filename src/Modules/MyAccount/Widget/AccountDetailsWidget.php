@@ -11,6 +11,7 @@ use Elementor\Controls_Manager;
 use Elementor\Widget_Base;
 use Galaxie\Woo\Support\AccountParts;
 use Galaxie\Woo\Support\Assets;
+use Galaxie\Woo\Support\Phone;
 use Galaxie\Woo\Support\PixfortControls;
 use Galaxie\Woo\Support\ProfileFields;
 
@@ -139,6 +140,22 @@ final class AccountDetailsWidget extends Widget_Base {
 		$this->end_controls_section();
 	}
 
+	/**
+	 * The stored phone as the field should receive it. A number saved before
+	 * phones were kept in E.164, `(11) 98040-9005`, is printed as `+5511980409005`
+	 * so the flag field reads it as Brazilian; one that cannot be read is printed
+	 * as it is, for the customer to correct.
+	 */
+	private static function phone_value( string $stored ): string {
+		$stored = trim( $stored );
+
+		if ( '' === $stored || str_starts_with( $stored, '+' ) ) {
+			return $stored;
+		}
+
+		return Phone::normalize( $stored ) ?? $stored;
+	}
+
 	/** @param array<string,mixed> $s */
 	private function shows( array $s, string $key ): bool {
 		return self::FIELDS[ $key ][1] || 'yes' === ( $s[ 'details_' . $key . '_show' ] ?? 'yes' );
@@ -161,18 +178,21 @@ final class AccountDetailsWidget extends Widget_Base {
 			'last_name'   => $user->last_name,
 			'social_name' => (string) get_user_meta( $user->ID, ProfileFields::SOCIAL_NAME, true ),
 			'email'       => $user->user_email,
-			'phone'       => (string) get_user_meta( $user->ID, 'billing_phone', true ),
+			'phone'       => self::phone_value( (string) get_user_meta( $user->ID, 'billing_phone', true ) ),
 			'birthdate'   => (string) get_user_meta( $user->ID, ProfileFields::BIRTHDATE, true ),
 			'cpf'         => (string) get_user_meta( $user->ID, ProfileFields::CPF, true ),
 			'gender'      => (string) get_user_meta( $user->ID, ProfileFields::GENDER, true ),
 		);
 
+		// `data-phone-error`: the handler's own message, for the phone field to
+		// show when intl-tel-input already knows the number is invalid.
 		printf(
-			'<div class="galaxie-account-details %1$s"><form class="galaxie-details-form" novalidate data-error-class="%2$s" data-ok-class="%3$s" data-saved="%4$s">',
+			'<div class="galaxie-account-details %1$s"><form class="galaxie-details-form" novalidate data-error-class="%2$s" data-ok-class="%3$s" data-saved="%4$s" data-phone-error="%5$s">',
 			esc_attr( PixfortControls::surface_classes( $s, 'details_box' ) ),
 			esc_attr( PixfortControls::text_classes( $s, 'details_msg_err' ) ),
 			esc_attr( PixfortControls::text_classes( $s, 'details_msg_ok' ) ),
-			esc_attr( (string) ( $s['details_saved_text'] ?? '' ) )
+			esc_attr( (string) ( $s['details_saved_text'] ?? '' ) ),
+			esc_attr__( 'Please enter a valid phone number, with area code.', 'galaxie-woo' )
 		);
 
 		$heading = trim( (string) ( $s['details_heading'] ?? '' ) );
@@ -208,7 +228,9 @@ final class AccountDetailsWidget extends Widget_Base {
 					'last_name'   => 'type="text" autocomplete="family-name" required',
 					'social_name' => 'type="text" autocomplete="nickname"',
 					'email'       => 'type="email" readonly',
-					'phone'       => 'type="tel" inputmode="tel" autocomplete="tel" placeholder="(11) 91234-5678" maxlength="15"',
+					// No placeholder or maxlength: intl-tel-input shows an example
+					// number for the chosen country and caps the length itself.
+					'phone'       => 'type="tel" inputmode="tel" autocomplete="tel"',
 					'birthdate'   => 'type="date" autocomplete="bday"',
 					'cpf'         => 'type="text" inputmode="numeric" placeholder="000.000.000-00" maxlength="14"',
 				);

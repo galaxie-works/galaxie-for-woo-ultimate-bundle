@@ -181,6 +181,13 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 		if ( '' !== $birthdate && ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $birthdate ) ) {
 			wp_send_json_error( array( 'message' => __( 'Please enter a valid date of birth.', 'galaxie-woo' ) ) );
 		}
+		// E.164, the format My Account and FluentCRM keep. Empty still leaves the stored number alone.
+		if ( '' !== $phone ) {
+			$phone = (string) \Galaxie\Woo\Support\Phone::normalize( $phone );
+			if ( '' === $phone ) {
+				wp_send_json_error( array( 'message' => __( 'Please enter a valid phone number, with area code.', 'galaxie-woo' ) ) );
+			}
+		}
 
 		wp_update_user(
 			array(

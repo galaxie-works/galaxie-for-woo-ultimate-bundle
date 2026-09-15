@@ -1,0 +1,47 @@
+/*
+ * intl-tel-input fitted to the fields around it. Loaded after the library's own
+ * stylesheet (see lib/phone.ts), so equal selectors here win.
+ *
+ * The input keeps its own classes — pixfort's `form-control` in My Account,
+ * the island Input at checkout — so it looks like its neighbours; the library
+ * only adds the flag button over its left edge and pads the text past it.
+ */
+
+/* As wide as the other fields: the library's wrapper is inline-block. */
+.galaxie-details-form .iti,
+.galaxie-ui .iti {
+  display: block;
+  width: 100%;
+}
+
+.galaxie-details-form .iti__selected-country,
+.galaxie-ui .iti__selected-country {
+  color: inherit;
+}
+
+/* The list opens over what follows the field — the next row, the save button, a sticky footer. */
+.iti--inline-country-selector:not(.iti--detached-country-selector) .iti__country-selector {
+  z-index: 1000;
+}
+
+/* On phones it opens full screen: above pixfort's sticky header and popups. */
+.iti--detached-country-selector {
+  z-index: 100000;
+}
+
+/* The theme styles lists and buttons globally; the country list is neither. */
+.iti__country-selector {
+  color: #212529;
+  font-size: 14px;
+  line-height: 1.4;
+  text-align: left;
+}
+
+.iti__country-list .iti__country {
+  margin: 0;
+}
+
+.iti__search-input {
+  margin: 0;
+  box-shadow: none;
+}

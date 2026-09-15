@@ -322,8 +322,13 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 		if ( '' === $first_name || '' === $last_name ) {
 			wp_send_json_error( array( 'message' => __( 'Please enter your first and last name.', 'galaxie-woo' ) ) );
 		}
-		if ( null !== $phone && '' !== $phone && ! preg_match( '/^\d{10,11}$/', (string) preg_replace( '/\D+/', '', $phone ) ) ) {
-			wp_send_json_error( array( 'message' => __( 'Please enter a valid phone number, with area code.', 'galaxie-woo' ) ) );
+		// Stored in E.164, as FluentCRM keeps it: `+5511980409005` saves as it
+		// is, a Brazilian `(11) 98040-9005` becomes `+55…`.
+		if ( null !== $phone && '' !== $phone ) {
+			$phone = \Galaxie\Woo\Support\Phone::normalize( $phone );
+			if ( null === $phone ) {
+				wp_send_json_error( array( 'message' => __( 'Please enter a valid phone number, with area code.', 'galaxie-woo' ) ) );
+			}
 		}
 		if ( null !== $cpf && '' !== $cpf && ! Cpf::is_valid( $cpf ) ) {
 			wp_send_json_error( array( 'message' => __( 'Please enter a valid CPF.', 'galaxie-woo' ) ) );
