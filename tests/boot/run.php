@@ -42,7 +42,18 @@ function galaxie_boot_scenarios(): array {
 			'card_categories'    => array( 125 ),
 			'card_message_max'   => 200,
 		),
-		'shipping-cartons' => array(),
+		'shipping-cartons' => array(
+			'cartons'  => array(
+				array( 'code' => 'N12', 'name' => 'N12', 'length' => 19, 'width' => 12, 'height' => 12, 'outer_length' => '', 'outer_width' => '', 'outer_height' => '', 'empty_weight' => 60, 'max_load' => 30000, 'active' => true ),
+				// Missing an inside measure: kept in settings, never used.
+				array( 'code' => 'X', 'name' => 'X', 'length' => 20, 'width' => 0, 'height' => 10, 'outer_length' => '', 'outer_width' => '', 'outer_height' => '', 'empty_weight' => 0, 'max_load' => 30000, 'active' => true ),
+			),
+			'margin'   => 1.5,
+			'gap'      => 0,
+			'density'  => 29,
+			'stacking' => true,
+			'fallback' => 'split',
+		),
 	);
 
 	return array(
@@ -156,7 +167,64 @@ if ( null !== $child ) {
 			}
 		}
 
-		echo json_encode( array( 'booted' => $booted, 'attribute' => $attribute, 'fields' => $fields ) );
+		// Shipping Cartons: booted whenever every module is on, its hooks where
+		// they belong, and what it reads on every HTTP request safe on boot.
+		$shipping = '';
+
+		if ( $scenario['all'] && ! in_array( 'shipping-cartons', $booted, true ) ) {
+			throw new RuntimeException( 'Shipping Cartons did not boot with every module on' );
+		}
+
+		if ( in_array( 'shipping-cartons', $booted, true ) ) {
+			$hooked = static function ( string $hook, string $class, string $method ): bool {
+				foreach ( $GLOBALS['galaxie_boot']['hooks'][ $hook ] ?? array() as $callback ) {
+					if ( is_array( $callback ) && $class === ( is_object( $callback[0] ) ? get_class( $callback[0] ) : $callback[0] ) && $method === $callback[1] ) {
+						return true;
+					}
+				}
+				return false;
+			};
+
+			$expected = array(
+				array( 'http_request_args', \Galaxie\Woo\Modules\ShippingCartons\Rewriter::class, 'filter', true ),
+				array( 'woocommerce_order_get_items', \Galaxie\Woo\Modules\ShippingCartons\Context::class, 'record', true ),
+				array( 'woocommerce_checkout_order_processed', \Galaxie\Woo\Modules\ShippingCartons\Context::class, 'enter_checkout', true ),
+				array( 'add_meta_boxes', \Galaxie\Woo\Modules\ShippingCartons\OrderBox::class, 'meta_box', $scenario['admin'] ),
+				array( 'admin_notices', \Galaxie\Woo\Modules\ShippingCartons\Module::class, 'notices', $scenario['admin'] ),
+			);
+
+			foreach ( $expected as list( $hook, $class, $method, $wanted ) ) {
+				if ( $hooked( $hook, $class, $method ) !== $wanted ) {
+					throw new RuntimeException( "Shipping Cartons: {$class}::{$method} on {$hook} should " . ( $wanted ? '' : 'not ' ) . 'be hooked here' );
+				}
+			}
+
+			$module  = \Galaxie\Woo\Modules\ShippingCartons\Module::class;
+			$cartons = $module::cartons();
+			$module::packing_options();
+
+			if ( array( 'N12' ) !== array_column( $cartons, 'code' ) ) {
+				throw new RuntimeException( 'Shipping Cartons: cartons() read ' . json_encode( array_column( $cartons, 'code' ) ) . ', expected ["N12"]' );
+			}
+
+			// Not a quote: untouched. A quote whose products WooCommerce does not
+			// know (the stubs know none): fails open, body unchanged.
+			$rewriter = \Galaxie\Woo\Modules\ShippingCartons\Rewriter::class;
+			$other    = array( 'method' => 'POST', 'body' => '{"products":[{"id":1,"quantity":1}]}' );
+			$quote    = $other + array();
+
+			if ( $rewriter::filter( $other, 'https://example.test/wp-json/' ) !== $other ) {
+				throw new RuntimeException( 'Shipping Cartons: a non-quote request was changed' );
+			}
+
+			if ( $rewriter::filter( $quote, 'https://api.melhorenvio.com/v2/me/shipment/calculate' ) !== $quote ) {
+				throw new RuntimeException( 'Shipping Cartons: an unknown-product quote was changed instead of kept' );
+			}
+
+			$shipping = count( $cartons ) . ' carton, rewrite fails open';
+		}
+
+		echo json_encode( array( 'booted' => $booted, 'attribute' => $attribute, 'fields' => $fields, 'shipping' => $shipping ) );
 		exit( 0 );
 	} catch ( \Throwable $e ) {
 		fwrite( STDERR, get_class( $e ) . ': ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine() . "\n" );
@@ -249,6 +317,7 @@ foreach ( array_keys( galaxie_boot_scenarios() ) as $name ) {
 		? count( $result['booted'] ) . ' modules booted'
 			. ( null !== $result['attribute'] ? ", size attribute {$result['attribute']}" : '' )
 			. ( ! empty( $result['fields'] ) ? ', fields ' . implode( ' ', array_map( static fn( $class, $value ): string => "{$class}={$value}", array_keys( $result['fields'] ), $result['fields'] ) ) : '' )
+			. ( ! empty( $result['shipping'] ) ? ", shipping cartons: {$result['shipping']}" : '' )
 		: "exit {$code}\n" . trim( $err . "\n" . substr( (string) $out, 0, 500 ) );
 
 	$report( $ok, "boot: {$name}", $detail );
