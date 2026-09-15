@@ -85,6 +85,12 @@ let openings = 0
 const resolutions = new WeakMap<HTMLFormElement, Resolution>()
 /** What Confirm built, for the add that follows. */
 const plans = new WeakMap<HTMLFormElement, GiftRequest>()
+/**
+ * The choice each settlement was made for (product, variation, quantity).
+ * Compared on every use rather than trusted to change events: pixfort's +/-
+ * quantity buttons only fire jQuery's `change`, which native listeners miss.
+ */
+const signatures = new WeakMap<HTMLFormElement, string>()
 const variationImages = new WeakMap<HTMLFormElement, string>()
 
 function loadPopup(): LoadPopup | null {
@@ -110,7 +116,27 @@ export function giftWrapChecked(form: HTMLFormElement): boolean {
  * not settled, or settled with "Seguir sem incrementar o presente".
  */
 export function giftPlanRequest(form: HTMLFormElement): GiftRequest | null {
-  return giftWrapChecked(form) && resolutions.get(form) === 'confirm' ? (plans.get(form) ?? null) : null
+  return giftWrapChecked(form) && settled(form) && resolutions.get(form) === 'confirm' ? (plans.get(form) ?? null) : null
+}
+
+function signatureOf(candle: PendingCandle): string {
+  return `${candle.productId}:${candle.variationId}:${candle.quantity}`
+}
+
+/**
+ * Whether this form's gift is settled for what the form holds right now. A
+ * settlement for another size or quantity is forgotten here, however the
+ * change arrived.
+ */
+function settled(form: HTMLFormElement): boolean {
+  if (!resolutions.has(form)) return false
+  if (signatures.get(form) === signatureOf(pendingCandle(form))) return true
+
+  forget(form)
+  const block = giftBlock(form)
+  if (block) paintBlock(form, block)
+
+  return false
 }
 
 /** What the form is about to add: the ids and quantity the add would send. */
@@ -138,7 +164,7 @@ export function interceptForGift(form: HTMLFormElement, proceed: () => void): bo
 
   if (!block || !checkbox(block)?.checked) return false
   if (!selectionResolved(form)) return false
-  if (resolutions.has(form)) return false
+  if (settled(form)) return false
   if (!block.dataset.popup || !loadPopup()) return false
 
   open(form, block, proceed)
@@ -166,6 +192,7 @@ function selectionResolved(form: HTMLFormElement): boolean {
 /** After an add succeeded: the next one is a new gift, and asks again. */
 export function giftWrapAdded(form: HTMLFormElement): void {
   plans.delete(form)
+  signatures.delete(form)
   if (!resolutions.delete(form)) return
 
   const block = giftBlock(form)
@@ -277,6 +304,7 @@ function resolve(kind: Resolution, trigger: HTMLElement): void {
     if (kind === 'bypass') plans.delete(current.form)
 
     resolutions.set(current.form, kind)
+    signatures.set(current.form, signatureOf(current.candle))
     paintBlock(current.form, current.block)
   }
 
@@ -365,6 +393,7 @@ function paintBlock(form: HTMLFormElement, block: HTMLElement): void {
 
 function forget(form: HTMLFormElement): boolean {
   plans.delete(form)
+  signatures.delete(form)
   return resolutions.delete(form)
 }
 
@@ -390,6 +419,12 @@ function initBlock(form: HTMLFormElement, block: HTMLElement): void {
 
   const jq = window.jQuery
   if (jq) {
+    // pixfort's +/- buttons trigger jQuery's change only; settled() catches it
+    // anyway, this keeps the summary line honest straight away.
+    jq(form).on('change', (event: unknown) => {
+      if ((event as { target?: unknown }).target === box) return
+      if (forget(form)) paintBlock(form, block)
+    })
     jq(form).on('found_variation', (_event: unknown, ...args: unknown[]) => {
       const image = (args[0] as VariationImagePayload | undefined)?.image
       const src = image?.gallery_thumbnail_src || image?.thumb_src || ''
