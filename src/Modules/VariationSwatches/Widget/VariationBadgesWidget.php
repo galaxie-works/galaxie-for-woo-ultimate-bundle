@@ -10,6 +10,8 @@ namespace Galaxie\Woo\Modules\VariationSwatches\Widget;
 use Elementor\Controls_Manager;
 use Elementor\Group_Control_Typography;
 use Elementor\Widget_Base;
+use Galaxie\Woo\Support\PixfortControls;
+use Galaxie\Woo\Support\QuantityField;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -84,6 +86,18 @@ final class VariationBadgesWidget extends Widget_Base {
 		$this->register_layout_style_controls();
 		$this->register_button_controls( 'addcart', 'addcart_style_section', __( 'Add to Cart button', 'galaxie-woo' ), __( 'Adicionar ao carrinho', 'galaxie-woo' ), 'primary', '' );
 		$this->register_button_controls( 'buynow', 'buynow_style_section', __( 'Buy Now button', 'galaxie-woo' ), __( 'Comprar agora', 'galaxie-woo' ), 'primary', 'outline' );
+
+		\Galaxie\Woo\Support\Dialog::controls(
+			$this,
+			'vb_dialog',
+			array(
+				'label' => __( 'Notice dialog', 'galaxie-woo' ),
+				'text'  => __( 'Selecione uma variação antes de continuar.', 'galaxie-woo' ),
+				'yes'   => __( 'Entendi', 'galaxie-woo' ),
+				'no'    => null,
+				'extra' => array( 'error' => array( __( 'When adding to cart fails', 'galaxie-woo' ), __( 'Não foi possível adicionar ao carrinho.', 'galaxie-woo' ) ) ),
+			)
+		);
 	}
 
 	private function register_label_style_controls(): void {
@@ -682,6 +696,8 @@ final class VariationBadgesWidget extends Widget_Base {
 			++$i;
 		}
 
+		echo \Galaxie\Woo\Support\Dialog::render( $settings, 'vb_dialog', false, array( 'error' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built from escaped parts.
+
 		echo '</div>'; // .galaxie-buybox
 
 		// The real, still-functional WooCommerce variation form — kept for its
@@ -738,11 +754,17 @@ final class VariationBadgesWidget extends Widget_Base {
 
 			case 'spinner':
 				echo '<div class="galaxie-buybox-quantity">';
-				if ( 'select' === ( $settings['quantity_type'] ?? 'input' ) ) {
-					$this->render_quantity_select( $product, (int) ( $settings['quantity_max'] ?? 5 ) );
-				} else {
-					woocommerce_quantity_input();
-				}
+				// The third copy of this markup, now gone. The ids here predate
+				// the shared set (`quantity_type` rather than `_style`), so they
+				// are translated rather than renamed — nothing configured moves.
+				QuantityField::render(
+					array(
+						'quantity_style' => $settings['quantity_type'] ?? 'input',
+						'quantity_max'   => $settings['quantity_max'] ?? 5,
+					),
+					'quantity',
+					$product
+				);
 				echo '</div>';
 				break;
 
@@ -761,45 +783,26 @@ final class VariationBadgesWidget extends Widget_Base {
 		}
 	}
 
-	/**
-	 * Dropdown alternative to the number input. Keeps `name="quantity"` and the
-	 * `qty` class so both WooCommerce and our own JS treat it like any other
-	 * quantity field. Respects the product's min/max where it declares them.
-	 */
-	private function render_quantity_select( \WC_Product $product, int $max ): void {
-		$min = max( 1, (int) $product->get_min_purchase_quantity() );
-		$product_max = (int) $product->get_max_purchase_quantity();
-		if ( $product_max > 0 ) {
-			$max = min( $max, $product_max );
-		}
-		$max = max( $min, $max );
-
-		echo '<div class="quantity galaxie-quantity-select">';
-		echo '<select name="quantity" class="qty">';
-		for ( $i = $min; $i <= $max; $i++ ) {
-			printf( '<option value="%1$d">%1$d</option>', $i );
-		}
-		echo '</select>';
-		echo '</div>';
-	}
 
 	/** @param array<string,mixed> $settings */
 	private function render_button( string $prefix, array $settings ): string {
 		$text = (string) ( $settings[ $prefix . '_text' ] ?? '' );
 
 		if ( $this->pixfort_active() ) {
+			// PixButton prints the text and these class values unescaped (the text
+			// through do_shortcode); escaped here as PixfortControls::button_attr() does.
 			$attr = array(
 				'is_elementor'      => 'true',
-				'btn_text'          => $text,
+				'btn_text'          => esc_html( $text ),
 				'btn_link'          => '', // Empty on purpose: renders a <span>, not an <a> — our own wrapping <button> handles the click.
 				'btn_icon'          => $settings[ $prefix . '_icon' ] ?? '',
-				'btn_icon_position' => $settings[ $prefix . '_icon_position' ] ?? '',
-				'btn_style'         => $settings[ $prefix . '_style' ] ?? '',
-				'btn_color'         => $settings[ $prefix . '_color' ] ?? 'primary',
-				'btn_text_color'    => $settings[ $prefix . '_text_color' ] ?? '',
-				'btn_size'          => $settings[ $prefix . '_size' ] ?? 'md',
-				'btn_rounded'       => $settings[ $prefix . '_rounded' ] ?? '',
-				'btn_full'          => $settings[ $prefix . '_full' ] ?? '',
+				'btn_icon_position' => PixfortControls::class_list( $settings[ $prefix . '_icon_position' ] ?? '' ),
+				'btn_style'         => PixfortControls::class_list( $settings[ $prefix . '_style' ] ?? '' ),
+				'btn_color'         => PixfortControls::class_list( $settings[ $prefix . '_color' ] ?? 'primary' ),
+				'btn_text_color'    => PixfortControls::class_list( $settings[ $prefix . '_text_color' ] ?? '' ),
+				'btn_size'          => PixfortControls::class_list( $settings[ $prefix . '_size' ] ?? 'md' ),
+				'btn_rounded'       => PixfortControls::class_list( $settings[ $prefix . '_rounded' ] ?? '' ),
+				'btn_full'          => PixfortControls::class_list( $settings[ $prefix . '_full' ] ?? '' ),
 			);
 			return \PixfortCore::instance()->elementsManager->renderElement( 'Button', $attr );
 		}
@@ -810,21 +813,24 @@ final class VariationBadgesWidget extends Widget_Base {
 	/** @param array<string,mixed> $settings */
 	private function render_label( string $label, array $settings ): string {
 		if ( $this->pixfort_active() ) {
+			// PixText runs its content through do_shortcode and writes the colour
+			// into style="" unescaped, so both are made safe first.
+			$safe = esc_html( $label );
 			$attr = array(
 				'content_type'         => 'simple',
-				'content'              => $label,
-				'size'                 => $settings['label_size'] ?? '',
-				'bold'                 => $settings['label_bold'] ?? '',
-				'italic'               => $settings['label_italic'] ?? '',
-				'secondary_font'       => $settings['label_secondary_font'] ?? '',
-				'content_color'        => $settings['label_content_color'] ?? '',
-				'content_custom_color' => $settings['label_content_custom_color'] ?? '',
-				'position'             => $settings['label_position'] ?? 'text-left',
-				'animation'            => $settings['label_animation'] ?? '',
-				'delay'                => $settings['label_delay'] ?? '0',
-				'remove_pb_padding'    => $settings['label_remove_pb_padding'] ?? '',
+				'content'              => $safe,
+				'size'                 => PixfortControls::class_list( $settings['label_size'] ?? '' ),
+				'bold'                 => PixfortControls::class_list( $settings['label_bold'] ?? '' ),
+				'italic'               => PixfortControls::class_list( $settings['label_italic'] ?? '' ),
+				'secondary_font'       => PixfortControls::class_list( $settings['label_secondary_font'] ?? '' ),
+				'content_color'        => PixfortControls::class_list( $settings['label_content_color'] ?? '' ),
+				'content_custom_color' => PixfortControls::css_colour( $settings['label_content_custom_color'] ?? '' ),
+				'position'             => PixfortControls::class_list( $settings['label_position'] ?? 'text-left' ),
+				'animation'            => PixfortControls::class_list( $settings['label_animation'] ?? '' ),
+				'delay'                => PixfortControls::number( $settings['label_delay'] ?? '0', '0' ),
+				'remove_pb_padding'    => PixfortControls::class_list( $settings['label_remove_pb_padding'] ?? '' ),
 			);
-			return \PixfortCore::instance()->elementsManager->renderElement( 'Text', $attr, $label );
+			return \PixfortCore::instance()->elementsManager->renderElement( 'Text', $attr, $safe );
 		}
 
 		$classes = 'galaxie-variation-label-text';
@@ -845,16 +851,22 @@ final class VariationBadgesWidget extends Widget_Base {
 	/** @param array<string,mixed> $settings */
 	private function render_badge( string $label, array $settings, bool $selected ): string {
 		if ( $this->pixfort_active() ) {
+			// PixBadge prints the text through do_shortcode and these values as
+			// classes, unescaped.
 			$attr = array(
-				'text'      => $label,
-				'text_color' => $selected
-					? ( $settings['badge_text_color_selected'] ?? 'white' )
-					: ( $settings['badge_text_color'] ?? 'primary' ),
-				'bg_color'  => $selected
-					? ( $settings['badge_bg_color_selected'] ?? 'primary' )
-					: ( $settings['badge_bg_color'] ?? 'primary-light' ),
-				'text_size' => $settings['badge_text_size'] ?? 'h6',
-				'rounded'   => $settings['badge_rounded'] ?? '',
+				'text'       => esc_html( $label ),
+				'text_color' => PixfortControls::class_list(
+					$selected
+						? ( $settings['badge_text_color_selected'] ?? 'white' )
+						: ( $settings['badge_text_color'] ?? 'primary' )
+				),
+				'bg_color'   => PixfortControls::class_list(
+					$selected
+						? ( $settings['badge_bg_color_selected'] ?? 'primary' )
+						: ( $settings['badge_bg_color'] ?? 'primary-light' )
+				),
+				'text_size'  => PixfortControls::class_list( $settings['badge_text_size'] ?? 'h6' ),
+				'rounded'    => PixfortControls::class_list( $settings['badge_rounded'] ?? '' ),
 			);
 			return \PixfortCore::instance()->elementsManager->renderElement( 'Badge', $attr );
 		}

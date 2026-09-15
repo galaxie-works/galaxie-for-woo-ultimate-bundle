@@ -93,6 +93,17 @@ final class VariationSpotlightWidget extends Widget_Base {
 		);
 
 		$this->end_controls_section();
+
+		\Galaxie\Woo\Support\Dialog::controls(
+			$this,
+			'spotlight_dialog',
+			array(
+				'label' => __( 'Add to cart error dialog', 'galaxie-woo' ),
+				'text'  => __( 'Não foi possível adicionar ao carrinho.', 'galaxie-woo' ),
+				'yes'   => __( 'Entendi', 'galaxie-woo' ),
+				'no'    => null,
+			)
+		);
 	}
 
 	/**
@@ -184,6 +195,11 @@ final class VariationSpotlightWidget extends Widget_Base {
 		}
 
 		echo '</div>'; // .galaxie-spotlight-body
+
+		if ( 'ajax' === ( $settings['button_behavior'] ?? 'link' ) ) {
+			echo \Galaxie\Woo\Support\Dialog::render( $settings, 'spotlight_dialog', false ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built from escaped parts.
+		}
+
 		echo '</div>'; // .galaxie-spotlight
 	}
 }

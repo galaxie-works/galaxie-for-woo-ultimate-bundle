@@ -18,6 +18,8 @@
  *    clicked — Buy Now redirects to checkout on success.
  */
 
+import { tell } from '@/lib/dialog'
+
 interface BuyBoxConfig {
   ajaxUrl: string
   nonce: string
@@ -39,6 +41,8 @@ function postAddToCart(config: BuyBoxConfig, variationId: number, quantity: numb
     (response) => response.json() as Promise<AddToCartResponse>
   )
 }
+
+const SELECT_FIRST = 'Selecione uma variação antes de continuar.'
 
 function initWidget(picker: HTMLElement, config?: BuyBoxConfig): void {
   // A picker inside a Galaxie Buy Box belongs to that widget, which owns its
@@ -137,7 +141,7 @@ function initWidget(picker: HTMLElement, config?: BuyBoxConfig): void {
   const runAddToCart = (button: HTMLButtonElement, onSuccess: (json: AddToCartResponse) => void) => {
     const variationId = currentVariationId()
     if (!variationId) {
-      window.alert('Selecione uma variação antes de continuar.')
+      void tell(container, 'vb_dialog', { fallback: SELECT_FIRST })
       return
     }
     button.disabled = true
@@ -147,7 +151,7 @@ function initWidget(picker: HTMLElement, config?: BuyBoxConfig): void {
         if (json.success) {
           onSuccess(json)
         } else {
-          window.alert(json.data?.message ?? 'Não foi possível adicionar ao carrinho.')
+          void tell(container, 'vb_dialog', { text: json.data?.message, key: 'error', fallback: 'Não foi possível adicionar ao carrinho.' })
         }
       })
       .catch(() => {
@@ -173,7 +177,7 @@ function initWidget(picker: HTMLElement, config?: BuyBoxConfig): void {
     const nativeSubmit = nativeForm.querySelector<HTMLButtonElement>('.single_add_to_cart_button')
     const buyNowField = nativeForm.querySelector<HTMLInputElement>('input[name="galaxie_buy_now"]')
     if (!nativeSubmit || nativeSubmit.classList.contains('disabled') || nativeSubmit.disabled) {
-      window.alert('Selecione uma variação antes de continuar.')
+      void tell(container, 'vb_dialog', { fallback: SELECT_FIRST })
       return
     }
 

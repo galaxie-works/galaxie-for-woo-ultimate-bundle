@@ -10,6 +10,8 @@
  * refreshes the mini-cart — no reload, no reimplementing that logic.
  */
 
+import { tell } from '@/lib/dialog'
+
 interface VariationSpotlightConfig {
   ajaxUrl: string
   nonce: string
@@ -55,7 +57,7 @@ export function bootVariationSpotlight(config: VariationSpotlightConfig): void {
             button.disabled = false
           }, 2000)
         } else {
-          window.alert(json.data?.message ?? 'Não foi possível adicionar ao carrinho.')
+          void tell(button, 'spotlight_dialog', { text: json.data?.message, fallback: 'Não foi possível adicionar ao carrinho.' })
           button.textContent = originalText
           button.disabled = false
         }

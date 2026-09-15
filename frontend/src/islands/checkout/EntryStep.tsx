@@ -4,10 +4,12 @@ import { Button } from '@/ui/button'
 import { Field } from '@/ui/field'
 import { Input } from '@/ui/input'
 import { OtpInput } from '@/ui/otp-input'
+import { PhoneInput } from '@/ui/phone-input'
 import { Switch } from '@/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/ui/tabs'
 import { post } from '@/lib/wp'
 import type { ProfileValues } from './types'
+import { BAD_PHONE } from './validation'
 
 interface AjaxEndpoint {
   ajaxUrl: string
@@ -48,6 +50,8 @@ function EntryStep({ authCfg, genericError, onVerified }: EntryStepProps) {
     terms: false,
     marketing: true,
   })
+  // The flag field's verdict on the (optional) phone; null until it can tell.
+  const [phoneValid, setPhoneValid] = React.useState<boolean | null>(null)
 
   function switchTab(next: 'otp' | 'register') {
     setTab(next)
@@ -59,6 +63,10 @@ function EntryStep({ authCfg, genericError, onVerified }: EntryStepProps) {
   async function sendCode(e: React.FormEvent) {
     e.preventDefault()
     if (!authCfg) return
+    if ('register' === tab && '' !== reg.phone && false === phoneValid) {
+      setError(BAD_PHONE)
+      return
+    }
     setBusy(true)
     setError(null)
 
@@ -156,7 +164,13 @@ function EntryStep({ authCfg, genericError, onVerified }: EntryStepProps) {
                 </Field>
               </div>
               <Field label="Phone">
-                <Input type="tel" value={reg.phone} onChange={(e) => setReg({ ...reg, phone: e.target.value })} />
+                <PhoneInput
+                  value={reg.phone}
+                  onChange={(phone, valid) => {
+                    setReg((prev) => ({ ...prev, phone }))
+                    setPhoneValid(valid)
+                  }}
+                />
               </Field>
 
               <div className="flex items-center justify-between gap-3 rounded-md border border-border p-3">

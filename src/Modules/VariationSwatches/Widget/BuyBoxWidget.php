@@ -8,6 +8,10 @@
 namespace Galaxie\Woo\Modules\VariationSwatches\Widget;
 
 use Elementor\Controls_Manager;
+use Galaxie\Woo\Core\Plugin;
+use Galaxie\Woo\Modules\Wishlist\Gifts;
+use Galaxie\Woo\Support\PixfortControls;
+use Galaxie\Woo\Support\QuantityField;
 use Elementor\Repeater;
 use Elementor\Widget_Base;
 use Galaxie\Woo\Modules\VariationSwatches\Module;
@@ -93,6 +97,7 @@ final class BuyBoxWidget extends Widget_Base {
 		$this->register_price_section();
 		$this->register_variations_section();
 		$this->register_alert_section();
+		$this->register_gift_section();
 		$this->register_quantity_section();
 		$this->register_button_section( 'addcart', __( 'Add to Cart button', 'galaxie-woo' ), __( 'Adicionar ao carrinho', 'galaxie-woo' ), '' );
 		$this->register_button_section( 'buynow', __( 'Buy Now button', 'galaxie-woo' ), __( 'Comprar agora', 'galaxie-woo' ), 'outline' );
@@ -243,84 +248,17 @@ final class BuyBoxWidget extends Widget_Base {
 			array( 'label' => __( 'Quantity', 'galaxie-woo' ) )
 		);
 
-		$this->add_control(
-			'qty_style',
-			array(
-				'label'   => __( 'Style', 'galaxie-woo' ),
-				'type'    => Controls_Manager::SELECT,
-				'options' => array(
-					'input'  => __( 'Number input (+/-)', 'galaxie-woo' ),
-					'select' => __( 'Dropdown', 'galaxie-woo' ),
-				),
-				'default' => 'input',
-			)
-		);
-
-		$this->add_control(
-			'qty_max',
-			array(
-				'label'     => __( 'Dropdown goes up to', 'galaxie-woo' ),
-				'type'      => Controls_Manager::NUMBER,
-				'min'       => 1,
-				'max'       => 50,
-				'default'   => 5,
-				'condition' => array( 'qty_style' => 'select' ),
-			)
-		);
-
-		$field = '{{WRAPPER}} .galaxie-buybox-quantity .quantity';
-		$input = '{{WRAPPER}} .galaxie-buybox-quantity .qty';
-
-		PixfortControls::palette_control( $this, 'qty_text_color', __( 'Text color', 'galaxie-woo' ), $input, 'color' );
-		PixfortControls::palette_control( $this, 'qty_bg_color', __( 'Background color', 'galaxie-woo' ), $field, 'background-color' );
-		// The theme gives the quantity box a background, radius and shadow but
-		// no border at all, so a colour on its own lands on a zero-width border
-		// and shows nothing. Picking a colour therefore also brings a style and
-		// a 1px baseline, which the width control below can then override.
-		PixfortControls::palette_control(
+		// The whole set, Style and the dropdown ceiling included — they were
+		// registered here once, which is how the cart ended up with a Quantity
+		// panel that was missing two controls this one had.
+		PixfortControls::quantity(
 			$this,
-			'qty_border_color',
-			__( 'Border color', 'galaxie-woo' ),
-			$field,
-			'border-color',
+			'qty',
+			'{{WRAPPER}} .galaxie-buybox-quantity .quantity',
+			'{{WRAPPER}} .galaxie-buybox-quantity .qty',
 			array(),
-			' border-style: solid !important; border-width: 1px;'
-		);
-
-		$this->add_responsive_control(
-			'qty_border_width',
-			array(
-				'label'      => __( 'Border width', 'galaxie-woo' ),
-				'type'       => Controls_Manager::SLIDER,
-				'size_units' => array( 'px' ),
-				'range'      => array( 'px' => array( 'min' => 0, 'max' => 8 ) ),
-				// No default on purpose: an untouched slider must not paint a
-				// border on a box the theme deliberately ships without one.
-				'selectors'  => array( $field => 'border-width: {{SIZE}}{{UNIT}} !important; border-style: solid;' ),
-				'condition'  => array( 'qty_border_color!' => '' ),
-			)
-		);
-
-		$this->add_responsive_control(
-			'qty_width',
-			array(
-				'label'      => __( 'Width', 'galaxie-woo' ),
-				'type'       => Controls_Manager::SLIDER,
-				'size_units' => array( 'px', '%' ),
-				'range'      => array( 'px' => array( 'min' => 60, 'max' => 400 ) ),
-				'selectors'  => array( $field => 'width: {{SIZE}}{{UNIT}};' ),
-			)
-		);
-
-		$this->add_responsive_control(
-			'qty_radius',
-			array(
-				'label'      => __( 'Border radius', 'galaxie-woo' ),
-				'type'       => Controls_Manager::SLIDER,
-				'size_units' => array( 'px' ),
-				'range'      => array( 'px' => array( 'min' => 0, 'max' => 60 ) ),
-				'selectors'  => array( $field => 'border-radius: {{SIZE}}{{UNIT}}; overflow: hidden;' ),
-			)
+			array(),
+			'{{WRAPPER}} .galaxie-buybox-quantity'
 		);
 
 		$this->end_controls_section();
@@ -444,6 +382,95 @@ final class BuyBoxWidget extends Widget_Base {
 		);
 
 		PixfortControls::alert( $this, 'alert', array(), array(), '{{WRAPPER}} .galaxie-buybox-alert' );
+
+		$this->end_controls_section();
+	}
+
+	/**
+	 * The notice above the buy box for a shopper who came from "Give as a gift"
+	 * on a shared wish list, so they know the add-to-cart is a gift delivered to
+	 * someone else — with a link back to buying for themselves.
+	 */
+	private function register_gift_section(): void {
+		$this->start_controls_section(
+			'gift_section',
+			array( 'label' => __( 'Gift notice (shared wish list)', 'galaxie-woo' ) )
+		);
+
+		$this->add_control(
+			'gift_note',
+			array(
+				'type'            => Controls_Manager::RAW_HTML,
+				'raw'             => esc_html__( 'Shown at the top of the buy box when the shopper came from "Give as a gift" on a shared wish list. {name} is the list owner\'s first name. The link opens the product again as an ordinary purchase. Leave the message empty to show nothing.', 'galaxie-woo' ),
+				'content_classes' => 'elementor-descriptor',
+			)
+		);
+
+		$this->add_control(
+			'gift_text',
+			array(
+				'label'       => __( 'Message', 'galaxie-woo' ),
+				'label_block' => true,
+				'type'        => Controls_Manager::TEXTAREA,
+				'rows'        => 2,
+				'default'     => __( 'Você está dando este produto de presente para {name}. A entrega vai para o endereço dessa pessoa.', 'galaxie-woo' ),
+			)
+		);
+
+		$shown = array( 'gift_text!' => '' );
+
+		$this->add_control(
+			'gift_preview',
+			array(
+				'label'        => __( 'Show in the editor', 'galaxie-woo' ),
+				'type'         => Controls_Manager::SWITCHER,
+				'return_value' => 'yes',
+				'default'      => '',
+				'condition'    => $shown,
+			)
+		);
+
+		$this->add_control(
+			'gift_type',
+			array(
+				'label'     => __( 'Alert type', 'galaxie-woo' ),
+				'type'      => Controls_Manager::SELECT,
+				'options'   => self::alert_types(),
+				'default'   => 'info',
+				'condition' => $shown,
+			)
+		);
+
+		PixfortControls::icon_select( $this, 'gift_icon', __( 'Icon', 'galaxie-woo' ), 'Line/pixfort-icon-gift-1', $shown );
+
+		$this->add_control(
+			'gift_link_text',
+			array(
+				'label'       => __( 'Link text', 'galaxie-woo' ),
+				'description' => __( 'Leave empty for no link.', 'galaxie-woo' ),
+				'label_block' => true,
+				'type'        => Controls_Manager::TEXT,
+				'default'     => __( 'Comprar pra mim', 'galaxie-woo' ),
+				'condition'   => $shown,
+			)
+		);
+
+		PixfortControls::palette_select( $this, 'gift_link_color', __( 'Link color', 'galaxie-woo' ), 'alert-default', $shown + array( 'gift_link_text!' => '' ) );
+
+		$this->add_control(
+			'gift_inherit',
+			array(
+				'label'        => __( 'Same appearance as the Alert', 'galaxie-woo' ),
+				'description'  => __( 'Wears the Appearance set in the Alert section. Turn off to style this notice on its own.', 'galaxie-woo' ),
+				'type'         => Controls_Manager::SWITCHER,
+				'return_value' => 'yes',
+				'default'      => 'yes',
+				'separator'    => 'before',
+				'condition'    => $shown,
+			)
+		);
+
+		PixfortControls::alert( $this, 'gift_alert', array(), $shown + array( 'gift_inherit!' => 'yes' ), '{{WRAPPER}} .galaxie-buybox-gift' );
 
 		$this->end_controls_section();
 	}
@@ -587,6 +614,7 @@ final class BuyBoxWidget extends Widget_Base {
 			$this->render_single_variation_slot();
 		}
 
+		$this->render_gift_notice( $settings, $product );
 		$this->render_blocks( $rows, $product, $settings );
 		$this->render_hidden_fields( $product, $variable );
 
@@ -778,7 +806,7 @@ final class BuyBoxWidget extends Widget_Base {
 			esc_attr( (string) ( $settings['sale_display'] ?? 'simple' ) ),
 			'' === $sale ? ' hidden' : '',
 			'advanced' === ( $settings['sale_display'] ?? 'simple' )
-				? $this->badge( $settings, 'price_sale_badge', $sale ) // phpcs:ignore WordPress.Security.EscapeOutput -- pixfort's own component markup.
+				? $this->badge( $settings, 'price_sale_badge', $sale, true ) // phpcs:ignore WordPress.Security.EscapeOutput -- pixfort's own component markup.
 				: $this->text( $settings, 'price_sale', $sale ) // phpcs:ignore WordPress.Security.EscapeOutput -- rendered through pixfort's own component.
 		);
 
@@ -914,6 +942,67 @@ final class BuyBoxWidget extends Widget_Base {
 	}
 
 	/**
+	 * "You are giving this to {name}", for a shopper who opened this product from
+	 * "Give as a gift" — or a sample in the editor when asked for.
+	 *
+	 * Its own element, outside `.galaxie-buybox-alert`: that one is the script's,
+	 * hidden until an add-to-cart goes wrong, and this has to stay on screen.
+	 *
+	 * @param array<string,mixed> $settings
+	 */
+	private function render_gift_notice( array $settings, \WC_Product $product ): void {
+		$text = trim( (string) ( $settings['gift_text'] ?? '' ) );
+
+		if ( '' === $text ) {
+			return;
+		}
+
+		$editing = self::is_editing();
+		$gift    = ! $editing && Plugin::instance()->modules()->is_enabled_by_id( 'wishlist' ) ? Gifts::pending_for( (int) $product->get_id() ) : null;
+
+		if ( ! $gift && ! ( $editing && 'yes' === ( $settings['gift_preview'] ?? '' ) ) ) {
+			return;
+		}
+
+		$name    = $gift ? (string) $gift['name'] : 'Maria';
+		// The name is the list owner's own, typed into their account. PixAlert runs
+		// the title through do_shortcode(), so escaping it is not enough on its own.
+		$text    = wp_kses_post( str_replace( '{name}', PixfortControls::shortcode_safe( esc_html( $name ) ), $text ) );
+		$type    = (string) ( $settings['gift_type'] ?? 'info' );
+		$inherit = 'yes' === ( $settings['gift_inherit'] ?? 'yes' );
+		$prefix  = $inherit ? 'alert' : 'gift_alert';
+		$label   = trim( (string) ( $settings['gift_link_text'] ?? '' ) );
+
+		// Back to the clean product page, which forgets the gift.
+		$link = '' === $label ? array() : array(
+			'link_text'  => $label,
+			'link'       => array( 'url' => (string) $product->get_permalink(), 'is_external' => false, 'nofollow' => false ),
+			'link_color' => (string) ( $settings['gift_link_color'] ?? 'alert-default' ),
+		);
+
+		echo '<div class="galaxie-buybox-gift" role="status">';
+
+		// The Alert's icon size is a selector scoped to its own element.
+		$size = $settings['alert_icon_size'] ?? '';
+
+		if ( $inherit && is_numeric( $size ) ) {
+			printf( '<style>.elementor-element-%1$s .galaxie-buybox-gift .pix-alert-icon > div{font-size:%2$spx !important;}</style>', esc_attr( $this->get_id() ), esc_attr( (string) (float) $size ) );
+		}
+
+		if ( PixfortControls::available() ) {
+			if ( defined( 'PIX_CORE_PLUGIN_URI' ) && defined( 'PIXFORT_PLUGIN_VERSION' ) ) {
+				wp_enqueue_style( 'pixfort-alert-style', PIX_CORE_PLUGIN_URI . 'includes/assets/css/elements/alert.min.css', array(), PIXFORT_PLUGIN_VERSION );
+			}
+
+			echo \PixfortCore::instance()->elementsManager->renderElement( 'Alert', PixfortControls::alert_attr( $settings, $prefix, $text, $type, PixfortControls::icon_value( $settings, 'gift_icon' ), $link ) ); // phpcs:ignore WordPress.Security.EscapeOutput -- pixfort's own component markup.
+		} else {
+			printf( '<div class="alert alert-%s" role="alert"><div class="pix-alert-title">%s</div></div>', esc_attr( $type ), $text ); // phpcs:ignore WordPress.Security.EscapeOutput -- kses above.
+		}
+
+		echo '</div>';
+	}
+
+	/**
 	 * The link slot for one message, or nothing when it has no link to offer.
 	 *
 	 * An empty URL falls back to the cart rather than rendering a dead anchor:
@@ -956,38 +1045,10 @@ final class BuyBoxWidget extends Widget_Base {
 	 */
 	private function render_quantity( array $settings, \WC_Product $product ): void {
 		echo '<div class="galaxie-buybox-quantity">';
-
-		if ( 'select' === ( $settings['qty_style'] ?? 'input' ) ) {
-			$this->render_quantity_select( $product, (int) ( $settings['qty_max'] ?? 5 ) );
-		} else {
-			woocommerce_quantity_input( array(), $product );
-		}
-
+		QuantityField::render( $settings, 'qty', $product );
 		echo '</div>';
 	}
 
-	/**
-	 * Dropdown alternative to the number input. Carries `.quantity` and `.qty`
-	 * so it inherits exactly the same styling — ours and the theme's — as the
-	 * number input it replaces, rather than arriving unstyled.
-	 */
-	private function render_quantity_select( \WC_Product $product, int $max ): void {
-		$min         = max( 1, (int) $product->get_min_purchase_quantity() );
-		$product_max = (int) $product->get_max_purchase_quantity();
-
-		if ( $product_max > 0 ) {
-			$max = min( $max, $product_max );
-		}
-		$max = max( $min, $max );
-
-		echo '<div class="quantity galaxie-quantity-select">';
-		echo '<select name="quantity" class="qty">';
-		for ( $i = $min; $i <= $max; $i++ ) {
-			printf( '<option value="%1$d">%1$d</option>', $i );
-		}
-		echo '</select>';
-		echo '</div>';
-	}
 
 	/**
 	 * @param array<string,mixed> $settings
@@ -1006,39 +1067,32 @@ final class BuyBoxWidget extends Widget_Base {
 			'addcart' === $prefix ? ' single_add_to_cart_button' : ''
 		);
 
-		if ( PixfortControls::available() ) {
-			echo \PixfortCore::instance()->elementsManager->renderElement( 'Button', PixfortControls::button_attr( $settings, $prefix, $text ) ); // phpcs:ignore WordPress.Security.EscapeOutput -- pixfort's own component markup.
-		} else {
-			echo '<span class="btn">' . esc_html( $text ) . '</span>';
-		}
+		echo PixfortControls::render_button( $settings, $prefix, $text ); // phpcs:ignore WordPress.Security.EscapeOutput -- pixfort's own component markup.
 
 		echo '</button>';
 	}
 
 	/**
-	 * `PixText::render()` reads the text from its SECOND argument and ignores
-	 * `$attr['content']` entirely — passing it only in the attributes renders
-	 * an empty paragraph.
+	 * Moved to {@see PixfortControls::render_text()} once the cart needed the
+	 * same thing: registering pixfort's text controls and then printing our own
+	 * markup gives the merchant a panel where nothing moves, and that is a trap
+	 * worth having in one place rather than two.
 	 *
 	 * @param array<string,mixed> $settings
 	 */
 	private function text( array $settings, string $prefix, string $content ): string {
-		if ( PixfortControls::available() ) {
-			return \PixfortCore::instance()->elementsManager->renderElement( 'Text', PixfortControls::text_attr( $settings, $prefix, $content ), $content );
-		}
-
-		return '<span>' . wp_kses_post( $content ) . '</span>';
+		return PixfortControls::render_text( $settings, $prefix, $content );
 	}
 
 	/**
 	 * @param array<string,mixed> $settings
 	 */
-	private function badge( array $settings, string $prefix, string $text ): string {
+	private function badge( array $settings, string $prefix, string $text, bool $html = false ): string {
 		if ( PixfortControls::available() ) {
-			return \PixfortCore::instance()->elementsManager->renderElement( 'Badge', PixfortControls::badge_attr( $settings, $prefix, $text ) );
+			return \PixfortCore::instance()->elementsManager->renderElement( 'Badge', PixfortControls::badge_attr( $settings, $prefix, $text, $html ) );
 		}
 
-		return '<span class="galaxie-swatch-badge">' . esc_html( $text ) . '</span>';
+		return '<span class="galaxie-swatch-badge">' . ( $html ? wp_kses_post( $text ) : esc_html( $text ) ) . '</span>';
 	}
 
 	/** A taxonomy attribute stores slugs; the shopper should see the term name. */

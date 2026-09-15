@@ -106,6 +106,18 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 	 * @return \WC_Shipping_Rate[]
 	 */
 	public function filter_shipping_rates( array $rates, array $package ): array {
+		// Free shipping has one owner now: the Free Shipping module, which knows
+		// which zones and states the promise reaches. While it is on, this only
+		// sorts. Left running, the branches below undid it twice on the test
+		// store: a zero-cost rate made every carrier disappear (Melhor Envio
+		// quoted R$ 9,67 to R$ 14,94 for São Paulo and the cart showed none of
+		// it), and the R$ 350 threshold here offered free shipping to any
+		// address at all, Recife and abroad included.
+		if ( \Galaxie\Woo\Core\Plugin::instance()->settings()->is_enabled( 'free-shipping', false ) ) {
+			uasort( $rates, static fn( $a, $b ) => (float) $a->cost <=> (float) $b->cost );
+			return $rates;
+		}
+
 		foreach ( $rates as $rate ) {
 			if ( 'free_shipping' === $rate->method_id || 0.0 === (float) $rate->cost ) {
 				return array( $rate->get_id() => $rate );
@@ -149,6 +161,8 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 
 	public function ajax_save_profile(): void {
 		$this->check_nonce_and_login();
+		/** Where the FluentCRM change notes say this change is made. */
+		do_action( 'galaxie_woo/change_source', __( 'Checkout — dados pessoais', 'galaxie-woo' ) );
 
 		$user_id = get_current_user_id();
 
@@ -166,6 +180,13 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 		}
 		if ( '' !== $birthdate && ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $birthdate ) ) {
 			wp_send_json_error( array( 'message' => __( 'Please enter a valid date of birth.', 'galaxie-woo' ) ) );
+		}
+		// E.164, the format My Account and FluentCRM keep. Empty still leaves the stored number alone.
+		if ( '' !== $phone ) {
+			$phone = (string) \Galaxie\Woo\Support\Phone::normalize( $phone );
+			if ( '' === $phone ) {
+				wp_send_json_error( array( 'message' => __( 'Please enter a valid phone number, with area code.', 'galaxie-woo' ) ) );
+			}
 		}
 
 		wp_update_user(
@@ -192,6 +213,7 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 
 	public function ajax_save_address(): void {
 		$this->check_nonce_and_login();
+		do_action( 'galaxie_woo/change_source', __( 'Checkout — endereço', 'galaxie-woo' ) );
 
 		$user_id = get_current_user_id();
 

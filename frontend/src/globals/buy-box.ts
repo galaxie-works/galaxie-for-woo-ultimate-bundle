@@ -31,6 +31,7 @@ interface AddToCartResponse {
 }
 
 import { findAlert } from '@/globals/buy-box-alert'
+import { tell } from '@/lib/dialog'
 
 interface VariationPayload {
   price_html?: string
@@ -162,6 +163,51 @@ function initPriceAndStock(form: HTMLFormElement): void {
     }
     if (stockTarget) stockTarget.innerHTML = initialStock
   })
+
+  /**
+   * Keep WooCommerce's "disabled" classes off our button.
+   *
+   * Giving WooCommerce a `.single_variation` so it would emit `show_variation`
+   * and `hide_variation` also handed it two handlers of its own, and `onHide`
+   * puts `disabled wc-variation-selection-needed` on `.single_add_to_cart_button`
+   * — our button. Checked at the time that this changed nothing visible and did
+   * not block the click, and both were true. What was NOT checked is that
+   * WooCommerce binds its own click handler which reads that same class:
+   *
+   *     onAddToCart: if ( $( event.currentTarget ).is( '.disabled' ) ) {
+   *         window.alert( …i18n_make_a_selection_text );
+   *
+   * So a shopper clicking with nothing chosen got a browser alert before our
+   * own in-page one — the very dialog this widget was built to replace.
+   *
+   * Stripping the classes is the narrow fix: they carry no meaning for us (the
+   * button is deliberately always clickable, and the Alert does the explaining),
+   * and without them WooCommerce's handler finds nothing to complain about.
+   *
+   * Doing it on the NEXT TICK is the rest of the fix, and it is not defensive
+   * padding. jQuery runs handlers in binding order, and measuring the live form
+   * showed ours sitting first on `hide_variation` and WooCommerce's second — so
+   * a plain listener cleared the classes a moment before `onHide` put them
+   * back, and the button reached the shopper disabled anyway. A timeout lands
+   * after every handler for that event whichever order they were bound in.
+   */
+  const clearDisabled = (): void => {
+    form
+      .querySelectorAll('.single_add_to_cart_button')
+      .forEach((button) =>
+        button.classList.remove('disabled', 'wc-variation-selection-needed', 'wc-variation-is-unavailable')
+      )
+  }
+
+  const clearDisabledSoon = (): void => {
+    clearDisabled()
+    window.setTimeout(clearDisabled, 0)
+  }
+
+  // On boot too: WooCommerce runs its own check when the form initialises,
+  // before any of these listeners exist.
+  clearDisabledSoon()
+  jq(form).on('hide_variation reset_data show_variation found_variation', clearDisabledSoon)
 }
 
 function currentQuantity(form: HTMLFormElement): number {
@@ -268,7 +314,7 @@ function initButtons(form: HTMLFormElement, config?: BuyBoxConfig): void {
           // there is no Alert block at all does this resort to a browser
           // dialog, which is what the whole change is here to get rid of.
           const spoken = alert?.show('error', json.data?.message) ?? false
-          if (!spoken) window.alert(json.data?.message ?? 'Não foi possível adicionar ao carrinho.')
+          if (!spoken) void tell(form, 'buybox_dialog', { text: json.data?.message, fallback: 'Não foi possível adicionar ao carrinho.' })
           return
         }
 

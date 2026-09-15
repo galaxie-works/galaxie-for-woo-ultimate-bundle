@@ -578,7 +578,8 @@ form.galaxie-buybox .galaxie-buybox-row a.added_to_cart {
 
 /* pixfort's alert carries a bottom margin for standalone stacking; inside the
    buy box the column gap already does that job. */
-form.galaxie-buybox .galaxie-buybox-alert .alert {
+form.galaxie-buybox .galaxie-buybox-alert .alert,
+form.galaxie-buybox .galaxie-buybox-gift .alert {
   margin-bottom: 0;
 }
 
@@ -680,6 +681,12 @@ form.galaxie-buybox .galaxie-buybox-row {
   display: inline-block;
 }
 
+/* Icon only: pixfort still spaces the icon for text that is not there. */
+.galaxie-wishlist-icon-only .pixfort-icon,
+.galaxie-wishlist-icon-only svg {
+  margin: 0 !important;
+}
+
 /* Only a heading that actually has an icon becomes a row. Without the
    modifier the heading stays whatever the text block made it, which is what
    every layout saved before the icon existed is relying on. */
@@ -738,4 +745,2222 @@ form.galaxie-buybox .galaxie-buybox-row {
 .galaxie-variation-native .single_add_to_cart_button,
 .galaxie-variation-native .reset_variations {
   display: none !important;
+}
+
+/* ---------------------------------------------------------------------------
+   Galaxie Cart
+
+   The lines are a grid rather than a table, because the fields are a repeater:
+   a merchant can remove Image or reorder Price and Quantity, and a <table>
+   would need its columns declared up front. `auto-flow: column` lets the row
+   take whatever fields it was given, in whatever order, without the widget
+   having to know how many there are.
+   ------------------------------------------------------------------------- */
+.galaxie-cart-line {
+  display: grid;
+  /* ONE template, written on the form from the repeater and inherited by the
+     header row and every line alike — see CartParts::columns(). It used to be
+     `grid-auto-flow: column` with `grid-auto-columns: 1fr`, which makes each
+     row its own grid measuring its own content, so no heading sat over its
+     own values. The fallback keeps a widget rendered before this shipped
+     looking like a table rather than a pile. */
+  grid-template-columns: var(--galaxie-cart-cols, 100px repeat(4, 1fr) 48px);
+  /* Cells fill the line's height rather than being centred in it, which is
+     what leaves each column free to place its own content vertically. The
+     default below keeps that looking exactly like the centring it replaced. */
+  align-items: stretch;
+  border-bottom: 1px solid rgb(0 0 0 / 8%);
+}
+
+/* Every declaration this row used to carry — size, letter-spacing, uppercase,
+   opacity — is a control now, defaulted to exactly these values. What is left
+   here is only what the controls cannot express. */
+.galaxie-cart-head .galaxie-cart-cell > p {
+  margin: 0;
+}
+
+/* Alignment is per column, set on the repeater row. The cell is a flex box so
+   the setting reaches BOTH kinds of content: text lines up through
+   `text-align`, while the stepper, the thumbnail and the remove glyph are
+   boxes and line up through `justify-content`. */
+.galaxie-cart-cell {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+}
+
+.galaxie-cart-cell--left {
+  align-items: flex-start;
+  text-align: left;
+}
+
+.galaxie-cart-cell--center {
+  align-items: center;
+  text-align: center;
+}
+
+.galaxie-cart-cell--right {
+  align-items: flex-end;
+  text-align: right;
+}
+
+/* A flex line places an item by its MARGIN box, and pixfort's Text renders a
+   <p> that keeps its own bottom margin unless "Remove padding" is on. So a
+   price set to Bottom stopped one margin short of the cell's floor and read as
+   centred — measured at 10px, which is exactly the h6 margin. Only the remove
+   icon looked right, because an <a> has no margin to stop short by.
+
+   Inside a cell the alignment decides, and the spacing between cells is the
+   row's padding and the cell's — a paragraph margin in a table cell is not
+   spacing anyone asked for, it is a paragraph being a paragraph. */
+.galaxie-cart-cell > *,
+.galaxie-cart-cell p {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+/* Vertical, per column. The cell is a flex COLUMN, so what places its content
+   along the line's height is justify-content, not align-items. */
+.galaxie-cart-cell--v-top {
+  justify-content: flex-start;
+}
+
+.galaxie-cart-cell--v-middle {
+  justify-content: center;
+}
+
+.galaxie-cart-cell--v-bottom {
+  justify-content: flex-end;
+}
+
+/* The pixfort radius class lands on this wrapper, so it has to be the thing
+   that clips — the <img> keeps the attributes WooCommerce built for it. */
+.galaxie-cart-thumb {
+  display: inline-block;
+  overflow: hidden;
+  line-height: 0;
+}
+
+.galaxie-cart-thumb > a {
+  display: block;
+}
+
+.galaxie-cart-thumb img {
+  display: block;
+}
+
+.galaxie-cart-name {
+  display: block;
+}
+
+.galaxie-cart-meta {
+  display: block;
+  font-size: 0.85em;
+  opacity: 0.7;
+}
+
+.galaxie-cart-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  text-decoration: none;
+}
+
+/* pixfort's icons paint through this variable — see the icon-picker notes. In
+   the cart nothing else defines it, so the anchor's own colour becomes the
+   icon's, and the colour control then works on the anchor as one would expect. */
+.galaxie-cart-remove {
+  --pf-icon-color: currentColor;
+  --pf-icon-stroke-width: 1.5;
+}
+
+/* Kept in the markup, not dropped: a shopper whose JavaScript failed still has
+   a way to commit a quantity change. It is only hidden when the script is
+   actually running, which is the one moment it is genuinely redundant. */
+.galaxie-cart-form.is-galaxie-auto .galaxie-cart-update {
+  display: none;
+}
+
+.galaxie-cart-line.is-galaxie-updating {
+  opacity: 0.55;
+  transition: opacity 120ms ease;
+}
+
+.galaxie-cart-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+/* -------------------------------------------------------------------------
+   Galaxie Cart Coupon
+   ------------------------------------------------------------------------- */
+.galaxie-coupon-label {
+  display: block;
+  margin-bottom: 6px;
+}
+
+.galaxie-coupon-form {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+  margin: 0;
+}
+
+.galaxie-coupon-form .form-control {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+  margin: 0;
+}
+
+.galaxie-coupon.is-stacked .galaxie-coupon-form {
+  flex-direction: column;
+}
+
+.galaxie-coupon.is-stacked .galaxie-coupon-form .form-control {
+  width: 100%;
+}
+
+.galaxie-coupon.is-busy {
+  cursor: progress;
+}
+
+.galaxie-coupon-notice {
+  margin-top: 8px;
+}
+
+.galaxie-coupon-notice.is-error {
+  color: #b32d2e;
+}
+
+.galaxie-coupon-applied {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.galaxie-coupon-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.galaxie-coupon-item::before {
+  content: none;
+}
+
+.galaxie-coupon-amount {
+  margin-left: auto;
+}
+
+.galaxie-coupon-remove {
+  display: inline-flex;
+  align-items: center;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.galaxie-coupon-remove svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* The <button> is only the form's submit. What the shopper sees is pixfort's
+   own button inside it, so the wrapper keeps none of the browser's grey. */
+.galaxie-coupon-apply,
+.galaxie-shipping-calculator-submit {
+  appearance: none;
+  background: none;
+  border: 0;
+  margin: 0;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.galaxie-coupon-apply {
+  flex: none;
+}
+
+.galaxie-cart-checkout,
+.galaxie-cart-continue {
+  display: block;
+  text-align: center;
+}
+
+@media (max-width: 640px) {
+  /* On a narrow screen a row of columns stops being a row. Each line becomes a
+     small card: the image beside the name, and the rest stacked under it. */
+  .galaxie-cart-line {
+    grid-auto-flow: row;
+    grid-template-columns: max-content 1fr;
+  }
+
+  .galaxie-cart-head {
+    display: none;
+  }
+}
+
+/* The totals rows are ours now, not WooCommerce's cart-totals template — see
+   CartParts::totals_markup() for why. Label left, amount right, one line each. */
+.galaxie-cart-totals-rows {
+  display: flex;
+  flex-direction: column;
+}
+
+.galaxie-cart-total-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 8px 0;
+}
+
+.galaxie-cart-total-row + .galaxie-cart-total-row {
+  border-top: 1px solid rgb(0 0 0 / 6%);
+}
+
+.galaxie-cart-total-order-total {
+  font-weight: 600;
+}
+
+.galaxie-cart-total-value {
+  text-align: right;
+}
+
+/* The amounts are WooCommerce's own spans, which the theme sizes and weighs on
+   its own. They follow the row's text controls instead. */
+.galaxie-cart-total-row .woocommerce-Price-amount,
+.galaxie-cart-total-row .woocommerce-Price-amount bdi,
+.galaxie-cart-total-row .woocommerce-Price-currencySymbol {
+  color: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  font-style: inherit;
+  font-family: inherit;
+}
+
+/* wc_cart_totals_shipping_html() prints its own <tr>s — the shipping methods
+   and the calculator link expect that markup — so the row it lands in stacks
+   rather than trying to lay a table out as flex. */
+.galaxie-cart-total-shipping.is-list {
+  display: block;
+}
+
+/* The chosen carrier sits under the "Frete" label, not beside the amount. */
+.galaxie-cart-total-method {
+  display: block;
+  margin-top: 2px;
+  opacity: 0.7;
+  font-weight: 400;
+}
+
+.galaxie-cart-total-shipping table,
+.galaxie-cart-total-shipping ul {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.galaxie-cart-shipping-table {
+  border-collapse: collapse;
+}
+
+.galaxie-cart-shipping-table th,
+.galaxie-cart-shipping-table td {
+  padding: 0;
+  border: 0;
+  background: none;
+  vertical-align: top;
+}
+
+.galaxie-cart-shipping-table th {
+  text-align: left;
+  font-weight: inherit;
+  padding-right: 16px;
+  white-space: nowrap;
+}
+
+.galaxie-cart-shipping-table td {
+  text-align: right;
+}
+
+/* One option per line, the radio beside its own price. The bullets and the
+   radio stacked above its label were the theme's list and label defaults. */
+.galaxie-cart-total-shipping #shipping_method li {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin: 0 0 6px;
+  padding: 0;
+  list-style: none;
+}
+
+.galaxie-cart-total-shipping #shipping_method li::before {
+  content: none;
+}
+
+.galaxie-cart-total-shipping #shipping_method li:last-child {
+  margin-bottom: 0;
+}
+
+.galaxie-cart-total-shipping #shipping_method input[type="radio"] {
+  flex: none;
+  margin: 0;
+}
+
+.galaxie-cart-total-shipping #shipping_method label {
+  margin: 0;
+  cursor: pointer;
+}
+
+.galaxie-cart-total-shipping .woocommerce-shipping-destination {
+  margin: 8px 0 0;
+  font-size: 0.875em;
+}
+
+.galaxie-cart-checkout {
+  margin-top: 16px;
+}
+
+/* No font-size of its own any more: it carries a pixfort button, and the
+   button's own Size control is what decides. */
+.galaxie-cart-continue {
+  margin-top: 8px;
+}
+
+/* -------------------------------------------------------------------------
+   Cart countdown — XStore's sales-booster timer, ported.
+
+   Almost everything here is a control; what is left is the layout that makes
+   the icon sit beside the message and the clock read as one object rather than
+   as three loose words.
+   ------------------------------------------------------------------------- */
+/* `justify-content: center` used to sit here, and it is why Position did
+   nothing: the message was shrunk to its own width and centred as a block, so
+   text-align inside it had no room left to move anything. The row starts from
+   the left and the message takes the rest, which is what leaves the pixfort
+   text-left / text-center / text-right class something to decide. */
+.galaxie-countdown {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+}
+
+.galaxie-countdown-icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+  line-height: 0;
+}
+
+.galaxie-countdown-body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.galaxie-countdown-body p {
+  margin: 0;
+}
+
+/* Tabular figures: without them the clock changes width every second and the
+   whole message shuffles sideways once a second for five minutes. */
+.galaxie-countdown-time {
+  display: inline-block;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
+}
+
+/* -------------------------------------------------------------------------
+   Free shipping progress, and the shipping calculator.
+   ------------------------------------------------------------------------- */
+.galaxie-free-shipping {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.galaxie-free-shipping-track {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  height: 6px;
+  background: rgb(0 0 0 / 8%);
+}
+
+.galaxie-free-shipping-fill {
+  height: 100%;
+  background: currentcolor;
+  /* Animated because the number it represents changes under the shopper's
+     hand — a bar that jumps has not told them anything happened. */
+  transition: width 0.3s ease;
+}
+
+/* "Always open" is a class rather than an argument, because WooCommerce's own
+   template answers with a toggle link and a hidden section. */
+.galaxie-shipping-calculator.is-open .shipping-calculator-form {
+  display: block !important;
+}
+
+.galaxie-shipping-calculator.is-open .shipping-calculator-button {
+  display: none;
+}
+
+.galaxie-places-row .galaxie-places-input {
+  width: 100%;
+}
+
+.galaxie-shipping-calculator-heading {
+  margin-bottom: 12px;
+}
+
+.galaxie-shipping-calculator .form-row {
+  margin: 0 0 12px;
+  padding: 0;
+}
+
+.galaxie-shipping-calculator label {
+  display: block;
+  margin-bottom: 6px;
+}
+
+.galaxie-shipping-calculator .form-control {
+  width: 100%;
+}
+
+.galaxie-shipping-calculator-actions {
+  margin: 0;
+}
+
+.galaxie-shipping-calculator-submit {
+  display: block;
+  width: 100%;
+  text-align: center;
+}
+
+/* -------------------------------------------------------------------------
+   Shipping options card: Galaxie Shipping Options, and the totals' own list.
+
+   pixfort's Card as the container (its `card`, rounded and effect classes)
+   and the radio-group pattern inside it: one row per carrier, a divider
+   between rows, the chosen row shaded. Every colour here is a starting point
+   the widget's controls replace.
+   ------------------------------------------------------------------------- */
+.galaxie-shipping-options-heading {
+  margin-bottom: 12px;
+}
+
+.galaxie-shipping-card {
+  margin: 0;
+  padding: 0;
+  border: 1px solid rgb(0 0 0 / 8%);
+  background-color: var(--pix-white, #fff);
+  box-shadow: none;
+}
+
+.galaxie-shipping-card-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.galaxie-shipping-row {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.galaxie-shipping-row::before {
+  content: none;
+}
+
+.galaxie-shipping-row + .galaxie-shipping-row {
+  border-top: 1px solid rgb(0 0 0 / 8%);
+}
+
+.galaxie-shipping-row label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  padding: 12px 16px;
+  text-align: left;
+  font-weight: inherit;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.galaxie-shipping-row label:hover {
+  background-color: rgb(0 0 0 / 2%);
+}
+
+.galaxie-shipping-row label:has(input:checked) {
+  background-color: rgb(0 0 0 / 4%);
+}
+
+.galaxie-shipping-row input[type="radio"] {
+  appearance: none;
+  -webkit-appearance: none;
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  border: 1.5px solid rgb(0 0 0 / 30%);
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  transition: border-width 0.15s ease, border-color 0.15s ease;
+}
+
+.galaxie-shipping-row input[type="radio"]:checked {
+  border-width: 5px;
+  border-color: var(--pix-heading-default, #111);
+}
+
+.galaxie-shipping-row input[type="radio"]:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+.galaxie-shipping-row-text {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.35;
+}
+
+.galaxie-shipping-row-days {
+  font-size: 0.85em;
+}
+
+.galaxie-shipping-row-price {
+  flex: none;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.galaxie-shipping-options-note {
+  margin: 10px 0 0;
+}
+
+.galaxie-cart-total-shipping.is-list .galaxie-shipping-card {
+  margin-top: 8px;
+}
+
+/* -------------------------------------------------------------------------
+   Galaxie Free Shipping Progress
+   ------------------------------------------------------------------------- */
+.galaxie-free-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.galaxie-free-progress-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.galaxie-free-progress-text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.galaxie-free-progress-icon {
+  display: inline-flex;
+  flex: none;
+}
+
+.galaxie-free-progress-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.galaxie-free-progress-track {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background-color: rgb(0 0 0 / 8%);
+}
+
+.galaxie-free-progress-fill {
+  height: 100%;
+  border-radius: inherit;
+  background-color: currentcolor;
+  transition: width 0.4s ease;
+}
+
+/* -------------------------------------------------------------------------
+   Galaxie Account: menu, content, layout, user
+   ------------------------------------------------------------------------- */
+
+/* pixfort's pills are sized for marketing tabs (1.25rem text, 24px icons); an
+   account menu is navigation. The selectors carry `.nav.nav-pills` so they
+   outrank `.nav-pills.pix-pills-* .nav-link` without !important, and every
+   widget control, scoped to its element, still outranks these. */
+.galaxie-account-menu .nav.nav-pills {
+  gap: 4px;
+  flex-wrap: nowrap;
+}
+
+.galaxie-account-menu.is-horizontal .nav.nav-pills {
+  flex-wrap: wrap;
+}
+
+.galaxie-account-menu .nav.nav-pills .nav-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  font-size: 1rem;
+  line-height: 1.4;
+  text-decoration: none;
+}
+
+.galaxie-account-menu.is-vertical .nav.nav-pills .nav-link {
+  justify-content: flex-start;
+}
+
+.galaxie-account-menu.is-horizontal .nav.nav-pills .nav-link {
+  justify-content: center;
+}
+
+.galaxie-account-menu .nav.nav-pills .nav-link.is-icon-top {
+  flex-direction: column;
+  gap: 6px;
+  text-align: center;
+}
+
+.galaxie-account-menu .nav-link .pixfort-icon {
+  flex: none;
+  width: 20px;
+  height: 20px;
+}
+
+.galaxie-account-menu-label {
+  min-width: 0;
+}
+
+.galaxie-account-menu-heading {
+  padding: 14px 16px 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.6;
+}
+
+.galaxie-account-menu-divider {
+  align-self: stretch;
+  flex: none;
+  background-color: rgb(0 0 0 / 8%);
+}
+
+.galaxie-account-menu.is-vertical .galaxie-account-menu-divider {
+  height: 1px;
+  margin: 8px 0;
+}
+
+.galaxie-account-menu.is-horizontal .galaxie-account-menu-divider {
+  width: 1px;
+  margin: 0 8px;
+}
+
+.galaxie-account-menu.is-sticky {
+  position: sticky;
+  top: 110px;
+}
+
+.galaxie-account-menu-select {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .galaxie-account-menu.is-mobile-scroll .nav.nav-pills {
+    flex-direction: row !important;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .galaxie-account-menu.is-mobile-scroll .nav.nav-pills::-webkit-scrollbar {
+    display: none;
+  }
+
+  .galaxie-account-menu.is-mobile-scroll .nav-link {
+    white-space: nowrap;
+  }
+
+  .galaxie-account-menu.is-mobile-scroll .galaxie-account-menu-heading,
+  .galaxie-account-menu.is-mobile-scroll .galaxie-account-menu-divider,
+  .galaxie-account-menu.is-mobile-scroll .galaxie-account-menu-line {
+    display: none !important;
+  }
+
+  .galaxie-account-menu.is-mobile-select .nav.nav-pills {
+    display: none;
+  }
+
+  .galaxie-account-menu.is-mobile-select .galaxie-account-menu-select {
+    display: block;
+    width: 100%;
+  }
+
+  .galaxie-account-menu.is-sticky {
+    position: static;
+  }
+}
+
+/* The Account widget: pixfort's tabs row, with a gap that is a control. */
+.galaxie-account-layout.is-vertical {
+  margin-right: calc(var(--galaxie-account-gap, 30px) / -2);
+  margin-left: calc(var(--galaxie-account-gap, 30px) / -2);
+}
+
+.galaxie-account-layout.is-vertical > .galaxie-account-layout-menu,
+.galaxie-account-layout.is-vertical > .galaxie-account-layout-content {
+  padding-right: calc(var(--galaxie-account-gap, 30px) / 2);
+  padding-left: calc(var(--galaxie-account-gap, 30px) / 2);
+}
+
+.galaxie-account-layout.is-vertical > .galaxie-account-layout-menu {
+  margin-bottom: var(--galaxie-account-gap, 30px);
+}
+
+@media (min-width: 768px) {
+  .galaxie-account-layout.is-vertical > .galaxie-account-layout-menu {
+    margin-bottom: 0;
+  }
+
+  .galaxie-account-layout.is-menu-end {
+    flex-direction: row-reverse;
+  }
+}
+
+.galaxie-account-layout.is-horizontal {
+  display: flex;
+  flex-direction: column;
+  gap: var(--galaxie-account-gap, 30px);
+}
+
+.galaxie-account-layout-content,
+.galaxie-account-content {
+  min-width: 0;
+}
+
+/* While the next screen is being fetched the old one stays where it is, dimmed
+   and no longer taking clicks. Keeping it in place holds the height, so the
+   page does not jump and then jump back. */
+.galaxie-account-content.is-loading {
+  opacity: 0.55;
+  pointer-events: none;
+  transition: opacity 120ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .galaxie-account-content.is-loading {
+    transition: none;
+  }
+}
+
+.galaxie-account-content-title {
+  margin-bottom: 20px;
+}
+
+.galaxie-account-empty {
+  padding: 16px;
+  border: 1px dashed rgb(0 0 0 / 20%);
+  border-radius: 8px;
+  opacity: 0.8;
+}
+
+.galaxie-account-user {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.galaxie-account-user.is-stacked {
+  flex-direction: column;
+}
+
+.galaxie-account-user.is-inline.is-align-center {
+  justify-content: center;
+}
+
+.galaxie-account-user.is-inline.is-align-end {
+  justify-content: flex-end;
+}
+
+.galaxie-account-user.is-stacked.is-align-start {
+  align-items: flex-start;
+}
+
+.galaxie-account-user.is-stacked.is-align-center {
+  align-items: center;
+  text-align: center;
+}
+
+.galaxie-account-user.is-stacked.is-align-end {
+  align-items: flex-end;
+  text-align: right;
+}
+
+.galaxie-account-user-avatar {
+  flex: none;
+  overflow: hidden;
+  line-height: 0;
+}
+
+.galaxie-account-user-avatar img {
+  display: block;
+  width: 56px;
+  height: 56px;
+  border-radius: inherit;
+  object-fit: cover;
+}
+
+.galaxie-account-user-text {
+  min-width: 0;
+}
+
+/* -------------------------------------------------------------------------
+   Galaxie Account screens: orders, order, addresses, profile, wishlist
+   ------------------------------------------------------------------------- */
+
+.galaxie-account-screen {
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+}
+
+/* A pixfort button inside our own <a> or <button>: the element is only the
+   hit area, pixfort's `.btn` inside draws everything. */
+.galaxie-account-button,
+.galaxie-account-submit {
+  display: inline-flex;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-decoration: none !important;
+  cursor: pointer;
+}
+
+.galaxie-account-submit[disabled],
+.is-busy .galaxie-account-submit {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.galaxie-account-button .btn,
+.galaxie-account-submit .btn {
+  margin: 0 !important;
+}
+
+.galaxie-account-message:not([hidden]) {
+  display: block;
+  margin-top: 10px;
+}
+
+/* Orders */
+.galaxie-account-orders {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.galaxie-orders-list {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+}
+
+.galaxie-order-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px;
+  border: 1px solid rgb(0 0 0 / 6%);
+}
+
+.galaxie-order-card-head,
+.galaxie-order-card-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+}
+
+.galaxie-order-card-foot {
+  padding-top: 14px;
+  border-top: 1px solid rgb(0 0 0 / 6%);
+}
+
+.galaxie-order-card-title,
+.galaxie-order-card-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.galaxie-order-card-summary {
+  flex-direction: row;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.galaxie-order-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.galaxie-order-status .badge {
+  margin: 0 !important;
+}
+
+.galaxie-order-thumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.galaxie-order-thumb {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  width: 48px;
+  height: 48px;
+  background-color: rgb(0 0 0 / 4%);
+  line-height: 0;
+}
+
+.galaxie-order-thumb img {
+  width: 48px;
+  height: 48px;
+  object-fit: cover;
+}
+
+.galaxie-order-thumb.is-more {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.galaxie-orders-table-wrap {
+  overflow-x: auto;
+}
+
+.galaxie-orders-table {
+  width: 100%;
+  margin: 0;
+  border-collapse: collapse;
+}
+
+.galaxie-orders-table td {
+  padding: 14px 16px;
+  border-top: 1px solid rgb(0 0 0 / 6%);
+  vertical-align: middle;
+}
+
+.galaxie-orders-table tr:first-child td {
+  border-top: 0;
+}
+
+.galaxie-orders-table td.is-total .galaxie-order-items {
+  display: block;
+}
+
+.galaxie-orders-table td.is-actions .galaxie-order-card-actions {
+  justify-content: flex-end;
+}
+
+.galaxie-account-orders-pages,
+.galaxie-account-orders-more {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.galaxie-account-orders-pages .is-next {
+  margin-left: auto;
+}
+
+.galaxie-account-orders-empty-box {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+/* One order */
+.galaxie-account-order {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.galaxie-order-header {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.galaxie-order-header-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+}
+
+.galaxie-order-header-title {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.galaxie-order-section {
+  padding: 20px;
+  border: 1px solid rgb(0 0 0 / 6%);
+}
+
+.galaxie-order-section-heading {
+  margin-bottom: 12px;
+}
+
+.galaxie-order-line {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 0;
+}
+
+.galaxie-order-line + .galaxie-order-line,
+.galaxie-order-total-row + .galaxie-order-total-row {
+  border-top: 1px solid rgb(0 0 0 / 6%);
+}
+
+.galaxie-order-line-thumb {
+  flex: none;
+  overflow: hidden;
+  line-height: 0;
+}
+
+.galaxie-order-line-thumb img {
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+}
+
+.galaxie-order-line-text {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.galaxie-order-line-name a {
+  color: inherit;
+}
+
+.galaxie-order-line-total {
+  flex: none;
+  text-align: right;
+}
+
+.galaxie-order-line-extra {
+  padding: 0 0 12px 78px;
+}
+
+.galaxie-order-total-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 8px 0;
+}
+
+.galaxie-order-total-row.is-order_total {
+  font-size: 1.125rem;
+}
+
+.galaxie-order-addresses {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 20px;
+}
+
+.galaxie-order-body address,
+address.galaxie-order-body {
+  margin: 0;
+  font-style: normal;
+}
+
+.galaxie-order-updates {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.galaxie-order-update time {
+  display: block;
+  font-size: 0.8125rem;
+  opacity: 0.7;
+}
+
+.galaxie-order-update p:last-child {
+  margin-bottom: 0;
+}
+
+/* Addresses */
+.galaxie-account-addresses {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.galaxie-address-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+
+@media (max-width: 767px) {
+  .galaxie-address-cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.galaxie-address-card,
+.galaxie-address-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+  border: 1px solid rgb(0 0 0 / 6%);
+}
+
+.galaxie-address-body {
+  margin: 0;
+  font-style: normal;
+}
+
+/* pixfort gives every `.woocommerce address` a white box with a border, which
+   on a dark card reads as a hole in it. The address starts as plain text on
+   the card instead; the Address box controls add a box back, and their
+   scoped selectors outrank this. `border-style` rather than a width, because
+   pixfort's width carries `!important`. */
+.galaxie-account-addresses address.galaxie-address-body,
+.galaxie-address-book address.galaxie-ab-address,
+.galaxie-account-order address.galaxie-ab-address,
+.galaxie-account-order address.galaxie-order-body {
+  background: transparent;
+  border-style: none;
+  border-radius: 0;
+  padding: 0;
+}
+
+/* An order's address card drawn in the address book's look: that look decides
+   its border, not the order page's default hairline. */
+.galaxie-account-order .galaxie-order-section.galaxie-ab-card {
+  border-width: 0;
+}
+
+.galaxie-address-card-actions {
+  margin-top: auto;
+}
+
+.galaxie-address-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.galaxie-address-fields .form-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: auto !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  float: none !important;
+  grid-column: 1 / -1;
+}
+
+.galaxie-address-fields .form-row-first,
+.galaxie-address-fields .form-row-last {
+  grid-column: auto;
+}
+
+@media (max-width: 767px) {
+  .galaxie-address-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.galaxie-address-fields .form-row label {
+  margin: 0;
+}
+
+.galaxie-address-fields .select2-container {
+  width: 100% !important;
+}
+
+.galaxie-address-form-actions,
+.galaxie-details-actions,
+.galaxie-delete-actions,
+.galaxie-delete-dialog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Address book */
+.galaxie-address-book {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* The script shows and hides with the `hidden` attribute, and every element it
+   toggles here — buttons, the form, the cards — sets its own `display`, which
+   outranks the browser's `[hidden]` rule. */
+.galaxie-address-book [hidden] {
+  display: none !important;
+}
+
+.galaxie-address-book.is-busy {
+  opacity: 0.6;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+
+.galaxie-ab-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+
+@media (max-width: 767px) {
+  .galaxie-ab-cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.galaxie-ab-card,
+.galaxie-ab-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+  border: 1px solid rgb(0 0 0 / 6%);
+}
+
+.galaxie-ab-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.galaxie-ab-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.galaxie-ab-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border: 1px solid currentColor;
+}
+
+.galaxie-ab-address {
+  margin: 0;
+  font-style: normal;
+}
+
+.galaxie-ab-card-actions,
+.galaxie-ab-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.galaxie-ab-card-actions {
+  margin-top: auto;
+}
+
+/* The saved-address picker on the block checkout. */
+.galaxie-ab-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0 0 16px;
+}
+
+.galaxie-ab-picker-title {
+  margin: 0;
+  font-size: 0.875em;
+  font-weight: 600;
+}
+
+.galaxie-ab-picker-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.galaxie-ab-picker-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  max-width: 100%;
+  padding: 8px 12px;
+  border: 1px solid rgb(0 0 0 / 15%);
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.galaxie-ab-picker-item[aria-pressed='true'] {
+  border-color: currentColor;
+  box-shadow: inset 0 0 0 1px currentColor;
+}
+
+.galaxie-ab-picker-item-label {
+  font-size: 0.875em;
+  font-weight: 600;
+}
+
+.galaxie-ab-picker-item-address {
+  font-size: 0.8125em;
+  opacity: 0.75;
+}
+
+/* Payment methods */
+.galaxie-payment-methods {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.galaxie-pm-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+
+@media (max-width: 767px) {
+  .galaxie-pm-cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.galaxie-pm-item {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+/* A card drawn as a card, in a flat colour. A gradient is a choice, not a
+   given: the Cards background control offers pixfort's Primary Gradient and
+   Primary Gradient Light. */
+.galaxie-pm-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 22px 24px;
+  overflow: hidden;
+  border: 1px solid rgb(255 255 255 / 8%);
+  background-color: #1d1d21;
+  color: #fff;
+}
+
+.galaxie-pm-card-top,
+.galaxie-pm-card-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.galaxie-pm-card-bottom {
+  align-items: flex-end;
+}
+
+/* pixfort paints its icons through --pf-icon-color; the card's own text colour
+   is the default, so the mark follows whatever colour the card is set to. */
+.galaxie-pm-brand {
+  display: inline-flex;
+  align-items: center;
+  --pf-icon-color: currentColor;
+}
+
+.galaxie-pm-brand .pixfort-icon {
+  width: 48px;
+  height: 48px;
+}
+
+.galaxie-pm-badges {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.galaxie-pm-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border: 1px solid currentColor;
+  white-space: nowrap;
+}
+
+/* A flat colour by default: a built-in gradient would sit on top of whatever
+   the Chip background control chooses and hide it. pixfort's gradients are in
+   that control for a chip that wants one. */
+.galaxie-pm-chip {
+  display: block;
+  flex: none;
+  width: 42px;
+  height: 30px;
+  border: 1px solid rgb(255 255 255 / 28%);
+  border-radius: 6px;
+  background-color: rgb(255 255 255 / 30%);
+}
+
+.galaxie-pm-number {
+  overflow: hidden;
+  letter-spacing: 0.12em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.galaxie-pm-expiry-label {
+  opacity: 0.7;
+}
+
+.galaxie-pm-card.is-expired .galaxie-pm-number,
+.galaxie-pm-card.is-expired .galaxie-pm-brand {
+  opacity: 0.55;
+}
+
+.galaxie-pm-card-actions,
+.galaxie-pm-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+/* Shown and hidden with the `hidden` attribute by the script; the elements it
+   toggles set their own `display`, which outranks the browser's rule. */
+.galaxie-payment-methods [hidden] {
+  display: none !important;
+}
+
+/* Adding a card: a form below the cards, the way an address is added. Each
+   .galaxie-pm-stripe box holds one of Stripe's iframes; the box carries the
+   text styles the script hands to it. */
+.galaxie-pm-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 560px;
+  margin-top: 8px;
+  padding: 24px;
+}
+
+.galaxie-pm-form.is-busy {
+  opacity: 0.7;
+}
+
+.galaxie-pm-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.galaxie-pm-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  cursor: text;
+}
+
+.galaxie-pm-field.is-number {
+  grid-column: 1 / -1;
+}
+
+.galaxie-pm-stripe {
+  padding: 12px 14px;
+  border: 1px solid rgb(0 0 0 / 15%);
+  border-radius: 8px;
+  background-color: var(--pix-body-bg-color, #fff);
+  line-height: 1.4;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    background-color 0.15s ease;
+}
+
+.galaxie-pm-stripe.is-focused {
+  border-color: var(--pix-primary, currentColor);
+  box-shadow: 0 0 0 3px rgb(0 0 0 / 6%);
+}
+
+.galaxie-pm-stripe.is-invalid {
+  border-color: var(--pix-red, #e5484d);
+}
+
+.galaxie-pm-stripe-sample {
+  opacity: 0.5;
+}
+
+.galaxie-pm-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+@media (max-width: 480px) {
+  .galaxie-pm-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Personal details */
+.galaxie-details-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.galaxie-details-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.galaxie-details-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+}
+
+.galaxie-details-field.is-wide {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 767px) {
+  .galaxie-details-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.galaxie-details-field label {
+  margin: 0;
+}
+
+.galaxie-details-field input[readonly] {
+  opacity: 0.7;
+}
+
+.galaxie-details-actions .galaxie-account-message {
+  margin-top: 0;
+}
+
+/* Interests */
+.galaxie-account-interests {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.galaxie-interests-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.galaxie-interest {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border: 1px solid rgb(0 0 0 / 12%);
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.galaxie-interest.is-selected {
+  border-color: var(--pix-primary, #333);
+  background-color: var(--pix-primary, #333);
+  color: var(--pix-white, #fff);
+}
+
+.galaxie-interest[disabled] {
+  cursor: progress;
+}
+
+.galaxie-interest-image {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  object-fit: cover;
+}
+
+.galaxie-interest .galaxie-particle {
+  position: absolute;
+  font-size: 10px;
+  pointer-events: none;
+  animation: galaxie-particle var(--gx-duration, 600ms) ease-out forwards;
+}
+
+/* Communication */
+.galaxie-account-communication {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.galaxie-comm-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin: 0;
+  padding: 18px 20px;
+  border: 1px solid rgb(0 0 0 / 6%);
+  cursor: pointer;
+}
+
+.galaxie-comm-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.galaxie-switch {
+  position: relative;
+  flex: none;
+  display: inline-flex;
+}
+
+.galaxie-switch input {
+  position: absolute;
+  opacity: 0;
+  inset: 0;
+  margin: 0;
+  cursor: pointer;
+}
+
+.galaxie-switch-track {
+  position: relative;
+  display: block;
+  width: 44px;
+  height: 24px;
+  border-radius: 999px;
+  background-color: rgb(0 0 0 / 18%);
+  transition: background-color 0.2s ease;
+}
+
+.galaxie-switch-track::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background-color: #fff;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 20%);
+  transition: transform 0.2s ease;
+}
+
+.galaxie-switch input:checked + .galaxie-switch-track {
+  background-color: var(--pix-primary, #333);
+}
+
+.galaxie-switch input:checked + .galaxie-switch-track::after {
+  transform: translateX(20px);
+}
+
+.galaxie-switch input:focus-visible + .galaxie-switch-track {
+  outline: 2px solid var(--pix-primary, #333);
+  outline-offset: 2px;
+}
+
+/* Delete account */
+.galaxie-account-delete {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 20px;
+  border: 1px solid rgb(220 38 38 / 25%);
+}
+
+.galaxie-delete-dialog {
+  width: min(460px, calc(100vw - 32px));
+  padding: 24px;
+  border: 0;
+  background-color: var(--pix-body-bg-color, #fff);
+  color: inherit;
+}
+
+.galaxie-delete-dialog[open] {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.galaxie-delete-dialog::backdrop {
+  background: rgb(0 0 0 / 45%);
+}
+
+/* The page's own confirmation and notice (PHP Support\Dialog, lib/dialog.ts). */
+.galaxie-dialog {
+  width: min(420px, calc(100vw - 32px));
+  max-width: none;
+  padding: 24px;
+  border: 0;
+  background-color: var(--pix-body-bg-color, #fff);
+  color: inherit;
+  font: inherit;
+}
+
+.galaxie-dialog[open] {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.galaxie-dialog.is-generic {
+  border-radius: 16px;
+  box-shadow: 0 20px 50px rgb(0 0 0 / 20%);
+}
+
+/* Open in place, not as a modal, while it is styled in the editor. */
+.galaxie-dialog.is-preview {
+  position: relative;
+  margin: 16px 0 0;
+}
+
+.galaxie-dialog::backdrop {
+  background-color: rgb(0 0 0 / 45%);
+}
+
+.galaxie-dialog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px 12px;
+  margin-top: 8px;
+}
+
+.galaxie-dialog-button {
+  display: inline-flex;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.galaxie-dialog-button[hidden] {
+  display: none;
+}
+
+.galaxie-dialog-button .btn {
+  margin: 0 !important;
+}
+
+.galaxie-delete-dialog-actions {
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
+/* Wishlist */
+.galaxie-account-wishlist {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.galaxie-wishlist-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+}
+
+@media (max-width: 767px) {
+  .galaxie-wishlist-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.galaxie-wishlist-item {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid rgb(0 0 0 / 6%);
+  transition: opacity 0.2s ease;
+}
+
+.galaxie-wishlist-item.is-removing {
+  opacity: 0.4;
+}
+
+.galaxie-account-wishlist [hidden] {
+  display: none !important;
+}
+
+.galaxie-account-wishlist.is-busy {
+  opacity: 0.6;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+
+/* The customer's lists as tabs, and the one being shown. */
+.galaxie-wishlist-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.galaxie-wishlist-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border: 1px solid rgb(0 0 0 / 10%);
+  color: inherit;
+  text-decoration: none !important;
+}
+
+.galaxie-wishlist-tab.is-current {
+  border-color: currentColor;
+}
+
+.galaxie-wishlist-tab-count {
+  opacity: 0.6;
+  font-size: 0.85em;
+}
+
+.galaxie-wishlist-name-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.galaxie-wishlist-name-form input {
+  flex: 1 1 220px;
+  max-width: 360px;
+}
+
+.galaxie-wishlist-name-actions,
+.galaxie-wishlist-toolbar-actions,
+.galaxie-wishlist-share-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.galaxie-wishlist-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+}
+
+.galaxie-wishlist-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.galaxie-wishlist-list-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border: 1px solid currentColor;
+}
+
+.galaxie-wishlist-share {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid rgb(0 0 0 / 6%);
+}
+
+.galaxie-wishlist-share-body {
+  margin: 0;
+}
+
+.galaxie-wishlist-share-link {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.galaxie-wishlist-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  cursor: pointer;
+}
+
+/* A product card's corner badges and the picture's optional zoom. */
+.galaxie-wishlist-thumb {
+  position: relative;
+}
+
+.galaxie-wishlist-thumb img {
+  transition: transform 0.3s ease;
+}
+
+.galaxie-wishlist-badges {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  line-height: 1.4;
+}
+
+.galaxie-wishlist-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  background-color: var(--pix-body-bg-color, #fff);
+}
+
+.galaxie-wishlist-empty-icon {
+  display: inline-flex;
+  --pf-icon-color: currentColor;
+}
+
+/* A shared wishlist's public page. */
+/* pixfort's header sits over the page and each page makes room for it in its
+   own settings; this page has none, so it makes that room itself. */
+.galaxie-shared-page {
+  padding: 180px 0 72px;
+}
+
+@media (max-width: 1024px) {
+  .galaxie-shared-page {
+    padding-top: 120px;
+  }
+}
+
+.galaxie-shared-wishlist {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.galaxie-shared-wishlist [hidden] {
+  display: none !important;
+}
+
+.galaxie-shared-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.galaxie-shared-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.galaxie-shared-name,
+.galaxie-shared-intro {
+  margin: 0;
+}
+
+/* The block checkout for a gift: the shipping step is who and where. */
+.galaxie-gift-checkout #shipping-fields .wc-block-components-address-form-wrapper,
+.galaxie-gift-checkout #shipping-fields .wc-block-components-address-card-wrapper,
+.galaxie-gift-checkout #shipping-fields .wc-block-components-address-form {
+  display: none !important;
+}
+
+/* The block cart and checkout's "Shipping to …" lines and their change-address
+   links: the address they would print is a stand-in. */
+.galaxie-gift-checkout .wc-block-components-shipping-address,
+.galaxie-gift-checkout .wc-block-components-totals-shipping-address-summary,
+.galaxie-gift-checkout .wc-block-components-totals-shipping__change-address__link,
+.galaxie-gift-checkout .wc-block-components-totals-shipping__change-address-button,
+.galaxie-gift-checkout .wc-block-components-shipping-calculator,
+.galaxie-gift-checkout .wc-block-components-shipping-calculator-address {
+  display: none !important;
+}
+
+.galaxie-gift-notice {
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  border: 1px solid rgb(0 0 0 / 10%);
+  border-radius: 10px;
+  font-weight: 600;
+}
+
+/* The "add to a list" popover beside a product's heart. */
+.galaxie-wishlist-list-btn {
+  margin-left: 8px;
+}
+
+.galaxie-wishlist-popover {
+  position: absolute;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: min(300px, calc(100vw - 16px));
+  padding: 14px;
+  border-radius: 12px;
+  background-color: var(--pix-body-bg-color, #fff);
+  box-shadow: 0 16px 40px rgb(0 0 0 / 18%);
+}
+
+.galaxie-wishlist-popover-title {
+  font-weight: 600;
+}
+
+.galaxie-wishlist-popover-lists {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 240px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.galaxie-wishlist-popover-lists label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  cursor: pointer;
+}
+
+.galaxie-wishlist-popover-new {
+  display: flex;
+  gap: 8px;
+}
+
+.galaxie-wishlist-popover-new input {
+  flex: 1;
+  min-width: 0;
+}
+
+.galaxie-wishlist-thumb {
+  display: block;
+  overflow: hidden;
+  line-height: 0;
+}
+
+.galaxie-wishlist-thumb img {
+  width: 100%;
+  height: auto;
+}
+
+.galaxie-wishlist-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.galaxie-wishlist-name a {
+  color: inherit;
+}
+
+.galaxie-wishlist-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: auto;
+}
+
+.galaxie-wishlist-remove {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-decoration: underline;
+  opacity: 0.7;
+  cursor: pointer;
+}
+
+.galaxie-wishlist-empty-box {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
 }

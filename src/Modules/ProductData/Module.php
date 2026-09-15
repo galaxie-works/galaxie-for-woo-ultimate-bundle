@@ -8,6 +8,8 @@
 namespace Galaxie\Woo\Modules\ProductData;
 
 use Galaxie\Woo\Core\Module as ModuleContract;
+use Galaxie\Woo\Core\ProvidesBootData;
+use Galaxie\Woo\Support\Assets;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -41,7 +43,14 @@ defined( 'ABSPATH' ) || exit;
  * they become available under Appearance → Menus, which is what
  * `show_in_nav_menus` means to WordPress.
  */
-final class Module implements ModuleContract {
+final class Module implements ModuleContract, ProvidesBootData {
+
+	/**
+	 * @return array<string,mixed>
+	 */
+	public function boot_data(): array {
+		return array( 'productData' => true );
+	}
 
 	public function id(): string {
 		return 'product-data';
@@ -66,6 +75,28 @@ final class Module implements ModuleContract {
 	 */
 	public function boot(): void {
 		add_action( 'init', array( $this, 'expose_attribute_taxonomies' ), 4 );
+
+		// Through closures, so no class extending an Elementor base is named —
+		// and therefore autoloaded — outside an Elementor hook. Naming one at
+		// `plugins_loaded` turns any problem in it into a fatal for the whole
+		// site instead of a missing tag; that lesson cost an outage once.
+		add_action(
+			'elementor/dynamic_tags/register',
+			static function ( $tags ) {
+				$tags->register_group(
+					Tags\BaseTag::GROUP,
+					array( 'title' => __( 'Galaxie', 'galaxie-woo' ) )
+				);
+
+				$tags->register( new Tags\ProductAttribute() );
+				$tags->register( new Tags\ProductTerms() );
+				$tags->register( new Tags\ProductWeight() );
+				$tags->register( new Tags\ProductDimension() );
+				$tags->register( new Tags\ProductSku() );
+			}
+		);
+
+		add_action( 'wp_enqueue_scripts', array( Assets::class, 'enqueue' ) );
 	}
 
 	/**

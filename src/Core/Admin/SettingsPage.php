@@ -204,6 +204,24 @@ final class SettingsPage {
 						<input type="checkbox" id="<?php echo esc_attr( $id ); ?>" name="<?php echo esc_attr( $name ); ?>" value="1" <?php checked( (bool) $value ); ?> />
 						<?php echo esc_html( $field->description ); ?>
 					</label>
+				<?php elseif ( Field::TYPE_MULTI === $field->type ) : ?>
+					<?php $selected = array_map( 'strval', (array) $value ); ?>
+					<fieldset>
+						<?php foreach ( $field->options as $option_value => $option_label ) : ?>
+							<label style="display:block;margin-bottom:4px;">
+								<input
+									type="checkbox"
+									name="<?php echo esc_attr( $name ); ?>[]"
+									value="<?php echo esc_attr( (string) $option_value ); ?>"
+									<?php checked( in_array( (string) $option_value, $selected, true ) ); ?>
+								/>
+								<?php echo esc_html( $option_label ); ?>
+							</label>
+						<?php endforeach; ?>
+					</fieldset>
+					<?php if ( $field->description ) : ?>
+						<p class="description"><?php echo esc_html( $field->description ); ?></p>
+					<?php endif; ?>
 				<?php elseif ( Field::TYPE_SELECT === $field->type ) : ?>
 					<select id="<?php echo esc_attr( $id ); ?>" name="<?php echo esc_attr( $name ); ?>">
 						<?php foreach ( $field->options as $option_value => $option_label ) : ?>
