@@ -80,7 +80,61 @@ final class Module implements ModuleContract, ProvidesSettings {
 
 		if ( is_admin() ) {
 			OrderBox::hooks();
+			add_action( 'admin_notices', array( self::class, 'notices' ) );
 		}
+	}
+
+	/**
+	 * On this module's settings tab: cartons that are saved but not used for
+	 * quotes — unticked, or missing an inside measure.
+	 */
+	public static function notices(): void {
+		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- read-only: which screen this is.
+		$page = isset( $_GET['page'] ) ? sanitize_key( wp_unslash( $_GET['page'] ) ) : '';
+		$tab  = isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( $_GET['tab'] ) ) : '';
+		// phpcs:enable WordPress.Security.NonceVerification.Recommended
+
+		if ( 'galaxie-woo' !== $page || self::ID !== $tab || ! current_user_can( 'manage_woocommerce' ) ) {
+			return;
+		}
+
+		$inactive   = array();
+		$incomplete = array();
+
+		foreach ( (array) self::setting( 'cartons' ) as $row ) {
+			if ( ! is_array( $row ) || '' === (string) ( $row['code'] ?? '' ) ) {
+				continue;
+			}
+
+			if ( ! self::complete( $row ) ) {
+				$incomplete[] = (string) $row['code'];
+			} elseif ( empty( $row['active'] ) ) {
+				$inactive[] = (string) $row['code'];
+			}
+		}
+
+		if ( $inactive ) {
+			printf(
+				'<div class="notice notice-warning"><p><strong>%1$s</strong> %2$s</p></div>',
+				esc_html__( 'Caixas de envio:', 'galaxie-woo' ),
+				/* translators: %s: carton codes. */
+				esc_html( sprintf( __( 'these cartons have all their measures but are not active, so quotes never use them: %s. Tick "Active" to use them.', 'galaxie-woo' ), implode( ', ', $inactive ) ) )
+			);
+		}
+
+		if ( $incomplete ) {
+			printf(
+				'<div class="notice notice-warning"><p><strong>%1$s</strong> %2$s</p></div>',
+				esc_html__( 'Caixas de envio:', 'galaxie-woo' ),
+				/* translators: %s: carton codes. */
+				esc_html( sprintf( __( 'these cartons are missing an inside measure, so quotes never use them: %s.', 'galaxie-woo' ), implode( ', ', $incomplete ) ) )
+			);
+		}
+	}
+
+	/** @param array $row A saved carton row: all three inside measures present. */
+	private static function complete( array $row ): bool {
+		return (float) ( $row['length'] ?? 0 ) > 0 && (float) ( $row['width'] ?? 0 ) > 0 && (float) ( $row['height'] ?? 0 ) > 0;
 	}
 
 	/**
@@ -377,8 +431,10 @@ final class Module implements ModuleContract, ProvidesSettings {
 			$carton['empty_weight'] = is_numeric( $row['empty_weight'] ?? null ) ? (int) min( 10000, max( 0, round( (float) $row['empty_weight'] ) ) ) : 0;
 			$carton['max_load']     = is_numeric( $row['max_load'] ?? null ) && (float) $row['max_load'] > 0 ? (int) min( 100000, round( (float) $row['max_load'] ) ) : 30000;
 
-			// A carton missing an inside measure is kept so the merchant sees it, but never used.
-			$carton['active'] = ! empty( $row['active'] ) && $carton['length'] > 0 && $carton['width'] > 0 && $carton['height'] > 0;
+			// The tick as the merchant left it, even on a row still missing a
+			// measure: such a row is never used ({@see self::cartons()}), and once
+			// completed it is active unless they unticked it. New rows come ticked.
+			$carton['active'] = ! empty( $row['active'] );
 
 			$out[] = $carton;
 		}
