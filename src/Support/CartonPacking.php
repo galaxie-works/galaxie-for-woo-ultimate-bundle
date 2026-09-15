@@ -39,6 +39,9 @@ defined( 'ABSPATH' ) || exit;
  *   side by side never share the space above them, for one), and past
  *   STEP_LIMIT units of work it gives up. The cost is a bigger carton, never
  *   one that will not close.
+ * - Flaps up first: every strategy is tried with the carton's stated height as
+ *   height before the carton is laid on a side; the result says which measure
+ *   stood vertical, so the packer can be told ("caixa deitada").
  * - `pack()`: the smallest carton by internal volume that takes everything and
  *   its load; otherwise (with `split`) first-fit decreasing by volume over
  *   groups, each then given its smallest carton. Not proven fewest cartons.
@@ -97,11 +100,27 @@ final class CartonPacking {
 	 * @param array $options { margin, gap, stacking }.
 	 */
 	public static function fits( array $carton, array $items, array $options = array() ): bool {
+		return null !== self::layout( $carton, $items, $options );
+	}
+
+	/**
+	 * Which of the carton's own measures stands vertical in a layout that
+	 * holds these items, or null when none is found.
+	 *
+	 * Flaps up — the carton's stated height as height — is tried with every
+	 * strategy first; the carton goes on its side only when that fails.
+	 *
+	 * @param array $carton  Carton array.
+	 * @param array $items   Item arrays.
+	 * @param array $options { margin, gap, stacking }.
+	 * @return string|null 'height' (flaps up), 'length' or 'width'.
+	 */
+	public static function layout( array $carton, array $items, array $options = array() ): ?string {
 		// Inside pack(): the clock on every call too, since most calls give up
 		// long before the in-search check every 1024 tries.
 		if ( null !== self::$deadline && ( self::$expired || hrtime( true ) > self::$deadline ) ) {
 			self::$expired = true;
-			return false;
+			return null;
 		}
 
 		$options = self::options( $options );
@@ -113,14 +132,14 @@ final class CartonPacking {
 			$usable = self::down( $carton[ $axis ] ?? 0 ) - 2 * $margin;
 
 			if ( $usable <= 0 ) {
-				return false;
+				return null;
 			}
 
 			$space[] = $usable + $gap;
 		}
 
 		if ( ! $items ) {
-			return true;
+			return 'height';
 		}
 
 		$boxes  = array();
@@ -132,7 +151,7 @@ final class CartonPacking {
 			$h = self::up( $item['height'] ?? 0 );
 
 			if ( $l <= 0 || $w <= 0 || $h <= 0 ) {
-				return false;
+				return null;
 			}
 
 			$l += $gap;
@@ -150,7 +169,7 @@ final class CartonPacking {
 		}
 
 		if ( $volume > $space[0] * $space[1] * $space[2] ) {
-			return false;
+			return null;
 		}
 
 		// Largest first: it has the fewest places to go.
@@ -163,19 +182,19 @@ final class CartonPacking {
 
 		$budget = self::STEP_LIMIT;
 
-		foreach ( self::orientations( $space ) as $container ) {
+		foreach ( self::orientations( $space ) as list( $container, $vertical ) ) {
 			foreach ( self::STRATEGIES as $strategy ) {
 				if ( self::attempt( $container, $boxes, $strategy[0], $strategy[1], (bool) $options['stacking'], $budget ) ) {
-					return true;
+					return $vertical;
 				}
 
 				if ( $budget <= 0 ) {
-					return false;
+					return null;
 				}
 			}
 		}
 
-		return false;
+		return null;
 	}
 
 	/**
@@ -184,10 +203,10 @@ final class CartonPacking {
 	 * @param array $items   Item arrays, one per unit.
 	 * @param array $cartons Carton arrays.
 	 * @param array $options { margin, gap, density, stacking, split }.
-	 * @return array<int, array{carton:array, items:int[], contents:int, filler:int, weight:int}>|null
-	 *         Grams. Null when there are no items, too many, an item no carton
-	 *         takes, (split off) no single carton takes them all, or the time
-	 *         limit ran out ({@see self::timed_out()}).
+	 * @return array<int, array{carton:array, items:int[], contents:int, filler:int, weight:int, vertical:string}>|null
+	 *         Grams; `vertical` as {@see self::layout()}. Null when there are no
+	 *         items, too many, an item no carton takes, (split off) no single
+	 *         carton takes them all, or the time limit ran out ({@see self::timed_out()}).
 	 */
 	public static function pack( array $items, array $cartons, array $options = array() ): ?array {
 		$limit          = self::options( $options )['time_limit'];
@@ -231,12 +250,19 @@ final class CartonPacking {
 			return null;
 		}
 
+		// [ carton, vertical ] for the smallest carton taking these items, or null.
 		$smallest = static function ( array $indices ) use ( $list, $items, $options ): ?array {
 			$set = array_map( static fn( int $i ): array => $items[ $i ], $indices );
 
 			foreach ( $list as $carton ) {
-				if ( self::load_ok( $carton, $set, $options ) && self::fits( $carton, $set, $options ) ) {
-					return $carton;
+				if ( ! self::load_ok( $carton, $set, $options ) ) {
+					continue;
+				}
+
+				$vertical = self::layout( $carton, $set, $options );
+
+				if ( null !== $vertical ) {
+					return array( $carton, $vertical );
 				}
 			}
 
@@ -262,7 +288,7 @@ final class CartonPacking {
 		$one = $smallest( $all );
 
 		if ( $one ) {
-			return array( self::result( $one, $all, $items, $options ) );
+			return array( self::result( $one[0], $all, $items, $options, $one[1] ) );
 		}
 
 		if ( ! $options['split'] ) {
@@ -308,7 +334,7 @@ final class CartonPacking {
 				return null;
 			}
 
-			$out[] = self::result( $carton, $group, $items, $options );
+			$out[] = self::result( $carton[0], $group, $items, $options, $carton[1] );
 		}
 
 		return $out;
@@ -354,10 +380,11 @@ final class CartonPacking {
 	 * @param array $carton  Carton array.
 	 * @param int[] $indices Items in it.
 	 * @param array $items   All items.
-	 * @param array $options Options.
-	 * @return array{carton:array, items:int[], contents:int, filler:int, weight:int}
+	 * @param array  $options  Options.
+	 * @param string $vertical The carton measure standing vertical.
+	 * @return array{carton:array, items:int[], contents:int, filler:int, weight:int, vertical:string}
 	 */
-	private static function result( array $carton, array $indices, array $items, array $options ): array {
+	private static function result( array $carton, array $indices, array $items, array $options, string $vertical = 'height' ): array {
 		$set      = array_map( static fn( int $i ): array => $items[ $i ], $indices );
 		$contents = self::grams( $set );
 		$filler   = self::filler( $carton, $set, $options );
@@ -368,6 +395,7 @@ final class CartonPacking {
 			'contents' => $contents,
 			'filler'   => $filler,
 			'weight'   => $contents + $filler + max( 0, (int) round( (float) ( $carton['empty_weight'] ?? 0 ) ) ),
+			'vertical' => $vertical,
 		);
 	}
 
@@ -477,15 +505,27 @@ final class CartonPacking {
 	}
 
 	/**
-	 * The carton on each of its faces, without repeats.
+	 * The carton on each of its faces, flaps up first, without repeats: a
+	 * repeated size keeps the first (flaps-up) way it was reached.
 	 *
-	 * @param int[] $space [ x, y, z ].
-	 * @return array<int, int[]>
+	 * @param int[] $space Usable [ length, width, height ].
+	 * @return array<int, array{0:int[], 1:string}> [ [ x, y, z ], carton measure used as z ].
 	 */
 	private static function orientations( array $space ): array {
-		list( $x, $y, $z ) = $space;
+		$axes  = array( 'length', 'width', 'height' );
+		$perms = array( array( 0, 1, 2 ), array( 1, 0, 2 ), array( 0, 2, 1 ), array( 2, 0, 1 ), array( 1, 2, 0 ), array( 2, 1, 0 ) );
+		$out   = array();
 
-		return self::shapes( $x, $y, $z, 'any' );
+		foreach ( $perms as $p ) {
+			$dims = array( $space[ $p[0] ], $space[ $p[1] ], $space[ $p[2] ] );
+			$key  = implode( 'x', $dims );
+
+			if ( ! isset( $out[ $key ] ) ) {
+				$out[ $key ] = array( $dims, $axes[ $p[2] ] );
+			}
+		}
+
+		return array_values( $out );
 	}
 
 	/** @param array $pieces [ z, dx, dy, dz ] spaces. */

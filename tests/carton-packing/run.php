@@ -89,6 +89,15 @@ foreach ( $fixtures['filler'] as $case ) {
 	$check( 'filler', $case['name'], CartonPacking::filler( $cartons[ $case['carton'] ], $expand( $case['items'] ), $defaults ), $case['expect'] );
 }
 
+// Carton orientation: flaps up when that works, on its side only when it has to be.
+$check( 'layout', '1 x 190g in N12: flaps up', CartonPacking::layout( $cartons['N12'], $expand( array( array( '190g', 1 ) ) ), $defaults ), 'height' );
+$check( 'layout', '4 x 190g in N17: flaps up', CartonPacking::layout( $cartons['N17'], $expand( array( array( '190g', 4 ) ) ), $defaults ), 'height' );
+// Inside 20 × 19 × 29: a big gift box (25 cm long, lid up) only goes in with the 29 cm lying down.
+$tall = array( 'code' => 'T', 'length' => 20, 'width' => 19, 'height' => 29 );
+$check( 'layout', 'big gift box in a 20 x 19 x 29 carton: laid on its side', in_array( CartonPacking::layout( $tall, $expand( array( array( 'big', 1 ) ) ), $defaults ), array( 'length', 'width' ), true ), true );
+$check( 'layout', 'pack() reports the vertical measure', array_column( CartonPacking::pack( $expand( array( array( 'big', 1 ) ) ), array( $tall ), $defaults ) ?? array(), 'vertical' ) !== array( 'height' ), true );
+$check( 'layout', 'nothing fits: null', CartonPacking::layout( $cartons['N12'], $expand( array( array( 'big', 1 ) ) ), $defaults ), null );
+
 // Total weight of one carton: contents + filler + empty carton.
 $one = CartonPacking::pack( $expand( array( array( '190g', 1 ) ) ), $real, $defaults );
 $check( 'pack', '1 x 190g weighs 412 + 62 filler + 60 carton', $one[0]['weight'] ?? null, 534 );

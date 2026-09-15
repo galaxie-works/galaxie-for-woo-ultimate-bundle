@@ -96,6 +96,21 @@ final class OrderBox {
 				)
 			);
 
+			$vertical = (string) ( $box['vertical'] ?? 'height' );
+
+			if ( 'height' !== $vertical && in_array( $vertical, array( 'length', 'width' ), true ) ) {
+				printf(
+					'<p style="margin:0 0 4px"><em>%s</em></p>',
+					esc_html(
+						sprintf(
+							/* translators: %s: the outside measure to use as height, in cm. */
+							__( 'Caixa deitada: use %s cm como altura.', 'galaxie-woo' ),
+							wc_format_localized_decimal( CartonQuote::outer( $carton, $vertical ) )
+						)
+					)
+				);
+			}
+
 			echo '<ul style="margin:0 0 0 1.2em;list-style:disc">';
 
 			foreach ( self::contents( $box, $plan['built']['items'], 0 === $n ? $loose : array() ) as $line ) {
