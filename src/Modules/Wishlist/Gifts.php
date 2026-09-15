@@ -415,9 +415,17 @@ final class Gifts {
 		);
 	}
 
-	/** Pickup options, for a parcel that must reach the list's owner. */
+	/**
+	 * Pickup options, for a parcel that must reach the list's owner. The
+	 * merchant can keep them (Wishlist settings), to test a gift order without
+	 * buying a real shipment or for an owner who collects in person.
+	 */
 	public static function no_pickup( $rates ) {
 		if ( ! is_array( $rates ) || ! $rates || ! self::cart_gift() ) {
+			return $rates;
+		}
+
+		if ( ! empty( \Galaxie\Woo\Core\Plugin::instance()->settings()->module_settings( 'wishlist' )['gift_allow_pickup'] ) ) {
 			return $rates;
 		}
 

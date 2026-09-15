@@ -114,6 +114,13 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 				default: '',
 				options: $templates
 			),
+			new Field(
+				key: 'gift_allow_pickup',
+				label: __( 'Allow local pickup for gifts', 'galaxie-woo' ),
+				type: Field::TYPE_TOGGLE,
+				description: __( 'Gifts ship to the list owner, so pickup normally makes no sense. Turn this on only for testing, or when the owner collects in person.', 'galaxie-woo' ),
+				default: false
+			),
 		);
 	}
 
