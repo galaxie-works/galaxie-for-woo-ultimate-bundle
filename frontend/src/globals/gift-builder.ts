@@ -26,9 +26,9 @@
  * runs again on Confirm, in PHP, before anything reaches the cart.
  */
 
-import { arrange, fits, MAX_ITEMS, room } from '@/lib/gift-packing'
+import { fits, MAX_ITEMS, room } from '@/lib/gift-packing'
 import type { Box, Candle, PackingOptions } from '@/lib/gift-packing'
-import { fill, messageLength, total, validate } from '@/lib/gift-groups'
+import { arrangeAll, fill, messageLength, total, validate } from '@/lib/gift-groups'
 import type { Plan, PlanCandle, PlanError, PlanGroup, PlanItem } from '@/lib/gift-groups'
 import { post } from '@/lib/wp'
 import type { AjaxResult } from '@/lib/wp'
@@ -367,12 +367,15 @@ function createController(root: HTMLElement, pending: PendingCandle, token: numb
     return { candles: out, sized }
   }
 
-  /** A gift in the cart the pending candle can join: no box, or its box still closes. */
+  /**
+   * A gift in the cart the pending candle can join: one with a box that still
+   * closes. Candles outside the boxes are not a gift to add to.
+   */
   function joinable(gift: CartGift): boolean {
     const d = current()
     const box = gift.box?.box
 
-    if (!box) return true
+    if (!box) return false
     if (!d.pending.candle || gift.candles.some((line) => !line.candle)) return false
 
     const candles = [...gift.candles.flatMap((line) => repeat(line.candle as Candle, line.quantity)), ...repeat(d.pending.candle, d.pending.quantity)]
@@ -407,25 +410,25 @@ function createController(root: HTMLElement, pending: PendingCandle, token: numb
     }
 
     const boxes = d.boxes.filter((option) => option.box && option.stock !== 0).map((option) => ({ ...(option.box as Box), id: option.id, price: option.price }))
-    let next: GroupState[] = []
 
-    if (sized && refs.length <= MAX_ITEMS && boxes.length) {
-      next = arrange(refs, boxes, d.options).map((packed) => {
-        const counts = new Map<string, number>()
-        for (const candle of packed.candles) counts.set(candle.ref, (counts.get(candle.ref) ?? 0) + 1)
-
-        return {
-          sources: Array.from(counts, ([source, count]) => ({ source, count })),
-          box: Number(packed.box.id),
-          ribbons: new Map(),
-          cards: new Map(),
-        }
-      })
-
-      if (!next.length) notice = texts.no_fit ?? ''
+    if (!sized) {
+      groups = [{ sources: all, box: 0, ribbons: new Map(), cards: new Map() }]
+      draw()
+      return
     }
 
-    groups = next.length ? next : [{ sources: all, box: 0, ribbons: new Map(), cards: new Map() }]
+    // As many boxes as it takes; outside them only what no box can hold.
+    const packed = arrangeAll(refs, boxes, d.options)
+    const tally = (candles: { ref: string }[]): Source[] => {
+      const counts = new Map<string, number>()
+      for (const candle of candles) counts.set(candle.ref, (counts.get(candle.ref) ?? 0) + 1)
+      return Array.from(counts, ([source, count]) => ({ source, count }))
+    }
+
+    groups = packed.gifts.map((gift) => ({ sources: tally(gift.candles), box: Number(gift.box.id), ribbons: new Map(), cards: new Map() }))
+    if (packed.loose.length) groups.push({ sources: tally(packed.loose), box: 0, ribbons: new Map(), cards: new Map() })
+
+    if (!packed.gifts.length && boxes.length) notice = texts.no_fit ?? ''
     draw()
   }
 
@@ -520,7 +523,6 @@ function createController(root: HTMLElement, pending: PendingCandle, token: numb
     const gift = target()
     const { candles, sized } = candlesOf(group)
 
-    setText(slot(node, 'title'), gift ? gift.label : fillText(texts.group_title, d.gifts.length + index + 1))
     setText(slot(node, 'candles'), describe(group.sources))
 
     const existing = slot(node, 'existing')
@@ -542,6 +544,8 @@ function createController(root: HTMLElement, pending: PendingCandle, token: numb
     )
 
     if (group.box && !allowed.some((option) => option.id === group.box)) group.box = 0
+
+    setText(slot(node, 'title'), groupTitle(index))
 
     const boxes = slot(node, 'boxes')
     if (boxes) {
@@ -751,6 +755,21 @@ function createController(root: HTMLElement, pending: PendingCandle, token: numb
     setConfirm(errors.length === 0)
   }
 
+  /**
+   * "Presente N" for a gift with a box — numbered after the boxed gifts already
+   * in the cart, as Groups::numbers() will — or the loose-candles title.
+   */
+  function groupTitle(index: number): string {
+    const group = groups[index]
+    if (!group?.box) return texts.loose_title ?? ''
+
+    const gift = target()
+    if (gift?.box) return gift.label
+
+    const before = groups.slice(0, index).filter((other) => other.box).length
+    return fillText(texts.group_title, current().gifts.filter((other) => other.box).length + before + 1)
+  }
+
   // --------------------------------------------------------------- cards
 
   /**
@@ -807,7 +826,7 @@ function createController(root: HTMLElement, pending: PendingCandle, token: numb
   function explainError(error: PlanError): string {
     const d = current()
     const name = [d.pending, ...d.boxes, ...d.ribbons, ...d.cards].find((option) => String(option.id) === error.id)?.name ?? ''
-    const label = target()?.label ?? fillText(texts.group_title, d.gifts.length + error.group + 1)
+    const label = groupTitle(error.group)
 
     switch (error.code) {
       case 'message_too_long':

@@ -74,6 +74,7 @@ final class GiftBuilderWidget extends Widget_Base {
 			'group_title_text'  => array( __( 'Gift title (%d = number)', 'galaxie-woo' ), __( 'Presente %d', 'galaxie-woo' ) ),
 			'box_heading_text'  => array( __( 'Box (heading)', 'galaxie-woo' ), __( 'Caixa', 'galaxie-woo' ) ),
 			'no_box_text'       => array( __( 'No box', 'galaxie-woo' ), __( 'Sem caixa', 'galaxie-woo' ) ),
+			'loose_title_text'  => array( __( 'Title for candles outside the boxes', 'galaxie-woo' ), __( 'Fora das caixas (embalagem padrão)', 'galaxie-woo' ) ),
 			/* translators: %s: e.g. "1 × 50g · 2 × 190g". Kept for the script. */
 			'room_text'         => array( __( 'Room left (%s = sizes)', 'galaxie-woo' ), __( 'Cabe mais %s', 'galaxie-woo' ) ),
 			'full_text'         => array( __( 'Box full', 'galaxie-woo' ), __( 'Caixa cheia', 'galaxie-woo' ) ),

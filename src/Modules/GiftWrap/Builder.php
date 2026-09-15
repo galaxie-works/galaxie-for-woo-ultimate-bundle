@@ -139,6 +139,8 @@ final class Builder {
 		$loose          = self::loose( $contents );
 		$max_message    = (int) Module::setting( 'card_message_max' );
 
+		// Only gifts with a box are numbered; the rest is "Fora das caixas" (Groups::numbers()).
+		$boxed        = count( array_filter( $gifts, static fn( array $gift ): bool => null !== $gift['box'] ) );
 		$planned      = array();
 		$plan_groups  = array();
 		$pending_used = 0;
@@ -150,7 +152,13 @@ final class Builder {
 				self::fail( __( 'Não foi possível montar o presente. Tente de novo.', 'galaxie-woo' ) );
 			}
 
-			$number  = $extend ? $gifts[ $target ]['number'] : count( $gifts ) + $g + 1;
+			$box_id  = absint( $group['box'] ?? 0 );
+			$number  = 0;
+
+			if ( $box_id ) {
+				$number = $extend && $gifts[ $target ]['number'] ? $gifts[ $target ]['number'] : ++$boxed;
+			}
+
 			$candles = array();
 			$moves   = array();
 			$count   = 0;
@@ -208,8 +216,7 @@ final class Builder {
 				}
 			}
 
-			$box_id = absint( $group['box'] ?? 0 );
-			$box    = null;
+			$box = null;
 
 			if ( $box_id ) {
 				if ( ! isset( $offer['box'][ $box_id ] ) ) {

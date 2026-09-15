@@ -54,11 +54,15 @@ final class GiftSummary {
 			$id   = (string) $item->get_meta( Groups::ITEM_GROUP );
 			$role = (string) $item->get_meta( Groups::ITEM_ROLE );
 
-			if ( '' === $id || ! isset( $keys[ $role ] ) ) {
+			// A candle marked as a gift but in no gift goes out in the standard packaging too.
+			if ( '' === $id && 'yes' === $item->get_meta( \Galaxie\Woo\Modules\GiftWrap\Flag::ITEM_META ) ) {
+				$role = Groups::ROLE_CANDLE;
+			} elseif ( '' === $id || ! isset( $keys[ $role ] ) ) {
 				continue;
 			}
 
-			$number = max( 1, (int) $item->get_meta( Groups::ITEM_NUMBER ) );
+			// 0: no box, "Fora das caixas (embalagem padrão)".
+			$number = '' === $id ? 0 : max( 0, (int) $item->get_meta( Groups::ITEM_NUMBER ) );
 
 			if ( ! isset( $groups[ $number ] ) ) {
 				$groups[ $number ] = array_fill_keys( array_values( $keys ), array() );
@@ -72,6 +76,13 @@ final class GiftSummary {
 		}
 
 		ksort( $groups );
+
+		// Boxes in number order, then what goes outside them.
+		if ( isset( $groups[0] ) ) {
+			$loose = $groups[0];
+			unset( $groups[0] );
+			$groups[0] = $loose;
+		}
 
 		return $groups;
 	}

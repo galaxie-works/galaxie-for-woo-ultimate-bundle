@@ -119,19 +119,33 @@ final class Groups {
 	}
 
 	/**
-	 * Gift numbers, by first appearance.
+	 * Gift numbers, by first appearance among the gifts that have a box.
+	 *
+	 * A gift without a box is candles that go out in the standard packaging
+	 * ("Fora das caixas"): it gets 0, and its lines are labelled that way.
 	 *
 	 * @param array $contents Cart contents.
-	 * @return array<string,int> group id => 1, 2, …
+	 * @return array<string,int> group id => 1, 2, … (0 for no box)
 	 */
 	public static function numbers( array $contents ): array {
+		$boxed = array();
+
+		foreach ( $contents as $item ) {
+			$group = self::group_of( $item );
+
+			if ( $group && self::ROLE_BOX === $group['role'] ) {
+				$boxed[ $group['id'] ] = true;
+			}
+		}
+
 		$numbers = array();
+		$next    = 0;
 
 		foreach ( $contents as $item ) {
 			$group = self::group_of( $item );
 
 			if ( $group && ! isset( $numbers[ $group['id'] ] ) ) {
-				$numbers[ $group['id'] ] = count( $numbers ) + 1;
+				$numbers[ $group['id'] ] = isset( $boxed[ $group['id'] ] ) ? ++$next : 0;
 			}
 		}
 
@@ -243,8 +257,12 @@ final class Groups {
 		}
 	}
 
-	/** "Presente 1". */
+	/** "Presente 1", or for 0 the candles outside any box. */
 	public static function label( int $number ): string {
+		if ( $number < 1 ) {
+			return __( 'Fora das caixas (embalagem padrão)', 'galaxie-woo' );
+		}
+
 		/* translators: %d: gift number in the cart or order. */
 		return sprintf( __( 'Presente %d', 'galaxie-woo' ), $number );
 	}
@@ -274,9 +292,10 @@ final class Groups {
 			return $data;
 		}
 
-		$number = self::numbers( WC()->cart->get_cart() )[ $group['id'] ] ?? 0;
+		$numbers = self::numbers( WC()->cart->get_cart() );
+		$number  = $numbers[ $group['id'] ] ?? 0;
 
-		if ( $number ) {
+		if ( isset( $numbers[ $group['id'] ] ) ) {
 			$data[] = array(
 				'key'   => self::label( $number ),
 				'value' => self::role_label( $group['role'] ),
@@ -536,7 +555,7 @@ final class Groups {
 			return;
 		}
 
-		$number = self::numbers( WC()->cart->get_cart() )[ $group['id'] ] ?? 1;
+		$number = self::numbers( WC()->cart->get_cart() )[ $group['id'] ] ?? 0;
 
 		$item->add_meta_data( self::ITEM_GROUP, $group['id'], true );
 		$item->add_meta_data( self::ITEM_ROLE, $group['role'], true );
