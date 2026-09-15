@@ -38,8 +38,28 @@ function message(root: HTMLElement, text: string, ok: boolean): void {
   line.hidden = text === ''
 }
 
-/** The widget as the server draws it for `url`, swapped in place of the old one. */
+interface ElementorEditor {
+  getContainer?: (id: string) => { model?: { renderRemoteServer?: () => void } } | undefined
+}
+
+/** Inside Elementor's preview frame, where the page holds unsaved settings. */
+function inEditor(): boolean {
+  return document.body.classList.contains('elementor-editor-active')
+}
+
+/**
+ * The widget as the server draws it for `url`, swapped in place of the old one.
+ * In the editor the published page would bring back saved settings, so
+ * Elementor draws the widget again from the ones being edited.
+ */
 async function redraw(root: HTMLElement, url = window.location.href): Promise<HTMLElement | null> {
+  if (inEditor()) {
+    const id = root.closest<HTMLElement>('.elementor-element[data-id]')?.dataset.id ?? ''
+    const editor = (window.parent as Window & { elementor?: ElementorEditor }).elementor
+    editor?.getContainer?.(id)?.model?.renderRemoteServer?.()
+    return null
+  }
+
   const all = [...document.querySelectorAll<HTMLElement>('.galaxie-account-wishlist')]
   const index = all.indexOf(root)
   const html = await (await fetch(url, { credentials: 'same-origin' })).text()
@@ -102,6 +122,8 @@ export function bootWishlistAccount(config?: WishlistConfig): void {
     const tab = target.closest<HTMLAnchorElement>('a.galaxie-wishlist-tab')
     if (tab) {
       event.preventDefault()
+      // The editor's "Shown in the editor" control picks what is drawn there.
+      if (inEditor()) return
       showList(tab.href)
       void redraw(root)
       return
