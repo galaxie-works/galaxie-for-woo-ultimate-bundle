@@ -9,9 +9,11 @@ namespace Galaxie\Woo\Modules\GiftWrap\Widget;
 
 use Elementor\Controls_Manager;
 use Elementor\Widget_Base;
+use Galaxie\Woo\Modules\GiftWrap\Builder;
 use Galaxie\Woo\Modules\GiftWrap\Module;
 use Galaxie\Woo\Support\Assets;
 use Galaxie\Woo\Support\GiftGroups;
+use Galaxie\Woo\Support\GiftPacking;
 use Galaxie\Woo\Support\PixfortControls;
 
 defined( 'ABSPATH' ) || exit;
@@ -30,7 +32,10 @@ defined( 'ABSPATH' ) || exit;
  * control reaches markup that did not exist at render time.
  *
  * In the editor the same part renderers draw a sample gift instead, so each
- * control moves something on the canvas.
+ * control moves something on the canvas. The sample is the store's own: a
+ * real candle, the boxes it fits in, the cards and ribbons on offer, with the
+ * live builder's rules (see sample()). Only a kind of accessory the store has
+ * none of is drawn as a labelled example.
  *
  * Confirm puts the whole gift in the cart (candles, box, ribbons, cards) in
  * place of the Add to Cart or Buy Now that opened the popup; "Seguir sem
@@ -412,6 +417,8 @@ final class GiftBuilderWidget extends Widget_Base {
 			$texts[ substr( $key, 0, -5 ) ] = (string) ( $settings[ $key ] ?? $text[1] );
 		}
 
+		$example = $sample ? $this->sample( $texts ) : array();
+
 		printf(
 			'<div class="galaxie-gift-builder" data-galaxie-gift-builder data-texts="%1$s"%2$s>',
 			esc_attr( (string) wp_json_encode( $texts ) ),
@@ -431,7 +438,7 @@ final class GiftBuilderWidget extends Widget_Base {
 			);
 		}
 
-		$this->render_candle( $settings, $sample );
+		$this->render_candle( $settings, $sample ? $example['item'] : null );
 
 		$notice = esc_attr( PixfortControls::text_classes( $settings, 'notice' ) );
 		printf( '<p class="galaxie-gift-notice %1$s" data-gift-loading hidden>%2$s</p>', $notice, esc_html( $texts['loading'] ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped above.
@@ -439,12 +446,14 @@ final class GiftBuilderWidget extends Widget_Base {
 		echo '<div class="galaxie-gift-scroll">';
 
 		// Where the candle goes: a new gift, or one already in the cart.
-		printf( '<div class="galaxie-gift-part galaxie-gift-modes" data-gift-modes%s>', $sample ? '' : ' hidden' );
+		$extend = $sample ? (string) $example['extend'] : '';
+
+		printf( '<div class="galaxie-gift-part galaxie-gift-modes" data-gift-modes%s>', '' !== $extend ? '' : ' hidden' );
 		$this->render_heading( $settings, $texts['mode_heading'] );
 		echo '<div class="galaxie-gift-list" data-gift-mode-list>';
-		if ( $sample ) {
+		if ( '' !== $extend ) {
 			$this->render_mode( $settings, $texts['mode_new'], '', true );
-			$this->render_mode( $settings, self::fill_text( $texts['mode_extend'], self::fill_text( $texts['group_title'], '1' ) ), self::fill_text( $texts['room'], '2 × 50g' ), false );
+			$this->render_mode( $settings, self::fill_text( $texts['mode_extend'], self::fill_text( $texts['group_title'], '1' ) ), $extend, false );
 		}
 		echo '</div></div>';
 
@@ -462,7 +471,7 @@ final class GiftBuilderWidget extends Widget_Base {
 
 		echo '<div class="galaxie-gift-groups" data-gift-groups>';
 		if ( $sample ) {
-			$this->render_sample_group( $settings, $texts );
+			$this->render_group( $settings, $example['group'], $texts );
 		}
 		echo '</div>';
 
@@ -472,7 +481,7 @@ final class GiftBuilderWidget extends Widget_Base {
 
 		printf( '<div class="galaxie-gift-total" data-gift-total%s>', $sample ? '' : ' hidden' );
 		printf( '<span class="galaxie-gift-total-label %1$s">%2$s</span>', esc_attr( PixfortControls::text_classes( $settings, 'total_label' ) ), esc_html( $texts['total'] ) );
-		printf( '<span class="galaxie-gift-total-amount %1$s" data-slot="total">%2$s</span>', esc_attr( PixfortControls::text_classes( $settings, 'total_amount' ) ), $sample ? esc_html( self::money( 214.7 ) ) : '' );
+		printf( '<span class="galaxie-gift-total-amount %1$s" data-slot="total">%2$s</span>', esc_attr( PixfortControls::text_classes( $settings, 'total_amount' ) ), $sample ? esc_html( self::money( (float) $example['total'] ) ) : '' );
 		echo '</div>';
 
 		echo '<div class="galaxie-gift-builder-actions">';
@@ -492,16 +501,19 @@ final class GiftBuilderWidget extends Widget_Base {
 
 	// ------------------------------------------------------------------ parts
 
-	/** @param array<string,mixed> $settings */
-	private function render_candle( array $settings, bool $sample ): void {
+	/**
+	 * @param array<string,mixed>       $settings
+	 * @param array<string,string>|null $item     The editor's sample candle (name, meta, image); null on the site.
+	 */
+	private function render_candle( array $settings, ?array $item ): void {
 		printf(
 			'<div class="galaxie-gift-builder-item %1$s" data-gift-item%2$s>',
 			esc_attr( PixfortControls::surface_classes( $settings, 'item_card' ) ),
-			$sample ? '' : ' hidden'
+			$item ? '' : ' hidden'
 		);
 
 		// No src until there is a picture: an empty one is still a request.
-		$image = $sample ? self::placeholder() : '';
+		$image = (string) ( $item['image'] ?? '' );
 		printf(
 			'<img class="galaxie-gift-builder-thumb" alt="" data-gift-image%s />',
 			'' !== $image ? ' src="' . esc_url( $image ) . '"' : ' hidden'
@@ -511,12 +523,12 @@ final class GiftBuilderWidget extends Widget_Base {
 		printf(
 			'<span class="galaxie-gift-builder-name %1$s" data-gift-name>%2$s</span>',
 			esc_attr( PixfortControls::text_classes( $settings, 'item_name' ) ),
-			$sample ? esc_html__( 'Vela aromática', 'galaxie-woo' ) : ''
+			esc_html( (string) ( $item['name'] ?? '' ) )
 		);
 		printf(
 			'<span class="galaxie-gift-builder-meta %1$s" data-gift-meta>%2$s</span>',
 			esc_attr( PixfortControls::text_classes( $settings, 'item_meta' ) ),
-			$sample ? esc_html__( '190g · 2 unidades', 'galaxie-woo' ) : ''
+			esc_html( (string) ( $item['meta'] ?? '' ) )
 		);
 		echo '</span></div>';
 	}
@@ -574,7 +586,9 @@ final class GiftBuilderWidget extends Widget_Base {
 		echo '</div></div>';
 
 		foreach ( array( 'ribbons', 'cards' ) as $kind ) {
-			printf( '<div class="galaxie-gift-part" data-slot="%s-wrap">', esc_attr( $kind ) );
+			// A sample with nothing of this kind on offer has no such step, as live.
+			$none = array_key_exists( $kind, $data ) && '' === $data[ $kind ];
+			printf( '<div class="galaxie-gift-part" data-slot="%1$s-wrap"%2$s>', esc_attr( $kind ), $none ? ' hidden' : '' );
 			$this->render_heading( $settings, $texts[ $kind . '_heading' ] );
 			printf( '<div class="galaxie-gift-rows" data-slot="%1$s">%2$s</div>', esc_attr( $kind ), $data[ $kind ] ?? '' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- markup from render_row(), escaped there.
 			echo '</div>';
@@ -693,46 +707,232 @@ final class GiftBuilderWidget extends Widget_Base {
 	}
 
 	/**
-	 * The editor's sample: two 190g candles, the smaller box chosen, a ribbon
-	 * and a card with a message.
+	 * The editor's sample gift, from the store itself, by the live builder's
+	 * rules:
+	 * - the candle: of the first published product with the size attribute and
+	 *   dimensions, its largest size (Builder::sample_candle()), two of them;
+	 * - boxes: those the two candles fit in, by the packing engine, the cheapest
+	 *   chosen as "Organizar automaticamente" would; none fitting leaves them
+	 *   outside the boxes;
+	 * - ribbons: the first in stock, or no ribbon step when there is none;
+	 * - cards: each card product's variation for the chosen box, by attribute.
+	 * A kind the store has no product of at all (no candle, no box, no card) is
+	 * drawn as "Exemplo: …", so it is never mistaken for a product.
 	 *
-	 * @param array<string,mixed>  $settings
 	 * @param array<string,string> $texts
+	 * @return array{item: array<string,string>, extend: string, group: array<string,mixed>, total: float}
 	 */
-	private function render_sample_group( array $settings, array $texts ): void {
-		$image = self::placeholder();
-		$max   = (int) Module::setting( 'card_message_max' );
-		$note  = __( 'Feliz aniversário! Com carinho.', 'galaxie-woo' );
+	private function sample( array $texts ): array {
+		$woo       = function_exists( 'wc_get_product' ) && class_exists( Builder::class );
+		$attribute = Module::size_attribute();
+		$options   = Module::packing_options();
+		$offer     = $woo ? Builder::offer() : array( 'box' => array(), 'ribbon' => array(), 'card' => array() );
+		$product   = $woo ? Builder::sample_candle() : null;
+		$candle    = $product ? GiftPacking::candle_from_product( $product, $attribute ) : null;
+		$count     = 2;
+		$total     = 0.0;
+		/* translators: %d: how many candles. */
+		$units     = sprintf( _n( '%d unidade', '%d unidades', $count, 'galaxie-woo' ), $count );
+		$candles   = $candle ? array_fill( 0, $count, $candle ) : array();
 
-		$boxes = $this->render_box( $settings, array( 'name' => $texts['no_box'], 'price' => '' ) )
-			. $this->render_box( $settings, array( 'name' => __( 'Caixa kraft M', 'galaxie-woo' ), 'price' => self::money( 24.9 ), 'image' => $image, 'pressed' => true ) )
-			. $this->render_box( $settings, array( 'name' => __( 'Caixa kraft G', 'galaxie-woo' ), 'price' => self::money( 34.9 ), 'image' => $image ) );
+		if ( $product && $candle ) {
+			$item   = array(
+				'name'  => wp_strip_all_tags( $product->get_title() ),
+				'meta'  => implode( ' · ', array_filter( array( (string) $product->get_attribute( $attribute ), $units ) ) ),
+				'image' => self::image( $product ),
+			);
+			$line   = $count . ' × ' . wp_strip_all_tags( $product->get_name() );
+			$total += $count * self::price( $product );
+		} else {
+			$item = array(
+				'name'  => __( 'Exemplo: vela', 'galaxie-woo' ),
+				'meta'  => $units,
+				'image' => self::placeholder(),
+			);
+			$line = $count . ' × ' . __( 'Exemplo: vela', 'galaxie-woo' );
+		}
 
-		$ribbons = $this->render_row( $settings, array( 'name' => __( 'Fita de cetim', 'galaxie-woo' ), 'price' => self::money( 6.9 ), 'image' => $image, 'quantity' => 1 ) );
-		$cards   = $this->render_row(
+		// Boxes the candles fit in; the cheapest, as arrange() picks it.
+		$allowed = array();
+		$chosen  = null;
+		$box     = null;
+
+		foreach ( $candles ? $offer['box'] : array() as $id => $option ) {
+			$shape = GiftPacking::box_from_product( $option );
+
+			if ( $shape && 0 !== Builder::units_left( $option ) && GiftPacking::fits( $shape, $candles, $options ) ) {
+				$allowed[ $id ] = $shape;
+			}
+		}
+
+		if ( $allowed ) {
+			$packed = GiftPacking::arrange( $candles, array_values( $allowed ), $options );
+			$id     = $packed ? (int) $packed[0]['box']['id'] : (int) array_key_first( $allowed );
+			$chosen = $offer['box'][ $id ] ?? null;
+			$box    = $allowed[ $id ] ?? null;
+		}
+
+		$example_box = ! $offer['box'];
+		$settings    = $this->get_settings_for_display();
+		$boxes       = $this->render_box(
 			$settings,
 			array(
-				'name'     => __( 'Cartão ilustrado', 'galaxie-woo' ),
-				'price'    => self::money( 9.9 ),
-				'image'    => $image,
-				'quantity' => 1,
-				'messages' => $this->render_message( $settings, $note, GiftGroups::message_length( $note ) . '/' . $max ),
+				'name'    => $texts['no_box'],
+				'price'   => '',
+				'pressed' => ! $chosen && ! $example_box,
 			)
 		);
 
-		$this->render_group(
-			$settings,
-			array(
-				'title'   => self::fill_text( $texts['group_title'], '1' ),
-				'candles' => __( '2 × Vela aromática 190g', 'galaxie-woo' ),
-				'boxes'   => $boxes,
-				'fill'    => 67,
-				'room'    => self::fill_text( $texts['room'], '1 × 190g' ),
-				'ribbons' => $ribbons,
-				'cards'   => $cards,
-			),
-			$texts
+		foreach ( array_keys( $allowed ) as $id ) {
+			$option = $offer['box'][ $id ];
+			$boxes .= $this->render_box(
+				$settings,
+				array(
+					'name'    => wp_strip_all_tags( $option->get_name() ),
+					'price'   => self::money( self::price( $option ) ),
+					'image'   => self::image( $option ),
+					'pressed' => $option === $chosen,
+				)
+			);
+		}
+
+		if ( $example_box ) {
+			$boxes .= $this->render_box(
+				$settings,
+				array(
+					'name'    => __( 'Exemplo: caixa', 'galaxie-woo' ),
+					'price'   => '',
+					'image'   => self::placeholder(),
+					'pressed' => true,
+				)
+			);
+		}
+
+		$fill = null;
+		$room = '';
+
+		if ( $box && $chosen ) {
+			$sizes  = GiftPacking::store_sizes( $attribute );
+			$labels = array_column( $sizes, 'label', 'size' );
+			$more   = GiftPacking::room( $box, $candles, $sizes, $options );
+			$fill   = GiftGroups::fill( $box, $candles, $sizes, $options );
+			$room   = $more
+				? self::fill_text( $texts['room'], implode( ' ou ', array_map( static fn( string $size ): string => '1 × ' . ( $labels[ $size ] ?? $size ), $more ) ) )
+				: $texts['full'];
+			$total += self::price( $chosen );
+		} elseif ( $example_box ) {
+			$fill = 50;
+			$room = self::fill_text( $texts['room'], __( 'exemplo', 'galaxie-woo' ) );
+		}
+
+		// Ribbons: only what is on offer and in stock; otherwise no ribbon step.
+		$ribbons = '';
+
+		foreach ( $offer['ribbon'] as $ribbon ) {
+			if ( 0 === Builder::units_left( $ribbon ) ) {
+				continue;
+			}
+
+			$ribbons = $this->render_row(
+				$settings,
+				array(
+					'name'     => wp_strip_all_tags( $ribbon->get_name() ),
+					'price'    => self::money( self::price( $ribbon ) ),
+					'image'    => self::image( $ribbon ),
+					'quantity' => 1,
+				)
+			);
+			$total  += self::price( $ribbon );
+			break;
+		}
+
+		// Cards: the variation each card product has for the chosen box.
+		$max     = (int) Module::setting( 'card_message_max' );
+		$note    = __( 'Feliz aniversário! Com carinho.', 'galaxie-woo' );
+		$message = $this->render_message( $settings, $note, GiftGroups::message_length( $note ) . '/' . $max );
+		$cards   = '';
+
+		if ( ! $offer['card'] ) {
+			$cards = $this->render_row(
+				$settings,
+				array(
+					'name'     => __( 'Exemplo: cartão', 'galaxie-woo' ),
+					'price'    => '',
+					'image'    => self::placeholder(),
+					'quantity' => 1,
+					'messages' => $message,
+				)
+			);
+		} else {
+			$parents = array();
+
+			foreach ( $offer['card'] as $card ) {
+				$parents[ $card->is_type( 'variation' ) ? $card->get_parent_id() : $card->get_id() ] = true;
+			}
+
+			foreach ( array_keys( $parents ) as $parent ) {
+				$id = Builder::card_id( (int) $parent, $chosen, $offer['card'] );
+
+				if ( ! $id ) {
+					continue;
+				}
+
+				$first  = '' === $cards;
+				$card   = $offer['card'][ $id ];
+				$cards .= $this->render_row(
+					$settings,
+					array(
+						'name'     => wp_strip_all_tags( $card->get_title() ),
+						'price'    => self::money( self::price( $card ) ),
+						'image'    => self::image( $card ),
+						'quantity' => $first ? 1 : 0,
+						'messages' => $first ? $message : '',
+					)
+				);
+
+				if ( $first ) {
+					$total += self::price( $card );
+				}
+			}
+		}
+
+		$group = array(
+			'title'   => $box || $example_box ? self::fill_text( $texts['group_title'], '1' ) : $texts['loose_title'],
+			'candles' => $line,
+			'boxes'   => $boxes,
+			'room'    => $room,
+			'ribbons' => $ribbons,
+			'cards'   => $cards,
 		);
+
+		if ( null !== $fill ) {
+			$group['fill'] = $fill;
+		}
+
+		$extend = '';
+
+		if ( $chosen ) {
+			$extend = wp_strip_all_tags( $chosen->get_name() ) . ' · ' . $room;
+		} elseif ( $example_box ) {
+			$extend = __( 'Exemplo: caixa', 'galaxie-woo' ) . ' · ' . $room;
+		}
+
+		return array(
+			'item'   => $item,
+			'extend' => $extend,
+			'group'  => $group,
+			'total'  => $total,
+		);
+	}
+
+	private static function price( \WC_Product $product ): float {
+		return function_exists( 'wc_get_price_to_display' ) ? (float) wc_get_price_to_display( $product ) : (float) $product->get_price();
+	}
+
+	private static function image( \WC_Product $product ): string {
+		$url = wp_get_attachment_image_url( (int) $product->get_image_id(), 'woocommerce_gallery_thumbnail' );
+
+		return $url ? (string) $url : self::placeholder();
 	}
 
 	/**
