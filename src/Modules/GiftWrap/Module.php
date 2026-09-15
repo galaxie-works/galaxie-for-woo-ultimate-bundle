@@ -84,6 +84,9 @@ final class Module implements ModuleContract, ProvidesBootData, ProvidesElemento
 			self::categories( 'box' ),
 			$options['orientation']
 		) )->register();
+
+		// The jar's own size for packing, beside the shipping dimensions Melhor Envio reads.
+		( new CandleFields( (string) self::setting( 'size_attribute' ), self::categories( 'box' ) ) )->register();
 	}
 
 	public function elementor_widgets(): array {

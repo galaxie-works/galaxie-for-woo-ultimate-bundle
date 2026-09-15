@@ -52,6 +52,12 @@ interface Option {
   price: number
   stock: number | null
   box?: Box
+  /** The product a variation belongs to (its own id for a simple product). */
+  parent?: number
+  /** The product's name without the variation. */
+  title?: string
+  /** Attribute label => value, normalised on the server. */
+  attrs?: Record<string, string>
 }
 
 interface Line extends Option {
@@ -107,6 +113,7 @@ interface GroupState {
   sources: Source[]
   box: number
   ribbons: Map<number, number>
+  /** By card product: the variation follows the box (cardFor). */
   cards: Map<number, string[]>
 }
 
@@ -570,7 +577,7 @@ function createController(root: HTMLElement, pending: PendingCandle, token: numb
     }
 
     drawRows(node, 'ribbons', d.ribbons, group)
-    drawRows(node, 'cards', d.cards, group)
+    drawRows(node, 'cards', cardOptions(group), group)
 
     return node
   }
@@ -593,11 +600,13 @@ function createController(root: HTMLElement, pending: PendingCandle, token: numb
       const row = clone(root, 'row')
       if (!row) continue
 
-      const quantity = kind === 'ribbons' ? (group.ribbons.get(option.id) ?? 0) : (group.cards.get(option.id)?.length ?? 0)
+      // A card is kept by product, so a box that changes size swaps its variation and keeps the messages.
+      const key = kind === 'cards' ? (option.parent ?? option.id) : option.id
+      const quantity = kind === 'ribbons' ? (group.ribbons.get(key) ?? 0) : (group.cards.get(key)?.length ?? 0)
       const soldOut = option.stock === 0
       const max = option.stock === null ? 99 : Math.max(0, option.stock - Math.trunc(d.inCart[String(option.id)] ?? 0))
 
-      setText(slot(row, 'name'), option.name)
+      setText(slot(row, 'name'), kind === 'cards' ? option.title || option.name : option.name)
       setText(slot(row, 'price'), soldOut ? (texts.out_of_stock ?? '') : money(option.price))
       setImage(slot<HTMLImageElement>(row, 'image'), option.image)
 
@@ -605,13 +614,13 @@ function createController(root: HTMLElement, pending: PendingCandle, token: numb
         const next = Math.max(0, Math.min(max, Math.trunc(value) || 0))
 
         if (kind === 'ribbons') {
-          if (next) group.ribbons.set(option.id, next)
-          else group.ribbons.delete(option.id)
+          if (next) group.ribbons.set(key, next)
+          else group.ribbons.delete(key)
         } else {
-          const messages = (group.cards.get(option.id) ?? []).slice(0, next)
+          const messages = (group.cards.get(key) ?? []).slice(0, next)
           while (messages.length < next) messages.push('')
-          if (next) group.cards.set(option.id, messages)
-          else group.cards.delete(option.id)
+          if (next) group.cards.set(key, messages)
+          else group.cards.delete(key)
         }
 
         draw()
@@ -635,7 +644,7 @@ function createController(root: HTMLElement, pending: PendingCandle, token: numb
 
       const messages = slot(row, 'messages')
       if (messages && kind === 'cards') {
-        ;(group.cards.get(option.id) ?? []).forEach((text, i) => {
+        ;(group.cards.get(key) ?? []).forEach((text, i) => {
           const box = clone(root, 'message')
           if (!box) return
 
@@ -651,7 +660,7 @@ function createController(root: HTMLElement, pending: PendingCandle, token: numb
           if (input) {
             input.value = text
             input.addEventListener('input', () => {
-              const list = group.cards.get(option.id)
+              const list = group.cards.get(key)
               if (list) list[i] = input.value
               paint()
               refresh()
@@ -679,7 +688,10 @@ function createController(root: HTMLElement, pending: PendingCandle, token: numb
         candles: group.sources,
         box: group.box,
         ribbons: Array.from(group.ribbons, ([id, quantity]) => ({ id, quantity })),
-        cards: Array.from(group.cards).flatMap(([id, messages]) => messages.map((message) => ({ id, message }))),
+        cards: Array.from(group.cards).flatMap(([parent, messages]) => {
+          const card = cardFor(parent, group.box)
+          return card ? messages.map((message) => ({ id: card.id, message })) : []
+        }),
       })),
     }
   }
@@ -701,9 +713,11 @@ function createController(root: HTMLElement, pending: PendingCandle, token: numb
         items.push({ id, kind: 'ribbon', quantity })
       }
 
-      for (const [id, messages] of group.cards) {
-        stock[String(id)] = d.cards.find((o) => o.id === id)?.stock ?? null
-        for (const message of messages) items.push({ id, kind: 'card', quantity: 1, message })
+      for (const [parent, messages] of group.cards) {
+        const card = cardFor(parent, group.box)
+        if (!card) continue
+        stock[String(card.id)] = card.stock
+        for (const message of messages) items.push({ id: card.id, kind: 'card', quantity: 1, message })
       }
 
       return {
@@ -726,7 +740,7 @@ function createController(root: HTMLElement, pending: PendingCandle, token: numb
       if (box && box.id !== gift?.box?.id) lines.push({ price: box.price, quantity: 1 })
 
       for (const [id, quantity] of group.ribbons) lines.push({ price: d.ribbons.find((o) => o.id === id)?.price ?? 0, quantity })
-      for (const [id, messages] of group.cards) lines.push({ price: d.cards.find((o) => o.id === id)?.price ?? 0, quantity: messages.length })
+      for (const [parent, messages] of group.cards) lines.push({ price: cardFor(parent, group.box)?.price ?? 0, quantity: messages.length })
     }
 
     setText(totalWrap?.querySelector('[data-slot="total"]') ?? null, money(total(lines) / 100))
@@ -735,6 +749,38 @@ function createController(root: HTMLElement, pending: PendingCandle, token: numb
     errors = validate(checked(), d.options)
     showError(errors.length ? explainError(errors[0]) : notice)
     setConfirm(errors.length === 0)
+  }
+
+  // --------------------------------------------------------------- cards
+
+  /**
+   * The card a gift gets from one card product: the variation whose shared
+   * attributes equal the box's ("Tamanho" = Quadrada), the first in stock with
+   * no box, a simple card for any box; null when none matches or is in stock.
+   * Builder::card_for() applies the same rule on the server.
+   */
+  function cardFor(parent: number, boxId: number): Option | null {
+    const d = current()
+    const box = boxId ? d.boxes.find((option) => option.id === boxId) : undefined
+
+    for (const card of d.cards) {
+      if ((card.parent ?? card.id) !== parent || card.stock === 0) continue
+      if (!box || sameSize(card.attrs ?? {}, box.attrs ?? {})) return card
+    }
+
+    return null
+  }
+
+  function sameSize(card: Record<string, string>, box: Record<string, string>): boolean {
+    const shared = Object.keys(card).filter((name) => name in box)
+    if (!shared.length) return Object.keys(card).length === 0
+    return shared.every((name) => card[name] === box[name])
+  }
+
+  /** One row per card product that has a card for this gift's box. */
+  function cardOptions(group: GroupState): Option[] {
+    const parents = Array.from(new Set(current().cards.map((card) => card.parent ?? card.id)))
+    return parents.map((parent) => cardFor(parent, group.box)).filter((card): card is Option => !!card)
   }
 
   // ------------------------------------------------------------- words

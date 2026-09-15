@@ -255,6 +255,14 @@ final class Builder {
 					$stock[ (string) $id ] = self::stock( $offer[ $kind ][ $id ] );
 
 					if ( 'card' === $kind ) {
+						// The card goes with the box: the variation sized like it, never another one.
+						$card   = $offer['card'][ $id ];
+						$parent = $card->is_type( 'variation' ) ? $card->get_parent_id() : $card->get_id();
+
+						if ( self::card_for( $parent, $box_id ? $offer['box'][ $box_id ] : null, $offer['card'] ) !== $id ) {
+							self::fail( __( 'O cartão escolhido não corresponde à caixa deste presente. Abra o presente de novo.', 'galaxie-woo' ) );
+						}
+
 						$message = trim( sanitize_textarea_field( (string) ( $entry['message'] ?? '' ) ) );
 						$items[] = array( 'id' => $id, 'kind' => 'card', 'quantity' => 1, 'message' => $message );
 						$key     = $id . '|' . md5( $message );
@@ -504,6 +512,93 @@ final class Builder {
 	}
 
 	/**
+	 * The card a gift gets for its box, from one card product.
+	 *
+	 * Cards come in one size per box, told apart by an attribute the box has too
+	 * (e.g. "Tamanho" = Quadrada / Grande on both): the variation whose shared
+	 * attributes all equal the box's, by name and value, case-insensitive. With
+	 * no box, the first variation in stock, size unsaid. A simple card goes with
+	 * any box. 0 when none is in stock or none matches: the card is not offered.
+	 * Mirrored by cardFor() in gift-builder.ts.
+	 *
+	 * @param int                    $parent Card product id (the parent of a variation).
+	 * @param \WC_Product|null       $box    The gift's box, or null.
+	 * @param array<int,\WC_Product> $cards  The card offer, in catalogue order.
+	 */
+	private static function card_for( int $parent, ?\WC_Product $box, array $cards ): int {
+		$sizes = $box ? self::attributes( $box ) : array();
+
+		foreach ( $cards as $id => $card ) {
+			$owner = $card->is_type( 'variation' ) ? $card->get_parent_id() : $card->get_id();
+
+			if ( $owner !== $parent || 0 === self::stock( $card ) ) {
+				continue;
+			}
+
+			if ( ! $box || self::same_size( self::attributes( $card ), $sizes ) ) {
+				return (int) $id;
+			}
+		}
+
+		return 0;
+	}
+
+	/**
+	 * Whether a card's attributes agree with a box's: every attribute both have
+	 * is equal. A card sharing none fits only when it has none (a simple card).
+	 *
+	 * @param array<string,string> $card From attributes().
+	 * @param array<string,string> $box  From attributes().
+	 */
+	private static function same_size( array $card, array $box ): bool {
+		$shared = array_intersect_key( $card, $box );
+
+		if ( ! $shared ) {
+			return ! $card;
+		}
+
+		foreach ( $shared as $name => $value ) {
+			if ( $box[ $name ] !== $value ) {
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	/**
+	 * A variation's attributes as label => value, both sanitize_title()'d, so a
+	 * local "Tamanho: Quadrada" and a global one compare equal whatever the case.
+	 *
+	 * @return array<string,string>
+	 */
+	private static function attributes( \WC_Product $product ): array {
+		$out = array();
+
+		if ( ! $product->is_type( 'variation' ) ) {
+			return $out;
+		}
+
+		foreach ( $product->get_variation_attributes( false ) as $name => $value ) {
+			$name  = (string) $name;
+			$value = (string) $value;
+
+			if ( '' === $value ) {
+				continue;
+			}
+
+			if ( taxonomy_exists( $name ) ) {
+				$term  = get_term_by( 'slug', $value, $name );
+				$value = $term instanceof \WP_Term ? $term->name : $value;
+			}
+
+			$out[ sanitize_title( wc_attribute_label( $name, $product ) ) ] = sanitize_title( $value );
+		}
+
+		return $out;
+	}
+
+	/**
 	 * Units left to sell, or null when not limited.
 	 */
 	private static function stock( \WC_Product $product ): ?int {
@@ -708,6 +803,11 @@ final class Builder {
 	private static function option_json( \WC_Product $product ): array {
 		$json = self::product_json( $product );
 		$box  = GiftPacking::box_from_product( $product );
+
+		// A card row is a product, whatever its size: the title without the variation.
+		$json['parent'] = $product->is_type( 'variation' ) ? $product->get_parent_id() : $product->get_id();
+		$json['title']  = wp_strip_all_tags( $product->get_title() );
+		$json['attrs']  = (object) self::attributes( $product );
 
 		if ( $box ) {
 			$json['box'] = $box + array( 'price' => $json['price'] );
