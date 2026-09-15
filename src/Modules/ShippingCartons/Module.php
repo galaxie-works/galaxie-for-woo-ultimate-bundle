@@ -297,6 +297,11 @@ final class Module implements ModuleContract, ProvidesSettings {
 			'<p class="description">%s</p>',
 			esc_html__( 'Products are measured by their WooCommerce shipping dimensions and weight (Products → edit → Shipping, or each variation). A product without them keeps the Melhor Envio plugin\'s own quote. What happened to each quote is logged in WooCommerce → Status → Logs, source "galaxie-shipping-cartons".', 'galaxie-woo' )
 		);
+
+		printf(
+			'<p class="description">%s</p>',
+			esc_html__( 'After saving: WooCommerce\'s cached rates are cleared, but the Melhor Envio plugin keeps each shopper\'s quotes in their session for up to 15 minutes, keyed by the cart\'s products and not by these cartons. A shopper who already quoted the same cart may see the old price until then; change the cart (or wait) to test a new setting.', 'galaxie-woo' )
+		);
 	}
 
 	public function sanitize_settings( array $submitted, array $current ): array {
@@ -312,6 +317,13 @@ final class Module implements ModuleContract, ProvidesSettings {
 		// per-package rate cache on this version, so bumping it re-quotes.
 		if ( class_exists( '\WC_Cache_Helper' ) ) {
 			\WC_Cache_Helper::get_transient_version( 'shipping', true );
+		}
+
+		// The Melhor Envio plugin also keeps quotes in the PHP session for 900 s,
+		// keyed by its own products (not the cartons). Only the saving user's
+		// session can be reached from here; shoppers' expire on their own.
+		if ( PHP_SESSION_ACTIVE === session_status() && isset( $_SESSION['quotation-melhor-envio'] ) ) {
+			unset( $_SESSION['quotation-melhor-envio'] );
 		}
 
 		return $values;
