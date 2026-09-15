@@ -498,6 +498,64 @@ final class GiftGroups {
 	}
 
 	/**
+	 * How many more of each size still go in a box with these candles: "Cabe
+	 * mais 2 × 190g ou 3 × 50g", not just "one more".
+	 *
+	 * Each size on its own, added one at a time while fits() says yes; it stops
+	 * at the first refusal, at GiftPacking::MAX_ITEMS candles in all, and at the
+	 * box's max. At most MAX_ITEMS fit checks per size: cheap enough to run on
+	 * every change of box or candles.
+	 *
+	 * @param array $box     Box array.
+	 * @param array $candles Candles in the box.
+	 * @param array $sizes   One candle per size to try; defaults to the sizes in the box.
+	 * @param array $options { gap, stacking, orientation }.
+	 * @return array<int, array{size:string, count:int}> Sizes with room, in the order given.
+	 */
+	public static function room_counts( array $box, array $candles, array $sizes = array(), array $options = array() ): array {
+		$limit = GiftPacking::MAX_ITEMS;
+		$max   = (int) ( $box['max'] ?? 0 );
+
+		if ( $max > 0 ) {
+			$limit = min( $limit, $max );
+		}
+
+		$out  = array();
+		$seen = array();
+
+		foreach ( $sizes ? $sizes : $candles as $size ) {
+			$key = (string) ( $size['size'] ?? '' );
+
+			if ( isset( $seen[ $key ] ) ) {
+				continue;
+			}
+
+			$seen[ $key ] = true;
+			$with         = array_values( $candles );
+			$count        = 0;
+
+			while ( count( $with ) < $limit ) {
+				$with[] = $size;
+
+				if ( ! GiftPacking::fits( $box, $with, $options ) ) {
+					break;
+				}
+
+				++$count;
+			}
+
+			if ( $count > 0 ) {
+				$out[] = array(
+					'size'  => $key,
+					'count' => $count,
+				);
+			}
+		}
+
+		return $out;
+	}
+
+	/**
 	 * The sum of price × quantity, in cents.
 	 *
 	 * @param array $lines [ { price, quantity } ].

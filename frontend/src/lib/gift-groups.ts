@@ -252,6 +252,37 @@ export function cardFor(cards: CardRow[], parent: number, box: Record<string, st
   return matches.length === 1 ? matches[0].id : 0
 }
 
+/**
+ * How many more of each size still go in a box: each size on its own, added
+ * one at a time while fits() says yes, stopping at MAX_ITEMS in all and at the
+ * box's max. Sizes with room, in the order given. See GiftGroups::room_counts().
+ */
+export function roomCounts(box: Box, candles: Candle[], sizes: Candle[] = [], options: PackingOptions = {}): { size: string; count: number }[] {
+  const max = Math.trunc(box.max ?? 0)
+  const limit = max > 0 ? Math.min(MAX_ITEMS, max) : MAX_ITEMS
+  const out: { size: string; count: number }[] = []
+  const seen = new Set<string>()
+
+  for (const size of sizes.length ? sizes : candles) {
+    const key = String(size.size ?? '')
+    if (seen.has(key)) continue
+    seen.add(key)
+
+    const withMore = candles.slice()
+    let count = 0
+
+    while (withMore.length < limit) {
+      withMore.push(size)
+      if (!fits(box, withMore, options)) break
+      count++
+    }
+
+    if (count > 0) out.push({ size: key, count })
+  }
+
+  return out
+}
+
 /** The sum of price × quantity, in cents. */
 export function total(lines: { price: number; quantity: number }[]): number {
   return lines.reduce((sum, line) => sum + cents(line.price) * Math.max(0, Math.trunc(line.quantity || 0)), 0)

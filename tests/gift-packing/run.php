@@ -122,6 +122,11 @@ foreach ( array_merge( $fixtures['validate'], $fixtures['validate_lying'] ) as $
 	$check( 'validate', $case['name'], GiftGroups::validate( $plan, $case['options'] ?? array() ), $case['expect'] );
 }
 
+foreach ( $fixtures['room_counts'] as $case ) {
+	$try = array_map( static fn( string $s ): array => $sizes[ $s ], $case['sizes'] );
+	$check( 'room_counts', $case['name'], GiftGroups::room_counts( $boxes[ $case['box'] ], $expand( $case['candles'] ), $try, $case['options'] ?? array() ), $case['expect'] );
+}
+
 foreach ( $fixtures['total'] as $case ) {
 	$check( 'total', $case['name'], GiftGroups::total( $case['lines'] ), $case['expect'] );
 }

@@ -10,7 +10,7 @@ import { isDeepStrictEqual } from 'node:util'
 
 import { arrange, cover, fits, room, summary } from '../../frontend/src/lib/gift-packing.ts'
 import type { Box, Candle, Gift, PackingOptions, SummaryRow } from '../../frontend/src/lib/gift-packing.ts'
-import { arrangeAll, cardFor, cleanMessage, fill, maxQuantity, messageLength, total, validate } from '../../frontend/src/lib/gift-groups.ts'
+import { arrangeAll, cardFor, cleanMessage, fill, maxQuantity, messageLength, roomCounts, total, validate } from '../../frontend/src/lib/gift-groups.ts'
 import type { CardRow } from '../../frontend/src/lib/gift-groups.ts'
 import type { PlanError, PlanGroup, PlanItem } from '../../frontend/src/lib/gift-groups.ts'
 
@@ -34,6 +34,7 @@ interface Fixtures {
     expect: PlanError[]
   }[]
   total: { name: string; lines: { price: number; quantity: number }[]; expect: number }[]
+  room_counts: { name: string; box: string; candles: [string, number][]; sizes: string[]; options?: PackingOptions; expect: { size: string; count: number }[] }[]
   card_for: { name: string; cards: CardRow[]; parent: number; box: Record<string, string> | null; expect: number }[]
   clean_message: { name: string; message: string; expect: string; length: number }[]
   fill_lying: Fixtures['fill']
@@ -107,6 +108,10 @@ for (const c of [...fixtures.validate, ...fixtures.validate_lying]) {
   }))
 
   check('validate', c.name, validate({ groups, stock: c.stock, in_cart: c.in_cart, message_max: c.message_max }, c.options ?? {}), c.expect)
+}
+
+for (const c of fixtures.room_counts) {
+  check('room_counts', c.name, roomCounts(boxes[c.box], expand(c.candles), c.sizes.map((s) => sizes[s]), c.options ?? {}), c.expect)
 }
 
 for (const c of fixtures.total) {
