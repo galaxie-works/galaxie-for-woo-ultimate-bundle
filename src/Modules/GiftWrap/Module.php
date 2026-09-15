@@ -88,6 +88,9 @@ final class Module implements ModuleContract, ProvidesBootData, ProvidesElemento
 
 		// The jar's own size for packing, beside the shipping dimensions Melhor Envio reads.
 		( new CandleFields( (string) self::setting( 'size_attribute' ), self::categories( 'box' ) ) )->register();
+
+		// The same sizes over the REST API, sanitised by the two classes above.
+		ProductMeta::hooks();
 	}
 
 	public function elementor_widgets(): array {

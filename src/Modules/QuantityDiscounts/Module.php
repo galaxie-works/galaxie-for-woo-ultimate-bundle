@@ -11,6 +11,7 @@ use Galaxie\Woo\Core\Field;
 use Galaxie\Woo\Core\Module as ModuleContract;
 use Galaxie\Woo\Core\Plugin;
 use Galaxie\Woo\Core\ProvidesElementorWidgets;
+use Galaxie\Woo\Core\ProvidesRestSettings;
 use Galaxie\Woo\Core\ProvidesSettings;
 use Galaxie\Woo\Modules\QuantityDiscounts\Widget\QuantityDiscountsWidget;
 
@@ -38,7 +39,7 @@ defined( 'ABSPATH' ) || exit;
  * choices per product (inherit the global rules / none / custom), the same two
  * rule kinds, and the same row shape.
  */
-final class Module implements ModuleContract, ProvidesElementorWidgets, ProvidesSettings {
+final class Module implements ModuleContract, ProvidesElementorWidgets, ProvidesSettings, ProvidesRestSettings {
 
 	public const META_MODE      = '_galaxie_qd_mode';
 	public const META_TYPE      = '_galaxie_qd_type';
@@ -167,6 +168,68 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 
 		$values[ self::RULES_INTERVALS ] = self::parse_rows( $submitted, self::RULES_INTERVALS );
 		$values[ self::RULES_STEPS ]     = self::parse_rows( $submitted, self::RULES_STEPS );
+
+		return $values;
+	}
+
+	public function rest_settings_schema(): array {
+		$value = array(
+			'type'        => 'number',
+			'description' => __( 'Discount: a percentage or an amount, per the "type" setting. A row with 0 is dropped.', 'galaxie-woo' ),
+		);
+
+		return array(
+			self::RULES_INTERVALS => array(
+				'description' => __( 'Range tiers. Sending the list replaces it. A row without a quantity of 1 or more, or without a discount, is dropped; a max under min becomes no ceiling.', 'galaxie-woo' ),
+				'default'     => array(),
+				'items'       => array(
+					'type'       => 'object',
+					'properties' => array(
+						'min'   => array(
+							'type'        => 'integer',
+							'description' => __( 'From this quantity.', 'galaxie-woo' ),
+						),
+						'max'   => array(
+							'type'        => array( 'integer', 'null' ),
+							'description' => __( 'Up to this quantity; null for no ceiling.', 'galaxie-woo' ),
+						),
+						'value' => $value,
+					),
+				),
+			),
+			self::RULES_STEPS     => array(
+				'description' => __( 'Exact-quantity tiers. Sending the list replaces it. A row without a quantity of 1 or more, or without a discount, is dropped.', 'galaxie-woo' ),
+				'default'     => array(),
+				'items'       => array(
+					'type'       => 'object',
+					'properties' => array(
+						'every' => array(
+							'type'        => 'integer',
+							'description' => __( 'Exactly this quantity.', 'galaxie-woo' ),
+						),
+						'value' => $value,
+					),
+				),
+			),
+		);
+	}
+
+	/**
+	 * Rows back into the repeater's parallel `{rules}_{column}` arrays, which
+	 * {@see self::parse_rows()} reads.
+	 */
+	public function rest_settings_submitted( array $values ): array {
+		foreach ( array( self::RULES_INTERVALS => array( 'min', 'max', 'value' ), self::RULES_STEPS => array( 'every', 'value' ) ) as $rules => $columns ) {
+			$rows = is_array( $values[ $rules ] ?? null ) ? $values[ $rules ] : array();
+			unset( $values[ $rules ] );
+
+			foreach ( $columns as $column ) {
+				$values[ $rules . '_' . $column ] = array_map(
+					static fn( $row ): string => is_array( $row ) && is_scalar( $row[ $column ] ?? null ) ? (string) $row[ $column ] : '',
+					array_values( $rows )
+				);
+			}
+		}
 
 		return $values;
 	}

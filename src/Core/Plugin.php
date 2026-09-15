@@ -8,6 +8,9 @@
 namespace Galaxie\Woo\Core;
 
 use Galaxie\Woo\Core\Admin\SettingsPage;
+use Galaxie\Woo\Core\Cli\ModuleCommand;
+use Galaxie\Woo\Core\Cli\SettingsCommand;
+use Galaxie\Woo\Core\Rest\SettingsController;
 use Galaxie\Woo\Elementor\Widgets;
 use Galaxie\Woo\Integrations\Acf;
 use Galaxie\Woo\Support\GiftOrders;
@@ -25,6 +28,7 @@ final class Plugin {
 	private static ?Plugin $instance = null;
 	private Settings $settings;
 	private ModuleRegistry $modules;
+	private SettingsService $service;
 	private bool $booted = false;
 
 	public static function instance(): Plugin {
@@ -34,6 +38,7 @@ final class Plugin {
 	private function __construct() {
 		$this->settings = new Settings();
 		$this->modules  = new ModuleRegistry( $this->settings );
+		$this->service  = new SettingsService( $this->modules, $this->settings );
 	}
 
 	public function settings(): Settings {
@@ -42,6 +47,11 @@ final class Plugin {
 
 	public function modules(): ModuleRegistry {
 		return $this->modules;
+	}
+
+	/** Where module toggles and settings are saved, from wp-admin, REST or WP-CLI. */
+	public function settings_service(): SettingsService {
+		return $this->service;
 	}
 
 	public function boot(): void {
@@ -72,8 +82,17 @@ final class Plugin {
 		// the e-mails read it from the order's own line items.
 		GiftSummary::hooks();
 
+		// The settings page without wp-admin: REST (`galaxie-woo/v1`) and WP-CLI
+		// (`wp galaxie`), saving through the same service as the page.
+		( new SettingsController( $this->service ) )->hooks();
+
+		if ( defined( 'WP_CLI' ) && WP_CLI ) {
+			\WP_CLI::add_command( 'galaxie module', new ModuleCommand( $this->service ) );
+			\WP_CLI::add_command( 'galaxie settings', new SettingsCommand( $this->service ) );
+		}
+
 		if ( is_admin() ) {
-			( new SettingsPage( $this->modules, $this->settings ) )->hooks();
+			( new SettingsPage( $this->modules, $this->settings, $this->service ) )->hooks();
 		} else {
 			add_action( 'wp_head', array( $this, 'print_boot_data' ), 5 );
 		}

@@ -124,10 +124,23 @@ final class CandleFields {
 			}
 
 			$raw   = wc_clean( wp_unslash( $_POST[ $key ][ $i ] ) ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
-			$value = (float) wc_format_decimal( is_string( $raw ) ? $raw : '' );
+			$value = self::clean( $raw );
 
-			$value > 0 ? update_post_meta( $variation_id, $key, wc_format_decimal( $value ) ) : delete_post_meta( $variation_id, $key );
+			'' !== $value ? update_post_meta( $variation_id, $key, $value ) : delete_post_meta( $variation_id, $key );
 		}
+	}
+
+	/**
+	 * A size as saved: a positive decimal string, or '' for "not set" (the
+	 * panel deletes it). The REST meta registration ({@see ProductMeta})
+	 * sanitises with this too.
+	 *
+	 * @param mixed $raw Submitted value.
+	 */
+	public static function clean( $raw ): string {
+		$value = (float) wc_format_decimal( is_scalar( $raw ) ? (string) $raw : '' );
+
+		return $value > 0 ? (string) wc_format_decimal( $value ) : '';
 	}
 
 	/**

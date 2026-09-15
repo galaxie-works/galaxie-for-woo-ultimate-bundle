@@ -12,6 +12,7 @@ use Galaxie\Woo\Core\Module;
 use Galaxie\Woo\Core\ModuleRegistry;
 use Galaxie\Woo\Core\ProvidesSettings;
 use Galaxie\Woo\Core\Settings;
+use Galaxie\Woo\Core\SettingsService;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -34,7 +35,8 @@ final class SettingsPage {
 	/** Hook suffix returned by add_menu_page(), used to scope wp_enqueue_media() to just this page. */
 	private ?string $page_hook = null;
 
-	public function __construct( private ModuleRegistry $modules, private Settings $settings ) {}
+	/** Saves go through `$service`, which the REST API and WP-CLI use too. */
+	public function __construct( private ModuleRegistry $modules, private Settings $settings, private SettingsService $service ) {}
 
 	public function hooks(): void {
 		add_action( 'admin_menu', array( $this, 'menu' ) );
@@ -264,14 +266,10 @@ final class SettingsPage {
 		}
 		check_admin_referer( self::MODULES_NONCE );
 
-		// Unchecked boxes are absent from POST, so build the map from the full
-		// module list rather than from what was submitted.
+		// Unchecked boxes are absent from POST; the service builds the map from
+		// the full module list rather than from what was submitted.
 		$submitted = isset( $_POST['modules'] ) && is_array( $_POST['modules'] ) ? wp_unslash( $_POST['modules'] ) : array(); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput
-		$map       = array();
-		foreach ( $this->modules->all() as $module ) {
-			$map[ $module->id() ] = ! empty( $submitted[ $module->id() ] );
-		}
-		$this->settings->set_enabled_map( $map );
+		$this->service->save_modules( $submitted );
 
 		wp_safe_redirect( add_query_arg( array( 'page' => self::SLUG, 'tab' => 'modules', 'updated' => 1 ), admin_url( 'admin.php' ) ) );
 		exit;
@@ -292,10 +290,10 @@ final class SettingsPage {
 		check_admin_referer( self::settings_nonce_action( $module_id ) );
 
 		$submitted = isset( $_POST['fields'] ) && is_array( $_POST['fields'] ) ? wp_unslash( $_POST['fields'] ) : array(); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput
-		$current   = $this->settings->module_settings( $module_id );
-		$sanitized = $module->sanitize_settings( $submitted, $current );
 
-		$this->settings->set_module_settings( $module_id, $sanitized );
+		// The module sanitises against what is saved; the REST API and WP-CLI
+		// save through this same method's sibling, update_settings().
+		$this->service->save_settings( $module, $submitted );
 
 		wp_safe_redirect( add_query_arg( array( 'page' => self::SLUG, 'tab' => $module_id, 'updated' => 1 ), admin_url( 'admin.php' ) ) );
 		exit;

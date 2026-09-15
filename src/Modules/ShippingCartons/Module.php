@@ -10,6 +10,7 @@ namespace Galaxie\Woo\Modules\ShippingCartons;
 use Galaxie\Woo\Core\Field;
 use Galaxie\Woo\Core\Module as ModuleContract;
 use Galaxie\Woo\Core\Plugin;
+use Galaxie\Woo\Core\ProvidesRestSettings;
 use Galaxie\Woo\Core\ProvidesSettings;
 use Galaxie\Woo\Support\CartonQuote;
 
@@ -27,7 +28,7 @@ defined( 'ABSPATH' ) || exit;
  * Settings: the carton list, the filler margin and density, stacking, and what
  * to do when nothing holds the whole order.
  */
-final class Module implements ModuleContract, ProvidesSettings {
+final class Module implements ModuleContract, ProvidesSettings, ProvidesRestSettings {
 
 	public const ID = 'shipping-cartons';
 
@@ -380,6 +381,56 @@ final class Module implements ModuleContract, ProvidesSettings {
 			unset( $_SESSION['quotation-melhor-envio'] );
 		}
 
+		return $values;
+	}
+
+	public function rest_settings_schema(): array {
+		$cm = static fn( string $description ): array => array(
+			'type'        => array( 'number', 'string', 'null' ),
+			'description' => $description,
+		);
+
+		return array(
+			'cartons' => array(
+				'description' => __( 'Every carton, in the order tried. Sending the list replaces the whole table. Rows are cleaned as on the settings tab: at most 12, a row without a code is dropped, a repeated code gets -2, a measure outside 0–200 cm is 0 and the row is never used, an outside measure empty or under the inside one is worked out as inside + 0.6 cm.', 'galaxie-woo' ),
+				'default'     => array(),
+				'items'       => array(
+					'type'       => 'object',
+					'properties' => array(
+						'code'         => array(
+							'type'        => 'string',
+							'description' => __( 'Up to 20 letters, digits, space, _ . -', 'galaxie-woo' ),
+						),
+						'name'         => array(
+							'type'        => 'string',
+							'description' => __( 'Up to 60 characters; empty shows the code.', 'galaxie-woo' ),
+						),
+						'length'       => $cm( __( 'Inside length, cm.', 'galaxie-woo' ) ),
+						'width'        => $cm( __( 'Inside width, cm.', 'galaxie-woo' ) ),
+						'height'       => $cm( __( 'Inside height, cm.', 'galaxie-woo' ) ),
+						'outer_length' => $cm( __( 'Outside length, cm; empty for inside + 0.6.', 'galaxie-woo' ) ),
+						'outer_width'  => $cm( __( 'Outside width, cm; empty for inside + 0.6.', 'galaxie-woo' ) ),
+						'outer_height' => $cm( __( 'Outside height, cm; empty for inside + 0.6.', 'galaxie-woo' ) ),
+						'empty_weight' => array(
+							'type'        => array( 'integer', 'number', 'string', 'null' ),
+							'description' => __( 'Weight of the empty carton, g (0–10000).', 'galaxie-woo' ),
+						),
+						'max_load'     => array(
+							'type'        => array( 'integer', 'number', 'string', 'null' ),
+							'description' => __( 'Most weight it carries, g; empty or 0 for 30000.', 'galaxie-woo' ),
+						),
+						'active'       => array(
+							'type'        => 'boolean',
+							'description' => __( 'Used for quotes. Absent or false: not used.', 'galaxie-woo' ),
+						),
+					),
+				),
+			),
+		);
+	}
+
+	/** The table posts its rows under `cartons` already, as saved. */
+	public function rest_settings_submitted( array $values ): array {
 		return $values;
 	}
 

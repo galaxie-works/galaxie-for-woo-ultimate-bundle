@@ -176,23 +176,37 @@ final class BoxFields {
 				continue;
 			}
 
-			$raw = wc_clean( wp_unslash( $_POST[ $key ][ $i ] ) ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+			$raw   = wc_clean( wp_unslash( $_POST[ $key ][ $i ] ) ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+			$value = self::clean( $field, $raw );
 
-			if ( 'max' === $field ) {
-				$value = absint( $raw );
-				$value > 0 ? update_post_meta( $variation_id, $key, $value ) : delete_post_meta( $variation_id, $key );
-				continue;
-			}
-
-			if ( 'overflow' === $field ) {
-				$value = min( self::OVERFLOW_MAX, max( 0.0, (float) wc_format_decimal( is_string( $raw ) ? $raw : '' ) ) );
-				$value > 0 ? update_post_meta( $variation_id, $key, wc_format_decimal( $value ) ) : delete_post_meta( $variation_id, $key );
-				continue;
-			}
-
-			$value = (float) wc_format_decimal( is_string( $raw ) ? $raw : '' );
-			$value > 0 ? update_post_meta( $variation_id, $key, wc_format_decimal( $value ) ) : delete_post_meta( $variation_id, $key );
+			'' !== $value && 0 !== $value ? update_post_meta( $variation_id, $key, $value ) : delete_post_meta( $variation_id, $key );
 		}
+	}
+
+	/**
+	 * One field's value as saved: a whole count for `max`, a decimal string
+	 * clamped to 0–OVERFLOW_MAX for `overflow`, a positive decimal string for the
+	 * sizes. 0 or '' means "not set" (the panel deletes it). The REST meta
+	 * registration ({@see ProductMeta}) sanitises with this too.
+	 *
+	 * @param string $field Key of self::META.
+	 * @param mixed  $raw   Submitted value.
+	 * @return int|string
+	 */
+	public static function clean( string $field, $raw ) {
+		$raw = is_scalar( $raw ) ? (string) $raw : '';
+
+		if ( 'max' === $field ) {
+			return absint( $raw );
+		}
+
+		$value = (float) wc_format_decimal( $raw );
+
+		if ( 'overflow' === $field ) {
+			$value = min( self::OVERFLOW_MAX, max( 0.0, $value ) );
+		}
+
+		return $value > 0 ? wc_format_decimal( $value ) : '';
 	}
 
 	/**
