@@ -55,22 +55,25 @@ final class Rewriter {
 			return $args;
 		}
 
+		$hash = md5( $args['body'] );
+
 		try {
 			$result = CartonQuote::rewrite_body( $args['body'], array( self::class, 'lines_for' ), Module::cartons(), Module::packing_options(), self::$memo );
 		} catch ( \Throwable $e ) {
-			self::log( 'error', sprintf( 'Kept the Melhor Envio quote as the plugin built it: %s (%s).', self::REASONS['error'], get_class( $e ) ) );
+			self::log_once( $hash, 'error', sprintf( 'Kept the Melhor Envio quote as the plugin built it: %s (%s).', self::REASONS['error'], get_class( $e ) ) );
 			return $args;
 		}
 
 		if ( ! $result['changed'] ) {
-			self::log( 'notice', sprintf( 'Kept the Melhor Envio quote as the plugin built it: %s.', self::REASONS[ $result['reason'] ] ?? $result['reason'] ) );
+			self::log_once( $hash, 'notice', sprintf( 'Kept the Melhor Envio quote as the plugin built it: %s.', self::REASONS[ $result['reason'] ] ?? $result['reason'] ) );
 			return $args;
 		}
 
 		$args['body'] = $result['body'];
 
+		// Debug only: every storefront quote passes here, often twice.
 		self::log(
-			'info',
+			'debug',
 			sprintf(
 				'Melhor Envio quote packed into %1$d carton(s), gift groups from %2$s: %3$s.',
 				count( $result['packed'] ),
@@ -123,6 +126,21 @@ final class Rewriter {
 			'weight' => (float) wc_get_weight( (float) $product->get_weight(), 'g' ),
 			'label'  => wp_strip_all_tags( $product->get_name() ),
 		);
+	}
+
+	/**
+	 * A failure logged once per request body per PHP request: a page can ask
+	 * for the same quote several times (one per shipping method instance).
+	 */
+	private static function log_once( string $hash, string $level, string $message ): void {
+		static $logged = array();
+
+		if ( isset( $logged[ $hash ] ) ) {
+			return;
+		}
+
+		$logged[ $hash ] = true;
+		self::log( $level, $message );
 	}
 
 	private static function log( string $level, string $message ): void {
