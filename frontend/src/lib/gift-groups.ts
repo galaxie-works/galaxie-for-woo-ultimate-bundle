@@ -191,7 +191,7 @@ export function validate(plan: Plan, options: PackingOptions = {}): PlanError[] 
         continue
       }
 
-      if (item.kind === 'card' && max > 0 && messageLength(item.message ?? '') > max) {
+      if (item.kind === 'card' && max > 0 && messageLength(cleanMessage(item.message ?? '')) > max) {
         errors.push(error('message_too_long', g, item.id ?? ''))
       }
 
@@ -255,6 +255,19 @@ export function cardFor(cards: CardRow[], parent: number, box: Record<string, st
 /** The sum of price × quantity, in cents. */
 export function total(lines: { price: number; quantity: number }[]): number {
   return lines.reduce((sum, line) => sum + cents(line.price) * Math.max(0, Math.trunc(line.quantity || 0)), 0)
+}
+
+/**
+ * A card message as the server stores it (GiftGroups::clean_message()): lone
+ * surrogates dropped, line breaks as \n, control characters other than \n and
+ * \t removed, trimmed. "<3" and "100%" stay.
+ */
+export function cleanMessage(message: string): string {
+  return message
+    .replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, '')
+    .replace(/\r\n?/g, '\n')
+    .replace(/[\u0000-\u0008\u000B-\u001F\u007F]/g, '')
+    .trim()
 }
 
 /** Characters, not UTF-16 units, with a Windows line break counted once. */

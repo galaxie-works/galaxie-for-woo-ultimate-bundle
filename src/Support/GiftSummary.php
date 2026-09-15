@@ -147,8 +147,10 @@ final class GiftSummary {
 		}
 
 		if ( $plain_text ) {
-			// A plain-text e-mail: entities would print as typed, so tags are stripped instead.
-			echo wp_strip_all_tags( self::text( $groups ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- plain text, tags stripped.
+			// A plain-text e-mail prints what it is given: entities would show as
+			// typed and stripping tags would cut a message at "<3". Product names
+			// are already stripped in groups(); messages are cleaned text.
+			echo self::text( $groups ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- plain-text e-mail body.
 			return;
 		}
 

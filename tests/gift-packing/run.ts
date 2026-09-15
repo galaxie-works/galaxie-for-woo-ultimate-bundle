@@ -10,7 +10,7 @@ import { isDeepStrictEqual } from 'node:util'
 
 import { arrange, cover, fits, room, summary } from '../../frontend/src/lib/gift-packing.ts'
 import type { Box, Candle, Gift, PackingOptions, SummaryRow } from '../../frontend/src/lib/gift-packing.ts'
-import { arrangeAll, cardFor, fill, maxQuantity, total, validate } from '../../frontend/src/lib/gift-groups.ts'
+import { arrangeAll, cardFor, cleanMessage, fill, maxQuantity, messageLength, total, validate } from '../../frontend/src/lib/gift-groups.ts'
 import type { CardRow } from '../../frontend/src/lib/gift-groups.ts'
 import type { PlanError, PlanGroup, PlanItem } from '../../frontend/src/lib/gift-groups.ts'
 
@@ -35,6 +35,7 @@ interface Fixtures {
   }[]
   total: { name: string; lines: { price: number; quantity: number }[]; expect: number }[]
   card_for: { name: string; cards: CardRow[]; parent: number; box: Record<string, string> | null; expect: number }[]
+  clean_message: { name: string; message: string; expect: string; length: number }[]
   arrange_all: { name: string; candles: [string, number][]; boxes: string[]; options?: PackingOptions; expect: { gifts: { box: string; candles: string[] }[]; loose: string[] } | null }[]
 }
 
@@ -119,6 +120,12 @@ for (const c of fixtures.arrange_all) {
 
 for (const c of fixtures.card_for) {
   check('card_for', c.name, cardFor(c.cards, c.parent, c.box), c.expect)
+}
+
+for (const c of fixtures.clean_message) {
+  const clean = cleanMessage(c.message)
+  check('clean_message', c.name, clean, c.expect)
+  check('clean_message', `${c.name} (length)`, messageLength(clean), c.length)
 }
 
 console.log('\n  timing (best of 5):')

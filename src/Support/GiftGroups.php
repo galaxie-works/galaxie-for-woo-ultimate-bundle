@@ -266,7 +266,7 @@ final class GiftGroups {
 					continue;
 				}
 
-				if ( 'card' === ( $item['kind'] ?? '' ) && $max > 0 && self::message_length( (string) ( $item['message'] ?? '' ) ) > $max ) {
+				if ( 'card' === ( $item['kind'] ?? '' ) && $max > 0 && self::message_length( self::clean_message( (string) ( $item['message'] ?? '' ) ) ) > $max ) {
 					$errors[] = self::error( 'message_too_long', $g, $item['id'] ?? '' );
 				}
 
@@ -463,6 +463,27 @@ final class GiftGroups {
 		}
 
 		return $cents;
+	}
+
+	/**
+	 * A card message as it is stored: what the shopper typed, only made safe to
+	 * keep — invalid UTF-8 dropped, line breaks as \n, control characters other
+	 * than \n and \t removed, trimmed. "<3" and "100%" stay as they are: this is
+	 * text, escaped where it is printed, never here.
+	 *
+	 * @param string $message Message.
+	 */
+	public static function clean_message( string $message ): string {
+		// Invalid bytes dropped, not replaced: keep every well-formed UTF-8
+		// sequence and nothing else, with no extension to rely on.
+		if ( 1 !== preg_match( '//u', $message ) ) {
+			$message = (string) preg_replace( '/((?:[\x00-\x7F]|[\xC2-\xDF][\x80-\xBF]|\xE0[\xA0-\xBF][\x80-\xBF]|[\xE1-\xEC\xEE\xEF][\x80-\xBF]{2}|\xED[\x80-\x9F][\x80-\xBF]|\xF0[\x90-\xBF][\x80-\xBF]{2}|[\xF1-\xF3][\x80-\xBF]{3}|\xF4[\x80-\x8F][\x80-\xBF]{2})+)|./s', '$1', $message );
+		}
+
+		$message = preg_replace( '/\r\n?/', "\n", $message );
+		$message = preg_replace( '/[\x00-\x08\x0B-\x1F\x7F]/u', '', (string) $message );
+
+		return trim( (string) $message );
 	}
 
 	/**

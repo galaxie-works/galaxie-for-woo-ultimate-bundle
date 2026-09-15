@@ -264,7 +264,8 @@ final class Builder {
 							self::fail( __( 'O cartão escolhido não corresponde à caixa deste presente. Abra o presente de novo.', 'galaxie-woo' ) );
 						}
 
-						$message = trim( sanitize_textarea_field( (string) ( $entry['message'] ?? '' ) ) );
+						// Kept as typed ("<3", "100%"): cleaned, not escaped. Escaped where printed.
+						$message = GiftGroups::clean_message( (string) ( $entry['message'] ?? '' ) );
 						$items[] = array( 'id' => $id, 'kind' => 'card', 'quantity' => 1, 'message' => $message );
 						$key     = $id . '|' . md5( $message );
 						$adds[ $key ] = array( 'kind' => 'card', 'id' => $id, 'quantity' => ( $adds[ $key ]['quantity'] ?? 0 ) + 1, 'message' => $message );

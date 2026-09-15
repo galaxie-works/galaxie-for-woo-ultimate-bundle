@@ -28,7 +28,7 @@
 
 import { fits, MAX_ITEMS, room } from '@/lib/gift-packing'
 import type { Box, Candle, PackingOptions } from '@/lib/gift-packing'
-import { arrangeAll, cardFor as cardIdFor, fill, messageLength, total, validate } from '@/lib/gift-groups'
+import { arrangeAll, cardFor as cardIdFor, cleanMessage, fill, messageLength, total, validate } from '@/lib/gift-groups'
 import type { Plan, PlanCandle, PlanError, PlanGroup, PlanItem } from '@/lib/gift-groups'
 import { post } from '@/lib/wp'
 import type { AjaxResult } from '@/lib/wp'
@@ -661,7 +661,8 @@ function createController(root: HTMLElement, pending: PendingCandle, token: numb
           const count = slot(box, 'count')
 
           const paint = (): void => {
-            const length = messageLength(input?.value ?? '')
+            // Counted on the text as the server will store it.
+            const length = messageLength(cleanMessage(input?.value ?? ''))
             setText(count, d.messageMax > 0 ? `${length}/${d.messageMax}` : String(length))
             box.classList.toggle('is-over', d.messageMax > 0 && length > d.messageMax)
           }

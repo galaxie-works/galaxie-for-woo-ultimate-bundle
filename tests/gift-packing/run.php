@@ -152,6 +152,15 @@ foreach ( $fixtures['check_request'] as $case ) {
 	$check( 'check_request', $case['name'], GiftGroups::check_request( $case['raw'], $case['pending'], $case['loose'], $case['existing'] ), $case['expect'] );
 }
 
+foreach ( $fixtures['clean_message'] as $case ) {
+	$clean = GiftGroups::clean_message( $case['message'] );
+	$check( 'clean_message', $case['name'], $clean, $case['expect'] );
+	$check( 'clean_message', $case['name'] . ' (length)', GiftGroups::message_length( $clean ), $case['length'] );
+}
+
+// Bytes JSON cannot carry: invalid UTF-8 is dropped, the rest kept.
+$check( 'clean_message', 'invalid UTF-8 dropped', GiftGroups::clean_message( "ok\xC3\x28 fim" ), 'ok( fim' );
+
 // Timing, not pass/fail: the slowest 12-candle cases.
 echo "\n  timing (best of 5):\n";
 $time = static function ( string $label, callable $run ): void {

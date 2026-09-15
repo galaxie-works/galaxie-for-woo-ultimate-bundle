@@ -490,6 +490,14 @@
     { "name": "adding to a gift counts what it has", "raw": { "mode": "extend", "groups": [{ "candles": [{ "source": "pending", "count": 2 }], "box": 7 }] }, "pending": 2, "loose": {}, "existing": 11, "expect": "box_too_full" },
     { "name": "51 ribbons and cards in one gift", "raw": { "groups": [{ "candles": [{ "source": "pending", "count": 1 }], "ribbons": [{ "id": 1, "quantity": 1 }, { "id": 1, "quantity": 1 }, { "id": 1, "quantity": 1 }, { "id": 1, "quantity": 1 }, { "id": 1, "quantity": 1 }, { "id": 1, "quantity": 1 }, { "id": 1, "quantity": 1 }, { "id": 1, "quantity": 1 }, { "id": 1, "quantity": 1 }, { "id": 1, "quantity": 1 }, { "id": 1, "quantity": 1 }, { "id": 1, "quantity": 1 }, { "id": 1, "quantity": 1 }, { "id": 1, "quantity": 1 }, { "id": 1, "quantity": 1 }, { "id": 1, "quantity": 1 }, { "id": 1, "quantity": 1 }, { "id": 1, "quantity": 1 }, { "id": 1, "quantity": 1 }, { "id": 1, "quantity": 1 }, { "id": 1, "quantity": 1 }, { "id": 1, "quantity": 1 }, { "id": 1, "quantity": 1 }, { "id": 1, "quantity": 1 }, { "id": 1, "quantity": 1 }, { "id": 1, "quantity": 1 }], "cards": [{ "id": 2, "message": "" }, { "id": 2, "message": "" }, { "id": 2, "message": "" }, { "id": 2, "message": "" }, { "id": 2, "message": "" }, { "id": 2, "message": "" }, { "id": 2, "message": "" }, { "id": 2, "message": "" }, { "id": 2, "message": "" }, { "id": 2, "message": "" }, { "id": 2, "message": "" }, { "id": 2, "message": "" }, { "id": 2, "message": "" }, { "id": 2, "message": "" }, { "id": 2, "message": "" }, { "id": 2, "message": "" }, { "id": 2, "message": "" }, { "id": 2, "message": "" }, { "id": 2, "message": "" }, { "id": 2, "message": "" }, { "id": 2, "message": "" }, { "id": 2, "message": "" }, { "id": 2, "message": "" }, { "id": 2, "message": "" }, { "id": 2, "message": "" }] }] }, "pending": 1, "loose": {}, "existing": 0, "expect": "too_many_entries" }
   ],
+  "clean_message": [
+    { "name": "a heart and a percent stay", "message": "Te amo <3 e 100% seu", "expect": "Te amo <3 e 100% seu", "length": 20 },
+    { "name": "something that looks like a URL escape stays", "message": "abc%20def %3C", "expect": "abc%20def %3C", "length": 13 },
+    { "name": "line breaks become \\n", "message": "Olá\r\nMãe\rbeijo", "expect": "Olá\nMãe\nbeijo", "length": 13 },
+    { "name": "control characters removed, tab kept", "message": "a\u0007b\u0000c\td", "expect": "abc\td", "length": 5 },
+    { "name": "trimmed", "message": "  \n Feliz aniversário! \n ", "expect": "Feliz aniversário!", "length": 18 },
+    { "name": "emoji count once", "message": "🎁🎂", "expect": "🎁🎂", "length": 2 }
+  ],
   "total": [
     { "name": "cents, not floats", "lines": [{ "price": 19.9, "quantity": 2 }, { "price": 12, "quantity": 1 }, { "price": 0.1, "quantity": 3 }], "expect": 5210 },
     { "name": "nothing", "lines": [], "expect": 0 },
