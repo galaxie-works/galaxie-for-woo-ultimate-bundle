@@ -15,7 +15,10 @@
  *    memory_limit 128M and a 2 s time limit; PHP's call-stack guard turns deep
  *    recursion into an Error. Every module on, front end and admin, with the
  *    Gift Wrap size attribute 'pa_peso' and 'peso', plus the modules' own
- *    defaults — then the static helpers read on boot.
+ *    defaults — then the static helpers read on boot. Two more boot as a REST
+ *    request and under WP-CLI: `rest_api_init` fired, the settings routes and
+ *    the `wp galaxie` commands registered, and the settings service they and the
+ *    settings page share answering.
  *
  * `--root=<dir>` points at another copy of the plugin (to prove the runner
  * catches a bug, run it on a copy that has one).
@@ -62,6 +65,8 @@ function galaxie_boot_scenarios(): array {
 		'every module on, front end, peso'     => array( 'all' => true, 'admin' => false, 'settings' => $gift( 'peso' ) ),
 		'every module on, wp-admin, pa_peso'   => array( 'all' => true, 'admin' => true, 'settings' => $gift( 'pa_peso' ) ),
 		'every module on, wp-admin, peso'      => array( 'all' => true, 'admin' => true, 'settings' => $gift( 'peso' ) ),
+		'module defaults, REST + WP-CLI'       => array( 'all' => false, 'admin' => false, 'settings' => array(), 'rest' => true, 'cli' => true ),
+		'every module on, REST + WP-CLI, peso' => array( 'all' => true, 'admin' => false, 'settings' => $gift( 'peso' ), 'rest' => true, 'cli' => true ),
 	);
 }
 
@@ -90,6 +95,11 @@ if ( null !== $child ) {
 	require __DIR__ . '/wp-stubs.php';
 
 	$GLOBALS['galaxie_boot']['admin'] = $scenario['admin'];
+
+	// Under WP-CLI the plugin adds its commands while booting.
+	if ( ! empty( $scenario['cli'] ) && ! defined( 'WP_CLI' ) ) {
+		define( 'WP_CLI', true );
+	}
 
 	try {
 		require $root . '/galaxie-bundle.php';
@@ -129,13 +139,18 @@ if ( null !== $child ) {
 			}
 		}
 
-		// The attribute the variation fields were built with, at boot — before
-		// init, when WooCommerce's pa_* taxonomies do not exist yet.
-		$fields = array();
+		// The attribute the variation and size term fields were built with, at
+		// boot — before init, when WooCommerce's pa_* taxonomies do not exist yet.
+		$field_classes = array(
+			\Galaxie\Woo\Modules\GiftWrap\BoxFields::class,
+			\Galaxie\Woo\Modules\GiftWrap\CandleFields::class,
+			\Galaxie\Woo\Modules\GiftWrap\SizeTermFields::class,
+		);
+		$fields        = array();
 
 		foreach ( $GLOBALS['galaxie_boot']['hooks'] as $callbacks ) {
 			foreach ( $callbacks as $callback ) {
-				if ( is_array( $callback ) && is_object( $callback[0] ) && in_array( get_class( $callback[0] ), array( \Galaxie\Woo\Modules\GiftWrap\BoxFields::class, \Galaxie\Woo\Modules\GiftWrap\CandleFields::class ), true ) ) {
+				if ( is_array( $callback ) && is_object( $callback[0] ) && in_array( get_class( $callback[0] ), $field_classes, true ) ) {
 					$property = new ReflectionProperty( $callback[0], 'attribute' );
 					$fields[ ( new ReflectionClass( $callback[0] ) )->getShortName() ] = $property->getValue( $callback[0] );
 				}
@@ -153,8 +168,8 @@ if ( null !== $child ) {
 				throw new RuntimeException( "Module::size_attribute() is '{$attribute}', expected '{$wanted}'" );
 			}
 
-			// Not a check that passes by finding nothing: both field classes hooked in.
-			foreach ( array( 'BoxFields', 'CandleFields' ) as $class ) {
+			// Not a check that passes by finding nothing: every field class hooked in.
+			foreach ( array( 'BoxFields', 'CandleFields', 'SizeTermFields' ) as $class ) {
 				if ( ! isset( $fields[ $class ] ) ) {
 					throw new RuntimeException( "{$class} was not registered on boot" );
 				}
@@ -164,6 +179,11 @@ if ( null !== $child ) {
 				if ( $value !== $wanted ) {
 					throw new RuntimeException( "{$class} was built with '{$value}', expected '{$wanted}'" );
 				}
+			}
+
+			// The size term form hooks on the taxonomy itself, not the typed name.
+			if ( empty( $GLOBALS['galaxie_boot']['hooks']['pa_peso_edit_form_fields'] ) || ! empty( $GLOBALS['galaxie_boot']['hooks']['peso_edit_form_fields'] ) ) {
+				throw new RuntimeException( 'SizeTermFields: term form not hooked on pa_peso' );
 			}
 		}
 
@@ -224,7 +244,57 @@ if ( null !== $child ) {
 			$shipping = count( $cartons ) . ' carton, rewrite fails open';
 		}
 
-		echo json_encode( array( 'booted' => $booted, 'attribute' => $attribute, 'fields' => $fields, 'shipping' => $shipping ) );
+		// The settings API: routes on rest_api_init, the WP-CLI commands, and the
+		// service the settings page, the routes and the commands all save through.
+		$api = '';
+
+		if ( ! empty( $scenario['rest'] ) ) {
+			galaxie_boot_fire( 'rest_api_init' );
+
+			$routes  = $GLOBALS['galaxie_boot']['routes'] ?? array();
+			$missing = array_diff(
+				array( 'galaxie-woo/v1/modules', 'galaxie-woo/v1/modules/(?P<id>[a-z0-9-]+)', 'galaxie-woo/v1/settings/(?P<module>[a-z0-9-]+)' ),
+				$routes
+			);
+
+			if ( $missing ) {
+				throw new RuntimeException( 'REST: not registered on rest_api_init: ' . implode( ', ', $missing ) );
+			}
+
+			$service = \Galaxie\Woo\Core\Plugin::instance()->settings_service();
+
+			if ( count( $service->module_rows() ) !== count( $modules->all() ) ) {
+				throw new RuntimeException( 'REST: GET /modules does not list every module' );
+			}
+
+			// GET /settings/{module} on a booted plugin, for the modules whose rows it writes.
+			foreach ( array( 'shipping-cartons', 'gift-wrap', 'quantity-discounts' ) as $id ) {
+				$configurable = $service->configurable( $id );
+
+				if ( null === $configurable ) {
+					throw new RuntimeException( "REST: {$id} has no settings" );
+				}
+
+				$service->values( $configurable );
+				$service->schema( $configurable );
+			}
+
+			$api = count( $routes ) . ' REST routes';
+		}
+
+		if ( ! empty( $scenario['cli'] ) ) {
+			$commands = $GLOBALS['galaxie_boot']['cli'] ?? array();
+
+			foreach ( array( 'galaxie module' => \Galaxie\Woo\Core\Cli\ModuleCommand::class, 'galaxie settings' => \Galaxie\Woo\Core\Cli\SettingsCommand::class ) as $name => $class ) {
+				if ( ! isset( $commands[ $name ] ) || ! $commands[ $name ] instanceof $class ) {
+					throw new RuntimeException( "WP-CLI: '{$name}' not added as {$class}" );
+				}
+			}
+
+			$api .= ( '' !== $api ? ', ' : '' ) . count( $commands ) . ' WP-CLI commands';
+		}
+
+		echo json_encode( array( 'booted' => $booted, 'attribute' => $attribute, 'fields' => $fields, 'shipping' => $shipping, 'api' => $api ) );
 		exit( 0 );
 	} catch ( \Throwable $e ) {
 		fwrite( STDERR, get_class( $e ) . ': ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine() . "\n" );
@@ -318,6 +388,7 @@ foreach ( array_keys( galaxie_boot_scenarios() ) as $name ) {
 			. ( null !== $result['attribute'] ? ", size attribute {$result['attribute']}" : '' )
 			. ( ! empty( $result['fields'] ) ? ', fields ' . implode( ' ', array_map( static fn( $class, $value ): string => "{$class}={$value}", array_keys( $result['fields'] ), $result['fields'] ) ) : '' )
 			. ( ! empty( $result['shipping'] ) ? ", shipping cartons: {$result['shipping']}" : '' )
+			. ( ! empty( $result['api'] ) ? ", {$result['api']}" : '' )
 		: "exit {$code}\n" . trim( $err . "\n" . substr( (string) $out, 0, 500 ) );
 
 	$report( $ok, "boot: {$name}", $detail );

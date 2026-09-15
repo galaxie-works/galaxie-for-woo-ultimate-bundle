@@ -178,7 +178,24 @@ function register_post_type( ...$args ) { return (object) array(); }
 function register_taxonomy( ...$args ) { return true; }
 function register_post_meta( ...$args ) { return true; }
 function register_meta( ...$args ) { return true; }
-function register_rest_route( ...$args ) { return true; }
+function register_term_meta( ...$args ) { return true; }
+/** Recorded as namespace + route, for the REST scenarios. */
+function register_rest_route( $namespace, $route, $args = array(), $override = false ) {
+	$GLOBALS['galaxie_boot']['routes'][] = trim( $namespace, '/' ) . '/' . ltrim( $route, '/' );
+	return true;
+}
+function get_terms( ...$args ) { return array(); }
+function user_can( ...$args ) { return false; }
+
+/** Only used when a scenario defines WP_CLI: records what the plugin adds. */
+if ( ! class_exists( 'WP_CLI' ) ) {
+	class WP_CLI {
+		public static function add_command( $name, $callable, $args = array() ) {
+			$GLOBALS['galaxie_boot']['cli'][ $name ] = $callable;
+			return true;
+		}
+	}
+}
 function add_rewrite_rule( ...$args ) {}
 function add_rewrite_tag( ...$args ) {}
 function add_rewrite_endpoint( ...$args ) {}
@@ -211,3 +228,4 @@ function is_cart() { return false; }
 function is_checkout() { return false; }
 function is_account_page() { return false; }
 function wc_get_product( $id ) { return false; }
+function get_woocommerce_currency_symbol( $currency = '' ) { return 'R$'; }

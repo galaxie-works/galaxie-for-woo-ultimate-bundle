@@ -129,11 +129,6 @@ function get_terms( $args = array() ) {
 	return array();
 }
 
-/** Only the taxonomies in `$GLOBALS['gx_taxonomies']` exist (default: pa_peso). */
-function taxonomy_exists( $taxonomy ) {
-	return in_array( $taxonomy, $GLOBALS['gx_taxonomies'] ?? array( 'pa_peso' ), true );
-}
-
 function register_term_meta( $taxonomy, $key, $args ) {
 	$GLOBALS['gx_term_meta_args'][ $taxonomy ][ $key ] = $args;
 	return true;

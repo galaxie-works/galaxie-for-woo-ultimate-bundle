@@ -450,31 +450,15 @@ $check( 'wc rest', 'an earlier error passes through', ProductMeta::guard_wc_rest
 
 $GLOBALS['gx_term_meta']      = array();
 $GLOBALS['gx_term_meta_args'] = array();
-$GLOBALS['gx_hooks']['init']  = array();
 
-// Typed "peso", as the Gift Wrap setting allows: Module::size_attribute() means pa_peso.
-( new SizeTermFields( 'peso' ) )->register();
-
-$check( 'term meta', 'nothing on a taxonomy before init (attribute taxonomies register on init)', $GLOBALS['gx_term_meta_args'], array() );
-$check( 'term meta', 'REST switch filters in place before init, for peso and pa_peso', array( isset( $GLOBALS['gx_hooks']['woocommerce_taxonomy_args_pa_peso'] ), isset( $GLOBALS['gx_hooks']['woocommerce_taxonomy_args_peso'] ) ), array( true, true ) );
-
-foreach ( $GLOBALS['gx_hooks']['init'] as $callback ) {
-	$callback();
-}
+// Built with Module::size_attribute(), which already names the taxonomy
+// ("peso" → pa_peso is checked on a booted plugin in tests/boot).
+( new SizeTermFields( 'pa_peso' ) )->register();
 
 $args = $GLOBALS['gx_term_meta_args']['pa_peso'] ?? array();
-$check( 'term meta', '"peso" normalised: registered on pa_peso, the variation keys', array( array_keys( $args ), isset( $GLOBALS['gx_term_meta_args']['peso'] ) ), array( array_values( CandleFields::META ), false ) );
+$check( 'term meta', 'registered on the size attribute, the variation keys', array_keys( $args ), array_values( CandleFields::META ) );
 $check( 'term meta', 'REST schema: number ≥ 0, single', array( $args['_galaxie_gift_height']['show_in_rest']['schema'], $args['_galaxie_gift_height']['single'] ), array( array( 'type' => 'number', 'minimum' => 0 ), true ) );
-$check( 'term meta', 'form hooks on pa_peso only', array( isset( $GLOBALS['gx_hooks']['pa_peso_add_form_fields'], $GLOBALS['gx_hooks']['pa_peso_edit_form_fields'], $GLOBALS['gx_hooks']['created_pa_peso'], $GLOBALS['gx_hooks']['edited_pa_peso'] ), isset( $GLOBALS['gx_hooks']['edited_peso'] ) || isset( $GLOBALS['gx_hooks']['peso_edit_form_fields'] ) ), array( true, false ) );
-
-$GLOBALS['gx_taxonomies']     = array( 'peso', 'pa_peso' );
-$GLOBALS['gx_term_meta_args'] = array();
-( new SizeTermFields( 'peso' ) )->register_taxonomy_fields();
-$check( 'term meta', 'a real taxonomy "peso" stays as typed', array_keys( $GLOBALS['gx_term_meta_args'] ), array( 'peso' ) );
-unset( $GLOBALS['gx_taxonomies'] );
-$GLOBALS['gx_term_meta_args'] = array();
-( new SizeTermFields( 'pa_peso' ) )->register_taxonomy_fields();
-$args = $GLOBALS['gx_term_meta_args']['pa_peso'] ?? array();
+$check( 'term meta', 'form hooks and REST switch on that taxonomy only', array( isset( $GLOBALS['gx_hooks']['pa_peso_add_form_fields'], $GLOBALS['gx_hooks']['pa_peso_edit_form_fields'], $GLOBALS['gx_hooks']['created_pa_peso'], $GLOBALS['gx_hooks']['edited_pa_peso'], $GLOBALS['gx_hooks']['woocommerce_taxonomy_args_pa_peso'] ), isset( $GLOBALS['gx_hooks']['edited_pa_cor'] ) ), array( true, false ) );
 
 $term_auth                  = $args['_galaxie_gift_length']['auth_callback'];
 $GLOBALS['gx_user_caps'][7] = array( 'edit_product:501', 'edit_products' );

@@ -42,44 +42,26 @@ final class SizeTermFields {
 	 */
 	public function __construct( private string $attribute = 'pa_peso' ) {}
 
+	/**
+	 * Built at boot with `Module::size_attribute()`, which already names the
+	 * taxonomy ("peso" typed for the global attribute Peso is `pa_peso`), so
+	 * everything hooks on that name straight away.
+	 */
 	public function register(): void {
 		if ( '' === $this->attribute ) {
 			return;
 		}
 
-		// WooCommerce registers attribute taxonomies without REST, on `init`
-		// (priority 5), filtering their arguments as it goes: the switch has to be
-		// in place before then, when which name is right is not known yet. A
-		// filter on a name that is no attribute taxonomy never runs.
-		$candidates = str_starts_with( $this->attribute, 'pa_' ) ? array( $this->attribute ) : array( $this->attribute, 'pa_' . $this->attribute );
-
-		foreach ( $candidates as $candidate ) {
-			add_filter( 'woocommerce_taxonomy_args_' . $candidate, array( self::class, 'show_in_rest' ) );
-		}
-
-		add_action( 'init', array( $this, 'register_taxonomy_fields' ), 20 );
-
-		GiftPacking::watch_sizes();
-	}
-
-	/**
-	 * The term form fields and term meta, once attribute taxonomies exist.
-	 *
-	 * "peso" typed for the global attribute Peso means `pa_peso`, the rule of
-	 * `Module::size_attribute()`, which cannot tell yet when the module boots on
-	 * `plugins_loaded`.
-	 */
-	public function register_taxonomy_fields(): void {
 		$taxonomy = $this->attribute;
-
-		if ( ! taxonomy_exists( $taxonomy ) && taxonomy_exists( 'pa_' . $taxonomy ) ) {
-			$taxonomy = 'pa_' . $taxonomy;
-		}
 
 		add_action( $taxonomy . '_add_form_fields', array( $this, 'render_add' ) );
 		add_action( $taxonomy . '_edit_form_fields', array( $this, 'render_edit' ), 10, 1 );
 		add_action( 'created_' . $taxonomy, array( $this, 'save' ), 10, 1 );
 		add_action( 'edited_' . $taxonomy, array( $this, 'save' ), 10, 1 );
+
+		// WooCommerce registers attribute taxonomies without REST (on init,
+		// through this filter); this one only.
+		add_filter( 'woocommerce_taxonomy_args_' . $taxonomy, array( self::class, 'show_in_rest' ) );
 
 		$descriptions = array(
 			'length' => 'Candle jar of this size alone, lid on: length in cm, for gift packing. Used when the variation has no gift dimensions of its own.',
