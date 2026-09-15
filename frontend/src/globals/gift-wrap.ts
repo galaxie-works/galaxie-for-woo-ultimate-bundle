@@ -96,18 +96,38 @@ export function giftWrapChecked(form: HTMLFormElement): boolean {
  * took the click over — the caller stops, and `proceed` runs once the shopper
  * confirms or continues without extras.
  *
- * Not taken over: the box unticked, a gift already settled for this choice
- * (through "Configurar presente", say), no popup chosen, or no pixfort.
+ * Not taken over: the box unticked, a variable product with no variation
+ * resolved yet, a gift already settled for this choice (through "Configurar
+ * presente", say), no popup chosen, or no pixfort.
  */
 export function interceptForGift(form: HTMLFormElement, proceed: () => void): boolean {
   const block = giftBlock(form)
 
   if (!block || !checkbox(block)?.checked) return false
+  if (!selectionResolved(form)) return false
   if (resolutions.has(form)) return false
   if (!block.dataset.popup || !loadPopup()) return false
 
   open(form, block, proceed)
   return true
+}
+
+/**
+ * Whether the form names something that can be bought: a simple product, or a
+ * variable one whose choices WooCommerce has matched to a variation.
+ *
+ * Checked here and not left to the Buy Box's own `blocked()`: that one only
+ * stops a click when its Alert block can say why, and with no Alert block (or
+ * an empty "choose an option" message) it lets the click through on purpose,
+ * for WooCommerce to refuse the usual way. Opening the builder in between would
+ * ask the shopper to settle a gift for a candle not chosen yet, and only then
+ * show the refusal. Declining here keeps that path exactly what it is without
+ * the gift box; the builder opens on the first click with a valid choice.
+ */
+function selectionResolved(form: HTMLFormElement): boolean {
+  if (!form.querySelector('.variations select')) return true
+
+  return Number(form.querySelector<HTMLInputElement>('input[name="variation_id"]')?.value) > 0
 }
 
 /** After an add succeeded: the next one is a new gift, and asks again. */
