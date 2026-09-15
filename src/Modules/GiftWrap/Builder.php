@@ -283,6 +283,40 @@ final class Builder {
 				}
 			}
 
+			// A gift being added to that changes box keeps its cards, each resized
+			// to the new box: same quantity and message, the card_for() variation.
+			$swaps = array();
+
+			if ( $extend ) {
+				$current_box = $gifts[ $target ]['box'] ? reset( $gifts[ $target ]['box'] )['data']->get_id() : 0;
+
+				foreach ( $current_box !== $box_id ? $gifts[ $target ]['cards'] : array() as $key => $item ) {
+					$card   = $item['data'];
+					$parent = $card->is_type( 'variation' ) ? $card->get_parent_id() : $card->get_id();
+					$next   = self::card_for( $parent, $box_id ? $offer['box'][ $box_id ] : null, $offer['card'] );
+
+					if ( ! $next ) {
+						self::fail( __( 'Um cartão deste presente não existe para a caixa escolhida.', 'galaxie-woo' ) );
+					}
+
+					if ( $next === $card->get_id() ) {
+						continue;
+					}
+
+					$in_group = Groups::group_of( $item );
+					$swaps[]  = array(
+						'key'      => (string) $key,
+						'id'       => $next,
+						'quantity' => (int) $item['quantity'],
+						'message'  => $in_group ? $in_group['message'] : '',
+					);
+
+					// Stock for the new size; the old line's units leave the cart.
+					$items[]                 = array( 'id' => $next, 'kind' => 'card', 'quantity' => (int) $item['quantity'] );
+					$stock[ (string) $next ] = self::stock( $offer['card'][ $next ] );
+				}
+			}
+
 			$plan_groups[] = array(
 				'candles' => $extend || $count || $moves ? $candles : array(),
 				'box'     => $box,
@@ -295,6 +329,7 @@ final class Builder {
 				'moves'   => $moves,
 				'box'     => $box_id,
 				'adds'    => $adds,
+				'swaps'   => $swaps,
 			);
 		}
 
@@ -351,6 +386,18 @@ final class Builder {
 
 			if ( $added && $extend ) {
 				$added = self::replace_box( $gifts[ $target ]['box'], $plan['box'] );
+			}
+
+			foreach ( $plan['swaps'] as $swap ) {
+				if ( ! $added ) {
+					break;
+				}
+
+				$lines = WC()->cart->get_cart_contents();
+				unset( $lines[ $swap['key'] ] );
+				WC()->cart->set_cart_contents( $lines );
+
+				$added = self::add_accessory( $offer['card'][ $swap['id'] ], $swap['quantity'], $id, Groups::ROLE_CARD, $swap['message'] );
 			}
 
 			if ( $added && $plan['box'] && ( ! $extend || self::box_changed( $gifts[ $target ]['box'], $plan['box'] ) ) ) {
@@ -865,6 +912,7 @@ final class Builder {
 				foreach ( $items as $key => $item ) {
 					$group  = Groups::group_of( $item );
 					$rows[] = self::product_json( $item['data'] ) + array(
+						'parent'   => $item['data']->is_type( 'variation' ) ? $item['data']->get_parent_id() : $item['data']->get_id(),
 						'key'      => (string) $key,
 						'quantity' => (int) $item['quantity'],
 						'candle'   => GiftPacking::candle_from_product( $item['data'], $attribute ),

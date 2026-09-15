@@ -543,6 +543,8 @@ function createController(root: HTMLElement, pending: PendingCandle, token: numb
         sized &&
         candles.length <= MAX_ITEMS &&
         (option.stock !== 0 || option.id === gift?.box?.id) &&
+        // Adding to a gift: its cards must exist in this box's size too.
+        (!gift || gift.cards.every((line) => cardFor(line.parent ?? line.id, option.id))) &&
         fits(option.box, candles, d.options)
     )
 
