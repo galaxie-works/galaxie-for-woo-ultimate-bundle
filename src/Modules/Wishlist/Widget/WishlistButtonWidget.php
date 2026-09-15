@@ -463,7 +463,10 @@ final class WishlistButtonWidget extends Widget_Base {
 
 		$form = '{{WRAPPER}} .galaxie-wishlist-popover-new';
 
-		$this->start_controls_section( 'popover_create_style', array( 'label' => __( 'Wishlist popover: create list button', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
+		// Not `popover_create_style`: Elementor keeps sections and controls in one
+		// registry, and that is the id of the button's own Button style control,
+		// which the section silently replaced.
+		$this->start_controls_section( 'popover_create_button_section', array( 'label' => __( 'Wishlist popover: create list button', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
 
 		$this->add_responsive_control(
 			'popover_form_layout',
