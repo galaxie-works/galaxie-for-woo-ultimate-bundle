@@ -43,19 +43,10 @@ final class Builder {
 	/** Accessory products read per kind. A gift builder, not a catalogue. */
 	private const CATALOGUE_LIMIT = 50;
 
-	/**
-	 * Ceilings on what a request can ask for, checked before anything is
-	 * expanded: the plan is public input, and a count is a loop.
-	 */
-	private const MAX_QUANTITY = 999;
-
 	/** What a shopper is told when a candle has no dimensions to pack with. */
 	private static function no_dimensions(): string {
 		return __( 'Não foi possível calcular a embalagem deste produto. Fale com a loja.', 'galaxie-woo' );
 	}
-
-	/** Ribbon and card entries in one gift. */
-	private const MAX_ENTRIES = 50;
 
 	/** Cart item keys that are WooCommerce's own, not item data. */
 	private const CART_FIELDS = array( 'key', 'product_id', 'variation_id', 'variation', 'quantity', 'data', 'data_hash', 'line_tax_data', 'line_subtotal', 'line_subtotal_tax', 'line_total', 'line_tax' );
@@ -127,11 +118,14 @@ final class Builder {
 			self::fail( __( 'Esse presente não está mais no carrinho. Abra o presente de novo.', 'galaxie-woo' ) );
 		}
 
-		// Every gift holds at least one candle: never more gifts than candles.
-		$loose_units = array_sum( array_map( static fn( array $item ): int => (int) $item['quantity'], self::loose( $contents ) ) );
+		// Bounds first, before any count in the plan is expanded or any card is
+		// looked up (GiftGroups::check_request()).
+		$loose_units = $extend ? array() : array_map( static fn( array $item ): int => (int) $item['quantity'], self::loose( $contents ) );
+		$existing    = $extend ? array_sum( array_map( static fn( array $item ): int => (int) $item['quantity'], $gifts[ $target ]['candles'] ) ) : 0;
+		$bounds      = GiftGroups::check_request( $raw, $pending['quantity'], $loose_units, $existing );
 
-		if ( count( $raw['groups'] ) > $pending['quantity'] + $loose_units ) {
-			self::fail( __( 'Não foi possível montar o presente. Tente de novo.', 'galaxie-woo' ) );
+		if ( '' !== $bounds ) {
+			self::fail( self::request_error( $bounds ) );
 		}
 
 		$offer = array(
@@ -247,7 +241,7 @@ final class Builder {
 				'card'   => (array) ( $group['cards'] ?? array() ),
 			);
 
-			if ( count( $entries['ribbon'] ) + count( $entries['card'] ) > self::MAX_ENTRIES ) {
+			if ( count( $entries['ribbon'] ) + count( $entries['card'] ) > GiftGroups::MAX_ENTRIES ) {
 				self::fail( __( 'Não foi possível montar o presente. Tente de novo.', 'galaxie-woo' ) );
 			}
 
@@ -447,7 +441,7 @@ final class Builder {
 
 		$product = wc_get_product( $variation_id ? $variation_id : $product_id );
 
-		if ( ! $product || ( $variation_id && ! $product->is_type( 'variation' ) ) || ( ! $variation_id && $product->is_type( 'variable' ) ) || ! $product->is_purchasable() || $quantity < 1 || $quantity > self::MAX_QUANTITY ) {
+		if ( ! $product || ( $variation_id && ! $product->is_type( 'variation' ) ) || ( ! $variation_id && $product->is_type( 'variable' ) ) || ! $product->is_purchasable() || $quantity < 1 || $quantity > GiftGroups::MAX_CANDLES ) {
 			self::fail( __( 'Selecione uma variação válida.', 'galaxie-woo' ) );
 		}
 
@@ -755,6 +749,23 @@ final class Builder {
 		WC()->cart->set_cart_contents( $contents );
 
 		return true;
+	}
+
+	/** A shopper's sentence for GiftGroups::check_request()'s answer. */
+	private static function request_error( string $code ): string {
+		switch ( $code ) {
+			case 'pending_count':
+				return __( 'A quantidade de velas mudou. Abra o presente de novo.', 'galaxie-woo' );
+			case 'loose_count':
+			case 'unknown_candle':
+				return __( 'As velas no carrinho mudaram. Abra o presente de novo.', 'galaxie-woo' );
+			case 'box_too_full':
+				return __( 'Uma caixa não comporta tantas velas.', 'galaxie-woo' );
+			case 'too_many_candles':
+				return __( 'São velas demais para montar num pedido só. Fale com a loja.', 'galaxie-woo' );
+			default:
+				return __( 'Não foi possível montar o presente. Tente de novo.', 'galaxie-woo' );
+		}
 	}
 
 	/**

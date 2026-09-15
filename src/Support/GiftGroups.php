@@ -31,6 +31,15 @@ defined( 'ABSPATH' ) || exit;
  */
 final class GiftGroups {
 
+	/** Most gifts one builder request may plan. */
+	public const MAX_GIFTS = 20;
+
+	/** Most candles one builder request may place, in boxes or outside them. */
+	public const MAX_CANDLES = 240;
+
+	/** Most ribbon and card entries in one gift. */
+	public const MAX_ENTRIES = 50;
+
 	/**
 	 * How full a box is, 0–100: the candles in it against the candles it could
 	 * hold, filling what is left with the smallest size on offer.
@@ -278,6 +287,101 @@ final class GiftGroups {
 		}
 
 		return $errors;
+	}
+
+	/**
+	 * Whether a planned request stays within bounds, before anything in it is
+	 * expanded: the plan is public input, and every count in it is a loop.
+	 *
+	 * - at most MAX_GIFTS gifts, each with at least one candle, a boxed one with
+	 *   at most GiftPacking::MAX_ITEMS (with what an extended gift already has);
+	 * - at most MAX_CANDLES candles in all, and MAX_ENTRIES ribbons and cards
+	 *   per gift;
+	 * - every unit of the candle being bought placed exactly once, and every
+	 *   loose cart candle chosen placed whole.
+	 *
+	 * @param array             $raw      Decoded plan: { groups: [ { candles: [ { source, count } ], box, ribbons, cards } ] }.
+	 * @param int               $pending  Units of the candle being bought.
+	 * @param array<string,int> $loose    Units of each loose gift candle line that may join, by cart key.
+	 * @param int               $existing Candles the gift being added to already has; 0 for new gifts.
+	 * @return string '' when within bounds, else why not.
+	 */
+	public static function check_request( array $raw, int $pending, array $loose = array(), int $existing = 0 ): string {
+		$groups = $raw['groups'] ?? null;
+
+		if ( ! is_array( $groups ) || ! $groups ) {
+			return 'shape';
+		}
+
+		if ( count( $groups ) > self::MAX_GIFTS ) {
+			return 'too_many_gifts';
+		}
+
+		if ( $pending < 1 || $pending + array_sum( $loose ) + $existing > self::MAX_CANDLES ) {
+			return 'too_many_candles';
+		}
+
+		$used_pending = 0;
+		$used_loose   = array();
+
+		foreach ( $groups as $group ) {
+			if ( ! is_array( $group ) || ! is_array( $group['candles'] ?? array() ) ) {
+				return 'shape';
+			}
+
+			$count = $existing;
+
+			foreach ( (array) ( $group['candles'] ?? array() ) as $source ) {
+				$from = is_array( $source ) ? (string) ( $source['source'] ?? '' ) : '';
+				$n    = is_array( $source ) && is_numeric( $source['count'] ?? null ) ? (int) $source['count'] : 0;
+
+				if ( $n < 1 ) {
+					return 'shape';
+				}
+
+				if ( 'pending' === $from ) {
+					if ( $n > $pending - $used_pending ) {
+						return 'pending_count';
+					}
+
+					$used_pending += $n;
+				} elseif ( isset( $loose[ $from ] ) ) {
+					if ( $n > $loose[ $from ] - ( $used_loose[ $from ] ?? 0 ) ) {
+						return 'loose_count';
+					}
+
+					$used_loose[ $from ] = ( $used_loose[ $from ] ?? 0 ) + $n;
+				} else {
+					return 'unknown_candle';
+				}
+
+				$count += $n;
+			}
+
+			if ( $count < 1 ) {
+				return 'empty_gift';
+			}
+
+			if ( ! empty( $group['box'] ) && $count > GiftPacking::MAX_ITEMS ) {
+				return 'box_too_full';
+			}
+
+			if ( count( (array) ( $group['ribbons'] ?? array() ) ) + count( (array) ( $group['cards'] ?? array() ) ) > self::MAX_ENTRIES ) {
+				return 'too_many_entries';
+			}
+		}
+
+		if ( $used_pending !== $pending ) {
+			return 'pending_count';
+		}
+
+		foreach ( $used_loose as $key => $n ) {
+			if ( $n !== (int) $loose[ $key ] ) {
+				return 'loose_count';
+			}
+		}
+
+		return '';
 	}
 
 	/**
