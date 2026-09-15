@@ -98,7 +98,7 @@ final class Builder {
 		self::require_cart();
 
 		$pending   = self::pending();
-		$attribute = (string) Module::setting( 'size_attribute' );
+		$attribute = Module::size_attribute();
 		$contents  = WC()->cart->get_cart();
 
 		wp_send_json_success(
@@ -140,7 +140,7 @@ final class Builder {
 		}
 
 		$pending   = self::pending();
-		$attribute = (string) Module::setting( 'size_attribute' );
+		$attribute = Module::size_attribute();
 		$options   = Module::packing_options();
 		$contents  = WC()->cart->get_cart();
 		$gifts     = Groups::groups( $contents );
@@ -509,7 +509,7 @@ final class Builder {
 	 * the candle size attribute and dimensions to pack with, its largest size.
 	 */
 	public static function sample_candle(): ?\WC_Product {
-		$attribute = (string) Module::setting( 'size_attribute' );
+		$attribute = Module::size_attribute();
 
 		if ( '' === $attribute ) {
 			return null;
@@ -610,7 +610,7 @@ final class Builder {
 
 		// Only a candle — the size attribute, and gift or WooCommerce dimensions —
 		// can be put in a gift. Never a gift that cannot be packed.
-		if ( ! GiftPacking::candle_from_product( $product, (string) Module::setting( 'size_attribute' ) ) ) {
+		if ( ! GiftPacking::candle_from_product( $product, Module::size_attribute() ) ) {
 			self::fail( self::no_dimensions() );
 		}
 
@@ -844,7 +844,7 @@ final class Builder {
 				&& ! Groups::group_of( $item )
 				&& ( $item['data'] ?? null ) instanceof \WC_Product
 				// Without dimensions it cannot be packed: not offered.
-				&& null !== GiftPacking::candle_from_product( $item['data'], (string) Module::setting( 'size_attribute' ) )
+				&& null !== GiftPacking::candle_from_product( $item['data'], Module::size_attribute() )
 		);
 	}
 
@@ -1062,7 +1062,7 @@ final class Builder {
 
 	/** @return array<int,array<string,mixed>> Gifts in the cart, in number order. */
 	private static function gifts_json( array $contents ): array {
-		$attribute = (string) Module::setting( 'size_attribute' );
+		$attribute = Module::size_attribute();
 		$out       = array();
 
 		foreach ( Groups::groups( $contents ) as $id => $gift ) {

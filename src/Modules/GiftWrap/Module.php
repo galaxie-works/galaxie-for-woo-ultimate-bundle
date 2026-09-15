@@ -79,7 +79,7 @@ final class Module implements ModuleContract, ProvidesBootData, ProvidesElemento
 		$options = self::packing_options();
 
 		( new BoxFields(
-			(string) self::setting( 'size_attribute' ),
+			self::size_attribute(),
 			$options['gap'],
 			$options['stacking'],
 			self::categories( 'box' ),
@@ -87,7 +87,7 @@ final class Module implements ModuleContract, ProvidesBootData, ProvidesElemento
 		) )->register();
 
 		// The jar's own size for packing, beside the shipping dimensions Melhor Envio reads.
-		( new CandleFields( (string) self::setting( 'size_attribute' ), self::categories( 'box' ) ) )->register();
+		( new CandleFields( self::size_attribute(), self::categories( 'box' ) ) )->register();
 	}
 
 	public function elementor_widgets(): array {
@@ -113,6 +113,25 @@ final class Module implements ModuleContract, ProvidesBootData, ProvidesElemento
 		$values = Plugin::instance()->settings()->module_settings( self::ID );
 
 		return $values[ $key ] ?? ( self::DEFAULTS[ $key ] ?? null );
+	}
+
+	/**
+	 * The candle size attribute as WooCommerce names it.
+	 *
+	 * The setting is typed by hand, and "peso" for the global attribute Peso is
+	 * an easy slip: a variation still answers get_attribute( 'peso' ), so the
+	 * candle being bought looks fine, but there is no taxonomy "peso" to list
+	 * the store's sizes from. When the typed name is no taxonomy and "pa_" plus
+	 * it is one, that is the one meant. A local attribute stays as typed.
+	 */
+	public static function size_attribute(): string {
+		$attribute = self::size_attribute();
+
+		if ( '' !== $attribute && ! taxonomy_exists( $attribute ) && taxonomy_exists( 'pa_' . $attribute ) ) {
+			return 'pa_' . $attribute;
+		}
+
+		return $attribute;
 	}
 
 	/**
