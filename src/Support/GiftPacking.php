@@ -985,20 +985,13 @@ final class GiftPacking {
 	/**
 	 * Size plus dimensions: two candles with this key are interchangeable.
 	 *
+	 * Rounded up like `fits()` rounds candles, so 5.000 and 5.004 cm stay
+	 * apart: `arrange()` tests a group with its first candle's dimensions.
+	 *
 	 * @param array $candle Candle array.
 	 */
 	private static function candle_key( array $candle ): string {
-		return (string) ( $candle['size'] ?? '' ) . '|' . self::units( $candle['length'] ?? 0 ) . '|' . self::units( $candle['width'] ?? 0 ) . '|' . self::units( $candle['height'] ?? 0 );
-	}
-
-	/**
-	 * Centimetres to hundredths of a centimetre.
-	 *
-	 * @param mixed $cm Value in cm.
-	 */
-	private static function units( $cm ): int {
-		$cm = is_numeric( $cm ) ? (float) $cm : 0.0;
-		return $cm > 0 ? (int) floor( $cm * 100 + 0.5 ) : 0;
+		return (string) ( $candle['size'] ?? '' ) . '|' . self::up( $candle['length'] ?? 0 ) . '|' . self::up( $candle['width'] ?? 0 ) . '|' . self::up( $candle['height'] ?? 0 );
 	}
 
 	/**

@@ -686,14 +686,9 @@ function distinct<C extends Candle>(candles: C[]): C[] {
   return [...out.values()]
 }
 
+/** Rounded up like fits() rounds candles, so 5.000 and 5.004 cm stay apart (arrange() tests a group with its first candle). */
 function candleKey(candle: Candle): string {
-  return `${candle.size ?? ''}|${units(candle.length)}|${units(candle.width)}|${units(candle.height)}`
-}
-
-/** Centimetres to hundredths of a centimetre. */
-function units(cm: unknown): number {
-  const value = Number(cm)
-  return Number.isFinite(value) && value > 0 ? Math.floor(value * 100 + 0.5) : 0
+  return `${candle.size ?? ''}|${up(candle.length)}|${up(candle.width)}|${up(candle.height)}`
 }
 
 /** Hundredths of a cm, rounded up (candles, gap); 1e-6 absorbs float noise. Same as PHP up(). */

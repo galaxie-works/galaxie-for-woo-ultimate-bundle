@@ -8,7 +8,9 @@
     "x-wide": { "size": "x", "length": 6, "width": 6, "height": 2 },
     "x-long": { "size": "x", "length": 10, "width": 2, "height": 2 },
     "over": { "size": "over", "length": 5.004, "width": 5, "height": 3 },
-    "odd-mm": { "size": "odd-mm", "length": 8.15, "width": 8.15, "height": 6.55 }
+    "odd-mm": { "size": "odd-mm", "length": 8.15, "width": 8.15, "height": 6.55 },
+    "s-5000": { "size": "s", "length": 5, "width": 5, "height": 3 },
+    "s-5004": { "size": "s", "length": 5.004, "width": 5, "height": 3 }
   },
   "boxes": {
     "b14": { "id": "b14", "length": 14, "width": 11, "height": 9.5, "price": 12 },
@@ -35,7 +37,8 @@
     "mix145": { "id": "mix145", "length": 14.5, "width": 11, "height": 8.5, "price": 16 },
     "five": { "id": "five", "length": 5, "width": 5, "height": 5, "price": 1 },
     "exact50": { "id": "exact50", "length": 5, "width": 5, "height": 6.5, "price": 1 },
-    "exact815": { "id": "exact815", "length": 8.15, "width": 8.15, "height": 6.55, "price": 1 }
+    "exact815": { "id": "exact815", "length": 8.15, "width": 8.15, "height": 6.55, "price": 1 },
+    "ten5": { "id": "ten5", "length": 10, "width": 5, "height": 5, "price": 1 }
   },
   "fits": [
     { "name": "box b14 takes 4 x 50g", "box": "b14", "candles": [["50g", 4]], "options": { "orientation": "upright" }, "expect": true },
@@ -88,7 +91,9 @@
 
     { "name": "rounding: a 5.004 cm candle does not fit a 5.00 cm box (gap 0)", "box": "five", "candles": [["over", 1]], "options": { "gap": 0, "orientation": "upright" }, "expect": false },
     { "name": "rounding: 50g exactly fills 5 x 5 x 6.5 (gap 0), no float creep", "box": "exact50", "candles": [["50g", 1]], "options": { "gap": 0, "orientation": "upright" }, "expect": true },
-    { "name": "rounding: 8.15 x 8.15 x 6.55 exactly fills its box (gap 0)", "box": "exact815", "candles": [["odd-mm", 1]], "options": { "gap": 0, "orientation": "upright" }, "expect": true }
+    { "name": "rounding: 8.15 x 8.15 x 6.55 exactly fills its box (gap 0)", "box": "exact815", "candles": [["odd-mm", 1]], "options": { "gap": 0, "orientation": "upright" }, "expect": true },
+    { "name": "rounding: 5.000 + 5.004 cm of one size overflow a 10 cm box (gap 0)", "box": "ten5", "candles": [["s-5000", 1], ["s-5004", 1]], "options": { "gap": 0, "orientation": "upright" }, "expect": false },
+    { "name": "rounding: two 5.000 cm fill the 10 cm box exactly (gap 0)", "box": "ten5", "candles": [["s-5000", 2]], "options": { "gap": 0, "orientation": "upright" }, "expect": true }
   ],
   "arrange": [
     {
@@ -174,6 +179,26 @@
       "boxes": ["b14"],
       "options": { "orientation": "upright" },
       "expect": []
+    },
+    {
+      "name": "rounding: 5.000 then 5.004 cm of one size are not pooled, two boxes",
+      "candles": [["s-5000", 1], ["s-5004", 1]],
+      "boxes": ["ten5"],
+      "options": { "gap": 0, "orientation": "upright" },
+      "expect": [
+        { "box": "ten5", "candles": ["s"] },
+        { "box": "ten5", "candles": ["s"] }
+      ]
+    },
+    {
+      "name": "rounding: same pair, larger first, same answer",
+      "candles": [["s-5004", 1], ["s-5000", 1]],
+      "boxes": ["ten5"],
+      "options": { "gap": 0, "orientation": "upright" },
+      "expect": [
+        { "box": "ten5", "candles": ["s"] },
+        { "box": "ten5", "candles": ["s"] }
+      ]
     }
   ],
   "room": [
