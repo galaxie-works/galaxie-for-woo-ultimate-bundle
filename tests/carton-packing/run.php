@@ -195,6 +195,19 @@ $gp = json_decode( $g['body'], true )['products'];
 // N16 inside 21 × 19 × 18 = 7182 cm³, box 14.76 × 14.76 × 5.36 = 1167.7 cm³ → 6014.3 × 0.029 = 174 g filler.
 $check( 'rewrite', 'gift box: one N16, box + 2 candles + card + filler + carton', array( $gp[0]['id'] ?? null, $gp[0]['weight'] ?? null, $gp[0]['insurance_value'] ?? null, count( $gp ) ), array( 'galaxie-carton-n16-1', round( ( 196 + 2 * 412 + 6 + 174 + 120 ) / 1000, 3 ), 191.8, 1 ) );
 
+// A gift box line with quantity 2 is no gift shape: every line takes room, the boxes still lid up.
+$two          = $gift['products'];
+$two[1]['quantity'] = 2;
+$broken       = CartonQuote::items( $two, array_values( $lines_for( $roles )( $two ) ) );
+$check(
+	'items',
+	'gift box quantity 2: candles, boxes and card are separate items, nothing hidden inside a box',
+	array( count( $broken['items'] ), array_sum( array_map( static fn( array $i ): int => count( $i['contents'] ), $broken['items'] ) ), array_column( $broken['items'], 'rotate' ) ),
+	array( 5, 0, array( 'any', 'any', 'upright', 'upright', 'any' ) )
+);
+$one_box = CartonQuote::items( $gift['products'], array_values( $lines_for( $roles )( $gift['products'] ) ) );
+$check( 'items', 'gift box quantity 1: one item carrying 2 candles and a card', array( count( $one_box['items'] ), count( $one_box['items'][0]['contents'] ) ), array( 1, 2 ) );
+
 // Not a gift: the same lines each take room.
 $plain = CartonQuote::rewrite_body( json_encode( $gift ), $lines_for(), $real, $defaults );
 // Box floor 14.76 leaves 3.24 cm beside it in N16 (usable 18 × 16 × 15) and 7.24 cm in N17 (22 × 22 × 11): no room for an 8.2 cm jar; N18 it is.

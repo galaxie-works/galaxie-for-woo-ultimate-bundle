@@ -268,7 +268,11 @@ final class CartonQuote {
 			$has_unitary   = $has_unitary || array_key_exists( 'unitary_value', $p );
 		}
 
-		// Gift boxes first, so what goes in them has somewhere to go whatever the line order.
+		// A gift with a box line of quantity > 1 is not a shape a gift can have
+		// (one box per gift): its lines are packed as separate items, so nothing
+		// inside one box is left undeclared.
+		$broken = array();
+
 		foreach ( array_values( $products ) as $i => $p ) {
 			$line = $lines[ $i ] ?? null;
 
@@ -276,7 +280,16 @@ final class CartonQuote {
 				return null;
 			}
 
+			if ( '' !== (string) ( $line['group'] ?? '' ) && 'box' === ( $line['role'] ?? '' ) && $p['quantity'] > 1 ) {
+				$broken[ (string) $line['group'] ] = true;
+			}
+		}
+
+		// Gift boxes first, so what goes in them has somewhere to go whatever the line order.
+		foreach ( array_values( $products ) as $i => $p ) {
+			$line  = $lines[ $i ];
 			$group = (string) ( $line['group'] ?? '' );
+			$group = isset( $broken[ $group ] ) ? '' : $group;
 
 			if ( '' === $group || 'box' !== ( $line['role'] ?? '' ) ) {
 				continue;
@@ -297,6 +310,7 @@ final class CartonQuote {
 		foreach ( array_values( $products ) as $i => $p ) {
 			$line  = $lines[ $i ];
 			$group = (string) ( $line['group'] ?? '' );
+			$group = isset( $broken[ $group ] ) ? '' : $group;
 			$role  = (string) ( $line['role'] ?? '' );
 			$q     = $p['quantity'];
 
@@ -328,7 +342,8 @@ final class CartonQuote {
 			}
 
 			for ( $n = 0; $n < $q; $n++ ) {
-				$item = self::item( $line, $p, 'any' );
+				// A gift box out of its gift still keeps its lid up.
+				$item = self::item( $line, $p, 'box' === $role ? 'upright' : 'any' );
 
 				if ( null === $item ) {
 					return null;
