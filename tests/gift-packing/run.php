@@ -86,16 +86,16 @@ foreach ( $fixtures['cover'] as $case ) {
 }
 
 // GiftGroups: fill bars, stepper limits, plan validation, totals.
-foreach ( $fixtures['fill'] as $case ) {
+foreach ( array_merge( $fixtures['fill'], $fixtures['fill_lying'] ) as $case ) {
 	$try = array_map( static fn( string $s ): array => $sizes[ $s ], $case['sizes'] );
 	$check( 'fill', $case['name'], GiftGroups::fill( $boxes[ $case['box'] ], $expand( $case['candles'] ), $try, $case['options'] ?? array() ), $case['expect'] );
 }
 
-foreach ( $fixtures['max_quantity'] as $case ) {
+foreach ( array_merge( $fixtures['max_quantity'], $fixtures['max_quantity_lying'] ) as $case ) {
 	$check( 'max_quantity', $case['name'], GiftGroups::max_quantity( $boxes[ $case['box'] ], $expand( $case['others'] ), $sizes[ $case['candle'] ], $case['current'], $case['options'] ?? array() ), $case['expect'] );
 }
 
-foreach ( $fixtures['validate'] as $case ) {
+foreach ( array_merge( $fixtures['validate'], $fixtures['validate_lying'] ) as $case ) {
 	$groups = array();
 	foreach ( $case['groups'] as $group ) {
 		$candles = array();

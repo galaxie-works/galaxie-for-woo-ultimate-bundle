@@ -247,6 +247,18 @@
     { "name": "max count caps the fill", "box": "max2", "candles": [["50g", 1]], "sizes": ["50g"], "options": { "orientation": "upright" }, "expect": 50 },
     { "name": "sizes default to the ones inside", "box": "b14", "candles": [["190g", 1]], "sizes": [], "options": { "orientation": "upright" }, "expect": 100 }
   ],
+  "_lying_readme": "Lying + gap 0 (the merchant's settings), WooCommerce candle dimensions: long244 (24.4 x 8.9 x 7.9) takes four 50g lying and no 190g (8 cm tall lying); mdf136 (13.6 x 13.6 x 4.2) is too low for any lying jar. The renamed cases say big box / square box for the shape only.",
+  "fill_lying": [
+    { "name": "big box, one 50g lying", "box": "long244", "candles": [["50g", 1]], "sizes": ["50g", "190g"], "options": { "orientation": "lying", "gap": 0 }, "expect": 25 },
+    { "name": "big box, two 50g lying", "box": "long244", "candles": [["50g", 2]], "sizes": ["50g", "190g"], "options": { "orientation": "lying", "gap": 0 }, "expect": 50 },
+    { "name": "big box, one 190g lying", "box": "long244", "candles": [["190g", 1]], "sizes": ["50g", "190g"], "options": { "orientation": "lying", "gap": 0 }, "expect": 100 },
+    { "name": "low square box, one 50g lying", "box": "mdf136", "candles": [["50g", 1]], "sizes": ["50g", "190g"], "options": { "orientation": "lying", "gap": 0 }, "expect": 100 }
+  ],
+  "max_quantity_lying": [
+    { "name": "big box: 50g line alone", "box": "long244", "others": [], "candle": "50g", "current": 1, "options": { "orientation": "lying", "gap": 0 }, "expect": 4 },
+    { "name": "big box: 50g line beside a 190g", "box": "long244", "others": [["190g", 1]], "candle": "50g", "current": 1, "options": { "orientation": "lying", "gap": 0 }, "expect": 1 },
+    { "name": "low square box: 190g line alone", "box": "mdf136", "others": [], "candle": "190g", "current": 1, "options": { "orientation": "lying", "gap": 0 }, "expect": 1 }
+  ],
   "max_quantity": [
     { "name": "50g line beside a 190g: two", "box": "b14", "others": [["190g", 1]], "candle": "50g", "current": 1, "options": { "orientation": "upright" }, "expect": 2 },
     { "name": "50g line alone: four", "box": "b14", "others": [], "candle": "50g", "current": 1, "options": { "orientation": "upright" }, "expect": 4 },
@@ -326,6 +338,26 @@
         { "candles": [["190g", 2, "v190"], ["50g", 2, "v50"]], "box": { "id": "b14" }, "items": [] }
       ],
       "options": { "orientation": "upright" }, "expect": [{ "code": "no_candles", "group": 0, "id": null }, { "code": "box_too_small", "group": 1, "id": "b14" }, { "code": "out_of_stock", "group": -1, "id": "v50" }]
+    }
+  ],
+  "validate_lying": [
+    {
+      "name": "big box lying: three 50g",
+      "message_max": 200, "stock": {}, "in_cart": {},
+      "groups": [{ "candles": [["50g", 3, "v50"]], "box": { "id": "long244" }, "items": [] }],
+      "options": { "orientation": "lying", "gap": 0 }, "expect": []
+    },
+    {
+      "name": "big box lying: six 50g",
+      "message_max": 200, "stock": {}, "in_cart": {},
+      "groups": [{ "candles": [["50g", 6, "v50"]], "box": { "id": "long244" }, "items": [] }],
+      "options": { "orientation": "lying", "gap": 0 }, "expect": [{"code":"box_too_small","group":0,"id":"long244"}]
+    },
+    {
+      "name": "low square box lying: one 190g",
+      "message_max": 200, "stock": {}, "in_cart": {},
+      "groups": [{ "candles": [["190g", 1, "v190"]], "box": { "id": "mdf136" }, "items": [] }],
+      "options": { "orientation": "lying", "gap": 0 }, "expect": [{"code":"box_too_small","group":0,"id":"mdf136"}]
     }
   ],
   "arrange_all": [

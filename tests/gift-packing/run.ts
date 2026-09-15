@@ -36,6 +36,9 @@ interface Fixtures {
   total: { name: string; lines: { price: number; quantity: number }[]; expect: number }[]
   card_for: { name: string; cards: CardRow[]; parent: number; box: Record<string, string> | null; expect: number }[]
   clean_message: { name: string; message: string; expect: string; length: number }[]
+  fill_lying: Fixtures['fill']
+  max_quantity_lying: Fixtures['max_quantity']
+  validate_lying: Fixtures['validate']
   arrange_all: { name: string; candles: [string, number][]; boxes: string[]; options?: PackingOptions; expect: { gifts: { box: string; candles: string[] }[]; loose: string[] } | null }[]
 }
 
@@ -88,15 +91,15 @@ for (const c of fixtures.cover) {
 }
 
 // gift-groups.ts: fill bars, stepper limits, plan validation, totals.
-for (const c of fixtures.fill) {
+for (const c of [...fixtures.fill, ...fixtures.fill_lying]) {
   check('fill', c.name, fill(boxes[c.box], expand(c.candles), c.sizes.map((s) => sizes[s]), c.options ?? {}), c.expect)
 }
 
-for (const c of fixtures.max_quantity) {
+for (const c of [...fixtures.max_quantity, ...fixtures.max_quantity_lying]) {
   check('max_quantity', c.name, maxQuantity(boxes[c.box], expand(c.others), sizes[c.candle], c.current, c.options ?? {}), c.expect)
 }
 
-for (const c of fixtures.validate) {
+for (const c of [...fixtures.validate, ...fixtures.validate_lying]) {
   const groups: PlanGroup[] = c.groups.map((group) => ({
     candles: group.candles.flatMap(([size, count, id, added]) => Array.from({ length: count }, () => ({ ...sizes[size], id, added: added ?? true }))),
     box: group.box === null ? null : { ...boxes[group.box.id], added: group.box.added ?? true },
