@@ -523,22 +523,42 @@ final class GiftPacking {
 		return ( $box['length'] > 0 && $box['width'] > 0 && $box['height'] > 0 ) ? $box : null;
 	}
 
+	/** Transient holding `store_sizes()` results, by attribute. */
+	public const SIZES_TRANSIENT = 'galaxie_gift_sizes';
+
+	/**
+	 * `store_sizes()` results already read in this request, by attribute.
+	 *
+	 * @var array<string, array>
+	 */
+	private static array $sizes = array();
+
 	/**
 	 * One candle per term of the size attribute, as the store sells them.
 	 *
-	 * Every variation of each term is read, and when they disagree on dimensions
-	 * `cover()` builds a shape none of them outgrows, so a preview never promises
-	 * a fit that one of those candles would break. Term order as WooCommerce
+	 * Every variation of each term whose parent product is published is read,
+	 * and when they disagree on dimensions `cover()` builds a shape none of them
+	 * outgrows, so a preview never promises a fit that one of those candles would
+	 * break. Drafts and trashed products do not count. Term order as WooCommerce
 	 * sorts the attribute.
+	 *
+	 * Cached in the SIZES_TRANSIENT transient (a day at most); `watch_sizes()`
+	 * clears it whenever a product or variation is saved, deleted, trashed or
+	 * changes status.
 	 *
 	 * @param string $attribute Size attribute, e.g. `pa_peso`.
 	 * @return array<int, array> Candle arrays plus `label` (the term name).
 	 */
 	public static function store_sizes( string $attribute = 'pa_peso' ): array {
-		static $cache = array();
+		if ( isset( self::$sizes[ $attribute ] ) ) {
+			return self::$sizes[ $attribute ];
+		}
 
-		if ( isset( $cache[ $attribute ] ) ) {
-			return $cache[ $attribute ];
+		$stored = get_transient( self::SIZES_TRANSIENT );
+		$stored = is_array( $stored ) ? $stored : array();
+
+		if ( isset( $stored[ $attribute ] ) && is_array( $stored[ $attribute ] ) ) {
+			return self::$sizes[ $attribute ] = $stored[ $attribute ];
 		}
 
 		$terms = taxonomy_exists( $attribute ) ? get_terms(
@@ -550,12 +570,12 @@ final class GiftPacking {
 		$sizes = array();
 
 		foreach ( is_array( $terms ) ? $terms : array() as $term ) {
-			$ids = get_posts(
+			$rows = get_posts(
 				array(
 					'post_type'      => 'product_variation',
 					'post_status'    => array( 'publish', 'private' ),
 					'posts_per_page' => -1, // IDs only; a size missed here could break a fit.
-					'fields'         => 'ids',
+					'fields'         => 'id=>parent',
 					'no_found_rows'  => true,
 					'meta_query'     => array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query
 						array(
@@ -566,9 +586,29 @@ final class GiftPacking {
 				)
 			);
 
+			// Only variations of published products: a draft or trashed candle
+			// must not widen the shape of its size.
+			$parents   = array_values( array_unique( array_map( static fn( $row ): int => (int) $row->post_parent, $rows ) ) );
+			$published = $parents ? array_flip(
+				get_posts(
+					array(
+						'post_type'      => 'product',
+						'post_status'    => 'publish',
+						'post__in'       => $parents,
+						'posts_per_page' => -1,
+						'fields'         => 'ids',
+						'no_found_rows'  => true,
+					)
+				)
+			) : array();
+
 			$found = array();
-			foreach ( $ids as $id ) {
-				$product = wc_get_product( $id );
+			foreach ( $rows as $row ) {
+				if ( ! isset( $published[ (int) $row->post_parent ] ) ) {
+					continue;
+				}
+
+				$product = wc_get_product( (int) $row->ID );
 				$candle  = $product ? self::candle_from_product( $product, $attribute ) : null;
 
 				if ( $candle ) {
@@ -585,7 +625,72 @@ final class GiftPacking {
 			}
 		}
 
-		return $cache[ $attribute ] = $sizes;
+		$stored[ $attribute ] = $sizes;
+		set_transient( self::SIZES_TRANSIENT, $stored, DAY_IN_SECONDS );
+
+		return self::$sizes[ $attribute ] = $sizes;
+	}
+
+	/**
+	 * Forgets the cached store sizes, in this request and in the transient.
+	 */
+	public static function flush_sizes(): void {
+		self::$sizes = array();
+		delete_transient( self::SIZES_TRANSIENT );
+	}
+
+	/**
+	 * Clears the store sizes whenever a product or variation is created, saved,
+	 * deleted, trashed, restored or changes status, and when an attribute term is
+	 * renamed. Safe to call more than once; BoxFields and CandleFields call it
+	 * from `register()`, so it runs wherever the Gift Wrap module boots.
+	 */
+	public static function watch_sizes(): void {
+		static $watching = false;
+
+		if ( $watching ) {
+			return;
+		}
+
+		$watching = true;
+		$flush    = array( self::class, 'flush_sizes' );
+
+		foreach ( array( 'woocommerce_new_product', 'woocommerce_update_product', 'woocommerce_new_product_variation', 'woocommerce_update_product_variation', 'woocommerce_save_product_variation', 'woocommerce_delete_product_variation', 'woocommerce_trash_product_variation' ) as $hook ) {
+			add_action( $hook, $flush, 10, 0 );
+		}
+
+		$by_id = static function ( $post_id ): void {
+			if ( in_array( get_post_type( (int) $post_id ), array( 'product', 'product_variation' ), true ) ) {
+				self::flush_sizes();
+			}
+		};
+
+		// before_delete_post still knows the post type; deleted_post runs after.
+		foreach ( array( 'before_delete_post', 'deleted_post', 'trashed_post', 'untrashed_post' ) as $hook ) {
+			add_action( $hook, $by_id, 10, 1 );
+		}
+
+		add_action(
+			'transition_post_status',
+			static function ( $new_status, $old_status, $post ): void {
+				if ( $new_status !== $old_status && $post instanceof \WP_Post && in_array( $post->post_type, array( 'product', 'product_variation' ), true ) ) {
+					self::flush_sizes();
+				}
+			},
+			10,
+			3
+		);
+
+		add_action(
+			'edited_term',
+			static function ( $term_id, $tt_id, $taxonomy ): void {
+				if ( str_starts_with( (string) $taxonomy, 'pa_' ) ) {
+					self::flush_sizes();
+				}
+			},
+			10,
+			3
+		);
 	}
 
 	/**
