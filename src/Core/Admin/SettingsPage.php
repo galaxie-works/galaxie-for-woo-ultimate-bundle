@@ -240,6 +240,13 @@ final class SettingsPage {
 						name="<?php echo esc_attr( $name ); ?>"
 						value="<?php echo Field::TYPE_PASSWORD === $field->type ? '' : esc_attr( (string) $value ); ?>"
 						placeholder="<?php echo Field::TYPE_PASSWORD === $field->type && '' !== (string) $value ? esc_attr__( '•••••••• (unchanged — leave blank to keep)', 'galaxie-woo' ) : esc_attr( $field->placeholder ); ?>"
+						<?php if ( Field::TYPE_NUMBER === $field->type ) : ?>
+							<?php foreach ( array( 'step' => $field->step, 'min' => $field->min, 'max' => $field->max ) as $attr => $bound ) : ?>
+								<?php if ( '' !== $bound ) : ?>
+									<?php echo esc_attr( $attr ); ?>="<?php echo esc_attr( $bound ); ?>"
+								<?php endif; ?>
+							<?php endforeach; ?>
+						<?php endif; ?>
 						class="regular-text"
 					/>
 					<?php if ( $field->description ) : ?>

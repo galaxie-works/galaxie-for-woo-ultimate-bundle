@@ -33,6 +33,9 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 
 	public const ID = 'gift-wrap';
 
+	/** Largest packing gap the settings accept, in cm. */
+	private const MAX_PACKING_GAP = 5;
+
 	/** Defaults for every setting, read through {@see self::setting()}. */
 	private const DEFAULTS = array(
 		'size_attribute'     => 'pa_peso',
@@ -110,8 +113,11 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 				key: 'packing_gap',
 				label: __( 'Packing gap (cm)', 'galaxie-woo' ),
 				type: Field::TYPE_NUMBER,
-				description: __( 'Room left around each candle for paper filling when checking what fits in a box.', 'galaxie-woo' ),
-				default: self::DEFAULTS['packing_gap']
+				description: __( 'Room left around each candle for paper filling when checking what fits in a box. Decimals allowed, from 0 to 5.', 'galaxie-woo' ),
+				default: self::DEFAULTS['packing_gap'],
+				step: '0.1',
+				min: '0',
+				max: (string) self::MAX_PACKING_GAP
 			),
 			new Field(
 				key: 'allow_stacking',
@@ -165,7 +171,9 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 		$values = array_merge( $current, Field::sanitize_all( $this->settings_fields(), $submitted ) );
 
 		$values['size_attribute']   = '' !== sanitize_title( (string) $values['size_attribute'] ) ? sanitize_title( (string) $values['size_attribute'] ) : self::DEFAULTS['size_attribute'];
-		$values['packing_gap']      = max( 0.0, (float) $values['packing_gap'] );
+		// A float, clamped: centimetres of paper, where 0.5 is the usual answer
+		// and anything past a few cm is a typo, not a packing choice.
+		$values['packing_gap']      = round( min( (float) self::MAX_PACKING_GAP, max( 0.0, (float) $values['packing_gap'] ) ), 2 );
 		$values['card_message_max'] = max( 1, (int) $values['card_message_max'] );
 
 		return $values;
