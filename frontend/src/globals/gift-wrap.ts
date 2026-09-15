@@ -13,17 +13,26 @@
  * page — or fetches the popup over AJAX and inserts it. So the dialog, and the
  * builder inside it, may not exist yet at the moment we ask.
  *
- * CLOSING. pixfort has no close event and exports no close function. An open
- * popup carries `transitioned displayed`, and `closePopup()` removes both
- * whichever way it was closed — the X, the backdrop, Escape — so a dialog seen
- * `displayed` that no longer is has been closed. To close one ourselves we
- * click its own `.pix-popup-close`: pixfort's delegated handler then does what
- * it always does (native `dialog.close()` and `closePopup()`), and its own
- * bookkeeping — launcher state, stacking — stays right.
- *
  * CONTINUING. The click that opened the popup is held as a callback. Confirm or
- * "Seguir sem incrementar o presente" runs it; closing the popup any other way
- * drops it and nothing is added — the shopper backed out.
+ * "Seguir sem incrementar o presente" settles the gift, closes the popup and
+ * runs it. The merchant's popup has pixfort's close button, click-outside and
+ * Esc turned off, so those two buttons are the only ways out and there is no
+ * "closed without choosing" to handle.
+ *
+ * CLOSING. pixfort exports no close function to the page: the popup manager
+ * (`M` in dist/front/dialog.*.js, webpack module 1895) stays inside its chunk.
+ * What it does offer is one delegated body handler, bound when a popup opens:
+ *
+ *     $("body").on("click", "dialog .pix-popup-close,
+ *       dialog .pix-dialog-backdrop:not(.is-disabled), .pix-popup .pix-close-popup",
+ *       … i[0].close(), l.getPopup(t).closePopup() )
+ *
+ * The three "disable" options only reach the first two selectors — the close
+ * button is hidden (`popup-close-none`), the backdrop gets `is-disabled`, Esc is
+ * skipped for `pix-disable-esc` — and never `.pix-close-popup`. Clicking an
+ * element with that class inside the dialog is therefore pixfort's own close,
+ * with all three off. The close button is a fallback behind it, and the native
+ * `dialog.close()` behind that.
  */
 
 type Resolution = 'confirm' | 'bypass'
@@ -143,13 +152,11 @@ function open(form: HTMLFormElement, block: HTMLElement, proceed: (() => void) |
 }
 
 /**
- * Follows one popup from "asked for" to "closed", painting the builder as soon
- * as its markup exists. Returns the function that stops following it.
+ * Paints the builder as soon as the popup's markup exists, until the popup is
+ * on screen — or, if it never gets there, lets the held click go ahead. Returns
+ * the function that stops watching.
  */
 function watch(current: Pending): () => void {
-  let dialog: HTMLElement | null = null
-  let seen = false
-
   const observer = new MutationObserver(() => check())
 
   const stop = (): void => {
@@ -158,29 +165,17 @@ function watch(current: Pending): () => void {
   }
 
   const check = (): void => {
-    const found = document.getElementById(`pix_popup_${current.popupId}`)
+    const dialog = document.getElementById(`pix_popup_${current.popupId}`)
+    if (!dialog) return
 
-    if (found && found !== dialog) {
-      dialog = found
-      observer.observe(found, { attributes: true, attributeFilter: ['class'] })
-    }
+    paintBuilders(dialog)
 
-    // Content can land inside the dialog after the dialog itself does.
-    if (dialog) paintBuilders(dialog)
-
-    if (dialog?.isConnected && dialog.classList.contains('displayed')) {
-      seen = true
-      return
-    }
-
-    if (seen) {
-      stop()
-      cancel(current)
-    }
+    // pixfort adds `displayed` once the popup is shown; its content is in place by then.
+    if (dialog.classList.contains('displayed')) stop()
   }
 
   const timer = window.setTimeout(() => {
-    if (seen || current.done) return
+    if (current.done) return
 
     stop()
     current.done = true
@@ -188,25 +183,16 @@ function watch(current: Pending): () => void {
     current.proceed?.()
   }, OPEN_TIMEOUT)
 
-  observer.observe(document.body, { childList: true, subtree: true })
+  observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] })
   check()
 
   return stop
 }
 
-function cancel(current: Pending): void {
-  if (current.done) return
-
-  current.done = true
-  if (pending === current) pending = null
-}
-
 function resolve(kind: Resolution, trigger: HTMLElement): void {
   const current = pending && !pending.done ? pending : null
-  const dialog = trigger.closest<HTMLElement>('dialog, .pix-popup')
 
   if (current) {
-    // Settled before the popup closes, so the close is not read as a cancel.
     current.done = true
     pending = null
     stopWatching?.()
@@ -216,20 +202,34 @@ function resolve(kind: Resolution, trigger: HTMLElement): void {
     paintBlock(current.form, current.block)
   }
 
-  closePopup(dialog)
+  closePopup(trigger.closest<HTMLElement>('dialog, .pix-popup'))
   current?.proceed?.()
 }
 
+function isOpen(dialog: HTMLElement): boolean {
+  return dialog.classList.contains('displayed') || (dialog instanceof HTMLDialogElement && dialog.open)
+}
+
+/** pixfort's own close, whatever the popup's close options — see the file header. */
 function closePopup(dialog: HTMLElement | null): void {
-  if (!dialog) return
+  if (!dialog || !isOpen(dialog)) return
 
-  const close = dialog.querySelector<HTMLElement>('.pix-popup-close')
+  const hook = document.createElement('span')
+  hook.className = 'pix-close-popup'
+  hook.hidden = true
+  dialog.appendChild(hook)
+  hook.click()
+  hook.remove()
 
-  if (close) {
-    close.click()
-  } else if (dialog instanceof HTMLDialogElement && dialog.open) {
-    dialog.close()
-  }
+  if (!isOpen(dialog)) return
+
+  // pixfort's handler was not bound: its close button, then the browser's.
+  dialog.querySelector<HTMLElement>('.pix-popup-close')?.click()
+
+  if (!isOpen(dialog)) return
+
+  if (dialog instanceof HTMLDialogElement && dialog.open) dialog.close()
+  dialog.classList.remove('transitioned', 'displayed')
 }
 
 function setText(el: Element | null, text: string): void {

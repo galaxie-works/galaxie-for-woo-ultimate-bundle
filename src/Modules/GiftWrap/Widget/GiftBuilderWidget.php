@@ -22,10 +22,11 @@ defined( 'ABSPATH' ) || exit;
  * Box script fills it from the form that opened the popup — name, chosen
  * variation, quantity, picture (see frontend/src/globals/gift-wrap.ts).
  *
- * Phase 1 is only the candle and the two ways on. Both buttons continue the
- * click that opened the popup (add to cart, or Buy Now); closing the popup any
- * other way cancels it. Phase 2 fills the space between with boxes, ribbons
- * and cards.
+ * Phase 1 is only the candle and the two ways on. Both buttons close the popup
+ * and continue the click that opened it (add to cart, or Buy Now); the popup is
+ * meant to have pixfort's own close button, click-outside and Esc turned off,
+ * so these two are the only ways out. Phase 2 fills the space between with
+ * boxes, ribbons and cards.
  */
 final class GiftBuilderWidget extends Widget_Base {
 
