@@ -263,7 +263,7 @@ final class Module implements ModuleContract, ProvidesSettings {
 				key: 'fallback',
 				label: __( 'When no carton holds the whole order', 'galaxie-woo' ),
 				type: Field::TYPE_SELECT,
-				description: __( 'Split: several cartons, each quoted as its own volume (Melhor Envio hides Correios rates for 2 or more volumes). Original: quote the way the Melhor Envio plugin does without this module.', 'galaxie-woo' ),
+				description: __( 'Split: the order is quoted as several cartons, one volume each. Attention: the Melhor Envio plugin hides Correios PAC and SEDEX whenever a quote has 2 or more volumes, so orders that need more than one carton are offered only the other carriers (Jadlog, Loggi, J&T…). Original: those orders are quoted the way the Melhor Envio plugin does without this module (Correios may then be offered, at a price not based on your cartons); orders that fit one carton always use it.', 'galaxie-woo' ),
 				default: self::DEFAULTS['fallback'],
 				options: array(
 					'split'    => __( 'Split across cartons', 'galaxie-woo' ),
