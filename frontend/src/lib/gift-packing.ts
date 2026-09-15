@@ -1,0 +1,594 @@
+/**
+ * Which candles fit in which gift box — the TypeScript twin of
+ * `src/Support/GiftPacking.php`, for the builder popup.
+ *
+ * Same model, same search order, same tie-breaks, so the popup and the server
+ * never disagree about a box. Both are held to `tests/gift-packing/fixtures.json`
+ * (`php tests/gift-packing/run.php`, `node tests/gift-packing/run.ts`): change
+ * one, change the other, run both.
+ *
+ * - Candles stand upright; height + gap must be ≤ the box height. `stacking` is
+ *   accepted and ignored: one layer only.
+ * - Each candle takes (length + gap) × (width + gap) of floor, turned 90° if
+ *   that helps.
+ * - The floor search is exact over "normal pattern" corners in bottom-left
+ *   order, with remembered failures and a conservative-scale bound, and gives
+ *   up (says "does not fit") after NODE_LIMIT steps — see GiftPacking.php for
+ *   how often that happens.
+ * - Sizes are compared in hundredths of a cm and prices in cents.
+ *
+ * Plain functions over plain data: no DOM, no imports, erasable TypeScript only
+ * (Node runs the test straight from source).
+ */
+
+export interface Candle {
+  size: string
+  length: number
+  width: number
+  height: number
+  price?: number
+}
+
+export interface Box {
+  id: string | number
+  length: number
+  width: number
+  height: number
+  /** Most candles the box takes; 0 or missing = no limit. */
+  max?: number
+  price: number
+}
+
+export interface PackingOptions {
+  /** Paper filling around each candle, cm. Default 0.5. */
+  gap?: number
+  /** Accepted for the settings' sake; not implemented — always one layer. */
+  stacking?: boolean
+}
+
+export interface Gift<C extends Candle = Candle, B extends Box = Box> {
+  box: B
+  candles: C[]
+}
+
+/** Search steps before `fits()` gives up and says no. */
+export const NODE_LIMIT = 50000
+
+/** Failed search states remembered per `fits()` call. */
+export const MEMO_LIMIT = 50000
+
+/** Search steps after which the conservative-scale bound is tried once. */
+export const BOUND_AT = 1000
+
+/** Largest group `summary()` considers at once. */
+export const MAX_ITEMS = 12
+
+interface CandleType {
+  w: number
+  d: number
+  /** Still to place. */
+  count: number
+  /** In the box altogether. */
+  total: number
+}
+
+interface Search {
+  bx: number
+  by: number
+  types: CandleType[]
+  xs: number[]
+  ys: number[]
+  placed: [number, number, number, number][]
+  nodes: number
+  dead: Set<string>
+  /** Past NODE_LIMIT, or `proved`: unwind without searching further. */
+  stop: boolean
+  /** The conservative-scale bound showed the candles cannot fit. */
+  proved: boolean
+}
+
+/** Whether all these candles go in the box together. */
+export function fits(box: Box, candles: Candle[], options: PackingOptions = {}): boolean {
+  const gap = units(options.gap ?? 0.5)
+  const bx = units(box.length)
+  const by = units(box.width)
+  const bz = units(box.height)
+  const max = Math.max(0, Math.trunc(Number(box.max ?? 0)) || 0)
+  const n = candles.length
+
+  if (n === 0) return true
+
+  if ((max > 0 && n > max) || bx <= 0 || by <= 0 || bz <= 0) return false
+
+  // Identical candles are one type with a count: the search then never tries
+  // swapping two of them.
+  const byKey = new Map<string, CandleType>()
+  let area = 0
+
+  for (const candle of candles) {
+    const a = units(candle.length) + gap
+    const b = units(candle.width) + gap
+    const h = units(candle.height) + gap
+
+    if (a <= gap || b <= gap || h <= gap || h > bz) return false
+
+    const w = Math.min(a, b)
+    const d = Math.max(a, b)
+
+    if (!((w <= bx && d <= by) || (d <= bx && w <= by))) return false
+
+    const key = `${w}x${d}`
+    let type = byKey.get(key)
+
+    if (!type) {
+      type = { w, d, count: 0, total: 0 }
+      byKey.set(key, type)
+    }
+
+    type.count++
+    type.total++
+    area += w * d
+  }
+
+  if (area > bx * by) return false
+
+  // Largest footprint first: it is the one with fewest places to go.
+  const types = [...byKey.values()].sort((p, q) => cmp(q.w * q.d, p.w * p.d) || cmp(p.w, q.w))
+
+  // A pushed-into-the-corner layout never reaches past the largest sum of sides
+  // that fits, so the box can shrink to it.
+  const xs = normal(types, bx)
+  const ys = normal(types, by)
+  const sx = xs[xs.length - 1]
+  const sy = ys[ys.length - 1]
+
+  if (area > sx * sy) return false
+
+  const search: Search = {
+    bx: sx,
+    by: sy,
+    types,
+    xs: corners(xs, types, sx),
+    ys: corners(ys, types, sy),
+    placed: [],
+    nodes: 0,
+    dead: new Set<string>(),
+    stop: false,
+    proved: false,
+  }
+
+  return place(search, -1, n, area)
+}
+
+/**
+ * Shares the candles out over as few boxes as possible, then the cheapest.
+ * Any box can be used more than once. Empty when some candle fits in no box.
+ * Ties go to the earlier box, then to a fixed split order shared with PHP;
+ * candles keep their input order inside each type.
+ */
+export function arrange<C extends Candle, B extends Box>(candles: C[], boxes: B[], options: PackingOptions = {}): Gift<C, B>[] {
+  if (candles.length === 0 || boxes.length === 0) return []
+
+  const types: C[] = []
+  const pool = new Map<string, C[]>()
+
+  for (const candle of candles) {
+    const key = candleKey(candle)
+    let list = pool.get(key)
+
+    if (!list) {
+      types.push(candle)
+      list = []
+      pool.set(key, list)
+    }
+
+    list.push(candle)
+  }
+
+  const lists = [...pool.values()]
+  const counts = lists.map((list) => list.length)
+  const k = counts.length
+
+  let total = 1
+  for (const c of counts) total *= c + 1
+
+  const decode = (index: number): number[] => {
+    const v: number[] = []
+    for (let i = 0; i < k; i++) {
+      v.push(index % (counts[i] + 1))
+      index = Math.floor(index / (counts[i] + 1))
+    }
+    return v
+  }
+
+  // Cheapest single box for each group (null = none holds it).
+  const single: (number | null)[] = [null]
+  for (let u = 1; u < total; u++) {
+    const group: Candle[] = []
+    decode(u).forEach((c, i) => {
+      for (let j = 0; j < c; j++) group.push(types[i])
+    })
+
+    let chosen: number | null = null
+    boxes.forEach((box, b) => {
+      if (chosen !== null && cents(boxes[chosen].price) <= cents(box.price)) return
+      if (fits(box, group, options)) chosen = b
+    })
+    single[u] = chosen
+  }
+
+  // best[v] = [boxes, cents, first group, box index] over all ways to split v.
+  const best: ([number, number, number, number] | null)[] = [[0, 0, 0, -1]]
+  for (let v = 1; v < total; v++) {
+    const vec = decode(v)
+
+    // The first type still present must be in the first group: splits that only
+    // differ in group order are then tried once.
+    let lead = 0
+    while (vec[lead] === 0) lead++
+
+    best[v] = null
+    for (let u = v; u >= 1; u--) {
+      const sub = decode(u)
+      let ok = sub[lead] > 0
+
+      for (let i = 0; ok && i < k; i++) ok = sub[i] <= vec[i]
+
+      const box = single[u]
+      const rest = best[v - u]
+
+      if (!ok || box === null || rest === null) continue
+
+      const count = rest[0] + 1
+      const price = rest[1] + cents(boxes[box].price)
+      const current = best[v]
+
+      if (current === null || count < current[0] || (count === current[0] && price < current[1])) {
+        best[v] = [count, price, u, box]
+      }
+    }
+  }
+
+  if (best[total - 1] === null) return []
+
+  const gifts: Gift<C, B>[] = []
+  const taken = new Array<number>(k).fill(0)
+  let v = total - 1
+  while (v > 0) {
+    const step = best[v] as [number, number, number, number]
+    const group: C[] = []
+
+    decode(step[2]).forEach((c, i) => {
+      for (let j = 0; j < c; j++) group.push(lists[i][taken[i]++])
+    })
+
+    gifts.push({ box: boxes[step[3]], candles: group })
+    v -= step[2]
+  }
+
+  return gifts
+}
+
+/**
+ * The sizes that still fit if one more is added: "cabe mais 1 × 50g".
+ * `sizes` is one candle per size to try (default: the sizes already inside).
+ */
+export function room(box: Box, candles: Candle[], sizes: Candle[] = [], options: PackingOptions = {}): string[] {
+  const fit: string[] = []
+
+  for (const size of distinct(sizes.length ? sizes : candles)) {
+    if (fits(box, [...candles, size], options) && !fit.includes(String(size.size))) {
+      fit.push(String(size.size))
+    }
+  }
+
+  return fit
+}
+
+/**
+ * Representative fits for a box: the most of each size alone, then every mix
+ * that cannot take one more of anything. For 14 × 11 × 9.5 and the Eir sizes:
+ * `[{ '50g': 4 }, { '190g': 1 }, { '50g': 2, '190g': 1 }]`.
+ */
+export function summary(box: Box, sizes: Candle[], options: PackingOptions = {}): Record<string, number>[] {
+  const list = distinct(sizes)
+  const k = list.length
+  const memo = new Map<string, boolean>()
+
+  const check = (v: number[]): boolean => {
+    const key = v.join(',')
+    let result = memo.get(key)
+
+    if (result === undefined) {
+      const group: Candle[] = []
+      v.forEach((c, i) => {
+        for (let j = 0; j < c; j++) group.push(list[i])
+      })
+      result = sum(v) <= MAX_ITEMS && fits(box, group, options)
+      memo.set(key, result)
+    }
+
+    return result
+  }
+
+  const pure: number[][] = []
+  const mixes: number[][] = []
+
+  // Every vector that fits, smallest first; fitting is monotone, so each is
+  // grown from one that did.
+  const queue: number[][] = [new Array<number>(k).fill(0)]
+  const seen = new Set<string>([queue[0].join(',')])
+  for (let q = 0; q < queue.length; q++) {
+    const v = queue[q]
+    let maximal = sum(v) > 0
+
+    for (let i = 0; i < k; i++) {
+      const next = [...v]
+      next[i]++
+
+      if (!check(next)) continue
+
+      maximal = false
+      const key = next.join(',')
+
+      if (!seen.has(key)) {
+        seen.add(key)
+        queue.push(next)
+      }
+    }
+
+    const used = v.filter((c) => c > 0).length
+
+    if (used === 1) {
+      const i = v.findIndex((c) => c > 0)
+      const next = [...v]
+      next[i]++
+
+      if (!check(next)) pure[i] = v
+    } else if (used > 1 && maximal) {
+      mixes.push(v)
+    }
+  }
+
+  return [...pure.filter(Boolean), ...mixes].map((v) => {
+    const row: Record<string, number> = {}
+    v.forEach((c, i) => {
+      if (c > 0) row[String(list[i].size)] = c
+    })
+    return row
+  })
+}
+
+function place(s: Search, last: number, left: number, area: number): boolean {
+  if (left === 0) return true
+
+  if (s.stop) return false
+
+  if (++s.nodes > NODE_LIMIT) {
+    s.stop = true
+    return false
+  }
+
+  // Long search: check once whether the candles can fit at all.
+  if (s.nodes === BOUND_AT && bound(s)) {
+    s.stop = true
+    s.proved = true
+    return false
+  }
+
+  const cols = s.xs.length
+  const cells = cols * s.ys.length
+
+  // Corners inside a placed candle can take nothing: start at the first free one.
+  let first = last + 1
+  while (first < cells && covered(s.placed, s.xs[first % cols], s.ys[Math.floor(first / cols)])) first++
+
+  if (first >= cells) return false
+
+  // What is left to decide depends only on that corner, the candles still to
+  // place and the tops of the ones that reach its row — not on how the rows below
+  // were filled. A state that failed once fails again.
+  const floor = s.ys[Math.floor(first / cols)]
+  const tops: string[] = []
+  for (const r of s.placed) {
+    if (r[1] + r[3] > floor) tops.push(`${r[0]}:${r[2]}:${r[1] + r[3]}`)
+  }
+  tops.sort(byString)
+
+  const key = `${first}|${s.types.map((type) => type.count).join(',')}|${tops.join(',')}`
+
+  if (s.dead.has(key)) return false
+
+  for (let idx = first; idx < cells; idx++) {
+    const row = Math.floor(idx / cols)
+    const x = s.xs[idx % cols]
+    const y = s.ys[row]
+    const top = row + 1 < s.ys.length ? s.ys[row + 1] : s.by
+
+    // Everything left sits at or above this row, and not left of this corner
+    // within it. If that much floor, less what is taken, is smaller than the
+    // candles left, no later corner helps either.
+    let free = s.bx * (s.by - y) - x * (top - y)
+
+    for (const r of s.placed) {
+      const high = Math.max(0, r[1] + r[3] - Math.max(r[1], y))
+      const wide = Math.max(0, Math.min(r[0] + r[2], x) - r[0])
+      free -= r[2] * high - wide * Math.max(0, Math.min(r[1] + r[3], top) - Math.max(r[1], y))
+    }
+
+    if (area > free) break
+
+    for (const type of s.types) {
+      if (type.count === 0) continue
+
+      const turns: [number, number][] = type.w === type.d ? [[type.w, type.d]] : [[type.w, type.d], [type.d, type.w]]
+
+      for (const [w, d] of turns) {
+        if (x + w > s.bx || y + d > s.by) continue
+
+        let clear = true
+        for (const r of s.placed) {
+          if (x < r[0] + r[2] && r[0] < x + w && y < r[1] + r[3] && r[1] < y + d) {
+            clear = false
+            break
+          }
+        }
+
+        if (!clear) continue
+
+        s.placed.push([x, y, w, d])
+        type.count--
+
+        const done = place(s, idx, left - 1, area - w * d)
+
+        type.count++
+        s.placed.pop()
+
+        if (done) return true
+
+        if (s.stop) return false
+      }
+    }
+  }
+
+  if (!s.stop && s.dead.size < MEMO_LIMIT) s.dead.add(key)
+
+  return false
+}
+
+/** Whether a corner lies inside a placed candle. */
+function covered(placed: Search['placed'], x: number, y: number): boolean {
+  for (const r of placed) {
+    if (r[0] <= x && x < r[0] + r[2] && r[1] <= y && y < r[1] + r[3]) return true
+  }
+  return false
+}
+
+/**
+ * Proves "does not fit" for layouts the area alone lets through, with
+ * conservative scales (Fekete & Schepers): small integer weights per side
+ * length, divided by the most weight any line of candles across the box can
+ * carry, tried for every combination when there are at most three distinct
+ * side lengths. See GiftPacking::bound() for the worked example.
+ */
+function bound(s: Search): boolean {
+  const bySide = new Map<number, number>()
+  for (const type of s.types) {
+    bySide.set(type.w, (bySide.get(type.w) ?? 0) + type.total)
+    if (type.d !== type.w) bySide.set(type.d, (bySide.get(type.d) ?? 0) + type.total)
+  }
+
+  const lengths = [...bySide.keys()].sort((a, b) => a - b)
+  const m = lengths.length
+
+  if (m > 3) return false
+
+  const avail = lengths.map((length) => bySide.get(length) as number)
+  const top = m === 1 ? 1 : m === 2 ? 6 : 3
+  const index = new Map(lengths.map((length, j) => [length, j]))
+
+  const scales = (cap: number): [number[], number][] => {
+    const out: [number[], number][] = []
+    for (let code = 1; code < (top + 1) ** m; code++) {
+      const v: number[] = []
+      for (let j = 0, c = code; j < m; j++, c = Math.floor(c / (top + 1))) v.push(c % (top + 1))
+
+      // Heaviest line: every count of the first sides, the last one filled up.
+      let most = 0
+      const walk = (j: number, room: number, weight: number): void => {
+        if (j === m - 1) {
+          most = Math.max(most, weight + v[j] * Math.min(avail[j], Math.floor(room / lengths[j])))
+          return
+        }
+        for (let n = 0; n <= avail[j] && n * lengths[j] <= room; n++) walk(j + 1, room - n * lengths[j], weight + n * v[j])
+      }
+      walk(0, cap, 0)
+
+      if (most > 0) out.push([v, most])
+    }
+    return out
+  }
+
+  const along = scales(s.bx)
+  const across = scales(s.by)
+
+  for (const fx of along) {
+    for (const fy of across) {
+      let total = 0
+      for (const type of s.types) {
+        const w = index.get(type.w) as number
+        const d = index.get(type.d) as number
+        total += type.total * Math.min(fx[0][w] * fy[0][d], fx[0][d] * fy[0][w])
+      }
+
+      if (total > fx[1] * fy[1]) return true
+    }
+  }
+
+  return false
+}
+
+/** Every sum of footprint sides up to the box side: the only coordinates and right edges a pushed-into-the-corner layout can have. */
+function normal(types: CandleType[], limit: number): number[] {
+  let sums = new Set<number>([0])
+
+  // Each candle adds either of its sides, or nothing.
+  for (const type of types) {
+    for (let c = 0; c < type.count; c++) {
+      const next = new Set(sums)
+      for (const total of sums) {
+        for (const step of [type.w, type.d]) {
+          if (total + step <= limit) next.add(total + step)
+        }
+      }
+      sums = next
+    }
+  }
+
+  return [...sums].sort((a, b) => a - b)
+}
+
+/** The sums a candle's corner can sit on: room left for the narrowest side. */
+function corners(sums: number[], types: CandleType[], side: number): number[] {
+  let narrow = Number.MAX_SAFE_INTEGER
+  for (const type of types) narrow = Math.min(narrow, type.w)
+
+  return sums.filter((total) => total + narrow <= side)
+}
+
+/** Byte order, like PHP's SORT_STRING (keys are ASCII). */
+function byString(a: string, b: string): number {
+  return a < b ? -1 : a > b ? 1 : 0
+}
+
+function distinct<C extends Candle>(candles: C[]): C[] {
+  const out = new Map<string, C>()
+  for (const candle of candles) {
+    const key = candleKey(candle)
+    if (!out.has(key)) out.set(key, candle)
+  }
+  return [...out.values()]
+}
+
+function candleKey(candle: Candle): string {
+  return `${candle.size ?? ''}|${units(candle.length)}|${units(candle.width)}|${units(candle.height)}`
+}
+
+/** Centimetres to hundredths of a centimetre. */
+function units(cm: unknown): number {
+  const value = Number(cm)
+  return Number.isFinite(value) && value > 0 ? Math.floor(value * 100 + 0.5) : 0
+}
+
+function cents(price: unknown): number {
+  const value = Number(price)
+  return Number.isFinite(value) && value > 0 ? Math.floor(value * 100 + 0.5) : 0
+}
+
+function cmp(a: number, b: number): number {
+  return a < b ? -1 : a > b ? 1 : 0
+}
+
+function sum(v: number[]): number {
+  return v.reduce((a, b) => a + b, 0)
+}
