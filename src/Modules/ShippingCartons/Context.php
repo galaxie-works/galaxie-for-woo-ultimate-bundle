@@ -28,7 +28,7 @@ defined( 'ABSPATH' ) || exit;
  * - the order named by its admin AJAX actions (`add_cart`, `add_order`,
  *   `update_order`, …) and by `woocommerce_checkout_order_processed`, captured
  *   before its callbacks run and released after;
- * - the shopper's cart.
+ * - the shopper's cart, outside wp-admin and admin-ajax only.
  *
  * A candidate is used only when its shippable lines hold exactly the request's
  * (product id, quantity) entries ({@see CartonQuote::align()}). None matching:
@@ -135,8 +135,9 @@ final class Context {
 		$cart   = self::cart_lines();
 		$orders = array_values( array_unique( array_merge( array_reverse( self::$named ), array_reverse( self::$recent ) ) ) );
 
-		// On the storefront the cart is what is being quoted; in wp-admin (and
-		// admin-ajax) the order is, and the cart is the last resort.
+		// On the storefront the cart is what is being quoted. In wp-admin and
+		// admin-ajax it never is — it would be the merchant's own cart — so only
+		// orders are candidates there.
 		if ( null !== $cart && ! is_admin() ) {
 			$aligned = CartonQuote::align( $products, $cart );
 
@@ -157,15 +158,6 @@ final class Context {
 
 			if ( null !== $aligned ) {
 				self::$source = 'order #' . $order->get_id();
-				return $aligned;
-			}
-		}
-
-		if ( null !== $cart && is_admin() ) {
-			$aligned = CartonQuote::align( $products, $cart );
-
-			if ( null !== $aligned ) {
-				self::$source = 'cart';
 				return $aligned;
 			}
 		}
