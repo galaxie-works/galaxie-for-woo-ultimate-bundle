@@ -41,7 +41,8 @@ final class Module implements ModuleContract, ProvidesBootData, ProvidesElemento
 	/** Defaults for every setting, read through {@see self::setting()}. */
 	private const DEFAULTS = array(
 		'size_attribute'     => 'pa_peso',
-		'packing_gap'        => 0.5,
+		// Jars go into a gift box bare (without their shipping box), snug: no gap unless the merchant adds one.
+		'packing_gap'        => 0,
 		'allow_stacking'     => false,
 		'candle_orientation' => 'lying',
 		'box_categories'     => array(),
@@ -243,8 +244,8 @@ final class Module implements ModuleContract, ProvidesBootData, ProvidesElemento
 		$values = array_merge( $current, Field::sanitize_all( $this->settings_fields(), $submitted ) );
 
 		$values['size_attribute']     = '' !== sanitize_title( (string) $values['size_attribute'] ) ? sanitize_title( (string) $values['size_attribute'] ) : self::DEFAULTS['size_attribute'];
-		// A float, clamped: centimetres of paper, where 0.5 is the usual answer
-		// and anything past a few cm is a typo, not a packing choice.
+		// A float, clamped: centimetres of paper, where bare jars need none and
+		// anything past a few cm is a typo, not a packing choice.
 		$values['packing_gap']        = round( min( (float) self::MAX_PACKING_GAP, max( 0.0, (float) $values['packing_gap'] ) ), 2 );
 		$values['candle_orientation'] = in_array( $values['candle_orientation'] ?? '', self::ORIENTATIONS, true ) ? $values['candle_orientation'] : self::DEFAULTS['candle_orientation'];
 		$values['card_message_max']   = max( 1, (int) $values['card_message_max'] );
