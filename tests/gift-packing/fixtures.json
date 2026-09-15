@@ -154,5 +154,102 @@
     { "name": "6 x 6 and 10 x 2 of one size cover as 10 x 6", "candles": ["x-wide", "x-long"], "expect": [{ "size": "x", "length": 10, "width": 6, "height": 2 }], "box": "b7", "fits": false },
     { "name": "the 6 x 6 alone fits that box", "candles": ["x-wide"], "expect": [{ "size": "x", "length": 6, "width": 6, "height": 2 }], "box": "b7", "fits": true },
     { "name": "per size, first-seen order, tallest and widest win", "candles": ["50g", "190g", "50g-tall"], "expect": [{ "size": "50g", "length": 5.2, "width": 5, "height": 7 }, { "size": "190g", "length": 8, "width": 8, "height": 8.5 }] }
+  ],
+  "_groups_readme": "GiftGroups.php / gift-groups.ts. Every case pins orientation 'upright' so the answers do not move when the packing default changes. Validate candles are [size, count, id, added?].",
+  "fill": [
+    { "name": "b14: one 50g of four", "box": "b14", "candles": [["50g", 1]], "sizes": ["50g", "190g"], "options": { "orientation": "upright" }, "expect": 25 },
+    { "name": "b14: two 50g of four", "box": "b14", "candles": [["50g", 2]], "sizes": ["50g", "190g"], "options": { "orientation": "upright" }, "expect": 50 },
+    { "name": "b14: a 190g takes two 50g more", "box": "b14", "candles": [["190g", 1]], "sizes": ["50g", "190g"], "options": { "orientation": "upright" }, "expect": 33 },
+    { "name": "b14: four 50g is full", "box": "b14", "candles": [["50g", 4]], "sizes": ["50g", "190g"], "options": { "orientation": "upright" }, "expect": 100 },
+    { "name": "empty box", "box": "b14", "candles": [], "sizes": ["50g"], "options": { "orientation": "upright" }, "expect": 0 },
+    { "name": "does not fit reads full", "box": "b14", "candles": [["190g", 2]], "sizes": ["50g", "190g"], "options": { "orientation": "upright" }, "expect": 100 },
+    { "name": "max count caps the fill", "box": "max2", "candles": [["50g", 1]], "sizes": ["50g"], "options": { "orientation": "upright" }, "expect": 50 },
+    { "name": "sizes default to the ones inside", "box": "b14", "candles": [["190g", 1]], "sizes": [], "options": { "orientation": "upright" }, "expect": 100 }
+  ],
+  "max_quantity": [
+    { "name": "50g line beside a 190g: two", "box": "b14", "others": [["190g", 1]], "candle": "50g", "current": 1, "options": { "orientation": "upright" }, "expect": 2 },
+    { "name": "50g line alone: four", "box": "b14", "others": [], "candle": "50g", "current": 1, "options": { "orientation": "upright" }, "expect": 4 },
+    { "name": "190g line alone: one", "box": "b14", "others": [], "candle": "190g", "current": 1, "options": { "orientation": "upright" }, "expect": 1 },
+    { "name": "already too full: never less than it has", "box": "b14", "others": [["190g", 2]], "candle": "50g", "current": 1, "options": { "orientation": "upright" }, "expect": 1 },
+    { "name": "max count", "box": "max2", "others": [], "candle": "50g", "current": 1, "options": { "orientation": "upright" }, "expect": 2 }
+  ],
+  "validate": [
+    {
+      "name": "a good gift",
+      "message_max": 200, "stock": { "v50": 10, "b14": 3, "r1": null, "c1": 5 }, "in_cart": {},
+      "groups": [{ "candles": [["50g", 2, "v50"]], "box": { "id": "b14" }, "items": [{ "id": "r1", "kind": "ribbon", "quantity": 2 }, { "id": "c1", "kind": "card", "quantity": 1, "message": "Feliz aniversário!" }] }],
+      "options": { "orientation": "upright" }, "expect": []
+    },
+    {
+      "name": "a group with no candles",
+      "message_max": 200, "stock": {}, "in_cart": {},
+      "groups": [{ "candles": [], "box": null, "items": [] }],
+      "options": { "orientation": "upright" }, "expect": [{ "code": "no_candles", "group": 0, "id": null }]
+    },
+    {
+      "name": "two 190g in b14",
+      "message_max": 200, "stock": {}, "in_cart": {},
+      "groups": [{ "candles": [["190g", 2, "v190"]], "box": { "id": "b14" }, "items": [] }],
+      "options": { "orientation": "upright" }, "expect": [{ "code": "box_too_small", "group": 0, "id": "b14" }]
+    },
+    {
+      "name": "no box at all is fine",
+      "message_max": 200, "stock": {}, "in_cart": {},
+      "groups": [{ "candles": [["190g", 3, "v190"]], "box": null, "items": [] }],
+      "options": { "orientation": "upright" }, "expect": []
+    },
+    {
+      "name": "message one character too long",
+      "message_max": 5, "stock": {}, "in_cart": {},
+      "groups": [{ "candles": [["50g", 1, "v50"]], "box": null, "items": [{ "id": "c1", "kind": "card", "quantity": 1, "message": "123456" }] }],
+      "options": { "orientation": "upright" }, "expect": [{ "code": "message_too_long", "group": 0, "id": "c1" }]
+    },
+    {
+      "name": "a Windows line break counts once, emoji count once",
+      "message_max": 5, "stock": {}, "in_cart": {},
+      "groups": [{ "candles": [["50g", 1, "v50"]], "box": null, "items": [{ "id": "c1", "kind": "card", "quantity": 1, "message": "ab\r\ncd" }, { "id": "c2", "kind": "card", "quantity": 1, "message": "🎁🎁🎁🎁🎁" }] }],
+      "options": { "orientation": "upright" }, "expect": []
+    },
+    {
+      "name": "the same ribbon in two gifts outruns stock",
+      "message_max": 200, "stock": { "r1": 3 }, "in_cart": {},
+      "groups": [
+        { "candles": [["50g", 1, "v50"]], "box": null, "items": [{ "id": "r1", "kind": "ribbon", "quantity": 2 }] },
+        { "candles": [["50g", 1, "v50"]], "box": null, "items": [{ "id": "r1", "kind": "ribbon", "quantity": 2 }] }
+      ],
+      "options": { "orientation": "upright" }, "expect": [{ "code": "out_of_stock", "group": -1, "id": "r1" }]
+    },
+    {
+      "name": "the cart already holds the last box",
+      "message_max": 200, "stock": { "b14": 1 }, "in_cart": { "b14": 1 },
+      "groups": [{ "candles": [["50g", 1, "v50"]], "box": { "id": "b14" }, "items": [] }],
+      "options": { "orientation": "upright" }, "expect": [{ "code": "out_of_stock", "group": -1, "id": "b14" }]
+    },
+    {
+      "name": "what is already in the cart asks no stock",
+      "message_max": 200, "stock": { "b14": 0, "v50": 0 }, "in_cart": { "b14": 1, "v50": 2 },
+      "groups": [{ "candles": [["50g", 2, "v50", false]], "box": { "id": "b14", "added": false }, "items": [] }],
+      "options": { "orientation": "upright" }, "expect": []
+    },
+    {
+      "name": "zero ribbons is a bad quantity",
+      "message_max": 200, "stock": {}, "in_cart": {},
+      "groups": [{ "candles": [["50g", 1, "v50"]], "box": null, "items": [{ "id": "r1", "kind": "ribbon", "quantity": 0 }] }],
+      "options": { "orientation": "upright" }, "expect": [{ "code": "bad_quantity", "group": 0, "id": "r1" }]
+    },
+    {
+      "name": "order: groups first, in order, then stock",
+      "message_max": 200, "stock": { "v50": 1 }, "in_cart": {},
+      "groups": [
+        { "candles": [], "box": null, "items": [] },
+        { "candles": [["190g", 2, "v190"], ["50g", 2, "v50"]], "box": { "id": "b14" }, "items": [] }
+      ],
+      "options": { "orientation": "upright" }, "expect": [{ "code": "no_candles", "group": 0, "id": null }, { "code": "box_too_small", "group": 1, "id": "b14" }, { "code": "out_of_stock", "group": -1, "id": "v50" }]
+    }
+  ],
+  "total": [
+    { "name": "cents, not floats", "lines": [{ "price": 19.9, "quantity": 2 }, { "price": 12, "quantity": 1 }, { "price": 0.1, "quantity": 3 }], "expect": 5210 },
+    { "name": "nothing", "lines": [], "expect": 0 },
+    { "name": "free and negative quantities add nothing", "lines": [{ "price": 0, "quantity": 4 }, { "price": 5, "quantity": -1 }], "expect": 0 }
   ]
 }

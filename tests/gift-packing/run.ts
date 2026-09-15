@@ -10,6 +10,8 @@ import { isDeepStrictEqual } from 'node:util'
 
 import { arrange, cover, fits, room, summary } from '../../frontend/src/lib/gift-packing.ts'
 import type { Box, Candle, Gift, PackingOptions, SummaryRow } from '../../frontend/src/lib/gift-packing.ts'
+import { fill, maxQuantity, total, validate } from '../../frontend/src/lib/gift-groups.ts'
+import type { PlanError, PlanGroup, PlanItem } from '../../frontend/src/lib/gift-groups.ts'
 
 interface Fixtures {
   sizes: Record<string, Candle>
@@ -19,6 +21,18 @@ interface Fixtures {
   room: { name: string; box: string; candles: [string, number][]; sizes: string[]; expect: string[] }[]
   summary: { name: string; box: string; sizes: string[]; expect: SummaryRow[] }[]
   cover: { name: string; candles: string[]; expect: Candle[]; box?: string; fits?: boolean }[]
+  fill: { name: string; box: string; candles: [string, number][]; sizes: string[]; options?: PackingOptions; expect: number }[]
+  max_quantity: { name: string; box: string; others: [string, number][]; candle: string; current: number; options?: PackingOptions; expect: number }[]
+  validate: {
+    name: string
+    message_max: number
+    stock: Record<string, number | null>
+    in_cart: Record<string, number>
+    groups: { candles: [string, number, string, boolean?][]; box: { id: string; added?: boolean } | null; items: PlanItem[] }[]
+    options?: PackingOptions
+    expect: PlanError[]
+  }[]
+  total: { name: string; lines: { price: number; quantity: number }[]; expect: number }[]
 }
 
 const fixtures = JSON.parse(readFileSync(new URL('./fixtures.json', import.meta.url), 'utf8')) as Fixtures
@@ -67,6 +81,29 @@ for (const c of fixtures.cover) {
   check('cover', c.name, covered, c.expect)
 
   if (c.box !== undefined) check('cover', `${c.name} (fits ${c.box})`, fits(boxes[c.box], covered), c.fits)
+}
+
+// gift-groups.ts: fill bars, stepper limits, plan validation, totals.
+for (const c of fixtures.fill) {
+  check('fill', c.name, fill(boxes[c.box], expand(c.candles), c.sizes.map((s) => sizes[s]), c.options ?? {}), c.expect)
+}
+
+for (const c of fixtures.max_quantity) {
+  check('max_quantity', c.name, maxQuantity(boxes[c.box], expand(c.others), sizes[c.candle], c.current, c.options ?? {}), c.expect)
+}
+
+for (const c of fixtures.validate) {
+  const groups: PlanGroup[] = c.groups.map((group) => ({
+    candles: group.candles.flatMap(([size, count, id, added]) => Array.from({ length: count }, () => ({ ...sizes[size], id, added: added ?? true }))),
+    box: group.box === null ? null : { ...boxes[group.box.id], added: group.box.added ?? true },
+    items: group.items,
+  }))
+
+  check('validate', c.name, validate({ groups, stock: c.stock, in_cart: c.in_cart, message_max: c.message_max }, c.options ?? {}), c.expect)
+}
+
+for (const c of fixtures.total) {
+  check('total', c.name, total(c.lines), c.expect)
 }
 
 console.log('\n  timing (best of 5):')

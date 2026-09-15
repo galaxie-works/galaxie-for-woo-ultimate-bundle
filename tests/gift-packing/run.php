@@ -11,7 +11,9 @@
 define( 'ABSPATH', __DIR__ . '/' );
 
 require dirname( __DIR__, 2 ) . '/src/Support/GiftPacking.php';
+require dirname( __DIR__, 2 ) . '/src/Support/GiftGroups.php';
 
+use Galaxie\Woo\Support\GiftGroups;
 use Galaxie\Woo\Support\GiftPacking;
 
 $fixtures = json_decode( (string) file_get_contents( __DIR__ . '/fixtures.json' ), true, 512, JSON_THROW_ON_ERROR );
@@ -80,6 +82,47 @@ foreach ( $fixtures['cover'] as $case ) {
 	if ( isset( $case['box'] ) ) {
 		$check( 'cover', $case['name'] . ' (fits ' . $case['box'] . ')', GiftPacking::fits( $boxes[ $case['box'] ], $covered ), $case['fits'] );
 	}
+}
+
+// GiftGroups: fill bars, stepper limits, plan validation, totals.
+foreach ( $fixtures['fill'] as $case ) {
+	$try = array_map( static fn( string $s ): array => $sizes[ $s ], $case['sizes'] );
+	$check( 'fill', $case['name'], GiftGroups::fill( $boxes[ $case['box'] ], $expand( $case['candles'] ), $try, $case['options'] ?? array() ), $case['expect'] );
+}
+
+foreach ( $fixtures['max_quantity'] as $case ) {
+	$check( 'max_quantity', $case['name'], GiftGroups::max_quantity( $boxes[ $case['box'] ], $expand( $case['others'] ), $sizes[ $case['candle'] ], $case['current'], $case['options'] ?? array() ), $case['expect'] );
+}
+
+foreach ( $fixtures['validate'] as $case ) {
+	$groups = array();
+	foreach ( $case['groups'] as $group ) {
+		$candles = array();
+		foreach ( $group['candles'] as $spec ) {
+			for ( $i = 0; $i < $spec[1]; $i++ ) {
+				$candles[] = $sizes[ $spec[0] ] + array( 'id' => $spec[2], 'added' => $spec[3] ?? true );
+			}
+		}
+
+		$box      = null === $group['box'] ? null : $boxes[ $group['box']['id'] ] + array( 'added' => $group['box']['added'] ?? true );
+		$groups[] = array(
+			'candles' => $candles,
+			'box'     => $box,
+			'items'   => $group['items'],
+		);
+	}
+
+	$plan = array(
+		'groups'      => $groups,
+		'stock'       => $case['stock'],
+		'in_cart'     => $case['in_cart'],
+		'message_max' => $case['message_max'],
+	);
+	$check( 'validate', $case['name'], GiftGroups::validate( $plan, $case['options'] ?? array() ), $case['expect'] );
+}
+
+foreach ( $fixtures['total'] as $case ) {
+	$check( 'total', $case['name'], GiftGroups::total( $case['lines'] ), $case['expect'] );
 }
 
 // Timing, not pass/fail: the slowest 12-candle cases.
