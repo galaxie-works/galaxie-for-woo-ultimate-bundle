@@ -490,8 +490,10 @@ final class Gifts {
 				$before[ $field ] = is_callable( array( WC()->customer, $getter ) ) ? (string) WC()->customer->{$getter}( 'edit' ) : '';
 			}
 
-			// Whose fields these are: a guest's snapshot is not a logged-in account's address.
-			$before['user'] = get_current_user_id();
+			// Whose fields these are: a guest's snapshot is not a logged-in account's
+			// address, and every guest is user 0, so the session's own id is kept too.
+			$before['user']    = get_current_user_id();
+			$before['session'] = (string) WC()->session->get_customer_id();
 
 			WC()->session->set( self::AREA_BEFORE, $before );
 		}
@@ -518,17 +520,30 @@ final class Gifts {
 
 		WC()->session->set( self::AREA_BEFORE, null );
 
-		// Taken for someone else — a guest who has since logged in, or had an
-		// account made at checkout: the guest session's fields are not this
-		// account's address. After login WooCommerce reads the account and lays
-		// the session's customer data over it, which still holds the gift's
-		// placeholders, so the account's own saved shipping address is put back.
-		// A new account has none (see block_shipping_meta()), and gets blanks.
-		$user = get_current_user_id();
+		// Taken for someone else, the snapshot's fields are not this buyer's:
+		// - A guest who has since logged in, or had an account made at checkout.
+		//   WC()->customer is then the account as read from the database: the
+		//   session data store ignores customer data saved under another id, so
+		//   nothing of the guest's is laid over it. It still carries the owner's
+		//   area from ship_to_owner_area(), so the account's own saved shipping
+		//   address is put back. A new account has none (see
+		//   block_shipping_meta()), and gets blanks.
+		// - Another guest's. WooCommerce clones a guest session opened from a
+		//   shared cart link (?session=<cart token>) into a new one, copying
+		//   every key but `customer`, this snapshot included, and marks the copy
+		//   with previous_customer_id. A guest has no saved address, so the
+		//   fields are cleared rather than filled with a stranger's.
+		// A snapshot from before the session id was recorded is trusted only by
+		// the same logged-in user, and never in a cloned session.
+		$user    = get_current_user_id();
+		$session = (string) WC()->session->get_customer_id();
+		$legacy  = ! isset( $before['session'] );
+		$foreign = (int) ( $before['user'] ?? 0 ) !== $user
+			|| ( $legacy ? ( ! $user || '' !== (string) WC()->session->get( 'previous_customer_id' ) ) : (string) $before['session'] !== $session );
 
-		if ( $user && (int) ( $before['user'] ?? 0 ) !== $user ) {
+		if ( $foreign ) {
 			foreach ( self::FIELDS as $field ) {
-				$before[ $field ] = (string) get_user_meta( $user, 'shipping_' . $field, true );
+				$before[ $field ] = $user ? (string) get_user_meta( $user, 'shipping_' . $field, true ) : '';
 			}
 		}
 
