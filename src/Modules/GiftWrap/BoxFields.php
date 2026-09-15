@@ -30,8 +30,12 @@ final class BoxFields {
 		'length' => '_galaxie_box_length',
 		'width'  => '_galaxie_box_width',
 		'height' => '_galaxie_box_height',
-		'max'    => '_galaxie_box_max',
+		'max'      => '_galaxie_box_max',
+		'overflow' => '_galaxie_box_overflow',
 	);
+
+	/** Most extra height a lid can be trusted to close over, cm. */
+	public const OVERFLOW_MAX = 2.0;
 
 	private const NONCE = 'galaxie_gift_box_fields';
 
@@ -39,14 +43,14 @@ final class BoxFields {
 
 	/**
 	 * @param string    $attribute   Candle size attribute, e.g. `pa_peso`.
-	 * @param float     $gap         Packing gap in cm.
+	 * @param float     $gap         Packing gap in cm (default 0: tissue paper fills).
 	 * @param bool      $stacking    Stacking setting (accepted; the engine packs one layer).
 	 * @param int[]     $categories  Product categories that are gift boxes; empty = every variable product.
 	 * @param string    $orientation 'lying' (default, the jar on its side), 'upright' or 'any'.
 	 */
 	public function __construct(
 		private string $attribute = 'pa_peso',
-		private float $gap = 0.5,
+		private float $gap = 0.0,
 		private bool $stacking = false,
 		private array $categories = array(),
 		private string $orientation = 'lying'
@@ -123,6 +127,26 @@ final class BoxFields {
 			)
 		);
 
+		$overflow = (float) get_post_meta( $id, self::META['overflow'], true );
+
+		woocommerce_wp_text_input(
+			array(
+				'id'                => self::META['overflow'] . $loop,
+				'name'              => self::META['overflow'] . '[' . $loop . ']',
+				'value'             => $overflow > 0 ? wc_format_localized_decimal( $overflow ) : '',
+				'label'             => __( 'Altura extra permitida (cm)', 'galaxie-woo' ),
+				'type'              => 'number',
+				'wrapper_class'     => 'form-row form-row-first',
+				'desc_tip'          => true,
+				'description'       => __( 'How far candles may stand above the base while the lid still closes over them (0–2 cm). Added to the internal height.', 'galaxie-woo' ),
+				'custom_attributes' => array(
+					'step' => '0.1',
+					'min'  => '0',
+					'max'  => (string) self::OVERFLOW_MAX,
+				),
+			)
+		);
+
 		echo '<p class="form-row form-row-full galaxie-gift-box-fit" style="clear:both"><em>' . esc_html( $this->preview( $id ) ) . '</em></p>';
 		echo '</div>';
 	}
@@ -159,6 +183,12 @@ final class BoxFields {
 				continue;
 			}
 
+			if ( 'overflow' === $field ) {
+				$value = min( self::OVERFLOW_MAX, max( 0.0, (float) wc_format_decimal( is_string( $raw ) ? $raw : '' ) ) );
+				$value > 0 ? update_post_meta( $variation_id, $key, wc_format_decimal( $value ) ) : delete_post_meta( $variation_id, $key );
+				continue;
+			}
+
 			$value = (float) wc_format_decimal( is_string( $raw ) ? $raw : '' );
 			$value > 0 ? update_post_meta( $variation_id, $key, wc_format_decimal( $value ) ) : delete_post_meta( $variation_id, $key );
 		}
@@ -175,8 +205,9 @@ final class BoxFields {
 			'length' => (float) get_post_meta( $variation_id, self::META['length'], true ),
 			'width'  => (float) get_post_meta( $variation_id, self::META['width'], true ),
 			'height' => (float) get_post_meta( $variation_id, self::META['height'], true ),
-			'max'    => absint( get_post_meta( $variation_id, self::META['max'], true ) ),
-			'price'  => 0,
+			'max'      => absint( get_post_meta( $variation_id, self::META['max'], true ) ),
+			'overflow' => min( self::OVERFLOW_MAX, max( 0.0, (float) get_post_meta( $variation_id, self::META['overflow'], true ) ) ),
+			'price'    => 0,
 		);
 
 		if ( $box['length'] <= 0 || $box['width'] <= 0 || $box['height'] <= 0 ) {
@@ -234,6 +265,14 @@ final class BoxFields {
 	 * @param int $product_id Parent product ID.
 	 */
 	private function applies( int $product_id ): bool {
-		return ! $this->categories || has_term( array_map( 'intval', $this->categories ), 'product_cat', $product_id );
+		if ( $this->categories ) {
+			return has_term( array_map( 'intval', $this->categories ), 'product_cat', $product_id );
+		}
+
+		// No box categories chosen: every variable product except the candles
+		// (those with the size attribute get CandleFields instead).
+		$product = wc_get_product( $product_id );
+
+		return $product && ! array_key_exists( $this->attribute, $product->get_attributes() );
 	}
 }

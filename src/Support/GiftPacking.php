@@ -18,8 +18,9 @@ defined( 'ABSPATH' ) || exit;
  * one, change the other, run both tests.
  *
  *   candle  { size, length, width, height, price? }        cm, as WooCommerce stores them
- *   box     { id, length, width, height, max?, price }     internal cm; max 0 = no limit
- *   options { gap, stacking, orientation }                 gap in cm, default 0.5; orientation default 'lying'
+ *   box     { id, length, width, height, max?, overflow?, price }
+ *           internal cm; max 0 = no limit; overflow = extra height the lid still closes over (0–2)
+ *   options { gap, stacking, orientation }                 gap in cm, default 0 (tissue paper fills); orientation default 'lying'
  *
  * The model:
  * - `orientation` says how a candle sits. 'upright': floor length × width,
@@ -68,7 +69,7 @@ final class GiftPacking {
 	public static function fits( array $box, array $candles, array $options = array() ): bool {
 		// Round against the fit: candles and gap up, the box down, so a converted
 		// 5.004 cm candle never slips into a 5.00 cm box.
-		$gap = self::up( $options['gap'] ?? 0.5 );
+		$gap = self::up( $options['gap'] ?? 0 );
 		$bx  = self::down( $box['length'] ?? 0 );
 		$by  = self::down( $box['width'] ?? 0 );
 		$bz  = self::down( $box['height'] ?? 0 );
@@ -82,6 +83,10 @@ final class GiftPacking {
 		if ( ( $max > 0 && $n > $max ) || $bx <= 0 || $by <= 0 || $bz <= 0 ) {
 			return false;
 		}
+
+		// Candles may stand a little proud of the base when the lid still closes
+		// over them: usable height = height + overflow (the gap still applies).
+		$bz += self::down( $box['overflow'] ?? 0 );
 
 		$orientation = self::orientation_of( $options );
 
@@ -474,7 +479,21 @@ final class GiftPacking {
 			$size = (string) $product->get_attribute( $attribute );
 		}
 
-		$candle = array(
+		// Gift dimensions (the jar alone, lid on, in cm) win when all three are
+		// set; WooCommerce's are the jar in its shipping box and stay for freight.
+		$gift = array(
+			(float) $product->get_meta( '_galaxie_gift_length' ),
+			(float) $product->get_meta( '_galaxie_gift_width' ),
+			(float) $product->get_meta( '_galaxie_gift_height' ),
+		);
+
+		$candle = min( $gift ) > 0 ? array(
+			'size'   => $size,
+			'length' => $gift[0],
+			'width'  => $gift[1],
+			'height' => $gift[2],
+			'price'  => (float) $product->get_price(),
+		) : array(
 			'size'   => $size,
 			'length' => self::cm( $product->get_length() ),
 			'width'  => self::cm( $product->get_width() ),
@@ -496,8 +515,9 @@ final class GiftPacking {
 			'length' => (float) $product->get_meta( '_galaxie_box_length' ),
 			'width'  => (float) $product->get_meta( '_galaxie_box_width' ),
 			'height' => (float) $product->get_meta( '_galaxie_box_height' ),
-			'max'    => absint( $product->get_meta( '_galaxie_box_max' ) ),
-			'price'  => (float) $product->get_price(),
+			'max'      => absint( $product->get_meta( '_galaxie_box_max' ) ),
+			'overflow' => min( 2.0, max( 0.0, (float) $product->get_meta( '_galaxie_box_overflow' ) ) ),
+			'price'    => (float) $product->get_price(),
 		);
 
 		return ( $box['length'] > 0 && $box['width'] > 0 && $box['height'] > 0 ) ? $box : null;

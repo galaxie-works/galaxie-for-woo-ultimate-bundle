@@ -38,6 +38,8 @@ export interface Box {
   height: number
   /** Most candles the box takes; 0 or missing = no limit. */
   max?: number
+  /** Extra height (cm, 0–2) the lid still closes over: usable height = height + overflow. */
+  overflow?: number
   price: number
 }
 
@@ -45,7 +47,7 @@ export interface Box {
 export type Orientation = 'upright' | 'lying' | 'any'
 
 export interface PackingOptions {
-  /** Paper filling around each candle, cm. Default 0.5. */
+  /** Paper filling around each candle, cm. Default 0 (tissue paper fills the gaps). */
   gap?: number
   /** Accepted for the settings' sake; not implemented — always one layer. */
   stacking?: boolean
@@ -102,16 +104,20 @@ interface Search {
 export function fits(box: Box, candles: Candle[], options: PackingOptions = {}): boolean {
   // Round against the fit: candles and gap up, the box down, so a converted
   // 5.004 cm candle never slips into a 5.00 cm box.
-  const gap = up(options.gap ?? 0.5)
+  const gap = up(options.gap ?? 0)
   const bx = down(box.length)
   const by = down(box.width)
-  const bz = down(box.height)
+  let bz = down(box.height)
   const max = Math.max(0, Math.trunc(Number(box.max ?? 0)) || 0)
   const n = candles.length
 
   if (n === 0) return true
 
   if ((max > 0 && n > max) || bx <= 0 || by <= 0 || bz <= 0) return false
+
+  // Candles may stand a little proud of the base when the lid still closes over
+  // them: usable height = height + overflow (the gap still applies).
+  bz += down(box.overflow ?? 0)
 
   const orientation = orientationOf(options)
 

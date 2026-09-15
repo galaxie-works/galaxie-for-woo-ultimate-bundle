@@ -117,9 +117,9 @@ function time(label: string, run: () => unknown): void {
   console.log(`    ${label.padEnd(58)} ${best.toFixed(2).padStart(8)} ms`)
 }
 
-const up: PackingOptions = { orientation: 'upright' }
-const lie: PackingOptions = { orientation: 'lying' }
-const any: PackingOptions = { orientation: 'any' }
+const up: PackingOptions = { orientation: 'upright', gap: 0.5 }
+const lie: PackingOptions = { orientation: 'lying', gap: 0.5 }
+const any: PackingOptions = { orientation: 'any', gap: 0.5 }
 const mix6 = expand([['50g', 6], ['190g', 6]])
 const store = [boxes.p11, boxes.b14, boxes.sq14]
 const twelve = expand([['50g', 8], ['190g', 4]])
@@ -131,7 +131,7 @@ time('upright: arrange 8 x 50g + 4 x 190g over 3 boxes', () => arrange(twelve, s
 time('upright: summary b30', () => summary(boxes.b30, [sizes['50g'], sizes['190g']], up))
 time('lying: fits 6 x 190g + 6 x 50g in 30 x 30', () => fits(boxes.b30, mix6, lie))
 time('lying: fits 6 x 190g + 6 x 50g in 25 x 25', () => fits(boxes.b25, mix6, lie))
-time('lying: summary 25 x 9.5 x 8.5', () => summary(boxes.long25, [sizes['50g'], sizes['190g']], lie))
+time('lying, gift dims, gap 0: summary 24.44 x 8.94 x 7.94', () => summary(boxes['real-long'], [sizes['50g-gift'], sizes['190g-gift']], { orientation: 'lying', gap: 0 }))
 time('any: fits 6 x 190g + 6 x 50g in 30 x 30', () => fits(boxes.b30, mix6, any))
 time('any: fits 6 x 190g + 6 x 50g in 25 x 25', () => fits(boxes.b25, mix6, any))
 time('any: fits 12 x 50g in 21 x 21', () => fits(boxes.sq21, expand([['50g', 12]]), any))

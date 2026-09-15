@@ -138,9 +138,9 @@ $time = static function ( string $label, callable $run ): void {
 	printf( "    %-58s %8.2f ms\n", $label, $best );
 };
 
-$up   = array( 'orientation' => 'upright' );
-$lie  = array( 'orientation' => 'lying' );
-$any  = array( 'orientation' => 'any' );
+$up   = array( 'orientation' => 'upright', 'gap' => 0.5 );
+$lie  = array( 'orientation' => 'lying', 'gap' => 0.5 );
+$any  = array( 'orientation' => 'any', 'gap' => 0.5 );
 $mix6 = $expand( array( array( '50g', 6 ), array( '190g', 6 ) ) );
 $b25  = $boxes['b25'];
 $b30  = $boxes['b30'];
@@ -152,7 +152,7 @@ $time( 'upright: arrange 8 x 50g + 4 x 190g over 3 boxes', static fn() => GiftPa
 $time( 'upright: summary b30', static fn() => GiftPacking::summary( $b30, array( $sizes['50g'], $sizes['190g'] ), $up ) );
 $time( 'lying: fits 6 x 190g + 6 x 50g in 30 x 30', static fn() => GiftPacking::fits( $b30, $mix6, $lie ) );
 $time( 'lying: fits 6 x 190g + 6 x 50g in 25 x 25', static fn() => GiftPacking::fits( $b25, $mix6, $lie ) );
-$time( 'lying: summary 25 x 9.5 x 8.5', static fn() => GiftPacking::summary( $boxes['long25'], array( $sizes['50g'], $sizes['190g'] ), $lie ) );
+$time( 'lying, gift dims, gap 0: summary 24.44 x 8.94 x 7.94', static fn() => GiftPacking::summary( $boxes['real-long'], array( $sizes['50g-gift'], $sizes['190g-gift'] ), array( 'orientation' => 'lying', 'gap' => 0 ) ) );
 $time( 'any: fits 6 x 190g + 6 x 50g in 30 x 30', static fn() => GiftPacking::fits( $b30, $mix6, $any ) );
 $time( 'any: fits 6 x 190g + 6 x 50g in 25 x 25', static fn() => GiftPacking::fits( $b25, $mix6, $any ) );
 $time( 'any: fits 12 x 50g in 21 x 21', static fn() => GiftPacking::fits( $boxes['sq21'], $expand( array( array( '50g', 12 ) ) ), $any ) );
