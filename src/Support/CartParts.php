@@ -1059,9 +1059,14 @@ final class CartParts {
 	private static function render_quantity( string $key, array $item, \WC_Product $product, array $settings ): void {
 		echo '<span class="galaxie-cart-qty">';
 
-		if ( $product->is_sold_individually() ) {
-			printf( '<input type="hidden" name="cart[%s][qty]" value="1" />', esc_attr( $key ) );
-			echo '<span class="galaxie-cart-qty-fixed">1</span>';
+		// A line whose quantity belongs to something else — a gift's ribbon or
+		// card (Gift Wrap) — shows its number the way a sold-individually one does.
+		$locked = (bool) apply_filters( 'galaxie_cart_item_quantity_locked', false, $item, $key );
+
+		if ( $locked || $product->is_sold_individually() ) {
+			$fixed = $locked ? (int) $item['quantity'] : 1;
+			printf( '<input type="hidden" name="cart[%s][qty]" value="%d" />', esc_attr( $key ), (int) $fixed );
+			printf( '<span class="galaxie-cart-qty-fixed">%d</span>', (int) $fixed );
 		} else {
 			QuantityField::render(
 				$settings,
