@@ -215,6 +215,129 @@ final class FluentCRM {
 	}
 
 	/**
+	 * A note on the contact with this id. For callers that know the contact
+	 * rather than the account — an edit made in FluentCRM's own admin.
+	 *
+	 * @param string $description HTML, already escaped by the caller.
+	 */
+	public static function add_note_by_contact_id( int $contact_id, string $title, string $description ): bool {
+		if ( $contact_id <= 0 || ! self::is_active() || ! class_exists( '\FluentCrm\App\Models\SubscriberNote' ) ) {
+			return false;
+		}
+		try {
+			\FluentCrm\App\Models\SubscriberNote::create(
+				array(
+					'subscriber_id' => $contact_id,
+					'type'          => 'note',
+					'title'         => $title,
+					'description'   => $description,
+				)
+			);
+
+			return true;
+		} catch ( \Throwable $e ) {
+			return false;
+		}
+	}
+
+	/** The contact columns a profile is made of, as FluentCRM names them. */
+	public const PROFILE_COLUMNS = array(
+		'first_name',
+		'last_name',
+		'email',
+		'phone',
+		'date_of_birth',
+		'address_line_1',
+		'address_line_2',
+		'city',
+		'state',
+		'postal_code',
+		'country',
+		'status',
+	);
+
+	/**
+	 * What a contact's profile holds right now, read fresh from the database:
+	 * its profile columns and every custom field value, each as a comparable
+	 * string (an empty date and a missing custom value are ''; a multi-choice
+	 * value is its choices joined by ", "). Null when there is no such contact
+	 * or it cannot be read.
+	 *
+	 * @return array{columns:array<string,string>,custom:array<string,string>}|null
+	 */
+	public static function contact_profile( int $contact_id ): ?array {
+		if ( $contact_id <= 0 || ! self::is_active() || ! class_exists( '\FluentCrm\App\Models\Subscriber' ) ) {
+			return null;
+		}
+		try {
+			$contact = \FluentCrm\App\Models\Subscriber::find( $contact_id );
+
+			if ( ! $contact ) {
+				return null;
+			}
+
+			$columns = array();
+
+			foreach ( self::PROFILE_COLUMNS as $column ) {
+				$columns[ $column ] = self::column_value( $column, $contact->{$column} ?? null );
+			}
+
+			$custom = array();
+
+			foreach ( (array) $contact->custom_fields() as $slug => $value ) {
+				$custom[ (string) $slug ] = self::custom_value( $value );
+			}
+
+			return array(
+				'columns' => $columns,
+				'custom'  => $custom,
+			);
+		} catch ( \Throwable $e ) {
+			return null;
+		}
+	}
+
+	/**
+	 * Every custom contact field's label, by slug, as the merchant named it in
+	 * FluentCRM. Empty when the definitions cannot be read.
+	 *
+	 * @return array<string,string>
+	 */
+	public static function custom_field_labels(): array {
+		if ( ! class_exists( '\FluentCrm\App\Models\CustomContactField' ) ) {
+			return array();
+		}
+		try {
+			$labels = array();
+
+			foreach ( (array) ( ( new \FluentCrm\App\Models\CustomContactField() )->getGlobalFields()['fields'] ?? array() ) as $field ) {
+				$slug = (string) ( $field['slug'] ?? '' );
+
+				if ( '' !== $slug ) {
+					$labels[ $slug ] = trim( (string) ( $field['label'] ?? '' ) );
+				}
+			}
+
+			return $labels;
+		} catch ( \Throwable $e ) {
+			return array();
+		}
+	}
+
+	/** @param mixed $value */
+	private static function custom_value( $value ): string {
+		if ( is_string( $value ) && is_serialized( $value ) ) {
+			$value = maybe_unserialize( $value );
+		}
+
+		if ( is_array( $value ) ) {
+			$value = implode( ', ', array_filter( array_map( static fn( $item ): string => is_scalar( $item ) ? trim( (string) $item ) : '', $value ), 'strlen' ) );
+		}
+
+		return is_scalar( $value ) ? trim( (string) $value ) : '';
+	}
+
+	/**
 	 * The slug of a custom contact field, found by slug first and by its label
 	 * when the slug is not there — a field the merchant created by hand keeps
 	 * working if they rename its slug. Null when neither matches. Remembered for
