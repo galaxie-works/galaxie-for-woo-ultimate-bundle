@@ -249,6 +249,40 @@ $check(
 $check( 'align', 'different quantity: not these lines', CartonQuote::align( array( array( 'id' => 101, 'quantity' => 2 ) ), array( array( 'id' => 101, 'quantity' => 1 ) ) ), null );
 $check( 'align', 'extra line: not these lines', CartonQuote::align( array( array( 'id' => 101, 'quantity' => 1 ) ), array( array( 'id' => 101, 'quantity' => 1 ), array( 'id' => 102, 'quantity' => 1 ) ) ), null );
 
+// ------------------------------------------------------------------ time limit and shared packing
+
+// 30 near-identical cartons, none holding 60 units alone: the slowest shape found in review (≈ 5 s unbounded).
+$near = array();
+for ( $i = 0; $i < 30; $i++ ) {
+	$near[] = array( 'code' => 'C' . $i, 'length' => 20 + $i * 0.01, 'width' => 15, 'height' => 15, 'empty_weight' => 90, 'max_load' => 30000 );
+}
+$worst = $expand( array( array( '190g', 30 ), array( '50g', 30 ) ) );
+
+$start   = hrtime( true );
+$bounded = CartonPacking::pack( $worst, $near, $defaults );
+$ms      = ( hrtime( true ) - $start ) / 1e6;
+printf( "  info  worst case (60 units x 30 near-identical cartons, default %d ms limit): %.0f ms, %s\n", CartonPacking::TIME_LIMIT_MS, $ms, null === $bounded ? 'gave up (original quote kept)' : count( $bounded ) . ' cartons' );
+$check( 'time limit', 'worst case stays near the limit (< 1 s)', $ms < 1000, true );
+$check( 'time limit', 'worst case: a result only if not timed out', null === $bounded || ! CartonPacking::timed_out(), true );
+
+$check( 'time limit', 'a 0.001 ms limit gives up', array( CartonPacking::pack( $worst, $real, $defaults + array( 'time_limit' => 0.001 ) ), CartonPacking::timed_out() ), array( null, true ) );
+$check( 'time limit', 'fits() outside pack() is not bound by a finished pack()', CartonPacking::fits( $cartons['N12'], $expand( array( array( '190g', 1 ) ) ), $defaults ), true );
+$check( 'time limit', 'no limit (0): packs', null !== CartonPacking::pack( $expand( array( array( '190g', 2 ) ) ), $real, array( 'time_limit' => 0 ) + $defaults ), true );
+$check(
+	'time limit',
+	'rewrite on timeout: unchanged',
+	CartonQuote::rewrite_body( json_encode( $many ), $lines_for(), $near, array( 'time_limit' => 0.001 ) + $defaults )['reason'],
+	'timeout'
+);
+
+// The insured and the uninsured quote of one cart share one packing.
+$memo   = array();
+$first  = CartonQuote::rewrite_body( json_encode( $sample ), $lines_for(), $real, $defaults, $memo );
+$second = CartonQuote::rewrite_body( json_encode( $uninsured ), $lines_for(), $real, $defaults, $memo );
+$s2     = json_decode( $second['body'], true )['products'][0];
+$check( 'memo', 'insured then uninsured: one packing kept, both rewritten', array( count( $memo ), $first['changed'], $second['changed'] ), array( 1, true, true ) );
+$check( 'memo', 'uninsured quote from the memo: same carton, still no insurance_value', array( $s2['id'], $s2['weight'], array_key_exists( 'insurance_value', $s2 ) ), array( 'galaxie-carton-n7-1', 0.889, false ) );
+
 // ------------------------------------------------------------------ timing
 
 echo "\n  timing (best of 3):\n";

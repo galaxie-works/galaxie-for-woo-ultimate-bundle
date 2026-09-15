@@ -34,8 +34,12 @@ final class Rewriter {
 		'dimensions'  => 'a product has no WooCommerce shipping dimensions or weight',
 		'no_fit'      => 'an item fits no registered carton',
 		'needs_split' => 'no single carton holds the order and the fallback is "send the original request"',
+		'timeout'     => 'packing took longer than its time limit',
 		'error'       => 'an error while packing',
 	);
+
+	/** Packings worked out in this PHP request, shared by the insured and uninsured quotes. */
+	private static array $memo = array();
 
 	public static function hooks(): void {
 		add_filter( 'http_request_args', array( self::class, 'filter' ), 20, 2 );
@@ -52,7 +56,7 @@ final class Rewriter {
 		}
 
 		try {
-			$result = CartonQuote::rewrite_body( $args['body'], array( self::class, 'lines_for' ), Module::cartons(), Module::packing_options() );
+			$result = CartonQuote::rewrite_body( $args['body'], array( self::class, 'lines_for' ), Module::cartons(), Module::packing_options(), self::$memo );
 		} catch ( \Throwable $e ) {
 			self::log( 'error', sprintf( 'Kept the Melhor Envio quote as the plugin built it: %s (%s).', self::REASONS['error'], get_class( $e ) ) );
 			return $args;

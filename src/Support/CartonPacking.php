@@ -54,14 +54,24 @@ final class CartonPacking {
 	/** Placement tries per `fits()` call before it answers "does not fit". */
 	public const STEP_LIMIT = 400000;
 
-	/** Defaults for every option. */
+	/** Wall-clock milliseconds one `pack()` may take, all its `fits()` calls together. */
+	public const TIME_LIMIT_MS = 300;
+
+	/** Defaults for every option; `time_limit` in ms, 0 for none. */
 	public const DEFAULTS = array(
-		'margin'   => 1.5,
-		'gap'      => 0.0,
-		'density'  => 29.0,
-		'stacking' => true,
-		'split'    => true,
+		'margin'     => 1.5,
+		'gap'        => 0.0,
+		'density'    => 29.0,
+		'stacking'   => true,
+		'split'      => true,
+		'time_limit' => self::TIME_LIMIT_MS,
 	);
+
+	/** hrtime() past which the running pack() gives up; null outside pack(). */
+	private static ?int $deadline = null;
+
+	/** Whether the last pack() ran out of time. */
+	private static bool $expired = false;
 
 	/**
 	 * Placement strategies, tried in order: where an item goes (`floor`: lowest
@@ -87,6 +97,13 @@ final class CartonPacking {
 	 * @param array $options { margin, gap, stacking }.
 	 */
 	public static function fits( array $carton, array $items, array $options = array() ): bool {
+		// Inside pack(): the clock on every call too, since most calls give up
+		// long before the in-search check every 1024 tries.
+		if ( null !== self::$deadline && ( self::$expired || hrtime( true ) > self::$deadline ) ) {
+			self::$expired = true;
+			return false;
+		}
+
 		$options = self::options( $options );
 		$gap     = self::up( $options['gap'] );
 		$margin  = self::up( $options['margin'] );
@@ -169,9 +186,37 @@ final class CartonPacking {
 	 * @param array $options { margin, gap, density, stacking, split }.
 	 * @return array<int, array{carton:array, items:int[], contents:int, filler:int, weight:int}>|null
 	 *         Grams. Null when there are no items, too many, an item no carton
-	 *         takes, or (split off) no single carton takes them all.
+	 *         takes, (split off) no single carton takes them all, or the time
+	 *         limit ran out ({@see self::timed_out()}).
 	 */
 	public static function pack( array $items, array $cartons, array $options = array() ): ?array {
+		$limit          = self::options( $options )['time_limit'];
+		self::$expired  = false;
+		self::$deadline = $limit > 0 ? hrtime( true ) + (int) round( $limit * 1e6 ) : null;
+
+		try {
+			$packed = self::pack_within( $items, $cartons, $options );
+		} finally {
+			self::$deadline = null;
+		}
+
+		// A half-finished search is not an answer: the caller keeps its own quote.
+		return self::$expired ? null : $packed;
+	}
+
+	/** Whether the last pack() gave up on its time limit. */
+	public static function timed_out(): bool {
+		return self::$expired;
+	}
+
+	/**
+	 * pack() without the clock.
+	 *
+	 * @param array $items   Item arrays.
+	 * @param array $cartons Carton arrays.
+	 * @param array $options Options.
+	 */
+	private static function pack_within( array $items, array $cartons, array $options ): ?array {
 		$options = self::options( $options );
 		$items   = array_values( $items );
 		$count   = count( $items );
@@ -354,6 +399,13 @@ final class CartonPacking {
 						return false;
 					}
 
+					// The clock, every 1024 tries: hrtime() is cheap, not free.
+					if ( null !== self::$deadline && 0 === ( $budget & 1023 ) && hrtime( true ) > self::$deadline ) {
+						self::$expired = true;
+						$budget        = 0;
+						return false;
+					}
+
 					if ( $shape[0] > $space[1] || $shape[1] > $space[2] || $shape[2] > $space[3] ) {
 						continue;
 					}
@@ -505,17 +557,18 @@ final class CartonPacking {
 
 	/**
 	 * @param array $options Given options.
-	 * @return array{margin:float, gap:float, density:float, stacking:bool, split:bool}
+	 * @return array{margin:float, gap:float, density:float, stacking:bool, split:bool, time_limit:float}
 	 */
 	private static function options( array $options ): array {
 		$out = array_merge( self::DEFAULTS, $options );
 
 		return array(
-			'margin'   => max( 0.0, self::cm( $out['margin'] ) ),
-			'gap'      => max( 0.0, self::cm( $out['gap'] ) ),
-			'density'  => max( 0.0, self::cm( $out['density'] ) ),
-			'stacking' => (bool) $out['stacking'],
-			'split'    => (bool) $out['split'],
+			'margin'     => max( 0.0, self::cm( $out['margin'] ) ),
+			'gap'        => max( 0.0, self::cm( $out['gap'] ) ),
+			'density'    => max( 0.0, self::cm( $out['density'] ) ),
+			'stacking'   => (bool) $out['stacking'],
+			'split'      => (bool) $out['split'],
+			'time_limit' => self::cm( $out['time_limit'] ),
 		);
 	}
 

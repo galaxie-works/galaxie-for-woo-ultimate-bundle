@@ -34,8 +34,11 @@ final class Module implements ModuleContract, ProvidesSettings {
 	/** WooCommerce → Status → Logs source. */
 	public const LOG_SOURCE = 'galaxie-shipping-cartons';
 
-	/** Most cartons the settings keep. */
-	private const MAX_CARTONS = 30;
+	/** Most cartons the settings keep: every carton is another packing search. */
+	private const MAX_CARTONS = 12;
+
+	/** Default wall-clock limit for one packing, in ms (filter `galaxie_shipping_cartons_time_limit_ms`). */
+	private const TIME_LIMIT_MS = 300;
 
 	/** Empty rows offered under the saved cartons. */
 	private const BLANK_ROWS = 3;
@@ -123,6 +126,10 @@ final class Module implements ModuleContract, ProvidesSettings {
 			}
 
 			$out[] = $carton;
+
+			if ( count( $out ) >= self::MAX_CARTONS ) {
+				break;
+			}
 		}
 
 		return $out;
@@ -131,17 +138,25 @@ final class Module implements ModuleContract, ProvidesSettings {
 	/**
 	 * The options every packing question is asked with.
 	 *
-	 * @return array{margin:float, gap:float, density:float, stacking:bool, fallback:string}
+	 * @return array{margin:float, gap:float, density:float, stacking:bool, fallback:string, time_limit:float}
 	 */
 	public static function packing_options(): array {
 		$fallback = (string) self::setting( 'fallback' );
 
 		return array(
-			'margin'   => (float) self::setting( 'margin' ),
-			'gap'      => (float) self::setting( 'gap' ),
-			'density'  => (float) self::setting( 'density' ),
-			'stacking' => (bool) self::setting( 'stacking' ),
-			'fallback' => in_array( $fallback, self::FALLBACKS, true ) ? $fallback : self::DEFAULTS['fallback'],
+			'margin'     => (float) self::setting( 'margin' ),
+			'gap'        => (float) self::setting( 'gap' ),
+			'density'    => (float) self::setting( 'density' ),
+			'stacking'   => (bool) self::setting( 'stacking' ),
+			'fallback'   => in_array( $fallback, self::FALLBACKS, true ) ? $fallback : self::DEFAULTS['fallback'],
+			/**
+			 * Wall-clock milliseconds one packing may take before the original
+			 * quote is kept. Each quote packs once per PHP request (shared by the
+			 * plugin's insured and uninsured calls).
+			 *
+			 * @param int $ms Default 300.
+			 */
+			'time_limit' => max( 1.0, (float) apply_filters( 'galaxie_shipping_cartons_time_limit_ms', self::TIME_LIMIT_MS ) ),
 		);
 	}
 

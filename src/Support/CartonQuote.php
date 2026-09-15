@@ -80,7 +80,7 @@ final class CartonQuote {
 	 * @param array    $options   {@see CartonPacking} options, plus `fallback`: 'split' (default) or 'original'.
 	 * @return array{body:string, changed:bool, reason:string, packed:?array}
 	 */
-	public static function rewrite_body( string $body, callable $lines_for, array $cartons, array $options = array() ): array {
+	public static function rewrite_body( string $body, callable $lines_for, array $cartons, array $options = array(), ?array &$memo = null ): array {
 		$keep = static fn( string $reason ): array => array(
 			'body'    => $body,
 			'changed' => false,
@@ -134,7 +134,7 @@ final class CartonQuote {
 			return $keep( 'lines' );
 		}
 
-		$plan = self::plan( $products, $lines, $cartons, $options );
+		$plan = self::plan( $products, $lines, $cartons, $options, $memo );
 
 		if ( null === $plan['packed'] ) {
 			return $keep( $plan['reason'] );
@@ -163,10 +163,13 @@ final class CartonQuote {
 	 * @param array $products { id, quantity (int), insurance_value?, unitary_value? } each.
 	 * @param array $lines    Same keys: { length, width, height, weight, group?, role?, label? }.
 	 * @param array $cartons  Carton arrays.
-	 * @param array $options  {@see CartonPacking} options, plus `fallback`.
+	 * @param array      $options  {@see CartonPacking} options, plus `fallback`.
+	 * @param array|null $memo     Packings already worked out, by {@see self::plan_key()}; filled in.
+	 *                             The Melhor Envio plugin quotes twice (insured, then uninsured
+	 *                             for Correios) with the same lines: they share one packing.
 	 * @return array{packed:?array, built:?array, reason:string} Reason '' when packed.
 	 */
-	public static function plan( array $products, array $lines, array $cartons, array $options = array() ): array {
+	public static function plan( array $products, array $lines, array $cartons, array $options = array(), ?array &$memo = null ): array {
 		$fail = static fn( string $reason, ?array $built = null ): array => array(
 			'packed' => null,
 			'built'  => $built,
@@ -188,10 +191,28 @@ final class CartonQuote {
 		}
 
 		$options['split'] = 'original' !== ( $options['fallback'] ?? 'split' );
-		$packed           = CartonPacking::pack( $built['items'], $cartons, $options );
+		$key              = self::plan_key( $products, $lines, $cartons, $options );
+
+		// Items are built again every time (insured values differ between the
+		// two quotes); only the packing, which depends on neither, is reused.
+		if ( is_array( $memo ) && isset( $memo[ $key ] ) ) {
+			$packed = $memo[ $key ]['packed'];
+			$reason = $memo[ $key ]['reason'];
+		} else {
+			$packed = CartonPacking::pack( $built['items'], $cartons, $options );
+			$reason = null !== $packed ? '' : ( CartonPacking::timed_out() ? 'timeout' : ( $options['split'] ? 'no_fit' : 'needs_split' ) );
+
+			if ( null !== $memo ) {
+				$memo         = array_slice( $memo, -49, null, true );
+				$memo[ $key ] = array(
+					'packed' => $packed,
+					'reason' => $reason,
+				);
+			}
+		}
 
 		if ( null === $packed ) {
-			return $fail( $options['split'] ? 'no_fit' : 'needs_split', $built );
+			return $fail( $reason, $built );
 		}
 
 		return array(
@@ -199,6 +220,24 @@ final class CartonQuote {
 			'built'  => $built,
 			'reason' => '',
 		);
+	}
+
+	/**
+	 * What a packing depends on, hashed: each product's id and quantity (not
+	 * its price or insurance), its line (size, weight, gift group and role),
+	 * the cartons and the options.
+	 *
+	 * @param array $products Products.
+	 * @param array $lines    Lines.
+	 * @param array $cartons  Cartons.
+	 * @param array $options  Options.
+	 */
+	public static function plan_key( array $products, array $lines, array $cartons, array $options ): string {
+		$ids = array_map( static fn( array $p ): array => array( (string) ( $p['id'] ?? '' ), (int) ( $p['quantity'] ?? 0 ) ), array_values( $products ) );
+
+		ksort( $options );
+
+		return md5( (string) json_encode( array( $ids, array_values( $lines ), array_values( $cartons ), $options ) ) );
 	}
 
 	/**

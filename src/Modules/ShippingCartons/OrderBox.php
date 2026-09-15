@@ -22,6 +22,9 @@ final class OrderBox {
 	/** Order edit screens, both storages. */
 	private const SCREENS = array( 'shop_order', 'woocommerce_page_wc-orders' );
 
+	/** Hidden order meta: the last packing shown, with what it was worked out from (hashed). */
+	private const META = '_galaxie_shipping_cartons';
+
 	/** Why no cartons are shown. */
 	private const REASONS = array(
 		'no_lines'    => 'Nenhum produto a enviar neste pedido.',
@@ -30,6 +33,7 @@ final class OrderBox {
 		'dimensions'  => 'Um produto não tem dimensões ou peso de envio no WooCommerce; o frete foi cotado sem caixas.',
 		'no_fit'      => 'Um item não cabe em nenhuma caixa cadastrada; o frete foi cotado sem caixas.',
 		'needs_split' => 'Nenhuma caixa sozinha comporta o pedido e a opção é enviar a cotação original.',
+		'timeout'     => 'O cálculo das caixas passou do tempo limite; o frete foi cotado sem caixas.',
 	);
 
 	public static function hooks(): void {
@@ -138,7 +142,34 @@ final class OrderBox {
 			);
 		}
 
-		return CartonQuote::plan( $products, $lines, Module::cartons(), Module::packing_options() );
+		$cartons = Module::cartons();
+		$options = Module::packing_options();
+
+		// The packing is not free: kept on the order, and worked out again only
+		// when its lines, the cartons or the settings changed.
+		$options['split'] = 'original' !== $options['fallback'];
+		$key              = CartonQuote::plan_key( $products, $lines, $cartons, $options );
+		$saved            = $order->get_meta( self::META );
+
+		if ( is_array( $saved ) && ( $saved['key'] ?? '' ) === $key && is_array( $saved['plan'] ?? null ) ) {
+			return $saved['plan'];
+		}
+
+		$plan = CartonQuote::plan( $products, $lines, $cartons, $options );
+
+		// A timeout may not happen next time: not kept.
+		if ( 'timeout' !== $plan['reason'] ) {
+			$order->update_meta_data(
+				self::META,
+				array(
+					'key'  => $key,
+					'plan' => $plan,
+				)
+			);
+			$order->save_meta_data();
+		}
+
+		return $plan;
 	}
 
 	/**
