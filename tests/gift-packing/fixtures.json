@@ -3,7 +3,10 @@
   "sizes": {
     "50g": { "size": "50g", "length": 5, "width": 5, "height": 6.5 },
     "190g": { "size": "190g", "length": 8, "width": 8, "height": 8.5 },
-    "bar": { "size": "bar", "length": 10, "width": 4, "height": 3 }
+    "bar": { "size": "bar", "length": 10, "width": 4, "height": 3 },
+    "50g-tall": { "size": "50g", "length": 4.8, "width": 5.2, "height": 7 },
+    "x-wide": { "size": "x", "length": 6, "width": 6, "height": 2 },
+    "x-long": { "size": "x", "length": 10, "width": 2, "height": 2 }
   },
   "boxes": {
     "b14": { "id": "b14", "length": 14, "width": 11, "height": 9.5, "price": 12 },
@@ -20,7 +23,9 @@
     "twin": { "id": "twin", "length": 11, "width": 11, "height": 7, "price": 8 },
     "b30": { "id": "b30", "length": 30, "width": 30, "height": 10, "price": 40 },
     "b25": { "id": "b25", "length": 25, "width": 25, "height": 10, "price": 35 },
-    "b28x22": { "id": "b28x22", "length": 28, "width": 22, "height": 10, "price": 30 }
+    "b28x22": { "id": "b28x22", "length": 28, "width": 22, "height": 10, "price": 30 },
+    "b7": { "id": "b7", "length": 7, "width": 7, "height": 5, "price": 2 },
+    "b35": { "id": "b35", "length": 35, "width": 35, "height": 10, "price": 50 }
   },
   "fits": [
     { "name": "box b14 takes 4 x 50g", "box": "b14", "candles": [["50g", 4]], "expect": true },
@@ -138,9 +143,16 @@
     { "name": "sizes default to the ones inside", "box": "b14", "candles": [["50g", 1]], "sizes": [], "expect": ["50g"] }
   ],
   "summary": [
-    { "name": "b14: the scope's example", "box": "b14", "sizes": ["50g", "190g"], "expect": [{ "50g": 4 }, { "190g": 1 }, { "50g": 2, "190g": 1 }] },
-    { "name": "p11: 50g only", "box": "p11", "sizes": ["50g", "190g"], "expect": [{ "50g": 4 }] },
-    { "name": "square 14", "box": "sq14", "sizes": ["50g", "190g"], "expect": [{ "50g": 4 }, { "190g": 1 }, { "50g": 3, "190g": 1 }] },
-    { "name": "too small for anything", "box": "rot", "sizes": ["50g", "190g"], "expect": [] }
+    { "name": "b14: the scope's example", "box": "b14", "sizes": ["50g", "190g"], "expect": [{ "counts": { "50g": 4 }, "capped": false }, { "counts": { "190g": 1 }, "capped": false }, { "counts": { "50g": 2, "190g": 1 }, "capped": false }] },
+    { "name": "p11: 50g only", "box": "p11", "sizes": ["50g", "190g"], "expect": [{ "counts": { "50g": 4 }, "capped": false }] },
+    { "name": "square 14", "box": "sq14", "sizes": ["50g", "190g"], "expect": [{ "counts": { "50g": 4 }, "capped": false }, { "counts": { "190g": 1 }, "capped": false }, { "counts": { "50g": 3, "190g": 1 }, "capped": false }] },
+    { "name": "too small for anything", "box": "rot", "sizes": ["50g", "190g"], "expect": [] },
+    { "name": "35 x 35 holds 36 x 50g: 12 is the search cap, flagged", "box": "b35", "sizes": ["50g"], "expect": [{ "counts": { "50g": 12 }, "capped": true }] },
+    { "name": "max 2 is a real limit, not capped", "box": "max2", "sizes": ["50g"], "expect": [{ "counts": { "50g": 2 }, "capped": false }] }
+  ],
+  "cover": [
+    { "name": "6 x 6 and 10 x 2 of one size cover as 10 x 6", "candles": ["x-wide", "x-long"], "expect": [{ "size": "x", "length": 10, "width": 6, "height": 2 }], "box": "b7", "fits": false },
+    { "name": "the 6 x 6 alone fits that box", "candles": ["x-wide"], "expect": [{ "size": "x", "length": 6, "width": 6, "height": 2 }], "box": "b7", "fits": true },
+    { "name": "per size, first-seen order, tallest and widest win", "candles": ["50g", "190g", "50g-tall"], "expect": [{ "size": "50g", "length": 5.2, "width": 5, "height": 7 }, { "size": "190g", "length": 8, "width": 8, "height": 8.5 }] }
   ]
 }

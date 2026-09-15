@@ -8,8 +8,8 @@
 import { readFileSync } from 'node:fs'
 import { isDeepStrictEqual } from 'node:util'
 
-import { arrange, fits, room, summary } from '../../frontend/src/lib/gift-packing.ts'
-import type { Box, Candle, Gift, PackingOptions } from '../../frontend/src/lib/gift-packing.ts'
+import { arrange, cover, fits, room, summary } from '../../frontend/src/lib/gift-packing.ts'
+import type { Box, Candle, Gift, PackingOptions, SummaryRow } from '../../frontend/src/lib/gift-packing.ts'
 
 interface Fixtures {
   sizes: Record<string, Candle>
@@ -17,7 +17,8 @@ interface Fixtures {
   fits: { name: string; box: string; candles: [string, number][]; options?: PackingOptions; expect: boolean }[]
   arrange: { name: string; candles: [string, number][]; boxes: string[]; expect: { box: string; candles: string[] }[] }[]
   room: { name: string; box: string; candles: [string, number][]; sizes: string[]; expect: string[] }[]
-  summary: { name: string; box: string; sizes: string[]; expect: Record<string, number>[] }[]
+  summary: { name: string; box: string; sizes: string[]; expect: SummaryRow[] }[]
+  cover: { name: string; candles: string[]; expect: Candle[]; box?: string; fits?: boolean }[]
 }
 
 const fixtures = JSON.parse(readFileSync(new URL('./fixtures.json', import.meta.url), 'utf8')) as Fixtures
@@ -59,6 +60,13 @@ for (const c of fixtures.room) {
 
 for (const c of fixtures.summary) {
   check('summary', c.name, summary(boxes[c.box], c.sizes.map((s) => sizes[s])), c.expect)
+}
+
+for (const c of fixtures.cover) {
+  const covered = cover(c.candles.map((s) => sizes[s]))
+  check('cover', c.name, covered, c.expect)
+
+  if (c.box !== undefined) check('cover', `${c.name} (fits ${c.box})`, fits(boxes[c.box], covered), c.fits)
 }
 
 console.log('\n  timing (best of 5):')

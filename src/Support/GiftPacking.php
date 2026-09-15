@@ -324,12 +324,17 @@ final class GiftPacking {
 	 * mix that cannot take one more of anything.
 	 *
 	 * For a 14 × 11 × 9.5 box and the Eir sizes that is
-	 * `[ {50g: 4}, {190g: 1}, {50g: 2, 190g: 1} ]`.
+	 * `[ {counts: {50g: 4}}, {counts: {190g: 1}}, {counts: {50g: 2, 190g: 1}} ]`
+	 * (each with `capped` false).
+	 *
+	 * The search stops at MAX_ITEMS candles, so a row that reaches it is
+	 * `capped`: the box may hold more, 12 is not its capacity. A box `max` at or
+	 * below MAX_ITEMS is a real limit and never caps.
 	 *
 	 * @param array $box     Box array.
 	 * @param array $sizes   One candle per size.
 	 * @param array $options { gap, stacking }.
-	 * @return array<int, array<string, int>> Size key => count, sizes in the order given.
+	 * @return array<int, array{counts: array<string, int>, capped: bool}> Sizes in the order given.
 	 */
 	public static function summary( array $box, array $sizes, array $options = array() ): array {
 		$sizes = self::distinct( $sizes );
@@ -398,6 +403,7 @@ final class GiftPacking {
 
 		ksort( $pure );
 
+		$max   = max( 0, (int) ( $box['max'] ?? 0 ) );
 		$named = array();
 		foreach ( array_merge( array_values( $pure ), $mixes ) as $v ) {
 			$row = array();
@@ -406,10 +412,48 @@ final class GiftPacking {
 					$row[ (string) $sizes[ $i ]['size'] ] = $c;
 				}
 			}
-			$named[] = $row;
+			$named[] = array(
+				'counts' => $row,
+				'capped' => array_sum( $v ) >= self::MAX_ITEMS && ( 0 === $max || $max > self::MAX_ITEMS ),
+			);
 		}
 
 		return $named;
+	}
+
+	/**
+	 * One candle per size that no candle of that size can outgrow: the longest
+	 * long side, the longest short side and the tallest height among them.
+	 *
+	 * Candles turn, so a 10 × 2 and a 6 × 6 of the same size become 10 × 6 — a
+	 * box that takes that takes either. Other keys come from the first seen.
+	 *
+	 * @param array $candles Candle arrays, sizes repeated freely.
+	 * @return array<int, array> Sizes in first-seen order.
+	 */
+	public static function cover( array $candles ): array {
+		$out = array();
+
+		foreach ( $candles as $candle ) {
+			$key   = (string) ( $candle['size'] ?? '' );
+			$long  = max( $candle['length'] ?? 0, $candle['width'] ?? 0 );
+			$short = min( $candle['length'] ?? 0, $candle['width'] ?? 0 );
+			$tall  = $candle['height'] ?? 0;
+
+			if ( ! isset( $out[ $key ] ) ) {
+				$out[ $key ]           = $candle;
+				$out[ $key ]['length'] = $long;
+				$out[ $key ]['width']  = $short;
+				$out[ $key ]['height'] = $tall;
+				continue;
+			}
+
+			$out[ $key ]['length'] = max( $out[ $key ]['length'], $long );
+			$out[ $key ]['width']  = max( $out[ $key ]['width'], $short );
+			$out[ $key ]['height'] = max( $out[ $key ]['height'], $tall );
+		}
+
+		return array_values( $out );
 	}
 
 	/**
@@ -462,9 +506,10 @@ final class GiftPacking {
 	/**
 	 * One candle per term of the size attribute, as the store sells them.
 	 *
-	 * When variations of the same size disagree on dimensions, the largest (by
-	 * volume) stands for the size, so a preview never promises a fit that one of
-	 * those candles would break. Term order as WooCommerce sorts the attribute.
+	 * Every variation of each term is read, and when they disagree on dimensions
+	 * `cover()` builds a shape none of them outgrows, so a preview never promises
+	 * a fit that one of those candles would break. Term order as WooCommerce
+	 * sorts the attribute.
 	 *
 	 * @param string $attribute Size attribute, e.g. `pa_peso`.
 	 * @return array<int, array> Candle arrays plus `label` (the term name).
@@ -489,7 +534,7 @@ final class GiftPacking {
 				array(
 					'post_type'      => 'product_variation',
 					'post_status'    => array( 'publish', 'private' ),
-					'posts_per_page' => 50,
+					'posts_per_page' => -1, // IDs only; a size missed here could break a fit.
 					'fields'         => 'ids',
 					'no_found_rows'  => true,
 					'meta_query'     => array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query
@@ -501,21 +546,22 @@ final class GiftPacking {
 				)
 			);
 
-			$largest = null;
+			$found = array();
 			foreach ( $ids as $id ) {
 				$product = wc_get_product( $id );
 				$candle  = $product ? self::candle_from_product( $product, $attribute ) : null;
 
-				if ( $candle && ( ! $largest || $candle['length'] * $candle['width'] * $candle['height'] > $largest['length'] * $largest['width'] * $largest['height'] ) ) {
-					$largest = $candle;
+				if ( $candle ) {
+					$candle['size'] = $term->slug;
+					$found[]        = $candle;
 				}
 			}
 
-			if ( $largest ) {
-				unset( $largest['price'] );
-				$largest['size']  = $term->slug;
-				$largest['label'] = $term->name;
-				$sizes[]          = $largest;
+			if ( $found ) {
+				$size = self::cover( $found )[0];
+				unset( $size['price'] );
+				$size['label'] = $term->name;
+				$sizes[]       = $size;
 			}
 		}
 
