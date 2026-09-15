@@ -63,6 +63,7 @@ final class BoxFields {
 	public function register(): void {
 		add_action( 'woocommerce_product_after_variable_attributes', array( $this, 'render' ), 10, 3 );
 		add_action( 'woocommerce_save_product_variation', array( $this, 'save' ), 10, 2 );
+		GiftPacking::watch_sizes();
 	}
 
 	/**

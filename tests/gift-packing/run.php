@@ -161,6 +161,66 @@ foreach ( $fixtures['clean_message'] as $case ) {
 // Bytes JSON cannot carry: invalid UTF-8 is dropped, the rest kept.
 $check( 'clean_message', 'invalid UTF-8 dropped', GiftGroups::clean_message( "ok\xC3\x28 fim" ), 'ok( fim' );
 
+// WooCommerce helpers, PHP only (the TS twin never sees products), on stubs.
+require __DIR__ . '/wc-stubs.php';
+
+$box_meta = static function ( array $extra ): WC_Product {
+	return new WC_Product(
+		array(
+			'id'    => 42,
+			'type'  => 'variation',
+			'price' => '20',
+			'meta'  => $extra + array(
+				'_galaxie_box_length' => '14.2',
+				'_galaxie_box_width'  => '14.2',
+				'_galaxie_box_height' => '4.8',
+			),
+		)
+	);
+};
+
+foreach ( array(
+	'negative overflow becomes 0'     => array( '-1', 0.0 ),
+	'overflow above 2 becomes 2'      => array( '3', 2.0 ),
+	'non-numeric overflow becomes 0'  => array( 'abc', 0.0 ),
+	'overflow 0.5 is kept'            => array( '0.5', 0.5 ),
+	'no overflow meta is 0'           => array( null, 0.0 ),
+) as $name => $spec ) {
+	$box = GiftPacking::box_from_product( $box_meta( null === $spec[0] ? array() : array( '_galaxie_box_overflow' => $spec[0] ) ) );
+	$check( 'box_from_product', $name, $box['overflow'] ?? 'missing', $spec[1] );
+}
+
+$check( 'box_from_product', 'no internal height: not a box', GiftPacking::box_from_product( $box_meta( array( '_galaxie_box_height' => '' ) ) ), null );
+
+$candle_with = static function ( array $meta, array $attributes = array( 'pa_peso' => '50g' ) ): WC_Product {
+	return new WC_Product(
+		array(
+			'id'         => 7,
+			'type'       => 'variation',
+			'attributes' => $attributes,
+			'length'     => '5',
+			'width'      => '5',
+			'height'     => '6.5',
+			'price'      => '30',
+			'meta'       => $meta,
+		)
+	);
+};
+
+$dims = static fn( ?array $c ): ?array => null === $c ? null : array( $c['size'], $c['length'], $c['width'], $c['height'] );
+$gift = array(
+	'_galaxie_gift_length' => '5.3',
+	'_galaxie_gift_width'  => '5.3',
+	'_galaxie_gift_height' => '6.7',
+);
+
+$check( 'candle_from_product', 'all three gift dimensions set: used', $dims( GiftPacking::candle_from_product( $candle_with( $gift ) ) ), array( '50g', 5.3, 5.3, 6.7 ) );
+$check( 'candle_from_product', 'gift height missing: WooCommerce dimensions', $dims( GiftPacking::candle_from_product( $candle_with( array( '_galaxie_gift_height' => '' ) + $gift ) ) ), array( '50g', 5.0, 5.0, 6.5 ) );
+$check( 'candle_from_product', 'gift width 0: WooCommerce dimensions', $dims( GiftPacking::candle_from_product( $candle_with( array( '_galaxie_gift_width' => '0' ) + $gift ) ) ), array( '50g', 5.0, 5.0, 6.5 ) );
+$check( 'candle_from_product', 'gift length non-numeric: WooCommerce dimensions', $dims( GiftPacking::candle_from_product( $candle_with( array( '_galaxie_gift_length' => 'x' ) + $gift ) ) ), array( '50g', 5.0, 5.0, 6.5 ) );
+$check( 'candle_from_product', 'no gift meta at all: WooCommerce dimensions', $dims( GiftPacking::candle_from_product( $candle_with( array() ) ) ), array( '50g', 5.0, 5.0, 6.5 ) );
+$check( 'candle_from_product', 'no size attribute: not a candle', GiftPacking::candle_from_product( $candle_with( $gift, array() ) ), null );
+
 // Timing, not pass/fail: the slowest 12-candle cases.
 echo "\n  timing (best of 5):\n";
 $time = static function ( string $label, callable $run ): void {
