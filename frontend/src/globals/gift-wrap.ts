@@ -77,6 +77,9 @@ type LoadPopup = (options: { id: string }) => unknown
  */
 const OPEN_TIMEOUT = 10000
 
+/** How long, after that, a popup still loading is watched for to be closed. */
+const LATE_WATCH = 60000
+
 let pending: Pending | null = null
 let stopWatching: (() => void) | null = null
 let openings = 0
@@ -248,14 +251,28 @@ function open(form: HTMLFormElement, block: HTMLElement, proceed: (() => void) |
 function watch(current: Pending): () => void {
   const observer = new MutationObserver(() => check())
 
+  let expired = false
+  let late = 0
+
   const stop = (): void => {
     observer.disconnect()
     window.clearTimeout(timer)
+    window.clearTimeout(late)
   }
 
   const check = (): void => {
     const dialog = document.getElementById(`pix_popup_${current.popupId}`)
     if (!dialog) return
+
+    // The click already went ahead without the builder: a popup that arrives
+    // now is closed, adding nothing and asking nothing.
+    if (expired) {
+      if (isOpen(dialog)) {
+        closePopup(dialog)
+        stop()
+      }
+      return
+    }
 
     paintBuilders(dialog)
 
@@ -266,10 +283,21 @@ function watch(current: Pending): () => void {
   const timer = window.setTimeout(() => {
     if (current.done) return
 
-    stop()
     current.done = true
+    expired = true
     if (pending === current) pending = null
+
+    // Settled as "Seguir sem incrementar o presente": the gift flag only, and
+    // not asked again for this choice.
+    plans.delete(current.form)
+    resolutions.set(current.form, 'bypass')
+    signatures.set(current.form, signatureOf(current.candle))
+    paintBlock(current.form, current.block)
+
     current.proceed?.()
+
+    // Keep watching a while for a popup that loads late, to close it.
+    late = window.setTimeout(stop, LATE_WATCH)
   }, OPEN_TIMEOUT)
 
   observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] })

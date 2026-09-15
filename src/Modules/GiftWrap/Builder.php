@@ -506,6 +506,12 @@ final class Builder {
 		$element_id = isset( $_POST['element_id'] ) ? sanitize_key( wp_unslash( $_POST['element_id'] ) ) : '';
 		// phpcs:enable WordPress.Security.NonceVerification.Missing
 
+		// Only a document this request could have rendered: published and not
+		// behind a password, or one the visitor may edit (the editor's preview).
+		if ( $post_id > 0 && ! current_user_can( 'edit_post', $post_id ) && ( 'publish' !== get_post_status( $post_id ) || post_password_required( $post_id ) ) ) {
+			return array();
+		}
+
 		return CartParts::element_settings( $post_id, $element_id );
 	}
 

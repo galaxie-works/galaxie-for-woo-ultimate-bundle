@@ -454,7 +454,16 @@ final class Groups {
 			return $passed;
 		}
 
-		$others = self::candles( $gift['candles'], (string) $cart_item_key );
+		// The classic "Update cart" form validates one line at a time against the
+		// cart as it was: the gift's other candles are taken at the quantities
+		// posted beside this one, so lowering one while raising another passes.
+		$lines = $gift['candles'];
+
+		foreach ( $lines as $line_key => $line ) {
+			$lines[ $line_key ]['quantity'] = self::proposed( (string) $line_key, (int) $line['quantity'] );
+		}
+
+		$others = self::candles( $lines, (string) $cart_item_key );
 		$candle = ( $values['data'] ?? null ) instanceof \WC_Product ? GiftPacking::candle_from_product( $values['data'], (string) Module::setting( 'size_attribute' ) ) : null;
 
 		if ( null === $others || null === $candle ) {
@@ -481,6 +490,20 @@ final class Groups {
 		wc_add_notice( sprintf( __( 'Não cabe mais %1$s na caixa do %2$s.', 'galaxie-woo' ), $name, self::label( $number ) ), 'error' );
 
 		return false;
+	}
+
+	/**
+	 * The quantity WooCommerce's cart form is saving for a line, or the one it
+	 * has when the request is not that form (the Galaxie Cart sends one line).
+	 *
+	 * @param string $key     Cart item key.
+	 * @param int    $current The line's quantity now.
+	 */
+	private static function proposed( string $key, int $current ): int {
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput -- WooCommerce verified the cart form before validating it; cast below.
+		$raw = isset( $_POST['cart'][ $key ]['qty'] ) ? $_POST['cart'][ $key ]['qty'] : null;
+
+		return is_scalar( $raw ) ? max( 0, (int) wc_stock_amount( wp_unslash( (string) $raw ) ) ) : $current;
 	}
 
 	/**
@@ -522,18 +545,37 @@ final class Groups {
 			return $value;
 		}
 
+		static $cache = array();
+
 		$contents = WC()->cart->get_cart();
 		$key      = (string) ( $cart_item['key'] ?? '' );
+
+		// The Store API asks this for every line of every cart response; the fit
+		// search behind it runs once per line and cart state in a request.
+		$state = $key . '|' . md5(
+			(string) wp_json_encode(
+				array_map(
+					static fn( $item ): array => array( (int) ( $item['quantity'] ?? 0 ), ( $item['data'] ?? null ) instanceof \WC_Product ? $item['data']->get_id() : 0 ),
+					$contents
+				)
+			)
+		);
+
+		if ( isset( $cache[ $state ] ) ) {
+			return null === $cache[ $state ] ? $value : ( is_numeric( $value ) ? min( (int) $value, $cache[ $state ] ) : $cache[ $state ] );
+		}
+
 		$gift     = self::groups( $contents )[ $group['id'] ] ?? null;
 		$box      = $gift ? self::box( $gift['box'] ) : null;
 		$others   = $gift && '' !== $key ? self::candles( $gift['candles'], $key ) : null;
 		$candle   = GiftPacking::candle_from_product( $product, (string) Module::setting( 'size_attribute' ) );
 
 		if ( ! $box || null === $others || ! $candle ) {
+			$cache[ $state ] = null;
 			return $value;
 		}
 
-		$fit = GiftGroups::max_quantity( $box, $others, $candle, (int) $cart_item['quantity'], Module::packing_options() );
+		$fit = $cache[ $state ] = GiftGroups::max_quantity( $box, $others, $candle, (int) $cart_item['quantity'], Module::packing_options() );
 
 		return is_numeric( $value ) ? min( (int) $value, $fit ) : $fit;
 	}
