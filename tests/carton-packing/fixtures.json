@@ -21,10 +21,10 @@
     { "name": "1 x 190g + 2 x 50g", "items": [["190g", 1], ["50g", 2]], "expect": ["N7"] },
     { "name": "4 x 50g (N7 or smaller)", "items": [["50g", 4]], "expect": ["N7"] },
     {
-      "name": "4 x 190g",
+      "name": "4 x 190g: N17, not N16",
       "items": [["190g", 4]],
-      "expect": ["N16"],
-      "disagreement": "Usable N16 with 1.5 cm margin is 18 x 16 x 15. Four 8.2 x 8.2 x 8.8 jars need 2 x 2 in some pair of axes = 16.4 x 16.4; only the 18 axis is >= 16.4 (16 and 15 are not), and 4 in a row is 32.8. So they do not fit N16; N17 (usable 22 x 22 x 11: 2 x 2 x 1 = 16.4 x 16.4 x 8.8) is the next carton by volume, then N18."
+      "expect": ["N17"],
+      "note": "Margin 1.5 cm confirmed by the merchant. Usable N16 is 18 x 16 x 15: four 8.2 x 8.2 x 8.8 jars need 2 x 2 = 16.4 x 16.4 on some pair of axes, and only the 18 axis is >= 16.4; 4 in a row is 32.8. N16 holds 2 x 190g. N17 (usable 22 x 22 x 11) takes the 4 flat."
     },
     { "name": "1 square gift box", "items": [["square", 1]], "expect": ["N16"] },
     { "name": "2 square gift boxes stacked", "items": [["square", 2]], "expect": ["N16"] },
