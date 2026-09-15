@@ -461,9 +461,24 @@ final class GiftPacking {
 		return array_values( $out );
 	}
 
+	/** Gift dimension meta keys, on variations and on size terms alike. */
+	private const GIFT_KEYS = array( '_galaxie_gift_length', '_galaxie_gift_width', '_galaxie_gift_height' );
+
+	/**
+	 * Size term gift dimensions already read in this request, by attribute|size.
+	 *
+	 * @var array<string, float[]>
+	 */
+	private static array $terms = array();
+
 	/**
 	 * A candle array from a WooCommerce variation (or simple product), with
 	 * dimensions in cm whatever unit the store uses.
+	 *
+	 * Which dimensions, most specific first, each set only when all three are:
+	 * the variation's own gift dimensions (the jar alone, lid on, in cm), then
+	 * its size term's (`term_dimensions()`), then WooCommerce's, which are the
+	 * jar in its shipping box and stay for freight.
 	 *
 	 * @param \WC_Product $product   Candle variation.
 	 * @param string      $attribute Size attribute, e.g. `pa_peso`.
@@ -479,13 +494,11 @@ final class GiftPacking {
 			$size = (string) $product->get_attribute( $attribute );
 		}
 
-		// Gift dimensions (the jar alone, lid on, in cm) win when all three are
-		// set; WooCommerce's are the jar in its shipping box and stay for freight.
-		$gift = array(
-			(float) $product->get_meta( '_galaxie_gift_length' ),
-			(float) $product->get_meta( '_galaxie_gift_width' ),
-			(float) $product->get_meta( '_galaxie_gift_height' ),
-		);
+		$gift = array_map( static fn( string $key ): float => (float) $product->get_meta( $key ), self::GIFT_KEYS );
+
+		if ( min( $gift ) <= 0 ) {
+			$gift = self::term_dimensions( $attribute, $size );
+		}
 
 		$candle = min( $gift ) > 0 ? array(
 			'size'   => $size,
@@ -542,9 +555,12 @@ final class GiftPacking {
 	 * break. Drafts and trashed products do not count. Term order as WooCommerce
 	 * sorts the attribute.
 	 *
+	 * Each candle's dimensions resolve as in `candle_from_product()`: variation
+	 * gift dimensions, then its size term's, then WooCommerce's.
+	 *
 	 * Cached in the SIZES_TRANSIENT transient (a day at most); `watch_sizes()`
 	 * clears it whenever a product or variation is saved, deleted, trashed or
-	 * changes status.
+	 * changes status, and when a size term or its gift dimensions change.
 	 *
 	 * @param string $attribute Size attribute, e.g. `pa_peso`.
 	 * @return array<int, array> Candle arrays plus `label` (the term name).
@@ -632,10 +648,44 @@ final class GiftPacking {
 	}
 
 	/**
-	 * Forgets the cached store sizes, in this request and in the transient.
+	 * A size term's gift dimensions, [ length, width, height ] in cm; zeros when
+	 * the term is missing or has none. The term is the one whose slug (a
+	 * variation's attribute value) or name (a simple product's) is `$size`.
+	 *
+	 * Read once per request; `flush_sizes()` forgets them.
+	 *
+	 * @param string $attribute Size attribute taxonomy, e.g. `pa_peso`.
+	 * @param string $size      Slug or name.
+	 * @return float[]
+	 */
+	public static function term_dimensions( string $attribute, string $size ): array {
+		$key = $attribute . '|' . $size;
+
+		if ( isset( self::$terms[ $key ] ) ) {
+			return self::$terms[ $key ];
+		}
+
+		$dims = array( 0.0, 0.0, 0.0 );
+
+		if ( '' !== $attribute && '' !== $size && function_exists( 'get_term_by' ) ) {
+			$term = get_term_by( 'slug', $size, $attribute );
+			$term = $term ? $term : get_term_by( 'name', $size, $attribute );
+
+			if ( is_object( $term ) && isset( $term->term_id ) ) {
+				$dims = array_map( static fn( string $meta ): float => (float) get_term_meta( (int) $term->term_id, $meta, true ), self::GIFT_KEYS );
+			}
+		}
+
+		return self::$terms[ $key ] = $dims;
+	}
+
+	/**
+	 * Forgets the cached store sizes and size term dimensions, in this request
+	 * and in the transient.
 	 */
 	public static function flush_sizes(): void {
 		self::$sizes = array();
+		self::$terms = array();
 		delete_transient( self::SIZES_TRANSIENT );
 	}
 
@@ -681,16 +731,27 @@ final class GiftPacking {
 			3
 		);
 
-		add_action(
-			'edited_term',
-			static function ( $term_id, $tt_id, $taxonomy ): void {
-				if ( str_starts_with( (string) $taxonomy, 'pa_' ) ) {
-					self::flush_sizes();
-				}
-			},
-			10,
-			3
-		);
+		$by_taxonomy = static function ( $term_id, $tt_id, $taxonomy ): void {
+			if ( str_starts_with( (string) $taxonomy, 'pa_' ) ) {
+				self::flush_sizes();
+			}
+		};
+
+		foreach ( array( 'created_term', 'edited_term', 'delete_term' ) as $hook ) {
+			add_action( $hook, $by_taxonomy, 10, 3 );
+		}
+
+		// A size term's gift dimensions, however they changed (the term form,
+		// `wp/v2`, WP-CLI): the sizes worked out from them are stale.
+		$by_term_meta = static function ( $meta_id, $term_id, $meta_key ): void {
+			if ( in_array( (string) $meta_key, self::GIFT_KEYS, true ) ) {
+				self::flush_sizes();
+			}
+		};
+
+		foreach ( array( 'added_term_meta', 'updated_term_meta', 'deleted_term_meta' ) as $hook ) {
+			add_action( $hook, $by_term_meta, 10, 3 );
+		}
 	}
 
 	/**

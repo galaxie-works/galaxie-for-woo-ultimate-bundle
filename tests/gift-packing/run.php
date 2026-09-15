@@ -221,6 +221,49 @@ $check( 'candle_from_product', 'gift length non-numeric: WooCommerce dimensions'
 $check( 'candle_from_product', 'no gift meta at all: WooCommerce dimensions', $dims( GiftPacking::candle_from_product( $candle_with( array() ) ) ), array( '50g', 5.0, 5.0, 6.5 ) );
 $check( 'candle_from_product', 'no size attribute: not a candle', GiftPacking::candle_from_product( $candle_with( $gift, array() ) ), null );
 
+// Gift dimensions per size term: variation → size term → WooCommerce.
+$GLOBALS['gx_terms']     = array(
+	'pa_peso' => array(
+		(object) array( 'term_id' => 11, 'slug' => '190g', 'name' => '190 g' ),
+		(object) array( 'term_id' => 12, 'slug' => '50g', 'name' => '50 g' ),
+	),
+);
+$GLOBALS['gx_term_meta'] = array(
+	12 => array(
+		'_galaxie_gift_length' => '5.1',
+		'_galaxie_gift_width'  => '5.1',
+		'_galaxie_gift_height' => '6.6',
+	),
+);
+GiftPacking::flush_sizes();
+
+$check( 'candle_from_product', 'variation gift dimensions win over the size term', $dims( GiftPacking::candle_from_product( $candle_with( $gift ) ) ), array( '50g', 5.3, 5.3, 6.7 ) );
+$check( 'candle_from_product', 'no variation gift dimensions: size term', $dims( GiftPacking::candle_from_product( $candle_with( array() ) ) ), array( '50g', 5.1, 5.1, 6.6 ) );
+$check( 'candle_from_product', 'variation gift height missing: size term, not a mix', $dims( GiftPacking::candle_from_product( $candle_with( array( '_galaxie_gift_height' => '' ) + $gift ) ) ), array( '50g', 5.1, 5.1, 6.6 ) );
+$check( 'candle_from_product', 'size term without gift dimensions: WooCommerce dimensions', $dims( GiftPacking::candle_from_product( $candle_with( array(), array( 'pa_peso' => '190g' ) ) ) ), array( '190g', 5.0, 5.0, 6.5 ) );
+$check( 'candle_from_product', 'size not a term: WooCommerce dimensions', $dims( GiftPacking::candle_from_product( $candle_with( array(), array( 'pa_peso' => '80g' ) ) ) ), array( '80g', 5.0, 5.0, 6.5 ) );
+
+$simple = new WC_Product(
+	array(
+		'id'              => 8,
+		'type'            => 'simple',
+		'text_attributes' => array( 'pa_peso' => '50 g' ),
+		'length'          => '5',
+		'width'           => '5',
+		'height'          => '6.5',
+		'price'           => '30',
+	)
+);
+$check( 'candle_from_product', 'simple product: size term found by name', $dims( GiftPacking::candle_from_product( $simple ) ), array( '50 g', 5.1, 5.1, 6.6 ) );
+
+$GLOBALS['gx_term_meta'][12]['_galaxie_gift_width'] = '';
+$check( 'candle_from_product', 'term read once per request (cached)', $dims( GiftPacking::candle_from_product( $candle_with( array() ) ) ), array( '50g', 5.1, 5.1, 6.6 ) );
+GiftPacking::flush_sizes();
+$check( 'candle_from_product', 'after flush_sizes: size term width gone, WooCommerce dimensions', $dims( GiftPacking::candle_from_product( $candle_with( array() ) ) ), array( '50g', 5.0, 5.0, 6.5 ) );
+
+$GLOBALS['gx_terms'] = array();
+GiftPacking::flush_sizes();
+
 // Timing, not pass/fail: the slowest 12-candle cases.
 echo "\n  timing (best of 5):\n";
 $time = static function ( string $label, callable $run ): void {

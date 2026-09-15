@@ -162,7 +162,7 @@ final class ProductMeta {
 				'minimum'     => 0,
 			),
 			BoxFields::META['overflow']  => $number( 'Extra height, cm, candles may stand above the base with the lid still closing (0–2).', array( 'maximum' => BoxFields::OVERFLOW_MAX ) ),
-			CandleFields::META['length'] => $number( 'Candle jar alone, lid on, length in cm, for gift packing. Empty: shipping dimensions.' ),
+			CandleFields::META['length'] => $number( 'Candle jar alone, lid on, length in cm, for gift packing. Optional override: empty uses the size term\'s gift dimensions, then the shipping dimensions.' ),
 			CandleFields::META['width']  => $number( 'Candle jar alone, lid on, width in cm, for gift packing.' ),
 			CandleFields::META['height'] => $number( 'Candle jar alone, lid on, height in cm, for gift packing.' ),
 		);

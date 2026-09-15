@@ -124,6 +124,37 @@ function delete_transient( $name ) {
 	return true;
 }
 
+function register_term_meta( $taxonomy, $key, $args ) {
+	$GLOBALS['gx_term_meta_args'][ $taxonomy ][ $key ] = $args;
+	return true;
+}
+
+function update_term_meta( $term_id, $key, $value ) {
+	$GLOBALS['gx_term_meta'][ (int) $term_id ][ $key ] = $value;
+	return true;
+}
+
+function delete_term_meta( $term_id, $key ) {
+	unset( $GLOBALS['gx_term_meta'][ (int) $term_id ][ $key ] );
+	return true;
+}
+
+function esc_attr( $text ) {
+	return htmlspecialchars( (string) $text, ENT_QUOTES );
+}
+
+function esc_html( $text ) {
+	return htmlspecialchars( (string) $text, ENT_QUOTES );
+}
+
+function wp_nonce_field( $action, $name, $referer = true ) {
+	echo '<input type="hidden" name="' . esc_attr( $name ) . '" value="ok" />';
+}
+
+function wc_format_localized_decimal( $value ) {
+	return (string) $value;
+}
+
 if ( ! function_exists( 'mb_substr' ) ) {
 	function mb_substr( $string, $start, $length = null ) {
 		return substr( $string, $start, $length );

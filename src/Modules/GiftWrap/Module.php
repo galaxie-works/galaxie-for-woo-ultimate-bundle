@@ -89,7 +89,10 @@ final class Module implements ModuleContract, ProvidesBootData, ProvidesElemento
 		// The jar's own size for packing, beside the shipping dimensions Melhor Envio reads.
 		( new CandleFields( (string) self::setting( 'size_attribute' ), self::categories( 'box' ) ) )->register();
 
-		// The same sizes over the REST API, sanitised by the two classes above.
+		// The jar's size once per size term, used when a variation has none of its own.
+		( new SizeTermFields( (string) self::setting( 'size_attribute' ) ) )->register();
+
+		// The variation sizes over the REST API, sanitised by BoxFields and CandleFields.
 		ProductMeta::hooks();
 	}
 

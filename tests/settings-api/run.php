@@ -38,6 +38,7 @@ use Galaxie\Woo\Core\SettingsService;
 use Galaxie\Woo\Modules\GiftWrap\BoxFields;
 use Galaxie\Woo\Modules\GiftWrap\CandleFields;
 use Galaxie\Woo\Modules\GiftWrap\ProductMeta;
+use Galaxie\Woo\Modules\GiftWrap\SizeTermFields;
 use Galaxie\Woo\Modules\QuantityDiscounts\Module as QuantityDiscounts;
 use Galaxie\Woo\Modules\ShippingCartons\Module as ShippingCartons;
 use Galaxie\Woo\Support\GiftPacking;
@@ -444,6 +445,66 @@ $GLOBALS['gx_caps'] = array( 'edit_product:501' );
 $check( 'wc rest', 'sizes in meta_data with edit_product on it: passes', ProductMeta::guard_wc_rest( $variation, $touching ), $variation );
 $earlier = new WP_Error( 'earlier', 'x' );
 $check( 'wc rest', 'an earlier error passes through', ProductMeta::guard_wc_rest( $earlier, $touching ), $earlier );
+
+// -------------------------------------------------------- size term gift sizes
+
+$GLOBALS['gx_term_meta']      = array();
+$GLOBALS['gx_term_meta_args'] = array();
+( new SizeTermFields( 'pa_peso' ) )->register();
+
+$args = $GLOBALS['gx_term_meta_args']['pa_peso'] ?? array();
+$check( 'term meta', 'registered on the size attribute, the variation keys', array_keys( $args ), array_values( CandleFields::META ) );
+$check( 'term meta', 'REST schema: number ≥ 0, single', array( $args['_galaxie_gift_height']['show_in_rest']['schema'], $args['_galaxie_gift_height']['single'] ), array( array( 'type' => 'number', 'minimum' => 0 ), true ) );
+$check( 'term meta', 'form hooks on that taxonomy only', array( isset( $GLOBALS['gx_hooks']['pa_peso_add_form_fields'], $GLOBALS['gx_hooks']['pa_peso_edit_form_fields'], $GLOBALS['gx_hooks']['created_pa_peso'], $GLOBALS['gx_hooks']['edited_pa_peso'] ), isset( $GLOBALS['gx_hooks']['edited_pa_cor'] ) ), array( true, false ) );
+
+$term_auth                  = $args['_galaxie_gift_length']['auth_callback'];
+$GLOBALS['gx_user_caps'][7] = array( 'edit_product:501', 'edit_products' );
+$check( 'term meta', 'auth: without manage_product_terms: denied', $term_auth( true, '_galaxie_gift_length', 12, 7 ), false );
+$GLOBALS['gx_user_caps'][7] = array( 'manage_product_terms' );
+$check( 'term meta', 'auth: with manage_product_terms: allowed', $term_auth( false, '_galaxie_gift_length', 12, 7 ), true );
+
+$term_clean = $args['_galaxie_gift_width']['sanitize_callback'];
+$check( 'term meta', 'sanitised like the variation field', array( $term_clean( '5.30', '_galaxie_gift_width', 'term', 'pa_peso' ), $term_clean( 'x' ), $term_clean( -1 ) ), array( CandleFields::clean( '5.30' ), '', '' ) );
+
+$check( 'term meta', 'size attribute shown in REST', SizeTermFields::show_in_rest( array( 'public' => false ) )['show_in_rest'], true );
+$check( 'term meta', 'an explicit REST choice is kept', SizeTermFields::show_in_rest( array( 'show_in_rest' => false ) )['show_in_rest'], false );
+
+$form = array(
+	'galaxie_gift_size_term_nonce' => 'ok',
+	'_galaxie_gift_length'         => '5.30',
+	'_galaxie_gift_width'          => '<b>5.3</b>',
+	'_galaxie_gift_height'         => '',
+);
+$GLOBALS['gx_term_meta'][12] = array( '_galaxie_gift_height' => '6.6' );
+
+$_POST              = $form;
+$GLOBALS['gx_caps'] = array( 'edit_products' );
+( new SizeTermFields( 'pa_peso' ) )->save( 12 );
+$check( 'term form', 'without manage_product_terms: nothing saved', $GLOBALS['gx_term_meta'][12], array( '_galaxie_gift_height' => '6.6' ) );
+
+$GLOBALS['gx_caps'] = array( 'manage_product_terms' );
+$_POST              = array( 'galaxie_gift_size_term_nonce' => 'forged' ) + $form;
+( new SizeTermFields( 'pa_peso' ) )->save( 12 );
+$check( 'term form', 'bad nonce: nothing saved', $GLOBALS['gx_term_meta'][12], array( '_galaxie_gift_height' => '6.6' ) );
+
+$_POST = $form;
+( new SizeTermFields( 'pa_peso' ) )->save( 12 );
+$check( 'term form', 'saved as the variation field cleans; blank deletes', $GLOBALS['gx_term_meta'][12], array( '_galaxie_gift_length' => CandleFields::clean( '5.30' ), '_galaxie_gift_width' => CandleFields::clean( '5.3' ) ) );
+
+ob_start();
+( new SizeTermFields( 'pa_peso' ) )->render_edit( (object) array( 'term_id' => 12 ) );
+$html = (string) ob_get_clean();
+$check( 'term form', 'edit form shows the saved value and a nonce', array( str_contains( $html, 'name="_galaxie_gift_length" id="_galaxie_gift_length" value="5.3"' ), str_contains( $html, 'name="galaxie_gift_size_term_nonce"' ), str_contains( $html, 'value="" step' ) ), array( true, true, true ) );
+
+$GLOBALS['gx_deleted'] = array();
+foreach ( $GLOBALS['gx_hooks']['updated_term_meta'] ?? array() as $callback ) {
+	$callback( 1, 12, 'order' );
+}
+$check( 'term meta', 'another term meta changed: sizes cache kept', $GLOBALS['gx_deleted'], array() );
+foreach ( $GLOBALS['gx_hooks']['updated_term_meta'] ?? array() as $callback ) {
+	$callback( 1, 12, '_galaxie_gift_length' );
+}
+$check( 'term meta', 'a size term gift dimension changed (form or REST): sizes cache cleared', $GLOBALS['gx_deleted'], array( GiftPacking::SIZES_TRANSIENT ) );
 
 echo "\n  {$passed} passed, {$failed} failed\n";
 exit( $failed > 0 ? 1 : 0 );

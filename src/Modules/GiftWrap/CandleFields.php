@@ -17,8 +17,9 @@ defined( 'ABSPATH' ) || exit;
  * WooCommerce's own dimensions stay the jar in its shipping box, because
  * Melhor Envio quotes freight from them. When all three gift dimensions are
  * filled, `Support\GiftPacking::candle_from_product()` packs with them instead,
- * and so do `store_sizes()` and the boxes' "Cabe:" preview. Left blank, the
- * shipping dimensions are used.
+ * and so do `store_sizes()` and the boxes' "Cabe:" preview. They are an
+ * optional override: left blank, the size term's gift dimensions are used
+ * ({@see SizeTermFields}), and without those the shipping dimensions.
  *
  * Shown on variable products that have the candle size attribute and are not
  * gift boxes. Self-contained: the Gift Wrap module boots it with its settings.
@@ -67,7 +68,7 @@ final class CandleFields {
 		$id   = (int) $variation->ID;
 
 		echo '<div class="galaxie-gift-candle-fields" style="clear:both;border-top:1px solid #eee;padding-top:8px">';
-		echo '<p class="form-row form-row-full" style="margin-bottom:0"><strong>' . esc_html__( 'Medidas para embalagem de presente (cm)', 'galaxie-woo' ) . '</strong><br><em>' . esc_html__( 'Só o pote, sem a caixinha de envio. Em branco usa as dimensões de envio.', 'galaxie-woo' ) . '</em></p>';
+		echo '<p class="form-row form-row-full" style="margin-bottom:0"><strong>' . esc_html__( 'Medidas para embalagem de presente (cm)', 'galaxie-woo' ) . '</strong><br><em>' . esc_html__( 'Opcional: só o pote, com tampa e sem a caixinha de envio, quando esta variação difere das outras do mesmo tamanho. Em branco usa as medidas do tamanho (Produtos → Atributos); se o tamanho também estiver em branco, as dimensões de envio.', 'galaxie-woo' ) . '</em></p>';
 
 		wp_nonce_field( self::NONCE, self::NONCE_FIELD, false );
 

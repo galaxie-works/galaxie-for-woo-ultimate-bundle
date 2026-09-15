@@ -114,7 +114,7 @@ These need the Gift Wrap module enabled, as the variation panel fields do.
 | `_galaxie_box_length`, `_galaxie_box_width`, `_galaxie_box_height` | number ≥ 0 | gift box **internal** size, cm |
 | `_galaxie_box_max` | integer ≥ 0 | most candles in the box; 0 = no limit |
 | `_galaxie_box_overflow` | number 0–2 | extra height, cm, the lid still closes over |
-| `_galaxie_gift_length`, `_galaxie_gift_width`, `_galaxie_gift_height` | number ≥ 0 | candle jar alone, lid on, cm; used for gift packing when all three are set |
+| `_galaxie_gift_length`, `_galaxie_gift_width`, `_galaxie_gift_height` | number ≥ 0 | candle jar alone, lid on, cm; an optional per-variation override of the size term's gift dimensions (see below), used when all three are set |
 
 Values are cleaned by the panel's own rules: sizes become decimal strings, 0 or
 anything non-numeric means "not set", `max` is a whole number, and `overflow` is
@@ -158,6 +158,43 @@ curl -u "$AUTH" -X PUT "$SITE/wp-json/wc/v3/products/789/variations/790" \
 ```
 
 To unset a size, send `""` (stored empty, which reads as "not set").
+
+### Set candle gift dimensions once per size
+
+Every jar of one size is the same jar, so the gift dimensions can be set on the
+size term (Products → Attributes → Peso → edit a term) instead of on each
+variation. For a candle, gift packing uses, most specific first:
+
+1. the variation's own `_galaxie_gift_*`, when all three are set;
+2. its size term's `_galaxie_gift_*` (the term named by the variation's size
+   attribute value), when all three are set;
+3. the WooCommerce shipping dimensions.
+
+The size attribute is the Gift Wrap setting `size_attribute` (default
+`pa_peso`). The plugin turns on the REST API for that one attribute taxonomy, so
+its terms are at `wp/v2/pa_peso`. Writing the meta needs `manage_product_terms`,
+and editing the term itself needs `edit_product_terms` (both are held by Shop
+Manager and Administrator). WordPress lists these terms and their gift
+dimensions to anyone, like any public taxonomy.
+
+Find the term id, then set the three values:
+
+```sh
+curl -u "$AUTH" "$SITE/wp-json/wp/v2/pa_peso?slug=190g&_fields=id,name,slug,meta"
+
+curl -u "$AUTH" -X POST "$SITE/wp-json/wp/v2/pa_peso/42" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "meta": {
+      "_galaxie_gift_length": 8.2,
+      "_galaxie_gift_width": 8.2,
+      "_galaxie_gift_height": 9.1
+    }
+  }'
+```
+
+Values are cleaned like the variation fields. `null` deletes a value. Any
+change clears the cached candle sizes.
 
 ## WP-CLI
 

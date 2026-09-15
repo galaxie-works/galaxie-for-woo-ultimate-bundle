@@ -82,14 +82,14 @@ final class BoxFields {
 		$id   = (int) $variation->ID;
 
 		echo '<div class="galaxie-gift-box-fields" style="clear:both;border-top:1px solid #eee;padding-top:8px">';
-		echo '<p class="form-row form-row-full" style="margin-bottom:0"><strong>' . esc_html__( 'Gift box', 'galaxie-woo' ) . '</strong> — ' . esc_html__( 'INTERNAL (usable) dimensions in cm: the space the candles actually get, used to work out which candles fit. Leave empty if this is not a box.', 'galaxie-woo' ) . '<br><em>' . esc_html__( 'Measuring the outside? Subtract the MDF/cardboard thickness: twice the wall for length and width, and the base and lid for height (e.g. 3 mm MDF: 14.2 cm outside = 13.6 cm inside).', 'galaxie-woo' ) . '</em></p>';
+		echo '<p class="form-row form-row-full" style="margin-bottom:0"><strong>' . esc_html__( 'Caixa de presente', 'galaxie-woo' ) . '</strong> — ' . esc_html__( 'Medidas INTERNAS (úteis) em cm: o espaço que as velas realmente têm, usado para calcular quais velas cabem. Deixe em branco se esta variação não for uma caixa.', 'galaxie-woo' ) . '<br><em>' . esc_html__( 'Mediu por fora? Desconte a espessura do MDF ou papelão: duas paredes no comprimento e na largura, a base e a tampa na altura (ex.: MDF de 3 mm, 14,2 cm por fora = 13,6 cm por dentro).', 'galaxie-woo' ) . '</em></p>';
 
 		wp_nonce_field( self::NONCE, self::NONCE_FIELD, false );
 
 		$fields = array(
-			'length' => array( __( 'Internal (usable) length, cm', 'galaxie-woo' ), 'form-row-first' ),
-			'width'  => array( __( 'Internal (usable) width, cm', 'galaxie-woo' ), 'form-row-last' ),
-			'height' => array( __( 'Internal (usable) height, cm', 'galaxie-woo' ), 'form-row-first' ),
+			'length' => array( __( 'Comprimento interno (cm)', 'galaxie-woo' ), 'form-row-first' ),
+			'width'  => array( __( 'Largura interna (cm)', 'galaxie-woo' ), 'form-row-last' ),
+			'height' => array( __( 'Altura interna (cm)', 'galaxie-woo' ), 'form-row-first' ),
 		);
 
 		foreach ( $fields as $field => $spec ) {
@@ -116,11 +116,11 @@ final class BoxFields {
 				'id'                => self::META['max'] . $loop,
 				'name'              => self::META['max'] . '[' . $loop . ']',
 				'value'             => $max > 0 ? (string) $max : '',
-				'label'             => __( 'Max candles (optional)', 'galaxie-woo' ),
+				'label'             => __( 'Máximo de velas (opcional)', 'galaxie-woo' ),
 				'type'              => 'number',
 				'wrapper_class'     => 'form-row form-row-last',
 				'desc_tip'          => true,
-				'description'       => __( 'Leave empty for no limit beyond what physically fits.', 'galaxie-woo' ),
+				'description'       => __( 'Deixe em branco para não limitar além do que cabe fisicamente.', 'galaxie-woo' ),
 				'custom_attributes' => array(
 					'step' => '1',
 					'min'  => '0',
@@ -139,7 +139,7 @@ final class BoxFields {
 				'type'              => 'number',
 				'wrapper_class'     => 'form-row form-row-first',
 				'desc_tip'          => true,
-				'description'       => __( 'How far candles may stand above the base while the lid still closes over them (0–2 cm). Added to the internal height.', 'galaxie-woo' ),
+				'description'       => __( 'Quanto as velas podem ficar acima da base com a tampa ainda fechando por cima (0 a 2 cm). Somada à altura interna.', 'galaxie-woo' ),
 				'custom_attributes' => array(
 					'step' => '0.1',
 					'min'  => '0',
@@ -226,14 +226,14 @@ final class BoxFields {
 		);
 
 		if ( $box['length'] <= 0 || $box['width'] <= 0 || $box['height'] <= 0 ) {
-			return __( 'Fill in the inside length, width and height and save to see which candles fit.', 'galaxie-woo' );
+			return __( 'Preencha comprimento, largura e altura internos e salve para ver quais velas cabem.', 'galaxie-woo' );
 		}
 
 		$sizes = GiftPacking::store_sizes( $this->attribute );
 
 		if ( ! $sizes ) {
 			/* translators: %s: attribute taxonomy, e.g. pa_peso */
-			return sprintf( __( 'No candle variations with dimensions found for the size attribute %s.', 'galaxie-woo' ), $this->attribute );
+			return sprintf( __( 'Nenhuma vela com medidas encontrada para o atributo de tamanho %s.', 'galaxie-woo' ), $this->attribute );
 		}
 
 		$labels = array();
