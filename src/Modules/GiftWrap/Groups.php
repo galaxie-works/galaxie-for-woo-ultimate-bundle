@@ -209,7 +209,8 @@ final class Groups {
 				return null;
 			}
 
-			for ( $i = 0; $i < (int) $item['quantity']; $i++ ) {
+			// One past the packing limit is enough to know a gift is over it.
+			for ( $i = 0; $i < (int) $item['quantity'] && count( $candles ) <= GiftPacking::MAX_ITEMS; $i++ ) {
 				$candles[] = $candle;
 			}
 		}
@@ -439,6 +440,14 @@ final class Groups {
 
 		if ( null === $others || null === $candle ) {
 			return $passed;
+		}
+
+		// The quantity is the shopper's input: past the packing limit it cannot
+		// fit, and it is never expanded.
+		if ( count( $others ) + $quantity > GiftPacking::MAX_ITEMS ) {
+			/* translators: 1: product name, 2: "Presente 1". */
+			wc_add_notice( sprintf( __( 'Não cabe mais %1$s na caixa do %2$s.', 'galaxie-woo' ), $name, self::label( $number ) ), 'error' );
+			return false;
 		}
 
 		for ( $i = 0; $i < $quantity; $i++ ) {

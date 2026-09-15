@@ -43,6 +43,15 @@ final class Builder {
 	/** Accessory products read per kind. A gift builder, not a catalogue. */
 	private const CATALOGUE_LIMIT = 50;
 
+	/**
+	 * Ceilings on what a request can ask for, checked before anything is
+	 * expanded: the plan is public input, and a count is a loop.
+	 */
+	private const MAX_QUANTITY = 999;
+
+	/** Ribbon and card entries in one gift. */
+	private const MAX_ENTRIES = 50;
+
 	/** Cart item keys that are WooCommerce's own, not item data. */
 	private const CART_FIELDS = array( 'key', 'product_id', 'variation_id', 'variation', 'quantity', 'data', 'data_hash', 'line_tax_data', 'line_subtotal', 'line_subtotal_tax', 'line_total', 'line_tax' );
 
@@ -113,6 +122,13 @@ final class Builder {
 			self::fail( __( 'Esse presente não está mais no carrinho. Abra o presente de novo.', 'galaxie-woo' ) );
 		}
 
+		// Every gift holds at least one candle: never more gifts than candles.
+		$loose_units = array_sum( array_map( static fn( array $item ): int => (int) $item['quantity'], self::loose( $contents ) ) );
+
+		if ( count( $raw['groups'] ) > $pending['quantity'] + $loose_units ) {
+			self::fail( __( 'Não foi possível montar o presente. Tente de novo.', 'galaxie-woo' ) );
+		}
+
 		$offer = array(
 			'box'    => self::catalogue( 'box', $settings ),
 			'ribbon' => self::catalogue( 'ribbon', $settings ),
@@ -160,7 +176,12 @@ final class Builder {
 					continue;
 				}
 
+				// Counts are checked against what is left before they are expanded.
 				if ( 'pending' === $from ) {
+					if ( $n > $pending['quantity'] - $pending_used ) {
+						self::fail( __( 'A quantidade de velas mudou. Abra o presente de novo.', 'galaxie-woo' ) );
+					}
+
 					$pending_used += $n;
 					$count        += $n;
 					$sized         = $sized && null !== $pending_candle;
@@ -169,6 +190,10 @@ final class Builder {
 						$candles[] = $pending_candle + array( 'id' => $pending['product']->get_id() );
 					}
 				} elseif ( ! $extend && isset( $loose[ $from ] ) ) {
+					if ( $n > (int) $loose[ $from ]['quantity'] - ( $loose_used[ $from ] ?? 0 ) ) {
+						self::fail( __( 'As velas no carrinho mudaram. Abra o presente de novo.', 'galaxie-woo' ) );
+					}
+
 					$loose_used[ $from ] = ( $loose_used[ $from ] ?? 0 ) + $n;
 					$moves[ $from ]      = ( $moves[ $from ] ?? 0 ) + $n;
 					$item                = $loose[ $from ];
@@ -191,6 +216,12 @@ final class Builder {
 					self::fail( __( 'Essa caixa não está mais disponível.', 'galaxie-woo' ) );
 				}
 
+				// The packing search is for a gift's dozen; the popup offers no box past it.
+				if ( count( $candles ) > GiftPacking::MAX_ITEMS ) {
+					/* translators: %s: "Presente 1". */
+					self::fail( sprintf( __( 'O %s tem velas demais para uma caixa.', 'galaxie-woo' ), Groups::label( $number ) ) );
+				}
+
 				if ( ! $sized ) {
 					/* translators: %s: "Presente 1". */
 					self::fail( sprintf( __( 'Uma vela do %s não tem medidas cadastradas, então não dá para escolher uma caixa para ela.', 'galaxie-woo' ), Groups::label( $number ) ) );
@@ -208,6 +239,10 @@ final class Builder {
 				'ribbon' => (array) ( $group['ribbons'] ?? array() ),
 				'card'   => (array) ( $group['cards'] ?? array() ),
 			);
+
+			if ( count( $entries['ribbon'] ) + count( $entries['card'] ) > self::MAX_ENTRIES ) {
+				self::fail( __( 'Não foi possível montar o presente. Tente de novo.', 'galaxie-woo' ) );
+			}
 
 			foreach ( $entries as $kind => $list ) {
 				foreach ( $list as $entry ) {
@@ -397,7 +432,7 @@ final class Builder {
 
 		$product = wc_get_product( $variation_id ? $variation_id : $product_id );
 
-		if ( ! $product || ( $variation_id && ! $product->is_type( 'variation' ) ) || ( ! $variation_id && $product->is_type( 'variable' ) ) || ! $product->is_purchasable() || $quantity < 1 ) {
+		if ( ! $product || ( $variation_id && ! $product->is_type( 'variation' ) ) || ( ! $variation_id && $product->is_type( 'variable' ) ) || ! $product->is_purchasable() || $quantity < 1 || $quantity > self::MAX_QUANTITY ) {
 			self::fail( __( 'Selecione uma variação válida.', 'galaxie-woo' ) );
 		}
 
