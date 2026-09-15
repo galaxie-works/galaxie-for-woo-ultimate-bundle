@@ -19,14 +19,18 @@ defined( 'ABSPATH' ) || exit;
  *
  *   candle  { size, length, width, height, price? }        cm, as WooCommerce stores them
  *   box     { id, length, width, height, max?, price }     internal cm; max 0 = no limit
- *   options { gap, stacking }                              gap in cm, default 0.5
+ *   options { gap, stacking, orientation }                 gap in cm, default 0.5; orientation default 'lying'
  *
  * The model:
- * - Candles stand upright (they are in glass). Height + gap must be ≤ the box
- *   height. `stacking` is accepted and ignored: one layer only, always.
- * - Each candle takes (length + gap) × (width + gap) of floor, so neighbours are
- *   a full gap apart and every candle keeps half a gap from the walls. Turning a
- *   candle 90° is allowed.
+ * - `orientation` says how a candle sits. 'upright': floor length × width,
+ *   height used = height. 'lying' (default; the jar on its side): floor
+ *   height × max(length, width), height used = max(length, width). 'any': each
+ *   candle may take either, whichever lets the set fit (searched exactly).
+ *   Unknown values count as 'lying'.
+ * - The gap is added to both floor sides and to the height used, which must be
+ *   ≤ the box height. Neighbours are a full gap apart and every candle keeps
+ *   half a gap from the walls. Footprints may turn 90° on the floor.
+ *   `stacking` is accepted and ignored: one layer only, always.
  * - The floor search is exact: it tries every "normal pattern" placement (x and
  *   y are sums of other footprints, which any packing can be pushed into), in
  *   bottom-left order so each layout is visited once. Failed states are
@@ -62,10 +66,12 @@ final class GiftPacking {
 	 * @param array $options { gap, stacking }.
 	 */
 	public static function fits( array $box, array $candles, array $options = array() ): bool {
-		$gap = self::units( $options['gap'] ?? 0.5 );
-		$bx  = self::units( $box['length'] ?? 0 );
-		$by  = self::units( $box['width'] ?? 0 );
-		$bz  = self::units( $box['height'] ?? 0 );
+		// Round against the fit: candles and gap up, the box down, so a converted
+		// 5.004 cm candle never slips into a 5.00 cm box.
+		$gap = self::up( $options['gap'] ?? 0.5 );
+		$bx  = self::down( $box['length'] ?? 0 );
+		$by  = self::down( $box['width'] ?? 0 );
+		$bz  = self::down( $box['height'] ?? 0 );
 		$max = max( 0, (int) ( $box['max'] ?? 0 ) );
 		$n   = count( $candles );
 
@@ -77,41 +83,35 @@ final class GiftPacking {
 			return false;
 		}
 
-		// Identical candles are one type with a count: the search then never
-		// tries swapping two of them.
+		$orientation = self::orientation_of( $options );
+
+		// Candles with the same possible footprints are one type with a count:
+		// the search then never tries swapping two of them.
 		$types = array();
 		$area  = 0;
 
 		foreach ( $candles as $candle ) {
-			$a = self::units( $candle['length'] ?? 0 ) + $gap;
-			$b = self::units( $candle['width'] ?? 0 ) + $gap;
-			$h = self::units( $candle['height'] ?? 0 ) + $gap;
+			$shapes = self::shapes_of( $candle, $orientation, $gap, $bx, $by, $bz );
 
-			if ( $a <= $gap || $b <= $gap || $h <= $gap || $h > $bz ) {
+			if ( ! $shapes ) {
 				return false;
 			}
 
-			$w = min( $a, $b );
-			$d = max( $a, $b );
-
-			if ( ! ( ( $w <= $bx && $d <= $by ) || ( $d <= $bx && $w <= $by ) ) ) {
-				return false;
-			}
-
-			$key = $w . 'x' . $d;
+			$key = implode( ';', array_map( static fn( array $s ): string => $s[0] . 'x' . $s[1], $shapes ) );
 
 			if ( ! isset( $types[ $key ] ) ) {
 				$types[ $key ] = array(
-					'w'     => $w,
-					'd'     => $d,
-					'count' => 0,
-					'total' => 0,
+					'shapes' => $shapes,
+					'area'   => min( array_map( static fn( array $s ): int => $s[0] * $s[1], $shapes ) ),
+					'key'    => $key,
+					'count'  => 0,
+					'total'  => 0,
 				);
 			}
 
 			++$types[ $key ]['count'];
 			++$types[ $key ]['total'];
-			$area += $w * $d;
+			$area += $types[ $key ]['area'];
 		}
 
 		if ( $area > $bx * $by ) {
@@ -123,7 +123,7 @@ final class GiftPacking {
 		usort(
 			$types,
 			static function ( array $p, array $q ): int {
-				return ( $q['w'] * $q['d'] <=> $p['w'] * $p['d'] ) ?: ( $p['w'] <=> $q['w'] );
+				return ( $q['area'] <=> $p['area'] ) ?: ( $p['shapes'][0][0] <=> $q['shapes'][0][0] ) ?: self::by_string( $p['key'], $q['key'] );
 			}
 		);
 
@@ -667,41 +667,44 @@ final class GiftPacking {
 					continue;
 				}
 
-				$turns = $type['w'] === $type['d'] ? array( array( $type['w'], $type['d'] ) ) : array( array( $type['w'], $type['d'] ), array( $type['d'], $type['w'] ) );
+				foreach ( $type['shapes'] as $shape ) {
+					$turns = $shape[0] === $shape[1] ? array( array( $shape[0], $shape[1] ) ) : array( array( $shape[0], $shape[1] ), array( $shape[1], $shape[0] ) );
 
-				foreach ( $turns as $turn ) {
-					list( $w, $d ) = $turn;
+					foreach ( $turns as $turn ) {
+						list( $w, $d ) = $turn;
 
-					if ( $x + $w > $s['bx'] || $y + $d > $s['by'] ) {
-						continue;
-					}
-
-					$clear = true;
-					foreach ( $s['placed'] as $r ) {
-						if ( $x < $r[0] + $r[2] && $r[0] < $x + $w && $y < $r[1] + $r[3] && $r[1] < $y + $d ) {
-							$clear = false;
-							break;
+						if ( $x + $w > $s['bx'] || $y + $d > $s['by'] ) {
+							continue;
 						}
-					}
 
-					if ( ! $clear ) {
-						continue;
-					}
+						$clear = true;
+						foreach ( $s['placed'] as $r ) {
+							if ( $x < $r[0] + $r[2] && $r[0] < $x + $w && $y < $r[1] + $r[3] && $r[1] < $y + $d ) {
+								$clear = false;
+								break;
+							}
+						}
 
-					$s['placed'][] = array( $x, $y, $w, $d );
-					--$s['types'][ $t ]['count'];
+						if ( ! $clear ) {
+							continue;
+						}
 
-					$done = self::place( $s, $idx, $left - 1, $area - $w * $d );
+						$s['placed'][] = array( $x, $y, $w, $d );
+						--$s['types'][ $t ]['count'];
 
-					++$s['types'][ $t ]['count'];
-					array_pop( $s['placed'] );
+						// `$area` counts each candle left at its smallest shape: a bound, not a sum of placements.
+						$done = self::place( $s, $idx, $left - 1, $area - $type['area'] );
 
-					if ( $done ) {
-						return true;
-					}
+						++$s['types'][ $t ]['count'];
+						array_pop( $s['placed'] );
 
-					if ( $s['stop'] ) {
-						return false;
+						if ( $done ) {
+							return true;
+						}
+
+						if ( $s['stop'] ) {
+							return false;
+						}
 					}
 				}
 			}
@@ -745,11 +748,11 @@ final class GiftPacking {
 	 * @return bool True when the candles certainly do not fit.
 	 */
 	private static function bound( array $s ): bool {
+		// How many candles could show each side length along a line.
 		$sides = array();
 		foreach ( $s['types'] as $type ) {
-			$sides[ $type['w'] ] = ( $sides[ $type['w'] ] ?? 0 ) + $type['total'];
-			if ( $type['d'] !== $type['w'] ) {
-				$sides[ $type['d'] ] = ( $sides[ $type['d'] ] ?? 0 ) + $type['total'];
+			foreach ( self::sides_of( $type ) as $side ) {
+				$sides[ $side ] = ( $sides[ $side ] ?? 0 ) + $type['total'];
 			}
 		}
 		ksort( $sides );
@@ -800,9 +803,14 @@ final class GiftPacking {
 			foreach ( $across as $fy ) {
 				$sum = 0;
 				foreach ( $s['types'] as $type ) {
-					$w    = $index[ $type['w'] ];
-					$d    = $index[ $type['d'] ];
-					$sum += $type['total'] * min( $fx[0][ $w ] * $fy[0][ $d ], $fx[0][ $d ] * $fy[0][ $w ] );
+					// Each candle takes the cheapest of its shapes and turns.
+					$least = PHP_INT_MAX;
+					foreach ( $type['shapes'] as $shape ) {
+						$w     = $index[ $shape[0] ];
+						$d     = $index[ $shape[1] ];
+						$least = min( $least, $fx[0][ $w ] * $fy[0][ $d ], $fx[0][ $d ] * $fy[0][ $w ] );
+					}
+					$sum += $type['total'] * $least;
 				}
 
 				if ( $sum > $fx[1] * $fy[1] ) {
@@ -818,19 +826,20 @@ final class GiftPacking {
 	 * Every sum of footprint sides up to the box side: the only coordinates and
 	 * right edges a pushed-into-the-corner layout can have.
 	 *
-	 * @param array $types Candle types with w, d, count.
+	 * @param array $types Candle types with shapes, count.
 	 * @param int   $limit Box side in units.
 	 * @return int[] Ascending, starting at 0.
 	 */
 	private static function normal( array $types, int $limit ): array {
 		$sums = array( 0 => true );
 
-		// Each candle adds either of its sides, or nothing.
+		// Each candle adds any side of any of its shapes, or nothing.
 		foreach ( $types as $type ) {
+			$steps = self::sides_of( $type );
 			for ( $c = 0; $c < $type['count']; $c++ ) {
 				$next = $sums;
 				foreach ( array_keys( $sums ) as $sum ) {
-					foreach ( array( $type['w'], $type['d'] ) as $step ) {
+					foreach ( $steps as $step ) {
 						if ( $sum + $step <= $limit ) {
 							$next[ $sum + $step ] = true;
 						}
@@ -850,17 +859,111 @@ final class GiftPacking {
 	 * The sums a candle's corner can sit on: room left for the narrowest side.
 	 *
 	 * @param int[] $sums  From normal().
-	 * @param array $types Candle types with w, d, count.
+	 * @param array $types Candle types with shapes.
 	 * @param int   $side  Shrunk box side.
 	 * @return int[] Ascending.
 	 */
 	private static function corners( array $sums, array $types, int $side ): array {
 		$narrow = PHP_INT_MAX;
 		foreach ( $types as $type ) {
-			$narrow = min( $narrow, $type['w'] );
+			foreach ( $type['shapes'] as $shape ) {
+				$narrow = min( $narrow, $shape[0] );
+			}
 		}
 
 		return array_values( array_filter( $sums, static fn( int $sum ): bool => $sum + $narrow <= $side ) );
+	}
+
+	/**
+	 * Distinct side lengths across a type's shapes, ascending.
+	 *
+	 * @param array $type Candle type with shapes.
+	 * @return int[]
+	 */
+	private static function sides_of( array $type ): array {
+		$sides = array();
+		foreach ( $type['shapes'] as $shape ) {
+			foreach ( $shape as $side ) {
+				if ( ! in_array( $side, $sides, true ) ) {
+					$sides[] = $side;
+				}
+			}
+		}
+		sort( $sides );
+
+		return $sides;
+	}
+
+	/**
+	 * 'upright', 'lying' or 'any'; anything else is 'lying'.
+	 *
+	 * @param array $options Packing options.
+	 */
+	private static function orientation_of( array $options ): string {
+		$orientation = $options['orientation'] ?? 'lying';
+
+		return in_array( $orientation, array( 'upright', 'any' ), true ) ? $orientation : 'lying';
+	}
+
+	/**
+	 * The floor footprints a candle may take in this box, gap included, each as
+	 * [ short, long ] and sorted: upright L × W under H, lying H × max(L, W)
+	 * under max(L, W). Shapes too tall, or too big for the floor either way
+	 * round, drop.
+	 *
+	 * @param array  $candle      Candle array.
+	 * @param string $orientation From orientation_of().
+	 * @param int    $gap         Gap in units.
+	 * @param int    $bx          Box length in units.
+	 * @param int    $by          Box width in units.
+	 * @param int    $bz          Box height in units.
+	 * @return array<int, int[]>
+	 */
+	private static function shapes_of( array $candle, string $orientation, int $gap, int $bx, int $by, int $bz ): array {
+		$l = self::up( $candle['length'] ?? 0 );
+		$w = self::up( $candle['width'] ?? 0 );
+		$h = self::up( $candle['height'] ?? 0 );
+
+		if ( $l <= 0 || $w <= 0 || $h <= 0 ) {
+			return array();
+		}
+
+		$across = max( $l, $w );
+		$ways   = array();
+
+		if ( 'lying' !== $orientation ) {
+			$ways[] = array( $l + $gap, $w + $gap, $h + $gap );
+		}
+		if ( 'upright' !== $orientation ) {
+			$ways[] = array( $h + $gap, $across + $gap, $across + $gap );
+		}
+
+		$shapes = array();
+		foreach ( $ways as $way ) {
+			$short = min( $way[0], $way[1] );
+			$long  = max( $way[0], $way[1] );
+
+			if ( $way[2] > $bz || ! ( ( $short <= $bx && $long <= $by ) || ( $long <= $bx && $short <= $by ) ) ) {
+				continue;
+			}
+			if ( ! in_array( array( $short, $long ), $shapes, true ) ) {
+				$shapes[] = array( $short, $long );
+			}
+		}
+
+		usort( $shapes, static fn( array $p, array $q ): int => ( $p[0] <=> $q[0] ) ?: ( $p[1] <=> $q[1] ) );
+
+		return $shapes;
+	}
+
+	/**
+	 * Byte order, -1/0/1 — the same as the TS twin's byString().
+	 *
+	 * @param string $a First.
+	 * @param string $b Second.
+	 */
+	private static function by_string( string $a, string $b ): int {
+		return strcmp( $a, $b ) <=> 0;
 	}
 
 	/**
@@ -896,6 +999,27 @@ final class GiftPacking {
 	private static function units( $cm ): int {
 		$cm = is_numeric( $cm ) ? (float) $cm : 0.0;
 		return $cm > 0 ? (int) floor( $cm * 100 + 0.5 ) : 0;
+	}
+
+	/**
+	 * Centimetres to hundredths, rounded up (candles, gap). The 1e-6 keeps float
+	 * noise such as 6.5 × 100 = 650.0000000001 from adding a unit.
+	 *
+	 * @param mixed $cm Value in cm.
+	 */
+	private static function up( $cm ): int {
+		$cm = is_numeric( $cm ) ? (float) $cm : 0.0;
+		return $cm > 0 ? (int) ceil( $cm * 100 - 1e-6 ) : 0;
+	}
+
+	/**
+	 * Centimetres to hundredths, rounded down (box sides).
+	 *
+	 * @param mixed $cm Value in cm.
+	 */
+	private static function down( $cm ): int {
+		$cm = is_numeric( $cm ) ? (float) $cm : 0.0;
+		return $cm > 0 ? (int) floor( $cm * 100 + 1e-6 ) : 0;
 	}
 
 	/**
