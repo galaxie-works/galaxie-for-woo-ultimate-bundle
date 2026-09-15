@@ -74,6 +74,7 @@ final class Module implements ModuleContract, ProvidesBootData, ProvidesElemento
 		Flag::hooks();
 		Groups::hooks();
 		Builder::hooks();
+		DimensionNotice::hooks();
 
 		$options = self::packing_options();
 

@@ -49,6 +49,11 @@ final class Builder {
 	 */
 	private const MAX_QUANTITY = 999;
 
+	/** What a shopper is told when a candle has no dimensions to pack with. */
+	private static function no_dimensions(): string {
+		return __( 'Não foi possível calcular a embalagem deste produto. Fale com a loja.', 'galaxie-woo' );
+	}
+
 	/** Ribbon and card entries in one gift. */
 	private const MAX_ENTRIES = 50;
 
@@ -162,15 +167,17 @@ final class Builder {
 			$candles = array();
 			$moves   = array();
 			$count   = 0;
-			$sized   = true;
 
 			// A gift being added to keeps what it has: checked for fit, no new stock.
 			if ( $extend ) {
 				foreach ( $gifts[ $target ]['candles'] as $item ) {
 					$candle = GiftPacking::candle_from_product( $item['data'], $attribute );
-					$sized  = $sized && null !== $candle;
 
-					for ( $i = 0; $candle && $i < (int) $item['quantity']; $i++ ) {
+					if ( ! $candle ) {
+						self::fail( self::no_dimensions() );
+					}
+
+					for ( $i = 0; $i < (int) $item['quantity']; $i++ ) {
 						$candles[] = $candle + array( 'id' => $item['data']->get_id(), 'added' => false );
 					}
 				}
@@ -192,9 +199,8 @@ final class Builder {
 
 					$pending_used += $n;
 					$count        += $n;
-					$sized         = $sized && null !== $pending_candle;
 
-					for ( $i = 0; $pending_candle && $i < $n; $i++ ) {
+					for ( $i = 0; $i < $n; $i++ ) {
 						$candles[] = $pending_candle + array( 'id' => $pending['product']->get_id() );
 					}
 				} elseif ( ! $extend && isset( $loose[ $from ] ) ) {
@@ -206,9 +212,8 @@ final class Builder {
 					$moves[ $from ]      = ( $moves[ $from ] ?? 0 ) + $n;
 					$item                = $loose[ $from ];
 					$candle              = GiftPacking::candle_from_product( $item['data'], $attribute );
-					$sized               = $sized && null !== $candle;
 
-					for ( $i = 0; $candle && $i < $n; $i++ ) {
+					for ( $i = 0; $i < $n; $i++ ) {
 						$candles[] = $candle + array( 'id' => $item['data']->get_id(), 'added' => false );
 					}
 				} else {
@@ -227,11 +232,6 @@ final class Builder {
 				if ( count( $candles ) > GiftPacking::MAX_ITEMS ) {
 					/* translators: %s: "Presente 1". */
 					self::fail( sprintf( __( 'O %s tem velas demais para uma caixa.', 'galaxie-woo' ), Groups::label( $number ) ) );
-				}
-
-				if ( ! $sized ) {
-					/* translators: %s: "Presente 1". */
-					self::fail( sprintf( __( 'Uma vela do %s não tem medidas cadastradas, então não dá para escolher uma caixa para ela.', 'galaxie-woo' ), Groups::label( $number ) ) );
 				}
 
 				$current = $extend && $gifts[ $target ]['box'] ? reset( $gifts[ $target ]['box'] )['data']->get_id() : 0;
@@ -451,6 +451,12 @@ final class Builder {
 			self::fail( __( 'Selecione uma variação válida.', 'galaxie-woo' ) );
 		}
 
+		// Only a candle — the size attribute, and gift or WooCommerce dimensions —
+		// can be put in a gift. Never a gift that cannot be packed.
+		if ( ! GiftPacking::candle_from_product( $product, (string) Module::setting( 'size_attribute' ) ) ) {
+			self::fail( self::no_dimensions() );
+		}
+
 		return array(
 			'product'    => $product,
 			'parent'     => $variation_id ? $product->get_parent_id() : $product->get_id(),
@@ -647,7 +653,11 @@ final class Builder {
 	private static function loose( array $contents ): array {
 		return array_filter(
 			$contents,
-			static fn( $item ): bool => Flag::is_gift_item( $item ) && ! Groups::group_of( $item ) && ( $item['data'] ?? null ) instanceof \WC_Product
+			static fn( $item ): bool => Flag::is_gift_item( $item )
+				&& ! Groups::group_of( $item )
+				&& ( $item['data'] ?? null ) instanceof \WC_Product
+				// Without dimensions it cannot be packed: not offered.
+				&& null !== GiftPacking::candle_from_product( $item['data'], (string) Module::setting( 'size_attribute' ) )
 		);
 	}
 

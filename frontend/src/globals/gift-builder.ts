@@ -248,6 +248,7 @@ function createController(root: HTMLElement, pending: PendingCandle, token: numb
 
   let data: BuilderData | null = null
   let failed = false
+  let failMessage = ''
   let mode = NEW
   let groups: GroupState[] = []
   let errors: PlanError[] = []
@@ -266,7 +267,7 @@ function createController(root: HTMLElement, pending: PendingCandle, token: numb
     ready: () => !!data && errors.length === 0,
     request: () => (controller.ready() ? { plan: plan(), origin: origin(root) } : null),
     explain: () => {
-      if (failed) showError(texts.error ?? '')
+      if (failed) showError(failMessage)
       else if (data && errors.length) showError(explainError(errors[0]))
     },
     organise: () => {
@@ -298,7 +299,8 @@ function createController(root: HTMLElement, pending: PendingCandle, token: numb
       if (controllers.get(root) !== controller) return
 
       if (!json.success || !json.data || !json.data.pending) {
-        fail()
+        // The server's own sentence when it refused (a candle with no dimensions).
+        fail(json.success ? '' : (json.data?.message ?? ''))
         return
       }
 
@@ -311,10 +313,11 @@ function createController(root: HTMLElement, pending: PendingCandle, token: numb
 
   // ---------------------------------------------------------------- flow
 
-  function fail(): void {
+  function fail(message = ''): void {
     failed = true
+    failMessage = message || texts.error || ''
     if (loading) loading.hidden = true
-    showError(texts.error ?? '')
+    showError(failMessage)
     setConfirm(false)
   }
 
