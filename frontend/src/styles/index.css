@@ -692,26 +692,32 @@ form.galaxie-buybox .galaxie-buybox-row {
   margin: 0 !important;
 }
 
-/* The row the heart and "Salvar em uma lista" share. The widget's Alignment
-   sets --galaxie-wl-stretch to 1 for Stretch; 0 leaves every size alone,
-   because a min-width of 0% constrains nothing. */
+/* The row that places the wishlist button; its Alignment control writes
+   justify-content here. The anchor holds the popover's template and, in the
+   editor, the preview placed against the button. */
 .galaxie-wishlist-buttons {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
 }
 
-.galaxie-wishlist-buttons > * {
-  flex-grow: var(--galaxie-wl-stretch, 0);
+.galaxie-wishlist-anchor {
+  position: relative;
+  display: inline-flex;
+  max-width: 100%;
 }
 
-.galaxie-wishlist-buttons .galaxie-wishlist-btn > span,
-.galaxie-wishlist-buttons .galaxie-wishlist-btn > span > .btn,
-.galaxie-wishlist-list-anchor > .galaxie-wishlist-list-btn,
-.galaxie-wishlist-list-anchor > .galaxie-wishlist-list-btn > .btn {
-  min-width: calc(var(--galaxie-wl-stretch, 0) * 100%);
-  justify-content: center;
+/* Full width takes the whole row. pixfort's w-100 on the inner .btn alone fills
+   only its shrink-wrapped parents, so they widen too — for the state that is
+   showing. */
+.galaxie-wishlist-anchor:has(> .galaxie-wishlist-btn:not(.is-in-wishlist) > .galaxie-wishlist-add .w-100),
+.galaxie-wishlist-anchor:has(> .galaxie-wishlist-btn.is-in-wishlist > .galaxie-wishlist-saved .w-100) {
+  flex-grow: 1;
+}
+
+.galaxie-wishlist-anchor:has(.w-100) > .galaxie-wishlist-btn,
+.galaxie-wishlist-add:has(.w-100),
+.galaxie-wishlist-saved:has(.w-100) {
+  width: 100%;
 }
 
 /* Circle and rounded square: one size both ways, no padding, icon centred.
@@ -2919,27 +2925,20 @@ address.galaxie-order-body {
   font-weight: 600;
 }
 
-/* The "add to a list" popover beside a product's heart. The gap of
-   .galaxie-wishlist-buttons spaces it now; the margin is for cached markup
-   that has no row around the two buttons. */
-:not(.galaxie-wishlist-list-anchor) > .galaxie-wishlist-list-btn {
+/* The second button of the old markup, still on a cached page. */
+.galaxie-wishlist-list-btn {
   margin-left: 8px;
 }
 
-/* The popover opens in here, positioned against the button. */
-.galaxie-wishlist-list-anchor {
-  position: relative;
-  display: inline-flex;
-}
-
-/* Below the button, left edges together, unless the widget's Position
-   controls say otherwise. The script adds --galaxie-wl-nudge when that would
-   leave the viewport. */
+/* The "Salvar em" popover. The script places it against the button: fixed to
+   the viewport at the end of <body>, where no card can clip it, and absolute
+   inside the anchor for the editor preview. The wrappers around it repeat the
+   widget's Elementor classes only for the Style tab's selectors. */
 .galaxie-wishlist-popover {
   position: absolute;
-  top: calc(100% + var(--galaxie-wl-pop-y, 8px));
+  top: calc(100% + 8px);
   left: 0;
-  z-index: 9999;
+  z-index: 99999;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -2948,8 +2947,38 @@ address.galaxie-order-body {
   padding: 14px;
   border-radius: 12px;
   background-color: var(--pix-body-bg-color, #fff);
+}
+
+.galaxie-wishlist-portal,
+.galaxie-wishlist-portal > div,
+.galaxie-wishlist-portal > div > div {
+  display: contents;
+}
+
+.galaxie-wishlist-portal .galaxie-wishlist-popover {
+  position: fixed;
+  top: 0;
+}
+
+/* Built by the script for a cached page with no template: no Style classes. */
+.galaxie-wishlist-popover.is-fallback {
   box-shadow: 0 16px 40px rgb(0 0 0 / 18%);
-  transform: translateX(calc(var(--galaxie-wl-pop-shift, 0%) + var(--galaxie-wl-pop-x, 0px) + var(--galaxie-wl-nudge, 0px)));
+}
+
+.galaxie-wishlist-popover-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* The default list's mark. Its Style controls override every line. */
+.galaxie-wishlist-popover-badge {
+  flex: 0 0 auto;
+  margin-left: auto;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background-color: rgb(0 0 0 / 6%);
+  font-size: 11px;
+  line-height: 1.4;
 }
 
 .galaxie-wishlist-popover-title {
