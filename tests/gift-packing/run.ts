@@ -17,10 +17,10 @@ interface Fixtures {
   sizes: Record<string, Candle>
   boxes: Record<string, Box>
   fits: { name: string; box: string; candles: [string, number][]; options?: PackingOptions; expect: boolean }[]
-  arrange: { name: string; candles: [string, number][]; boxes: string[]; expect: { box: string; candles: string[] }[] }[]
-  room: { name: string; box: string; candles: [string, number][]; sizes: string[]; expect: string[] }[]
-  summary: { name: string; box: string; sizes: string[]; expect: SummaryRow[] }[]
-  cover: { name: string; candles: string[]; expect: Candle[]; box?: string; fits?: boolean }[]
+  arrange: { name: string; candles: [string, number][]; boxes: string[]; options?: PackingOptions; expect: { box: string; candles: string[] }[] }[]
+  room: { name: string; box: string; candles: [string, number][]; sizes: string[]; options?: PackingOptions; expect: string[] }[]
+  summary: { name: string; box: string; sizes: string[]; options?: PackingOptions; expect: SummaryRow[] }[]
+  cover: { name: string; candles: string[]; expect: Candle[]; box?: string; options?: PackingOptions; fits?: boolean }[]
   fill: { name: string; box: string; candles: [string, number][]; sizes: string[]; options?: PackingOptions; expect: number }[]
   max_quantity: { name: string; box: string; others: [string, number][]; candle: string; current: number; options?: PackingOptions; expect: number }[]
   validate: {
@@ -63,24 +63,24 @@ const shape = (gifts: Gift[]) => gifts.map((gift) => ({ box: gift.box.id, candle
 
 for (const c of fixtures.arrange) {
   const list = c.boxes.map((id) => boxes[id])
-  const first = shape(arrange(expand(c.candles), list))
+  const first = shape(arrange(expand(c.candles), list, c.options ?? {}))
   check('arrange', c.name, first, c.expect)
-  check('arrange', `${c.name} (same again)`, shape(arrange(expand(c.candles), list)), first)
+  check('arrange', `${c.name} (same again)`, shape(arrange(expand(c.candles), list, c.options ?? {})), first)
 }
 
 for (const c of fixtures.room) {
-  check('room', c.name, room(boxes[c.box], expand(c.candles), c.sizes.map((s) => sizes[s])), c.expect)
+  check('room', c.name, room(boxes[c.box], expand(c.candles), c.sizes.map((s) => sizes[s]), c.options ?? {}), c.expect)
 }
 
 for (const c of fixtures.summary) {
-  check('summary', c.name, summary(boxes[c.box], c.sizes.map((s) => sizes[s])), c.expect)
+  check('summary', c.name, summary(boxes[c.box], c.sizes.map((s) => sizes[s]), c.options ?? {}), c.expect)
 }
 
 for (const c of fixtures.cover) {
   const covered = cover(c.candles.map((s) => sizes[s]))
   check('cover', c.name, covered, c.expect)
 
-  if (c.box !== undefined) check('cover', `${c.name} (fits ${c.box})`, fits(boxes[c.box], covered), c.fits)
+  if (c.box !== undefined) check('cover', `${c.name} (fits ${c.box})`, fits(boxes[c.box], covered, c.options ?? {}), c.fits)
 }
 
 // gift-groups.ts: fill bars, stepper limits, plan validation, totals.
@@ -117,11 +117,26 @@ function time(label: string, run: () => unknown): void {
   console.log(`    ${label.padEnd(58)} ${best.toFixed(2).padStart(8)} ms`)
 }
 
-time('fits 6 x 190g + 6 x 50g in 25 x 25 (no)', () => fits(boxes.b25, expand([['50g', 6], ['190g', 6]])))
-time('fits 6 x 190g + 6 x 50g in 30 x 30 (yes)', () => fits(boxes.b30, expand([['190g', 6], ['50g', 6]])))
-time('fits 12 x 50g in 21 x 21 (no)', () => fits(boxes.sq21, expand([['50g', 12]])))
-time('arrange 8 x 50g + 4 x 190g over 3 boxes', () => arrange(expand([['50g', 8], ['190g', 4]]), [boxes.p11, boxes.b14, boxes.sq14]))
-time('summary b30', () => summary(boxes.b30, [sizes['50g'], sizes['190g']]))
+const up: PackingOptions = { orientation: 'upright' }
+const lie: PackingOptions = { orientation: 'lying' }
+const any: PackingOptions = { orientation: 'any' }
+const mix6 = expand([['50g', 6], ['190g', 6]])
+const store = [boxes.p11, boxes.b14, boxes.sq14]
+const twelve = expand([['50g', 8], ['190g', 4]])
+
+time('upright: fits 6 x 190g + 6 x 50g in 25 x 25 (no)', () => fits(boxes.b25, mix6, up))
+time('upright: fits 6 x 190g + 6 x 50g in 30 x 30 (yes)', () => fits(boxes.b30, mix6, up))
+time('upright: fits 12 x 50g in 21 x 21 (no)', () => fits(boxes.sq21, expand([['50g', 12]]), up))
+time('upright: arrange 8 x 50g + 4 x 190g over 3 boxes', () => arrange(twelve, store, up))
+time('upright: summary b30', () => summary(boxes.b30, [sizes['50g'], sizes['190g']], up))
+time('lying: fits 6 x 190g + 6 x 50g in 30 x 30', () => fits(boxes.b30, mix6, lie))
+time('lying: fits 6 x 190g + 6 x 50g in 25 x 25', () => fits(boxes.b25, mix6, lie))
+time('lying: summary 25 x 9.5 x 8.5', () => summary(boxes.long25, [sizes['50g'], sizes['190g']], lie))
+time('any: fits 6 x 190g + 6 x 50g in 30 x 30', () => fits(boxes.b30, mix6, any))
+time('any: fits 6 x 190g + 6 x 50g in 25 x 25', () => fits(boxes.b25, mix6, any))
+time('any: fits 12 x 50g in 21 x 21', () => fits(boxes.sq21, expand([['50g', 12]]), any))
+time('any: arrange 8 x 50g + 4 x 190g over 3 boxes', () => arrange(twelve, store, any))
+time('any: summary b30', () => summary(boxes.b30, [sizes['50g'], sizes['190g']], any))
 
 console.log(`\n  ${passed} passed, ${failed} failed`)
 process.exit(failed > 0 ? 1 : 0)

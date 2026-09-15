@@ -7,10 +7,12 @@
  * (`php tests/gift-packing/run.php`, `node tests/gift-packing/run.ts`): change
  * one, change the other, run both.
  *
- * - Candles stand upright; height + gap must be ≤ the box height. `stacking` is
- *   accepted and ignored: one layer only.
- * - Each candle takes (length + gap) × (width + gap) of floor, turned 90° if
- *   that helps.
+ * - `orientation` (default 'lying'): 'upright' uses L × W of floor and H of
+ *   height; 'lying' puts the jar on its side, H × max(L, W) of floor and
+ *   max(L, W) of height; 'any' lets each candle take whichever lets the set fit.
+ *   The gap is added to both floor sides and to the height used, which must be
+ *   ≤ the box height. `stacking` is accepted and ignored: one layer only.
+ * - Footprints turn 90° on the floor if that helps.
  * - The floor search is exact over "normal pattern" corners in bottom-left
  *   order, with remembered failures and a conservative-scale bound, and gives
  *   up (says "does not fit") after STEP_LIMIT units of work — see GiftPacking.php for
@@ -39,11 +41,16 @@ export interface Box {
   price: number
 }
 
+/** How a candle sits in the box. */
+export type Orientation = 'upright' | 'lying' | 'any'
+
 export interface PackingOptions {
   /** Paper filling around each candle, cm. Default 0.5. */
   gap?: number
   /** Accepted for the settings' sake; not implemented — always one layer. */
   stacking?: boolean
+  /** Default 'lying' (the jar on its side). Anything else unknown counts as 'lying'. */
+  orientation?: Orientation
 }
 
 export interface Gift<C extends Candle = Candle, B extends Box = Box> {
@@ -64,8 +71,11 @@ export const BOUND_AT = 1000
 export const MAX_ITEMS = 12
 
 interface CandleType {
-  w: number
-  d: number
+  /** Ways it can take the floor, each [short, long] in units, sorted. */
+  shapes: [number, number][]
+  /** Smallest footprint among the shapes. */
+  area: number
+  key: string
   /** Still to place. */
   count: number
   /** In the box altogether. */
@@ -90,10 +100,12 @@ interface Search {
 
 /** Whether all these candles go in the box together. */
 export function fits(box: Box, candles: Candle[], options: PackingOptions = {}): boolean {
-  const gap = units(options.gap ?? 0.5)
-  const bx = units(box.length)
-  const by = units(box.width)
-  const bz = units(box.height)
+  // Round against the fit: candles and gap up, the box down, so a converted
+  // 5.004 cm candle never slips into a 5.00 cm box.
+  const gap = up(options.gap ?? 0.5)
+  const bx = down(box.length)
+  const by = down(box.width)
+  const bz = down(box.height)
   const max = Math.max(0, Math.trunc(Number(box.max ?? 0)) || 0)
   const n = candles.length
 
@@ -101,40 +113,35 @@ export function fits(box: Box, candles: Candle[], options: PackingOptions = {}):
 
   if ((max > 0 && n > max) || bx <= 0 || by <= 0 || bz <= 0) return false
 
-  // Identical candles are one type with a count: the search then never tries
-  // swapping two of them.
+  const orientation = orientationOf(options)
+
+  // Candles with the same possible footprints are one type with a count: the
+  // search then never tries swapping two of them.
   const byKey = new Map<string, CandleType>()
   let area = 0
 
   for (const candle of candles) {
-    const a = units(candle.length) + gap
-    const b = units(candle.width) + gap
-    const h = units(candle.height) + gap
+    const shapes = shapesOf(candle, orientation, gap, bx, by, bz)
 
-    if (a <= gap || b <= gap || h <= gap || h > bz) return false
+    if (shapes.length === 0) return false
 
-    const w = Math.min(a, b)
-    const d = Math.max(a, b)
-
-    if (!((w <= bx && d <= by) || (d <= bx && w <= by))) return false
-
-    const key = `${w}x${d}`
+    const key = shapes.map(([w, d]) => `${w}x${d}`).join(';')
     let type = byKey.get(key)
 
     if (!type) {
-      type = { w, d, count: 0, total: 0 }
+      type = { shapes, area: Math.min(...shapes.map(([w, d]) => w * d)), key, count: 0, total: 0 }
       byKey.set(key, type)
     }
 
     type.count++
     type.total++
-    area += w * d
+    area += type.area
   }
 
   if (area > bx * by) return false
 
   // Largest footprint first: it is the one with fewest places to go.
-  const types = [...byKey.values()].sort((p, q) => cmp(q.w * q.d, p.w * p.d) || cmp(p.w, q.w))
+  const types = [...byKey.values()].sort((p, q) => cmp(q.area, p.area) || cmp(p.shapes[0][0], q.shapes[0][0]) || byString(p.key, q.key))
 
   // A pushed-into-the-corner layout never reaches past the largest sum of sides
   // that fits, so the box can shrink to it.
@@ -474,32 +481,35 @@ function place(s: Search, last: number, left: number, area: number): boolean {
     for (const type of s.types) {
       if (type.count === 0) continue
 
-      const turns: [number, number][] = type.w === type.d ? [[type.w, type.d]] : [[type.w, type.d], [type.d, type.w]]
+      for (const shape of type.shapes) {
+        const turns: [number, number][] = shape[0] === shape[1] ? [[shape[0], shape[1]]] : [[shape[0], shape[1]], [shape[1], shape[0]]]
 
-      for (const [w, d] of turns) {
-        if (x + w > s.bx || y + d > s.by) continue
+        for (const [w, d] of turns) {
+          if (x + w > s.bx || y + d > s.by) continue
 
-        let clear = true
-        for (const r of s.placed) {
-          if (x < r[0] + r[2] && r[0] < x + w && y < r[1] + r[3] && r[1] < y + d) {
-            clear = false
-            break
+          let clear = true
+          for (const r of s.placed) {
+            if (x < r[0] + r[2] && r[0] < x + w && y < r[1] + r[3] && r[1] < y + d) {
+              clear = false
+              break
+            }
           }
+
+          if (!clear) continue
+
+          s.placed.push([x, y, w, d])
+          type.count--
+
+          // `area` counts each candle left at its smallest shape: a bound, not a sum of placements.
+          const done = place(s, idx, left - 1, area - type.area)
+
+          type.count++
+          s.placed.pop()
+
+          if (done) return true
+
+          if (s.stop) return false
         }
-
-        if (!clear) continue
-
-        s.placed.push([x, y, w, d])
-        type.count--
-
-        const done = place(s, idx, left - 1, area - w * d)
-
-        type.count++
-        s.placed.pop()
-
-        if (done) return true
-
-        if (s.stop) return false
       }
     }
   }
@@ -525,10 +535,10 @@ function covered(placed: Search['placed'], x: number, y: number): boolean {
  * side lengths. See GiftPacking::bound() for the worked example.
  */
 function bound(s: Search): boolean {
+  // How many candles could show each side length along a line.
   const bySide = new Map<number, number>()
   for (const type of s.types) {
-    bySide.set(type.w, (bySide.get(type.w) ?? 0) + type.total)
-    if (type.d !== type.w) bySide.set(type.d, (bySide.get(type.d) ?? 0) + type.total)
+    for (const side of sidesOf(type)) bySide.set(side, (bySide.get(side) ?? 0) + type.total)
   }
 
   const lengths = [...bySide.keys()].sort((a, b) => a - b)
@@ -569,9 +579,14 @@ function bound(s: Search): boolean {
     for (const fy of across) {
       let total = 0
       for (const type of s.types) {
-        const w = index.get(type.w) as number
-        const d = index.get(type.d) as number
-        total += type.total * Math.min(fx[0][w] * fy[0][d], fx[0][d] * fy[0][w])
+        // Each candle takes the cheapest of its shapes and turns.
+        let least = Number.MAX_SAFE_INTEGER
+        for (const [a, b] of type.shapes) {
+          const w = index.get(a) as number
+          const d = index.get(b) as number
+          least = Math.min(least, fx[0][w] * fy[0][d], fx[0][d] * fy[0][w])
+        }
+        total += type.total * least
       }
 
       if (total > fx[1] * fy[1]) return true
@@ -585,12 +600,13 @@ function bound(s: Search): boolean {
 function normal(types: CandleType[], limit: number): number[] {
   let sums = new Set<number>([0])
 
-  // Each candle adds either of its sides, or nothing.
+  // Each candle adds any side of any of its shapes, or nothing.
   for (const type of types) {
+    const steps = sidesOf(type)
     for (let c = 0; c < type.count; c++) {
       const next = new Set(sums)
       for (const total of sums) {
-        for (const step of [type.w, type.d]) {
+        for (const step of steps) {
           if (total + step <= limit) next.add(total + step)
         }
       }
@@ -604,9 +620,56 @@ function normal(types: CandleType[], limit: number): number[] {
 /** The sums a candle's corner can sit on: room left for the narrowest side. */
 function corners(sums: number[], types: CandleType[], side: number): number[] {
   let narrow = Number.MAX_SAFE_INTEGER
-  for (const type of types) narrow = Math.min(narrow, type.w)
+  for (const type of types) {
+    for (const shape of type.shapes) narrow = Math.min(narrow, shape[0])
+  }
 
   return sums.filter((total) => total + narrow <= side)
+}
+
+/** Distinct side lengths across a type's shapes, ascending. */
+function sidesOf(type: CandleType): number[] {
+  const sides: number[] = []
+  for (const shape of type.shapes) {
+    for (const side of shape) {
+      if (!sides.includes(side)) sides.push(side)
+    }
+  }
+  return sides.sort((a, b) => a - b)
+}
+
+function orientationOf(options: PackingOptions): Orientation {
+  return options.orientation === 'upright' || options.orientation === 'any' ? options.orientation : 'lying'
+}
+
+/**
+ * The floor footprints a candle may take in this box, gap included, each as
+ * [short, long] and sorted: upright L × W under H, lying H × max(L, W) under
+ * max(L, W). Shapes too tall, or too big for the floor either way round, drop.
+ */
+function shapesOf(candle: Candle, orientation: Orientation, gap: number, bx: number, by: number, bz: number): [number, number][] {
+  const l = up(candle.length)
+  const w = up(candle.width)
+  const h = up(candle.height)
+
+  if (l <= 0 || w <= 0 || h <= 0) return []
+
+  const across = Math.max(l, w)
+  const ways: [number, number, number][] = []
+
+  if (orientation !== 'lying') ways.push([l + gap, w + gap, h + gap])
+  if (orientation !== 'upright') ways.push([h + gap, across + gap, across + gap])
+
+  const shapes: [number, number][] = []
+  for (const [a, b, z] of ways) {
+    const short = Math.min(a, b)
+    const long = Math.max(a, b)
+
+    if (z > bz || !((short <= bx && long <= by) || (long <= bx && short <= by))) continue
+    if (!shapes.some(([p, q]) => p === short && q === long)) shapes.push([short, long])
+  }
+
+  return shapes.sort((p, q) => cmp(p[0], q[0]) || cmp(p[1], q[1]))
 }
 
 /** Byte order, like PHP's SORT_STRING (keys are ASCII). */
@@ -623,14 +686,21 @@ function distinct<C extends Candle>(candles: C[]): C[] {
   return [...out.values()]
 }
 
+/** Rounded up like fits() rounds candles, so 5.000 and 5.004 cm stay apart (arrange() tests a group with its first candle). */
 function candleKey(candle: Candle): string {
-  return `${candle.size ?? ''}|${units(candle.length)}|${units(candle.width)}|${units(candle.height)}`
+  return `${candle.size ?? ''}|${up(candle.length)}|${up(candle.width)}|${up(candle.height)}`
 }
 
-/** Centimetres to hundredths of a centimetre. */
-function units(cm: unknown): number {
+/** Hundredths of a cm, rounded up (candles, gap); 1e-6 absorbs float noise. Same as PHP up(). */
+function up(cm: unknown): number {
   const value = Number(cm)
-  return Number.isFinite(value) && value > 0 ? Math.floor(value * 100 + 0.5) : 0
+  return Number.isFinite(value) && value > 0 ? Math.ceil(value * 100 - 1e-6) : 0
+}
+
+/** Hundredths of a cm, rounded down (box sides). Same as PHP down(). */
+function down(cm: unknown): number {
+  const value = Number(cm)
+  return Number.isFinite(value) && value > 0 ? Math.floor(value * 100 + 1e-6) : 0
 }
 
 function cents(price: unknown): number {

@@ -38,17 +38,23 @@ final class BoxFields {
 	private const NONCE_FIELD = 'galaxie_gift_box_nonce';
 
 	/**
-	 * @param string    $attribute  Candle size attribute, e.g. `pa_peso`.
-	 * @param float     $gap        Packing gap in cm.
-	 * @param bool      $stacking   Stacking setting (accepted; the engine packs one layer).
-	 * @param int[]     $categories Product categories that are gift boxes; empty = every variable product.
+	 * @param string    $attribute   Candle size attribute, e.g. `pa_peso`.
+	 * @param float     $gap         Packing gap in cm.
+	 * @param bool      $stacking    Stacking setting (accepted; the engine packs one layer).
+	 * @param int[]     $categories  Product categories that are gift boxes; empty = every variable product.
+	 * @param string    $orientation 'lying' (default, the jar on its side), 'upright' or 'any'.
 	 */
 	public function __construct(
 		private string $attribute = 'pa_peso',
 		private float $gap = 0.5,
 		private bool $stacking = false,
-		private array $categories = array()
-	) {}
+		private array $categories = array(),
+		private string $orientation = 'lying'
+	) {
+		if ( ! in_array( $this->orientation, array( 'upright', 'lying', 'any' ), true ) ) {
+			$this->orientation = 'lying';
+		}
+	}
 
 	public function register(): void {
 		add_action( 'woocommerce_product_after_variable_attributes', array( $this, 'render' ), 10, 3 );
@@ -71,14 +77,14 @@ final class BoxFields {
 		$id   = (int) $variation->ID;
 
 		echo '<div class="galaxie-gift-box-fields" style="clear:both;border-top:1px solid #eee;padding-top:8px">';
-		echo '<p class="form-row form-row-full" style="margin-bottom:0"><strong>' . esc_html__( 'Gift box', 'galaxie-woo' ) . '</strong> — ' . esc_html__( 'inside size, used to work out which candles fit. Leave empty if this is not a box.', 'galaxie-woo' ) . '</p>';
+		echo '<p class="form-row form-row-full" style="margin-bottom:0"><strong>' . esc_html__( 'Gift box', 'galaxie-woo' ) . '</strong> — ' . esc_html__( 'INTERNAL (usable) dimensions in cm: the space the candles actually get, used to work out which candles fit. Leave empty if this is not a box.', 'galaxie-woo' ) . '<br><em>' . esc_html__( 'Measuring the outside? Subtract the MDF/cardboard thickness: twice the wall for length and width, and the base and lid for height (e.g. 3 mm MDF: 14.2 cm outside = 13.6 cm inside).', 'galaxie-woo' ) . '</em></p>';
 
 		wp_nonce_field( self::NONCE, self::NONCE_FIELD, false );
 
 		$fields = array(
-			'length' => array( __( 'Internal length (cm)', 'galaxie-woo' ), 'form-row-first' ),
-			'width'  => array( __( 'Internal width (cm)', 'galaxie-woo' ), 'form-row-last' ),
-			'height' => array( __( 'Internal height (cm)', 'galaxie-woo' ), 'form-row-first' ),
+			'length' => array( __( 'Internal (usable) length, cm', 'galaxie-woo' ), 'form-row-first' ),
+			'width'  => array( __( 'Internal (usable) width, cm', 'galaxie-woo' ), 'form-row-last' ),
+			'height' => array( __( 'Internal (usable) height, cm', 'galaxie-woo' ), 'form-row-first' ),
 		);
 
 		foreach ( $fields as $field => $spec ) {
@@ -190,8 +196,9 @@ final class BoxFields {
 		}
 
 		$options = array(
-			'gap'      => $this->gap,
-			'stacking' => $this->stacking,
+			'gap'         => $this->gap,
+			'stacking'    => $this->stacking,
+			'orientation' => $this->orientation,
 		);
 		$rows    = array();
 
@@ -206,12 +213,19 @@ final class BoxFields {
 			$rows[] = $row['capped'] ? sprintf( __( '%s ou mais', 'galaxie-woo' ), implode( ' + ', $parts ) ) : implode( ' + ', $parts );
 		}
 
+		$ways = array(
+			'lying'   => __( 'deitadas', 'galaxie-woo' ),
+			'upright' => __( 'em pé', 'galaxie-woo' ),
+			'any'     => __( 'em pé ou deitadas', 'galaxie-woo' ),
+		);
+
 		if ( ! $rows ) {
-			return __( 'Cabe: nenhuma vela', 'galaxie-woo' );
+			/* translators: %s: how the candles sit, e.g. "deitadas" */
+			return sprintf( __( 'Cabe: nenhuma vela (%s)', 'galaxie-woo' ), $ways[ $this->orientation ] );
 		}
 
-		/* translators: 1: fits, e.g. "4 × 50g · 1 × 190g", 2: gap in cm */
-		return sprintf( __( 'Cabe: %1$s (folga de %2$s cm)', 'galaxie-woo' ), implode( ' · ', $rows ), wc_format_localized_decimal( $this->gap ) );
+		/* translators: 1: fits, e.g. "4 × 50g · 1 × 190g", 2: how the candles sit, e.g. "deitadas", 3: gap in cm */
+		return sprintf( __( 'Cabe: %1$s (%2$s, folga de %3$s cm)', 'galaxie-woo' ), implode( ' · ', $rows ), $ways[ $this->orientation ], wc_format_localized_decimal( $this->gap ) );
 	}
 
 	/**
