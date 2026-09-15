@@ -209,7 +209,7 @@ final class Groups {
 	 * @return array|null Null when a candle has no dimensions to pack with.
 	 */
 	public static function candles( array $lines, string $except = '' ): ?array {
-		$attribute = (string) Module::setting( 'size_attribute' );
+		$attribute = Module::size_attribute();
 		$candles   = array();
 
 		foreach ( $lines as $key => $item ) {
@@ -464,7 +464,7 @@ final class Groups {
 		}
 
 		$others = self::candles( $lines, (string) $cart_item_key );
-		$candle = ( $values['data'] ?? null ) instanceof \WC_Product ? GiftPacking::candle_from_product( $values['data'], (string) Module::setting( 'size_attribute' ) ) : null;
+		$candle = ( $values['data'] ?? null ) instanceof \WC_Product ? GiftPacking::candle_from_product( $values['data'], Module::size_attribute() ) : null;
 
 		if ( null === $others || null === $candle ) {
 			return $passed;
@@ -568,7 +568,7 @@ final class Groups {
 		$gift     = self::groups( $contents )[ $group['id'] ] ?? null;
 		$box      = $gift ? self::box( $gift['box'] ) : null;
 		$others   = $gift && '' !== $key ? self::candles( $gift['candles'], $key ) : null;
-		$candle   = GiftPacking::candle_from_product( $product, (string) Module::setting( 'size_attribute' ) );
+		$candle   = GiftPacking::candle_from_product( $product, Module::size_attribute() );
 
 		if ( ! $box || null === $others || ! $candle ) {
 			$cache[ $state ] = null;

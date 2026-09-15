@@ -79,7 +79,7 @@ final class Module implements ModuleContract, ProvidesBootData, ProvidesElemento
 		$options = self::packing_options();
 
 		( new BoxFields(
-			(string) self::setting( 'size_attribute' ),
+			self::size_attribute(),
 			$options['gap'],
 			$options['stacking'],
 			self::categories( 'box' ),
@@ -87,10 +87,11 @@ final class Module implements ModuleContract, ProvidesBootData, ProvidesElemento
 		) )->register();
 
 		// The jar's own size for packing, beside the shipping dimensions Melhor Envio reads.
-		( new CandleFields( (string) self::setting( 'size_attribute' ), self::categories( 'box' ) ) )->register();
+		( new CandleFields( self::size_attribute(), self::categories( 'box' ) ) )->register();
 
-		// The jar's size once per size term, used when a variation has none of its own.
-		( new SizeTermFields( (string) self::setting( 'size_attribute' ) ) )->register();
+		// The jar's size once per size term, used when a variation has none of its
+		// own. Same normalised taxonomy as the fields above (`peso` → `pa_peso`).
+		( new SizeTermFields( self::size_attribute() ) )->register();
 
 		// The variation sizes over the REST API, sanitised by BoxFields and CandleFields.
 		ProductMeta::hooks();
@@ -122,6 +123,25 @@ final class Module implements ModuleContract, ProvidesBootData, ProvidesElemento
 	}
 
 	/**
+	 * The candle size attribute as WooCommerce names it.
+	 *
+	 * The setting is typed by hand, and "peso" for the global attribute Peso is
+	 * an easy slip: a variation still answers get_attribute( 'peso' ), so the
+	 * candle being bought looks fine, but there is no taxonomy "peso" to list
+	 * the store's sizes from. When the typed name is no taxonomy and "pa_" plus
+	 * it is one, that is the one meant. A local attribute stays as typed.
+	 */
+	public static function size_attribute(): string {
+		$attribute = (string) self::setting( 'size_attribute' );
+
+		if ( '' !== $attribute && ! taxonomy_exists( $attribute ) && taxonomy_exists( 'pa_' . $attribute ) ) {
+			return 'pa_' . $attribute;
+		}
+
+		return $attribute;
+	}
+
+	/**
 	 * The options every packing question is asked with — here, in the cart, on
 	 * the server and, through the builder's data, in the popup.
 	 *
@@ -138,22 +158,17 @@ final class Module implements ModuleContract, ProvidesBootData, ProvidesElemento
 	}
 
 	/**
-	 * Product category ids holding one kind of accessory: the widget's own
-	 * choice when it made one, the module setting otherwise.
+	 * Product category ids holding one kind of accessory, from the module
+	 * settings. The only place categories are chosen: values an older Gift
+	 * Builder widget saved for them are ignored.
 	 *
-	 * @param string $kind     `box`, `ribbon` or `card`.
-	 * @param mixed  $override The Gift Builder widget's value for that kind.
+	 * @param string $kind `box`, `ribbon` or `card`.
 	 * @return int[]
 	 */
-	public static function categories( string $kind, $override = array() ): array {
-		$ids = array_filter( array_map( 'absint', is_array( $override ) ? $override : array() ) );
+	public static function categories( string $kind ): array {
+		$saved = self::setting( $kind . '_categories' );
 
-		if ( ! $ids ) {
-			$saved = self::setting( $kind . '_categories' );
-			$ids   = array_filter( array_map( 'absint', is_array( $saved ) ? $saved : array() ) );
-		}
-
-		return array_values( array_unique( $ids ) );
+		return array_values( array_unique( array_filter( array_map( 'absint', is_array( $saved ) ? $saved : array() ) ) ) );
 	}
 
 	// -------------------------------------------------------------- settings
@@ -207,7 +222,7 @@ final class Module implements ModuleContract, ProvidesBootData, ProvidesElemento
 				key: 'box_categories',
 				label: __( 'Gift box categories', 'galaxie-woo' ),
 				type: Field::TYPE_MULTI,
-				description: __( 'Products in these categories are offered as gift boxes: each variation with inside dimensions (Products → edit → Variations) is one box size. The Gift Builder widget can override this.', 'galaxie-woo' ),
+				description: __( 'Products in these categories are offered as gift boxes: each variation with inside dimensions (Products → edit → Variations) is one box size. A box product is never offered as a card or a ribbon, even in a shared category.', 'galaxie-woo' ),
 				default: self::DEFAULTS['box_categories'],
 				options: $categories
 			),
@@ -215,7 +230,7 @@ final class Module implements ModuleContract, ProvidesBootData, ProvidesElemento
 				key: 'ribbon_categories',
 				label: __( 'Ribbon categories', 'galaxie-woo' ),
 				type: Field::TYPE_MULTI,
-				description: __( 'Optional. Products in these categories are offered as extra ribbons. Leave empty when gift boxes are sold with their ribbon: the builder then has no ribbon step at all. The Gift Builder widget can override this.', 'galaxie-woo' ),
+				description: __( 'Optional. Products in these categories are offered as extra ribbons. Leave empty when gift boxes are sold with their ribbon: the builder then has no ribbon step at all.', 'galaxie-woo' ),
 				default: self::DEFAULTS['ribbon_categories'],
 				options: $categories
 			),
@@ -223,7 +238,7 @@ final class Module implements ModuleContract, ProvidesBootData, ProvidesElemento
 				key: 'card_categories',
 				label: __( 'Card categories', 'galaxie-woo' ),
 				type: Field::TYPE_MULTI,
-				description: __( 'Products in these categories are offered as cards with a message. The Gift Builder widget can override this.', 'galaxie-woo' ),
+				description: __( 'Products in these categories are offered as cards with a message. They may share a category with the gift boxes.', 'galaxie-woo' ),
 				default: self::DEFAULTS['card_categories'],
 				options: $categories
 			),

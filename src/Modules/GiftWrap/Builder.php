@@ -7,7 +7,6 @@
 
 namespace Galaxie\Woo\Modules\GiftWrap;
 
-use Galaxie\Woo\Support\CartParts;
 use Galaxie\Woo\Support\GiftGroups;
 use Galaxie\Woo\Support\GiftPacking;
 
@@ -20,9 +19,10 @@ defined( 'ABSPATH' ) || exit;
  * DATA (`galaxie_gift_builder_data`): the candle the Buy Box is about to add,
  * the gifts already in the cart, gift candles in the cart that are not in a
  * gift yet, and the boxes, ribbons and cards on offer with price, stock and
- * size. Which categories hold those comes from the widget that asked — read
- * from its saved Elementor settings by post and element id, never from the
- * request — or from the module settings.
+ * size. Which categories hold those comes from the module settings only
+ * (wp-admin → Galaxie → Gift Wrap), and each product plays one role: a box
+ * product is never offered as a card or a ribbon, a card never as a ribbon.
+ * Every list goes out as a JSON list, not an object keyed by product id.
  *
  * ADD (`galaxie_gift_builder_add`): the plan the popup built. Nothing in it is
  * taken on trust: every product is checked against that same offer, every box
@@ -97,9 +97,8 @@ final class Builder {
 		check_ajax_referer( self::NONCE, 'nonce' );
 		self::require_cart();
 
-		$settings  = self::widget_settings();
 		$pending   = self::pending();
-		$attribute = (string) Module::setting( 'size_attribute' );
+		$attribute = Module::size_attribute();
 		$contents  = WC()->cart->get_cart();
 
 		wp_send_json_success(
@@ -107,9 +106,10 @@ final class Builder {
 				'pending'    => self::pending_json( $pending, $attribute ),
 				'gifts'      => self::gifts_json( $contents ),
 				'loose'      => self::loose_json( $contents, $attribute ),
-				'boxes'      => array_map( array( self::class, 'option_json' ), self::catalogue( 'box', $settings ) ),
-				'ribbons'    => array_map( array( self::class, 'option_json' ), self::catalogue( 'ribbon', $settings ) ),
-				'cards'      => array_map( array( self::class, 'option_json' ), self::catalogue( 'card', $settings ) ),
+				// Lists: an array keyed by product id would reach the popup as an object.
+				'boxes'      => array_values( array_map( array( self::class, 'option_json' ), self::catalogue( 'box' ) ) ),
+				'ribbons'    => array_values( array_map( array( self::class, 'option_json' ), self::catalogue( 'ribbon' ) ) ),
+				'cards'      => array_values( array_map( array( self::class, 'option_json' ), self::catalogue( 'card' ) ) ),
 				'sizes'      => array_values( GiftPacking::store_sizes( $attribute ) ),
 				'inCart'     => self::in_cart( $contents ),
 				'options'    => Module::packing_options(),
@@ -139,9 +139,8 @@ final class Builder {
 			self::fail( __( 'Não foi possível montar o presente. Tente de novo.', 'galaxie-woo' ) );
 		}
 
-		$settings  = self::widget_settings();
 		$pending   = self::pending();
-		$attribute = (string) Module::setting( 'size_attribute' );
+		$attribute = Module::size_attribute();
 		$options   = Module::packing_options();
 		$contents  = WC()->cart->get_cart();
 		$gifts     = Groups::groups( $contents );
@@ -163,9 +162,9 @@ final class Builder {
 		}
 
 		$offer = array(
-			'box'    => self::catalogue( 'box', $settings ),
-			'ribbon' => self::catalogue( 'ribbon', $settings ),
-			'card'   => self::catalogue( 'card', $settings ),
+			'box'    => self::catalogue( 'box' ),
+			'ribbon' => self::catalogue( 'ribbon' ),
+			'card'   => self::catalogue( 'card' ),
 		);
 
 		$pending_candle = GiftPacking::candle_from_product( $pending['product'], $attribute );
@@ -473,6 +472,103 @@ final class Builder {
 		);
 	}
 
+	// ----------------------------------------------------- for the editor preview
+
+	/**
+	 * The boxes, ribbons and cards the store offers in gifts, by product
+	 * (variation) id — what the popup lists. The editor preview draws its sample
+	 * gift from these instead of invented products.
+	 *
+	 * @return array{box: array<int,\WC_Product>, ribbon: array<int,\WC_Product>, card: array<int,\WC_Product>}
+	 */
+	public static function offer(): array {
+		return array(
+			'box'    => self::catalogue( 'box' ),
+			'ribbon' => self::catalogue( 'ribbon' ),
+			'card'   => self::catalogue( 'card' ),
+		);
+	}
+
+	/** Units left to sell, or null when not limited. */
+	public static function units_left( \WC_Product $product ): ?int {
+		return self::stock( $product );
+	}
+
+	/**
+	 * The card variation a gift with this box gets from one card product, as
+	 * the add endpoint enforces it. 0: none.
+	 *
+	 * @param array<int,\WC_Product> $cards The card offer.
+	 */
+	public static function card_id( int $parent, ?\WC_Product $box, array $cards ): int {
+		return self::card_for( $parent, $box, $cards );
+	}
+
+	/**
+	 * A real candle to show in the editor: of the first published product with
+	 * the candle size attribute and dimensions to pack with, its largest size.
+	 */
+	public static function sample_candle(): ?\WC_Product {
+		$attribute = Module::size_attribute();
+
+		if ( '' === $attribute ) {
+			return null;
+		}
+
+		$ids = get_posts(
+			array(
+				'post_type'      => 'product_variation',
+				'post_status'    => 'publish',
+				'posts_per_page' => 100,
+				'fields'         => 'ids',
+				'no_found_rows'  => true,
+				'orderby'        => array(
+					'parent' => 'ASC',
+					'ID'     => 'ASC',
+				),
+				'meta_query'     => array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query
+					array(
+						'key'     => 'attribute_' . $attribute,
+						'compare' => 'EXISTS',
+					),
+				),
+			)
+		);
+
+		$best   = null;
+		$parent = 0;
+		$volume = 0.0;
+
+		foreach ( $ids as $id ) {
+			$variation = wc_get_product( $id );
+
+			if ( ! $variation instanceof \WC_Product || 'publish' !== get_post_status( $variation->get_parent_id() ) || ! $variation->is_purchasable() ) {
+				continue;
+			}
+
+			$candle = GiftPacking::candle_from_product( $variation, $attribute );
+
+			if ( ! $candle ) {
+				continue;
+			}
+
+			// The first product found is the one shown; only its sizes compete.
+			if ( $parent && $variation->get_parent_id() !== $parent ) {
+				break;
+			}
+
+			$parent = $variation->get_parent_id();
+			$size   = $candle['length'] * $candle['width'] * $candle['height'];
+
+			if ( $size > $volume ) {
+				$volume = $size;
+				$best   = $variation;
+			}
+		}
+
+		return $best;
+	}
+
 	// ------------------------------------------------------------- internals
 
 	private static function require_cart(): void {
@@ -495,27 +591,6 @@ final class Builder {
 	}
 
 	/**
-	 * The settings of the Gift Builder that asked, from the ids Elementor put
-	 * in the page — so category overrides come from what the merchant saved.
-	 *
-	 * @return array<string,mixed>
-	 */
-	private static function widget_settings(): array {
-		// phpcs:disable WordPress.Security.NonceVerification.Missing -- checked by the caller.
-		$post_id    = isset( $_POST['elementor_post'] ) ? absint( $_POST['elementor_post'] ) : 0;
-		$element_id = isset( $_POST['element_id'] ) ? sanitize_key( wp_unslash( $_POST['element_id'] ) ) : '';
-		// phpcs:enable WordPress.Security.NonceVerification.Missing
-
-		// Only a document this request could have rendered: published and not
-		// behind a password, or one the visitor may edit (the editor's preview).
-		if ( $post_id > 0 && ! current_user_can( 'edit_post', $post_id ) && ( 'publish' !== get_post_status( $post_id ) || post_password_required( $post_id ) ) ) {
-			return array();
-		}
-
-		return CartParts::element_settings( $post_id, $element_id );
-	}
-
-	/**
 	 * The candle the Buy Box is about to add, as the add would see it.
 	 *
 	 * @return array{product:\WC_Product, parent:int, variation:int, attributes:array, quantity:int}
@@ -535,7 +610,7 @@ final class Builder {
 
 		// Only a candle — the size attribute, and gift or WooCommerce dimensions —
 		// can be put in a gift. Never a gift that cannot be packed.
-		if ( ! GiftPacking::candle_from_product( $product, (string) Module::setting( 'size_attribute' ) ) ) {
+		if ( ! GiftPacking::candle_from_product( $product, Module::size_attribute() ) ) {
 			self::fail( self::no_dimensions() );
 		}
 
@@ -549,61 +624,104 @@ final class Builder {
 	}
 
 	/**
-	 * Purchasable products of one kind, by product (variation) id. Variable
-	 * products offer each variation; boxes only those with inside dimensions.
+	 * Purchasable products of one role, by product (variation) id.
 	 *
-	 * @param array<string,mixed> $settings Gift Builder widget settings.
+	 * @param string $kind `box`, `card` or `ribbon`.
 	 * @return array<int,\WC_Product>
 	 */
-	private static function catalogue( string $kind, array $settings ): array {
-		static $cache = array();
+	private static function catalogue( string $kind ): array {
+		static $roles = null;
 
-		$ids = Module::categories( $kind, $settings[ $kind . '_categories' ] ?? array() );
-		$key = $kind . ':' . implode( ',', $ids );
-
-		if ( isset( $cache[ $key ] ) ) {
-			return $cache[ $key ];
+		if ( null === $roles ) {
+			$roles = self::roles();
 		}
 
-		$slugs = array();
-		foreach ( $ids as $id ) {
-			$term = get_term( $id, 'product_cat' );
+		return $roles[ $kind ] ?? array();
+	}
+
+	/**
+	 * Every accessory on offer, each in exactly one role (GiftGroups::roles()):
+	 * the module's categories say where to look, the product says what it is.
+	 * Variable products offer each purchasable variation; a product with box
+	 * dimensions on any variation is a box product and only its sized
+	 * variations are offered, as boxes.
+	 *
+	 * @return array{box: array<int,\WC_Product>, card: array<int,\WC_Product>, ribbon: array<int,\WC_Product>}
+	 */
+	private static function roles(): array {
+		$categories = array(
+			'box'    => Module::categories( 'box' ),
+			'card'   => Module::categories( 'card' ),
+			'ribbon' => Module::categories( 'ribbon' ),
+		);
+		$out        = array(
+			'box'    => array(),
+			'card'   => array(),
+			'ribbon' => array(),
+		);
+		$slugs      = array();
+
+		foreach ( array_unique( array_merge( $categories['box'], $categories['card'], $categories['ribbon'] ) ) as $id ) {
+			$term = get_term( (int) $id, 'product_cat' );
+
 			if ( $term instanceof \WP_Term ) {
 				$slugs[] = $term->slug;
 			}
 		}
 
+		if ( ! $slugs ) {
+			return $out;
+		}
+
+		$products = wc_get_products(
+			array(
+				'status'   => 'publish',
+				'limit'    => self::CATALOGUE_LIMIT * 3,
+				'category' => $slugs,
+				'orderby'  => 'menu_order',
+				'order'    => 'ASC',
+			)
+		);
+
+		$rows  = array();
 		$found = array();
 
-		if ( $slugs ) {
-			$products = wc_get_products(
-				array(
-					'status'   => 'publish',
-					'limit'    => self::CATALOGUE_LIMIT,
-					'category' => $slugs,
-					'orderby'  => 'menu_order',
-					'order'    => 'ASC',
-				)
-			);
+		foreach ( is_array( $products ) ? $products : array() as $product ) {
+			$options = $product->is_type( 'variable' ) ? array_filter( array_map( 'wc_get_product', $product->get_children() ) ) : array( $product );
+			$boxed   = false;
+			$usable  = array();
 
-			foreach ( is_array( $products ) ? $products : array() as $product ) {
-				$options = $product->is_type( 'variable' ) ? array_filter( array_map( 'wc_get_product', $product->get_children() ) ) : array( $product );
-
-				foreach ( $options as $option ) {
-					if ( ! $option instanceof \WC_Product || ! $option->is_purchasable() || $option->is_type( 'variable' ) ) {
-						continue;
-					}
-
-					if ( 'box' === $kind && ! GiftPacking::box_from_product( $option ) ) {
-						continue;
-					}
-
-					$found[ $option->get_id() ] = $option;
+			foreach ( $options as $option ) {
+				if ( ! $option instanceof \WC_Product || $option->is_type( 'variable' ) ) {
+					continue;
 				}
+
+				$sized = null !== GiftPacking::box_from_product( $option );
+				$boxed = $boxed || $sized;
+
+				if ( $option->is_purchasable() ) {
+					$usable[] = array( $option, $sized );
+				}
+			}
+
+			foreach ( $usable as $pair ) {
+				$found[ $pair[0]->get_id() ] = $pair[0];
+				$rows[]                      = array(
+					'id'          => $pair[0]->get_id(),
+					'box_product' => $boxed,
+					'box_size'    => $pair[1],
+					'categories'  => $product->get_category_ids(),
+				);
 			}
 		}
 
-		return $cache[ $key ] = $found;
+		foreach ( GiftGroups::roles( $rows, $categories ) as $kind => $ids ) {
+			foreach ( $ids as $id ) {
+				$out[ $kind ][ $id ] = $found[ $id ];
+			}
+		}
+
+		return $out;
 	}
 
 	/**
@@ -726,7 +844,7 @@ final class Builder {
 				&& ! Groups::group_of( $item )
 				&& ( $item['data'] ?? null ) instanceof \WC_Product
 				// Without dimensions it cannot be packed: not offered.
-				&& null !== GiftPacking::candle_from_product( $item['data'], (string) Module::setting( 'size_attribute' ) )
+				&& null !== GiftPacking::candle_from_product( $item['data'], Module::size_attribute() )
 		);
 	}
 
@@ -944,7 +1062,7 @@ final class Builder {
 
 	/** @return array<int,array<string,mixed>> Gifts in the cart, in number order. */
 	private static function gifts_json( array $contents ): array {
-		$attribute = (string) Module::setting( 'size_attribute' );
+		$attribute = Module::size_attribute();
 		$out       = array();
 
 		foreach ( Groups::groups( $contents ) as $id => $gift ) {

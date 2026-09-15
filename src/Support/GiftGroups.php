@@ -385,6 +385,53 @@ final class GiftGroups {
 	}
 
 	/**
+	 * Which role each accessory plays — exactly one. The module's categories say
+	 * where to look; the product says what it is. A merchant may keep boxes and
+	 * cards in one category ("Acessórios de presentes"):
+	 * - a product with box dimensions on any variation is a box product: its
+	 *   variations with dimensions are boxes, and none of it is ever a card or
+	 *   a ribbon;
+	 * - anything else in a card category is a card;
+	 * - anything else in a ribbon category, and not a card, is a ribbon.
+	 *
+	 * @param array $rows       [ { id, box_product: bool, box_size: bool, categories: int[] } ], in catalogue order.
+	 * @param array $categories { box: int[], card: int[], ribbon: int[] }.
+	 * @return array{box: int[], card: int[], ribbon: int[]} Ids as lists, in row order.
+	 */
+	public static function roles( array $rows, array $categories ): array {
+		$out = array(
+			'box'    => array(),
+			'card'   => array(),
+			'ribbon' => array(),
+		);
+
+		foreach ( $rows as $row ) {
+			$in = static function ( string $kind ) use ( $row, $categories ): bool {
+				return (bool) array_intersect(
+					array_map( 'intval', (array) ( $row['categories'] ?? array() ) ),
+					array_map( 'intval', (array) ( $categories[ $kind ] ?? array() ) )
+				);
+			};
+			$id = (int) ( $row['id'] ?? 0 );
+
+			if ( ! empty( $row['box_product'] ) ) {
+				if ( ! empty( $row['box_size'] ) && $in( 'box' ) ) {
+					$out['box'][] = $id;
+				}
+				continue;
+			}
+
+			if ( $in( 'card' ) ) {
+				$out['card'][] = $id;
+			} elseif ( $in( 'ribbon' ) ) {
+				$out['ribbon'][] = $id;
+			}
+		}
+
+		return $out;
+	}
+
+	/**
 	 * Which card a gift gets from one card product, for its box.
 	 *
 	 * Cards come one size per box, told apart by an attribute the box has too

@@ -148,6 +148,18 @@ foreach ( $fixtures['card_for'] as $case ) {
 	$check( 'card_for', $case['name'], GiftGroups::card_for( $case['cards'], $case['parent'], $case['box'] ), $case['expect'] );
 }
 
+foreach ( $fixtures['roles'] as $case ) {
+	$roles = GiftGroups::roles( $case['rows'], $case['categories'] );
+	$check( 'roles', $case['name'], $roles, $case['expect'] );
+
+	// The data endpoint sends these as JSON: lists, never objects keyed by id.
+	$lists = true;
+	foreach ( $roles as $ids ) {
+		$lists = $lists && array_is_list( $ids ) && str_starts_with( (string) json_encode( $ids ), '[' );
+	}
+	$check( 'roles', $case['name'] . ' (JSON lists)', $lists, true );
+}
+
 foreach ( $fixtures['check_request'] as $case ) {
 	$check( 'check_request', $case['name'], GiftGroups::check_request( $case['raw'], $case['pending'], $case['loose'], $case['existing'] ), $case['expect'] );
 }
@@ -263,6 +275,91 @@ $check( 'candle_from_product', 'after flush_sizes: size term width gone, WooComm
 
 $GLOBALS['gx_terms'] = array();
 GiftPacking::flush_sizes();
+// store_sizes() on a stubbed store: one size per term of the attribute, gift
+// dimensions winning over WooCommerce's, a draft product's variation ignored.
+if ( ! defined( 'DAY_IN_SECONDS' ) ) {
+	define( 'DAY_IN_SECONDS', 86400 );
+}
+
+$GLOBALS['galaxie_stub_store'] = array(
+	'published' => array( 100 ),
+	'parents'   => array( 101 => 100, 102 => 100, 201 => 200 ),
+	'products'  => array(
+		101 => new WC_Product( array( 'id' => 101, 'type' => 'variation', 'attributes' => array( 'pa_peso' => '50g' ), 'length' => '5', 'width' => '5', 'height' => '6.5', 'price' => '30' ) ),
+		102 => new WC_Product(
+			array(
+				'id'         => 102,
+				'type'       => 'variation',
+				'attributes' => array( 'pa_peso' => '190g' ),
+				'length'     => '8',
+				'width'      => '8',
+				'height'     => '8.5',
+				'price'      => '60',
+				'meta'       => array( '_galaxie_gift_length' => '7.8', '_galaxie_gift_width' => '7.8', '_galaxie_gift_height' => '8.4' ),
+			)
+		),
+		201 => new WC_Product( array( 'id' => 201, 'type' => 'variation', 'attributes' => array( 'pa_peso' => '190g' ), 'length' => '10', 'width' => '10', 'height' => '10', 'price' => '1' ) ),
+	),
+);
+
+if ( ! function_exists( 'taxonomy_exists' ) ) {
+	function taxonomy_exists( $taxonomy ): bool {
+		return 'pa_peso' === $taxonomy;
+	}
+}
+
+if ( ! function_exists( 'get_terms' ) ) {
+	function get_terms( $args ) {
+		return 'pa_peso' === ( $args['taxonomy'] ?? '' )
+			? array( (object) array( 'slug' => '50g', 'name' => '50g' ), (object) array( 'slug' => '190g', 'name' => '190g' ) )
+			: array();
+	}
+}
+
+if ( ! function_exists( 'get_posts' ) ) {
+	function get_posts( $args ) {
+		$store = $GLOBALS['galaxie_stub_store'];
+
+		if ( 'product' === ( $args['post_type'] ?? '' ) ) {
+			return array_values( array_intersect( (array) ( $args['post__in'] ?? array() ), $store['published'] ) );
+		}
+
+		$value = $args['meta_query'][0]['value'] ?? '';
+		$rows  = array();
+
+		foreach ( $store['products'] as $id => $product ) {
+			if ( ( $product->get_attributes()['pa_peso'] ?? '' ) === $value ) {
+				$rows[] = (object) array( 'ID' => $id, 'post_parent' => $store['parents'][ $id ] );
+			}
+		}
+
+		return $rows;
+	}
+}
+
+if ( ! function_exists( 'wc_get_product' ) ) {
+	function wc_get_product( $id ) {
+		return $GLOBALS['galaxie_stub_store']['products'][ (int) $id ] ?? false;
+	}
+}
+
+if ( ! function_exists( 'get_transient' ) ) {
+	function get_transient( $key ) {
+		return false;
+	}
+}
+
+if ( ! function_exists( 'set_transient' ) ) {
+	function set_transient( $key, $value, $expiration = 0 ): bool {
+		return true;
+	}
+}
+
+$flat = static fn( array $sizes ): array => array_map( static fn( array $s ): array => array( $s['size'], (float) $s['length'], (float) $s['width'], (float) $s['height'], $s['label'] ), $sizes );
+
+$check( 'store_sizes', 'one size per term, gift dimensions win, drafts ignored', $flat( GiftPacking::store_sizes( 'pa_peso' ) ), array( array( '50g', 5.0, 5.0, 6.5, '50g' ), array( '190g', 7.8, 7.8, 8.4, '190g' ) ) );
+$check( 'store_sizes', 'a list, for the data endpoint', array_is_list( GiftPacking::store_sizes( 'pa_peso' ) ), true );
+$check( 'store_sizes', '"peso" is no taxonomy: nothing (Module::size_attribute() reads it as pa_peso)', GiftPacking::store_sizes( 'peso' ), array() );
 
 // Timing, not pass/fail: the slowest 12-candle cases.
 echo "\n  timing (best of 5):\n";

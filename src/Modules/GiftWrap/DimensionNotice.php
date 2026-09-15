@@ -59,7 +59,7 @@ final class DimensionNotice {
 			return;
 		}
 
-		$missing = self::missing( (string) Module::setting( 'size_attribute' ), $on_product ? $product_id : 0 );
+		$missing = self::missing( Module::size_attribute(), $on_product ? $product_id : 0 );
 
 		if ( ! $missing ) {
 			return;

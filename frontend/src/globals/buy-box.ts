@@ -30,7 +30,7 @@ interface AddToCartResponse {
   data?: { message?: string; fragments?: Record<string, string>; cart_hash?: string }
 }
 
-import { findAlert } from '@/globals/buy-box-alert'
+import { blockedByChoice, findAlert } from '@/globals/buy-box-alert'
 import { addGift } from '@/globals/gift-builder'
 import { giftPlanRequest, giftWrapAdded, giftWrapChecked, interceptForGift, pendingCandle } from '@/globals/gift-wrap'
 import { tell } from '@/lib/dialog'
@@ -237,23 +237,12 @@ function initButtons(form: HTMLFormElement, config?: BuyBoxConfig): void {
    * `.woocommerce-variation-add-to-cart` wrapper that our markup does not have
    * — so nothing else was standing in the way.
    */
-  const blocked = (): boolean => {
-    const selects = Array.from(form.querySelectorAll<HTMLSelectElement>('.variations select'))
-    if (!selects.length) return false
-
-    if (Number(variationField?.value) > 0) {
-      alert?.hide()
-      return false
-    }
-
-    // Every attribute chosen and still no match is a combination the shop does
-    // not sell; a blank one is just an unfinished choice. Different sentence.
-    const key = selects.every((select) => select.value !== '') ? 'unavailable' : 'select'
-
-    // With no Alert block on the widget there is nowhere to say it, so the
-    // native submit is left alone and WooCommerce reports it its own way.
-    return alert?.show(key) ?? false
-  }
+  //
+  // Shared with "Configurar presente" (gift-wrap.ts), which has to give the same
+  // answer to the same missing choice: see blockedByChoice() in buy-box-alert.ts.
+  // With no Alert block on the widget there is nowhere to say it, so the
+  // native submit is left alone and WooCommerce reports it its own way.
+  const blocked = (): boolean => blockedByChoice(form, alert)
 
   // Buy Now navigates away regardless, so it stays a plain native submit —
   // every WooCommerce validation, stock check and third-party add-to-cart hook
