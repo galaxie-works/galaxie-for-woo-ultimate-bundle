@@ -1,0 +1,239 @@
+{
+  "_readme": "Shared by run.php (GiftPacking.php) and run.ts (gift-packing.ts). Candle lists are [size, count] pairs expanded in order. Engine defaults: gap 0 (tissue paper fills), orientation 'lying', stacking off. The original cases pin orientation 'upright' and gap 0.5. 50g/190g are the registered shipping dimensions (jar in its cardboard box); 50g-gift/190g-gift are the merchant's measured jars (no cardboard box), which the gift packing uses.",
+  "sizes": {
+    "50g": { "size": "50g", "length": 5, "width": 5, "height": 6.5 },
+    "190g": { "size": "190g", "length": 8, "width": 8, "height": 8.5 },
+    "50g-gift": { "size": "50g", "length": 5.3, "width": 5.3, "height": 6.7 },
+    "190g-gift": { "size": "190g", "length": 7.8, "width": 7.8, "height": 8.4 },
+    "bar": { "size": "bar", "length": 10, "width": 4, "height": 3 },
+    "50g-tall": { "size": "50g", "length": 4.8, "width": 5.2, "height": 7 },
+    "x-wide": { "size": "x", "length": 6, "width": 6, "height": 2 },
+    "x-long": { "size": "x", "length": 10, "width": 2, "height": 2 },
+    "over": { "size": "over", "length": 5.004, "width": 5, "height": 3 },
+    "odd-mm": { "size": "odd-mm", "length": 8.15, "width": 8.15, "height": 6.55 },
+    "s-5000": { "size": "s", "length": 5, "width": 5, "height": 3 },
+    "s-5004": { "size": "s", "length": 5.004, "width": 5, "height": 3 }
+  },
+  "boxes": {
+    "b14": { "id": "b14", "length": 14, "width": 11, "height": 9.5, "price": 12 },
+    "p11": { "id": "p11", "length": 11, "width": 11, "height": 7, "price": 8 },
+    "short": { "id": "short", "length": 14, "width": 11, "height": 8.9, "price": 10 },
+    "sq14": { "id": "sq14", "length": 14, "width": 14, "height": 10, "price": 15 },
+    "big": { "id": "big", "length": 20, "width": 20, "height": 10, "price": 30 },
+    "max2": { "id": "max2", "length": 20, "width": 20, "height": 10, "max": 2, "price": 9 },
+    "tray": { "id": "tray", "length": 22, "width": 16.5, "height": 7, "price": 20 },
+    "sq21": { "id": "sq21", "length": 21, "width": 21, "height": 7, "price": 20 },
+    "ten": { "id": "ten", "length": 10, "width": 10, "height": 7, "price": 5 },
+    "rot": { "id": "rot", "length": 4.5, "width": 10.5, "height": 4, "price": 3 },
+    "rotflat": { "id": "rotflat", "length": 10.5, "width": 4.5, "height": 4, "price": 3 },
+    "twin": { "id": "twin", "length": 11, "width": 11, "height": 7, "price": 8 },
+    "b30": { "id": "b30", "length": 30, "width": 30, "height": 10, "price": 40 },
+    "b25": { "id": "b25", "length": 25, "width": 25, "height": 10, "price": 35 },
+    "b28x22": { "id": "b28x22", "length": 28, "width": 22, "height": 10, "price": 30 },
+    "b7": { "id": "b7", "length": 7, "width": 7, "height": 5, "price": 2 },
+    "b35": { "id": "b35", "length": 35, "width": 35, "height": 10, "price": 50 },
+    "mdf142": { "id": "mdf142", "length": 14.2, "width": 14.2, "height": 4.8, "price": 18 },
+    "mdf136": { "id": "mdf136", "length": 13.6, "width": 13.6, "height": 4.2, "price": 18 },
+    "long244": { "id": "long244", "length": 24.4, "width": 8.9, "height": 7.9, "price": 22 },
+    "mix145": { "id": "mix145", "length": 14.5, "width": 11, "height": 8.5, "price": 16 },
+    "five": { "id": "five", "length": 5, "width": 5, "height": 5, "price": 1 },
+    "exact50": { "id": "exact50", "length": 5, "width": 5, "height": 6.5, "price": 1 },
+    "exact815": { "id": "exact815", "length": 8.15, "width": 8.15, "height": 6.55, "price": 1 },
+    "ten5": { "id": "ten5", "length": 10, "width": 5, "height": 5, "price": 1 },
+    "real-long": { "id": "real-long", "length": 24.44, "width": 8.94, "height": 7.94, "price": 25 },
+    "real-square": { "id": "real-square", "length": 14.2, "width": 14.2, "height": 4.8, "price": 20 },
+    "real-square-lid": { "id": "real-square-lid", "length": 14.2, "width": 14.2, "height": 4.8, "overflow": 0.5, "price": 20 }
+  },
+  "fits": [
+    { "name": "box b14 takes 4 x 50g", "box": "b14", "candles": [["50g", 4]], "options": { "orientation": "upright", "gap": 0.5 }, "expect": true },
+    { "name": "box b14 refuses 5 x 50g although the area would allow it", "box": "b14", "candles": [["50g", 5]], "options": { "orientation": "upright", "gap": 0.5 }, "expect": false },
+    { "name": "box b14 takes 1 x 190g", "box": "b14", "candles": [["190g", 1]], "options": { "orientation": "upright", "gap": 0.5 }, "expect": true },
+    { "name": "box b14 takes 2 x 50g + 1 x 190g", "box": "b14", "candles": [["50g", 2], ["190g", 1]], "options": { "orientation": "upright", "gap": 0.5 }, "expect": true },
+    { "name": "box b14 takes the same mix in another order", "box": "b14", "candles": [["190g", 1], ["50g", 2]], "options": { "orientation": "upright", "gap": 0.5 }, "expect": true },
+    { "name": "box b14 refuses 3 x 50g + 1 x 190g", "box": "b14", "candles": [["50g", 3], ["190g", 1]], "options": { "orientation": "upright", "gap": 0.5 }, "expect": false },
+    { "name": "box b14 refuses 2 x 190g", "box": "b14", "candles": [["190g", 2]], "options": { "orientation": "upright", "gap": 0.5 }, "expect": false },
+    { "name": "empty box always fits", "box": "b14", "candles": [], "options": { "orientation": "upright", "gap": 0.5 }, "expect": true },
+    { "name": "height: 190g needs 9 cm with the gap, box is 8.9", "box": "short", "candles": [["190g", 1]], "options": { "orientation": "upright", "gap": 0.5 }, "expect": false },
+    { "name": "height: 50g is fine in the 8.9 cm box", "box": "short", "candles": [["50g", 4]], "options": { "orientation": "upright", "gap": 0.5 }, "expect": true },
+    { "name": "height: 190g too tall for p11 (7 cm)", "box": "p11", "candles": [["190g", 1]], "options": { "orientation": "upright", "gap": 0.5 }, "expect": false },
+    { "name": "max count: 2 allowed", "box": "max2", "candles": [["50g", 2]], "options": { "orientation": "upright", "gap": 0.5 }, "expect": true },
+    { "name": "max count: 3 refused even with room", "box": "max2", "candles": [["50g", 3]], "options": { "orientation": "upright", "gap": 0.5 }, "expect": false },
+    { "name": "rotation: 10 x 4 candle turned to fit a 4.5 x 10.5 box", "box": "rot", "candles": [["bar", 1]], "options": { "orientation": "upright", "gap": 0.5 }, "expect": true },
+    { "name": "rotation: same candle, box the other way round", "box": "rotflat", "candles": [["bar", 1]], "options": { "orientation": "upright", "gap": 0.5 }, "expect": true },
+    { "name": "rotation: two bars do not fit a one-bar box", "box": "rot", "candles": [["bar", 2]], "options": { "orientation": "upright", "gap": 0.5 }, "expect": false },
+    { "name": "gap 0: 4 x 50g in exactly 10 x 10", "box": "ten", "candles": [["50g", 4]], "options": { "gap": 0, "orientation": "upright" }, "expect": true },
+    { "name": "gap 0.5: 4 x 50g no longer fit 10 x 10", "box": "ten", "candles": [["50g", 4]], "options": { "orientation": "upright", "gap": 0.5 }, "expect": false },
+    { "name": "stacking is accepted and ignored", "box": "p11", "candles": [["50g", 8]], "options": { "gap": 0.5, "stacking": true, "orientation": "upright" }, "expect": false },
+    { "name": "square 14: 1 x 190g + 3 x 50g", "box": "sq14", "candles": [["190g", 1], ["50g", 3]], "options": { "orientation": "upright", "gap": 0.5 }, "expect": true },
+    { "name": "square 14: 1 x 190g + 4 x 50g refused (area allows)", "box": "sq14", "candles": [["190g", 1], ["50g", 4]], "options": { "orientation": "upright", "gap": 0.5 }, "expect": false },
+    { "name": "12 x 50g fill a 22 x 16.5 tray exactly", "box": "tray", "candles": [["50g", 12]], "options": { "orientation": "upright", "gap": 0.5 }, "expect": true },
+    { "name": "12 x 50g refused by 21 x 21 (area allows, only 3 x 3)", "box": "sq21", "candles": [["50g", 12]], "options": { "orientation": "upright", "gap": 0.5 }, "expect": false },
+    { "name": "12 mixed (6 + 6) fit 30 x 30", "box": "b30", "candles": [["190g", 6], ["50g", 6]], "options": { "orientation": "upright", "gap": 0.5 }, "expect": true },
+    { "name": "12 mixed (6 + 6) in 25 x 25", "box": "b25", "candles": [["50g", 6], ["190g", 6]], "options": { "orientation": "upright", "gap": 0.5 }, "expect": false },
+    { "name": "big box takes 4 x 50g + 1 x 190g", "box": "big", "candles": [["50g", 4], ["190g", 1]], "options": { "orientation": "upright", "gap": 0.5 }, "expect": true },
+    { "name": "hard fit: 4 x 190g as a 2 x 2 block beside 2 x 4 of 50g in 28 x 22", "box": "b28x22", "candles": [["190g", 4], ["50g", 7]], "options": { "orientation": "upright", "gap": 0.5 }, "expect": true },
+    { "name": "hard fit, other input order", "box": "b28x22", "candles": [["50g", 7], ["190g", 4]], "options": { "orientation": "upright", "gap": 0.5 }, "expect": true },
+    { "name": "28 x 22: 5 x 190g + 7 x 50g refused", "box": "b28x22", "candles": [["190g", 5], ["50g", 7]], "options": { "orientation": "upright", "gap": 0.5 }, "expect": false },
+
+    { "name": "shipping dims, lying, gap 0.5: 14.2 x 14.2 x 4.8 floor holds 4 x 50g but 5 + gap > 4.8", "box": "mdf142", "candles": [["50g", 4]], "options": { "orientation": "lying", "gap": 0.5 }, "expect": false },
+    { "name": "shipping dims, lying, gap 0.5: same box less 3 mm MDF, 13.6 x 13.6 x 4.2", "box": "mdf136", "candles": [["50g", 4]], "options": { "orientation": "lying", "gap": 0.5 }, "expect": false },
+    { "name": "shipping dims, lying, gap 0.5: 24.4 x 8.9 x 7.9 refuses 190g (8 + 0.5 > 7.9)", "box": "long244", "candles": [["190g", 1]], "options": { "orientation": "lying", "gap": 0.5 }, "expect": false },
+
+    { "name": "gift dims, big box 24.44 x 8.94 x 7.94 (defaults: lying, gap 0): 3 x 190g", "box": "real-long", "candles": [["190g-gift", 3]], "expect": true },
+    { "name": "gift dims, big box: 4 x 190g refused", "box": "real-long", "candles": [["190g-gift", 4]], "options": { "orientation": "lying", "gap": 0 }, "expect": false },
+    { "name": "gift dims, big box: 4 x 50g", "box": "real-long", "candles": [["50g-gift", 4]], "options": { "orientation": "lying", "gap": 0 }, "expect": true },
+    { "name": "gift dims, big box: 5 x 50g refused", "box": "real-long", "candles": [["50g-gift", 5]], "options": { "orientation": "lying", "gap": 0 }, "expect": false },
+    { "name": "gift dims, big box: 2 x 190g + 1 x 50g", "box": "real-long", "candles": [["190g-gift", 2], ["50g-gift", 1]], "options": { "orientation": "lying", "gap": 0 }, "expect": true },
+    { "name": "gift dims, big box: 1 x 190g + 2 x 50g", "box": "real-long", "candles": [["190g-gift", 1], ["50g-gift", 2]], "options": { "orientation": "lying", "gap": 0 }, "expect": true },
+    { "name": "gift dims, big box: 3 x 190g + 1 x 50g refused (23.4 + 5.3 > 24.44)", "box": "real-long", "candles": [["190g-gift", 3], ["50g-gift", 1]], "options": { "orientation": "lying", "gap": 0 }, "expect": false },
+    { "name": "gift dims, square box 14.2 x 14.2 x 4.8, no overflow: 4 x 50g refused (5.3 > 4.8)", "box": "real-square", "candles": [["50g-gift", 4]], "options": { "orientation": "lying", "gap": 0 }, "expect": false },
+    { "name": "gift dims, square box, overflow 0.5: 4 x 50g (5.3 <= 4.8 + 0.5)", "box": "real-square-lid", "candles": [["50g-gift", 4]], "options": { "orientation": "lying", "gap": 0 }, "expect": true },
+    { "name": "gift dims, square box, overflow 0.5: 5 x 50g refused", "box": "real-square-lid", "candles": [["50g-gift", 5]], "options": { "orientation": "lying", "gap": 0 }, "expect": false },
+    { "name": "gift dims, square box, overflow 0.5: 1 x 190g refused (7.8 > 5.3)", "box": "real-square-lid", "candles": [["190g-gift", 1]], "options": { "orientation": "lying", "gap": 0 }, "expect": false },
+    { "name": "overflow still counts the gap: 4 x 50g, gap 0.1 over 5.3", "box": "real-square-lid", "candles": [["50g-gift", 4]], "options": { "orientation": "lying", "gap": 0.1 }, "expect": false },
+
+    { "name": "any: 190g must lie and the two 50g must stand in 14.5 x 11 x 8.5 (gap 0.5)", "box": "mix145", "candles": [["190g", 1], ["50g", 2]], "options": { "orientation": "any", "gap": 0.5 }, "expect": true },
+    { "name": "any case, all lying: refused", "box": "mix145", "candles": [["190g", 1], ["50g", 2]], "options": { "orientation": "lying", "gap": 0.5 }, "expect": false },
+    { "name": "any case, all upright: refused (190g too tall)", "box": "mix145", "candles": [["190g", 1], ["50g", 2]], "options": { "orientation": "upright", "gap": 0.5 }, "expect": false },
+    { "name": "any: still refuses what neither way can hold", "box": "mdf136", "candles": [["50g", 1]], "options": { "orientation": "any", "gap": 0.5 }, "expect": false },
+    { "name": "any: 12 mixed in 30 x 30", "box": "b30", "candles": [["190g", 6], ["50g", 6]], "options": { "orientation": "any", "gap": 0.5 }, "expect": true },
+    { "name": "unknown orientation falls back to lying", "box": "long244", "candles": [["190g", 1]], "options": { "orientation": "sideways", "gap": 0.5 }, "expect": false },
+
+    { "name": "rounding: a 5.004 cm candle does not fit a 5.00 cm box (gap 0)", "box": "five", "candles": [["over", 1]], "options": { "gap": 0, "orientation": "upright" }, "expect": false },
+    { "name": "rounding: 50g exactly fills 5 x 5 x 6.5 (gap 0), no float creep", "box": "exact50", "candles": [["50g", 1]], "options": { "gap": 0, "orientation": "upright" }, "expect": true },
+    { "name": "rounding: 8.15 x 8.15 x 6.55 exactly fills its box (gap 0)", "box": "exact815", "candles": [["odd-mm", 1]], "options": { "gap": 0, "orientation": "upright" }, "expect": true },
+    { "name": "rounding: 5.000 + 5.004 cm of one size overflow a 10 cm box (gap 0)", "box": "ten5", "candles": [["s-5000", 1], ["s-5004", 1]], "options": { "gap": 0, "orientation": "upright" }, "expect": false },
+    { "name": "rounding: two 5.000 cm fill the 10 cm box exactly (gap 0)", "box": "ten5", "candles": [["s-5000", 2]], "options": { "gap": 0, "orientation": "upright" }, "expect": true }
+  ],
+  "arrange": [
+    {
+      "name": "fewest boxes wins over price: one big box, not two cheap ones",
+      "candles": [["50g", 4], ["190g", 1]],
+      "boxes": ["p11", "b14", "big"],
+      "options": { "orientation": "upright", "gap": 0.5 },
+      "expect": [{ "box": "big", "candles": ["50g", "50g", "50g", "50g", "190g"] }]
+    },
+    {
+      "name": "two boxes, cheapest pair (8 + 12)",
+      "candles": [["50g", 4], ["190g", 1]],
+      "boxes": ["p11", "b14"],
+      "options": { "orientation": "upright", "gap": 0.5 },
+      "expect": [
+        { "box": "b14", "candles": ["50g", "50g", "190g"] },
+        { "box": "p11", "candles": ["50g", "50g"] }
+      ]
+    },
+    {
+      "name": "cheapest box that fits",
+      "candles": [["50g", 2]],
+      "boxes": ["b14", "p11"],
+      "options": { "orientation": "upright", "gap": 0.5 },
+      "expect": [{ "box": "p11", "candles": ["50g", "50g"] }]
+    },
+    {
+      "name": "same price: earlier box wins",
+      "candles": [["50g", 2]],
+      "boxes": ["twin", "p11"],
+      "options": { "orientation": "upright", "gap": 0.5 },
+      "expect": [{ "box": "twin", "candles": ["50g", "50g"] }]
+    },
+    {
+      "name": "same price, other order: earlier box wins",
+      "candles": [["50g", 2]],
+      "boxes": ["p11", "twin"],
+      "options": { "orientation": "upright", "gap": 0.5 },
+      "expect": [{ "box": "p11", "candles": ["50g", "50g"] }]
+    },
+    {
+      "name": "a candle no box can hold: empty",
+      "candles": [["190g", 1]],
+      "boxes": ["p11"],
+      "options": { "orientation": "upright", "gap": 0.5 },
+      "expect": []
+    },
+    {
+      "name": "max count forces a second box",
+      "candles": [["50g", 3]],
+      "boxes": ["max2"],
+      "options": { "orientation": "upright", "gap": 0.5 },
+      "expect": [
+        { "box": "max2", "candles": ["50g", "50g"] },
+        { "box": "max2", "candles": ["50g"] }
+      ]
+    },
+    {
+      "name": "two 190g need two b14",
+      "candles": [["190g", 2]],
+      "boxes": ["b14"],
+      "options": { "orientation": "upright", "gap": 0.5 },
+      "expect": [
+        { "box": "b14", "candles": ["190g"] },
+        { "box": "b14", "candles": ["190g"] }
+      ]
+    },
+    {
+      "name": "12 candles over the store-sized boxes",
+      "candles": [["50g", 8], ["190g", 4]],
+      "boxes": ["p11", "b14", "sq14"],
+      "options": { "orientation": "upright", "gap": 0.5 },
+      "expect": [
+        { "box": "b14", "candles": ["50g", "50g", "190g"] },
+        { "box": "b14", "candles": ["50g", "50g", "190g"] },
+        { "box": "b14", "candles": ["50g", "50g", "190g"] },
+        { "box": "b14", "candles": ["50g", "50g", "190g"] }
+      ]
+    },
+    {
+      "name": "nothing to pack",
+      "candles": [],
+      "boxes": ["b14"],
+      "options": { "orientation": "upright", "gap": 0.5 },
+      "expect": []
+    },
+    {
+      "name": "rounding: 5.000 then 5.004 cm of one size are not pooled, two boxes",
+      "candles": [["s-5000", 1], ["s-5004", 1]],
+      "boxes": ["ten5"],
+      "options": { "gap": 0, "orientation": "upright" },
+      "expect": [
+        { "box": "ten5", "candles": ["s"] },
+        { "box": "ten5", "candles": ["s"] }
+      ]
+    },
+    {
+      "name": "rounding: same pair, larger first, same answer",
+      "candles": [["s-5004", 1], ["s-5000", 1]],
+      "boxes": ["ten5"],
+      "options": { "gap": 0, "orientation": "upright" },
+      "expect": [
+        { "box": "ten5", "candles": ["s"] },
+        { "box": "ten5", "candles": ["s"] }
+      ]
+    }
+  ],
+  "room": [
+    { "name": "190g inside: one 50g more", "box": "b14", "candles": [["190g", 1]], "sizes": ["50g", "190g"], "options": { "orientation": "upright", "gap": 0.5 }, "expect": ["50g"] },
+    { "name": "full mix: nothing more", "box": "b14", "candles": [["50g", 2], ["190g", 1]], "sizes": ["50g", "190g"], "options": { "orientation": "upright", "gap": 0.5 }, "expect": [] },
+    { "name": "3 x 50g: a fourth 50g, no 190g", "box": "b14", "candles": [["50g", 3]], "sizes": ["50g", "190g"], "options": { "orientation": "upright", "gap": 0.5 }, "expect": ["50g"] },
+    { "name": "empty box: both sizes", "box": "b14", "candles": [], "sizes": ["190g", "50g"], "options": { "orientation": "upright", "gap": 0.5 }, "expect": ["190g", "50g"] },
+    { "name": "empty short box: 50g only", "box": "p11", "candles": [], "sizes": ["50g", "190g"], "options": { "orientation": "upright", "gap": 0.5 }, "expect": ["50g"] },
+    { "name": "sizes default to the ones inside", "box": "b14", "candles": [["50g", 1]], "sizes": [], "options": { "orientation": "upright", "gap": 0.5 }, "expect": ["50g"] },
+    { "name": "gift dims, big box with 2 x 190g: room for a 50g or a 190g", "box": "real-long", "candles": [["190g-gift", 2]], "sizes": ["50g-gift", "190g-gift"], "options": { "orientation": "lying", "gap": 0 }, "expect": ["50g", "190g"] }
+  ],
+  "summary": [
+    { "name": "b14: the scope's example", "box": "b14", "sizes": ["50g", "190g"], "options": { "orientation": "upright", "gap": 0.5 }, "expect": [{ "counts": { "50g": 4 }, "capped": false }, { "counts": { "190g": 1 }, "capped": false }, { "counts": { "50g": 2, "190g": 1 }, "capped": false }] },
+    { "name": "p11: 50g only", "box": "p11", "sizes": ["50g", "190g"], "options": { "orientation": "upright", "gap": 0.5 }, "expect": [{ "counts": { "50g": 4 }, "capped": false }] },
+    { "name": "square 14", "box": "sq14", "sizes": ["50g", "190g"], "options": { "orientation": "upright", "gap": 0.5 }, "expect": [{ "counts": { "50g": 4 }, "capped": false }, { "counts": { "190g": 1 }, "capped": false }, { "counts": { "50g": 3, "190g": 1 }, "capped": false }] },
+    { "name": "too small for anything", "box": "rot", "sizes": ["50g", "190g"], "options": { "orientation": "upright", "gap": 0.5 }, "expect": [] },
+    { "name": "35 x 35 holds 36 x 50g: 12 is the search cap, flagged", "box": "b35", "sizes": ["50g"], "options": { "orientation": "upright", "gap": 0.5 }, "expect": [{ "counts": { "50g": 12 }, "capped": true }] },
+    { "name": "max 2 is a real limit, not capped", "box": "max2", "sizes": ["50g"], "options": { "orientation": "upright", "gap": 0.5 }, "expect": [{ "counts": { "50g": 2 }, "capped": false }] },
+    { "name": "gift dims, big box 24.44 x 8.94 x 7.94 (the Cabe: line the merchant sees)", "box": "real-long", "sizes": ["50g-gift", "190g-gift"], "options": { "orientation": "lying", "gap": 0 }, "expect": [{ "counts": { "50g": 4 }, "capped": false }, { "counts": { "190g": 3 }, "capped": false }, { "counts": { "50g": 1, "190g": 2 }, "capped": false }, { "counts": { "50g": 3, "190g": 1 }, "capped": false }] },
+    { "name": "shipping dims, lying, gap 0.5, 14.2 x 14.2 x 4.8: nothing", "box": "mdf142", "sizes": ["50g", "190g"], "options": { "orientation": "lying", "gap": 0.5 }, "expect": [] },
+    { "name": "gift dims, square box with 0.5 overflow (the Cabe: line the merchant sees)", "box": "real-square-lid", "sizes": ["50g-gift", "190g-gift"], "options": { "orientation": "lying", "gap": 0 }, "expect": [{ "counts": { "50g": 4 }, "capped": false }] }
+  ],
+  "cover": [
+    { "name": "6 x 6 and 10 x 2 of one size cover as 10 x 6", "candles": ["x-wide", "x-long"], "expect": [{ "size": "x", "length": 10, "width": 6, "height": 2 }], "box": "b7", "options": { "orientation": "upright", "gap": 0.5 }, "fits": false },
+    { "name": "the 6 x 6 alone fits that box", "candles": ["x-wide"], "expect": [{ "size": "x", "length": 6, "width": 6, "height": 2 }], "box": "b7", "options": { "orientation": "upright", "gap": 0.5 }, "fits": true },
+    { "name": "per size, first-seen order, tallest and widest win", "candles": ["50g", "190g", "50g-tall"], "expect": [{ "size": "50g", "length": 5.2, "width": 5, "height": 7 }, { "size": "190g", "length": 8, "width": 8, "height": 8.5 }] }
+  ]
+}
