@@ -6,8 +6,8 @@
  *
  * DATA. One request (`galaxie_gift_builder_data`) brings the gifts already in
  * the cart, loose gift candles, the boxes, ribbons and cards on offer, the
- * store's candle sizes and the packing options. The widget's own ids go with it
- * so the server reads that widget's category overrides from what was saved.
+ * store's candle sizes and the packing options. Every list is read as a list
+ * whatever shape its JSON took (see asList()).
  *
  * STATE. Where the candle goes (a new gift, or a gift in the cart it still fits
  * in), which loose candles join, and per gift: its candles as sources (the
@@ -123,7 +123,6 @@ export interface GiftPlan {
 
 export interface GiftRequest {
   plan: GiftPlan
-  origin: Record<string, string>
 }
 
 export interface GiftAdded {
@@ -234,16 +233,32 @@ export function addGift(request: GiftRequest, pending: PendingCandle): Promise<A
     variation_id: pending.variationId,
     quantity: pending.quantity,
     plan: JSON.stringify(request.plan),
-    ...request.origin,
   })
 }
 
-/** The ids Elementor put around the widget: where its saved settings live. */
-function origin(root: HTMLElement): Record<string, string> {
-  const element = root.closest<HTMLElement>('.elementor-element[data-id]')?.dataset.id
-  const post = root.closest<HTMLElement>('[data-elementor-id]')?.dataset.elementorId
+/**
+ * A list, whatever shape the JSON took. PHP sends an array keyed by product id
+ * as an object, and calling a list method on an object throws inside the
+ * request's promise — which draws nothing and says nothing.
+ */
+function asList<T>(value: unknown): T[] {
+  if (Array.isArray(value)) return value as T[]
+  return value && typeof value === 'object' ? (Object.values(value) as T[]) : []
+}
 
-  return element && post ? { element_id: element, elementor_post: post } : {}
+function normalise(data: BuilderData): BuilderData {
+  const inCart = data.inCart && typeof data.inCart === 'object' && !Array.isArray(data.inCart) ? data.inCart : {}
+
+  return {
+    ...data,
+    gifts: asList(data.gifts),
+    loose: asList(data.loose),
+    boxes: asList(data.boxes),
+    ribbons: asList(data.ribbons),
+    cards: asList(data.cards),
+    sizes: asList(data.sizes),
+    inCart,
+  }
 }
 
 function readTexts(root: HTMLElement): Texts {
@@ -317,7 +332,7 @@ function createController(root: HTMLElement, pending: PendingCandle, token: numb
   const controller: BuilderController = {
     token,
     ready: () => !!data && errors.length === 0,
-    request: () => (controller.ready() ? { plan: plan(), origin: origin(root) } : null),
+    request: () => (controller.ready() ? { plan: plan() } : null),
     explain: () => {
       if (failed) showError(failMessage)
       else if (data && errors.length) showError(explainError(errors[0]))
@@ -345,7 +360,6 @@ function createController(root: HTMLElement, pending: PendingCandle, token: numb
       product_id: pending.productId,
       variation_id: pending.variationId,
       quantity: pending.quantity,
-      ...origin(root),
     }).then((json) => {
       // Another opening started meanwhile: this answer is for a candle no longer asked about.
       if (controllers.get(root) !== controller) return
@@ -356,8 +370,15 @@ function createController(root: HTMLElement, pending: PendingCandle, token: numb
         return
       }
 
-      data = json.data
-      start()
+      data = normalise(json.data)
+
+      // A drawing error must say so, not leave a popup with nothing in it.
+      try {
+        start()
+      } catch (error) {
+        console.error('Galaxie Gift Builder', error)
+        fail()
+      }
     })
   }
 

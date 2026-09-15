@@ -132,22 +132,17 @@ final class Module implements ModuleContract, ProvidesBootData, ProvidesElemento
 	}
 
 	/**
-	 * Product category ids holding one kind of accessory: the widget's own
-	 * choice when it made one, the module setting otherwise.
+	 * Product category ids holding one kind of accessory, from the module
+	 * settings. The only place categories are chosen: values an older Gift
+	 * Builder widget saved for them are ignored.
 	 *
-	 * @param string $kind     `box`, `ribbon` or `card`.
-	 * @param mixed  $override The Gift Builder widget's value for that kind.
+	 * @param string $kind `box`, `ribbon` or `card`.
 	 * @return int[]
 	 */
-	public static function categories( string $kind, $override = array() ): array {
-		$ids = array_filter( array_map( 'absint', is_array( $override ) ? $override : array() ) );
+	public static function categories( string $kind ): array {
+		$saved = self::setting( $kind . '_categories' );
 
-		if ( ! $ids ) {
-			$saved = self::setting( $kind . '_categories' );
-			$ids   = array_filter( array_map( 'absint', is_array( $saved ) ? $saved : array() ) );
-		}
-
-		return array_values( array_unique( $ids ) );
+		return array_values( array_unique( array_filter( array_map( 'absint', is_array( $saved ) ? $saved : array() ) ) ) );
 	}
 
 	// -------------------------------------------------------------- settings
@@ -201,7 +196,7 @@ final class Module implements ModuleContract, ProvidesBootData, ProvidesElemento
 				key: 'box_categories',
 				label: __( 'Gift box categories', 'galaxie-woo' ),
 				type: Field::TYPE_MULTI,
-				description: __( 'Products in these categories are offered as gift boxes: each variation with inside dimensions (Products → edit → Variations) is one box size. The Gift Builder widget can override this.', 'galaxie-woo' ),
+				description: __( 'Products in these categories are offered as gift boxes: each variation with inside dimensions (Products → edit → Variations) is one box size. A box product is never offered as a card or a ribbon, even in a shared category.', 'galaxie-woo' ),
 				default: self::DEFAULTS['box_categories'],
 				options: $categories
 			),
@@ -209,7 +204,7 @@ final class Module implements ModuleContract, ProvidesBootData, ProvidesElemento
 				key: 'ribbon_categories',
 				label: __( 'Ribbon categories', 'galaxie-woo' ),
 				type: Field::TYPE_MULTI,
-				description: __( 'Optional. Products in these categories are offered as extra ribbons. Leave empty when gift boxes are sold with their ribbon: the builder then has no ribbon step at all. The Gift Builder widget can override this.', 'galaxie-woo' ),
+				description: __( 'Optional. Products in these categories are offered as extra ribbons. Leave empty when gift boxes are sold with their ribbon: the builder then has no ribbon step at all.', 'galaxie-woo' ),
 				default: self::DEFAULTS['ribbon_categories'],
 				options: $categories
 			),
@@ -217,7 +212,7 @@ final class Module implements ModuleContract, ProvidesBootData, ProvidesElemento
 				key: 'card_categories',
 				label: __( 'Card categories', 'galaxie-woo' ),
 				type: Field::TYPE_MULTI,
-				description: __( 'Products in these categories are offered as cards with a message. The Gift Builder widget can override this.', 'galaxie-woo' ),
+				description: __( 'Products in these categories are offered as cards with a message. They may share a category with the gift boxes.', 'galaxie-woo' ),
 				default: self::DEFAULTS['card_categories'],
 				options: $categories
 			),

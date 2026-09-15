@@ -99,7 +99,7 @@ final class GiftBuilderWidget extends Widget_Base {
 			'builder_note',
 			array(
 				'type'            => Controls_Manager::RAW_HTML,
-				'raw'             => esc_html__( 'Put this widget inside a pixfort popup, then paste that popup\'s link in the Galaxie Buy Box, section "Gift (Presente)". On the product page it shows the candle the shopper chose, the gifts already in the cart, and the boxes, ribbons and cards from the categories set in wp-admin → Galaxie → Gift Wrap (or below). Confirm adds the whole gift; the other button continues with the gift flag only.', 'galaxie-woo' ),
+				'raw'             => esc_html__( 'Put this widget inside a pixfort popup, then paste that popup\'s link in the Galaxie Buy Box, section "Gift (Presente)". On the product page it shows the candle the shopper chose, the gifts already in the cart, and the boxes, ribbons and cards from the categories set in wp-admin → Galaxie → Gift Wrap. Confirm adds the whole gift; the other button continues with the gift flag only.', 'galaxie-woo' ),
 				'content_classes' => 'elementor-descriptor',
 			)
 		);
@@ -152,42 +152,6 @@ final class GiftBuilderWidget extends Widget_Base {
 					'label_block' => true,
 					'type'        => Controls_Manager::TEXT,
 					'default'     => $text[1],
-				)
-			);
-		}
-
-		$this->end_controls_section();
-
-		$this->start_controls_section(
-			'categories_section',
-			array( 'label' => __( 'Accessory categories', 'galaxie-woo' ) )
-		);
-
-		$this->add_control(
-			'categories_note',
-			array(
-				'type'            => Controls_Manager::RAW_HTML,
-				'raw'             => esc_html__( 'Leave empty to use the categories chosen in wp-admin → Galaxie → Gift Wrap.', 'galaxie-woo' ),
-				'content_classes' => 'elementor-descriptor',
-			)
-		);
-
-		$categories = class_exists( Module::class ) ? Module::category_options() : array();
-
-		foreach ( array(
-			'box_categories'    => __( 'Gift box categories', 'galaxie-woo' ),
-			'ribbon_categories' => __( 'Ribbon categories', 'galaxie-woo' ),
-			'card_categories'   => __( 'Card categories', 'galaxie-woo' ),
-		) as $key => $label ) {
-			$this->add_control(
-				$key,
-				array(
-					'label'       => $label,
-					'label_block' => true,
-					'type'        => Controls_Manager::SELECT2,
-					'multiple'    => true,
-					'options'     => $categories,
-					'default'     => array(),
 				)
 			);
 		}

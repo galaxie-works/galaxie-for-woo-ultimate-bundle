@@ -148,6 +148,18 @@ foreach ( $fixtures['card_for'] as $case ) {
 	$check( 'card_for', $case['name'], GiftGroups::card_for( $case['cards'], $case['parent'], $case['box'] ), $case['expect'] );
 }
 
+foreach ( $fixtures['roles'] as $case ) {
+	$roles = GiftGroups::roles( $case['rows'], $case['categories'] );
+	$check( 'roles', $case['name'], $roles, $case['expect'] );
+
+	// The data endpoint sends these as JSON: lists, never objects keyed by id.
+	$lists = true;
+	foreach ( $roles as $ids ) {
+		$lists = $lists && array_is_list( $ids ) && str_starts_with( (string) json_encode( $ids ), '[' );
+	}
+	$check( 'roles', $case['name'] . ' (JSON lists)', $lists, true );
+}
+
 foreach ( $fixtures['check_request'] as $case ) {
 	$check( 'check_request', $case['name'], GiftGroups::check_request( $case['raw'], $case['pending'], $case['loose'], $case['existing'] ), $case['expect'] );
 }
