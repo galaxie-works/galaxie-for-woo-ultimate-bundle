@@ -41,6 +41,7 @@
  * `dialog.close()` behind that.
  */
 
+import { blockedByChoice, missingChoice, wooChoiceNotice } from '@/globals/buy-box-alert'
 import { builderController, configureGiftBuilder, mountBuilder } from '@/globals/gift-builder'
 import type { GiftConfig, GiftRequest, PendingCandle } from '@/globals/gift-builder'
 
@@ -166,30 +167,15 @@ export function interceptForGift(form: HTMLFormElement, proceed: () => void): bo
   const block = giftBlock(form)
 
   if (!block || !checkbox(block)?.checked) return false
-  if (!selectionResolved(form)) return false
+  // Declined, not explained: with an Alert block the Buy Box already said why
+  // before asking, and without one its click goes on for WooCommerce to refuse —
+  // exactly as it would without the gift box. The builder opens once it is valid.
+  if (missingChoice(form)) return false
   if (settled(form)) return false
   if (!block.dataset.popup || !loadPopup()) return false
 
   open(form, block, proceed)
   return true
-}
-
-/**
- * Whether the form names something that can be bought: a simple product, or a
- * variable one whose choices WooCommerce has matched to a variation.
- *
- * Checked here and not left to the Buy Box's own `blocked()`: that one only
- * stops a click when its Alert block can say why, and with no Alert block (or
- * an empty "choose an option" message) it lets the click through on purpose,
- * for WooCommerce to refuse the usual way. Opening the builder in between would
- * ask the shopper to settle a gift for a candle not chosen yet, and only then
- * show the refusal. Declining here keeps that path exactly what it is without
- * the gift box; the builder opens on the first click with a valid choice.
- */
-function selectionResolved(form: HTMLFormElement): boolean {
-  if (!form.querySelector('.variations select')) return true
-
-  return Number(form.querySelector<HTMLInputElement>('input[name="variation_id"]')?.value) > 0
 }
 
 /** After an add succeeded: the next one is a new gift, and asks again. */
@@ -433,9 +419,18 @@ function initBlock(form: HTMLFormElement, block: HTMLElement): void {
     paintBlock(form, block)
   })
 
+  // Shown whenever the box is ticked, size chosen or not, so a click before the
+  // choice must explain itself rather than do nothing: the Buy Box's own "choose
+  // an option" Alert when it has one, WooCommerce's notice when it has not.
   block.querySelector<HTMLElement>('.galaxie-giftwrap-configure')?.addEventListener('click', (event) => {
     event.preventDefault()
-    if (!selectionResolved(form)) return
+
+    if (missingChoice(form)) {
+      if (!blockedByChoice(form)) wooChoiceNotice(form)
+      return
+    }
+
+
     open(form, block, null)
   })
 

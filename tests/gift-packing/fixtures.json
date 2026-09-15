@@ -530,6 +530,68 @@
     { "name": "trimmed", "message": "  \n Feliz aniversário! \n ", "expect": "Feliz aniversário!", "length": 18 },
     { "name": "emoji count once", "message": "🎁🎂", "expect": "🎁🎂", "length": 2 }
   ],
+  "roles": [
+    { "name": "boxes and cards in one category: boxes only as boxes", "rows": [
+        { "id": 992616, "box_product": true, "box_size": true, "categories": [125] },
+        { "id": 992617, "box_product": true, "box_size": true, "categories": [125] },
+        { "id": 992618, "box_product": true, "box_size": false, "categories": [125] },
+        { "id": 992620, "box_product": false, "box_size": false, "categories": [125] },
+        { "id": 992621, "box_product": false, "box_size": false, "categories": [125] },
+        { "id": 500, "box_product": false, "box_size": false, "categories": [130] },
+        { "id": 600, "box_product": false, "box_size": false, "categories": [125, 130] },
+        { "id": 700, "box_product": false, "box_size": true, "categories": [140] }
+      ], "categories": { "box": [125], "card": [125], "ribbon": [] }, "expect": { "box": [992616, 992617], "card": [992620, 992621, 600], "ribbon": [] } },
+    { "name": "the same category also set for ribbons: boxes and cards never ribbons", "rows": [
+        { "id": 992616, "box_product": true, "box_size": true, "categories": [125] },
+        { "id": 992617, "box_product": true, "box_size": true, "categories": [125] },
+        { "id": 992618, "box_product": true, "box_size": false, "categories": [125] },
+        { "id": 992620, "box_product": false, "box_size": false, "categories": [125] },
+        { "id": 992621, "box_product": false, "box_size": false, "categories": [125] },
+        { "id": 500, "box_product": false, "box_size": false, "categories": [130] },
+        { "id": 600, "box_product": false, "box_size": false, "categories": [125, 130] },
+        { "id": 700, "box_product": false, "box_size": true, "categories": [140] }
+      ], "categories": { "box": [125], "card": [125], "ribbon": [125, 130] }, "expect": { "box": [992616, 992617], "card": [992620, 992621, 600], "ribbon": [500] } },
+    { "name": "a box variation without dimensions is offered as nothing", "rows": [
+        { "id": 992616, "box_product": true, "box_size": true, "categories": [125] },
+        { "id": 992617, "box_product": true, "box_size": true, "categories": [125] },
+        { "id": 992618, "box_product": true, "box_size": false, "categories": [125] },
+        { "id": 992620, "box_product": false, "box_size": false, "categories": [125] },
+        { "id": 992621, "box_product": false, "box_size": false, "categories": [125] },
+        { "id": 500, "box_product": false, "box_size": false, "categories": [130] },
+        { "id": 600, "box_product": false, "box_size": false, "categories": [125, 130] },
+        { "id": 700, "box_product": false, "box_size": true, "categories": [140] }
+      ], "categories": { "box": [125], "card": [125], "ribbon": [125] }, "expect": { "box": [992616, 992617], "card": [992620, 992621, 600], "ribbon": [] } },
+    { "name": "only a box category: no cards, no ribbons", "rows": [
+        { "id": 992616, "box_product": true, "box_size": true, "categories": [125] },
+        { "id": 992617, "box_product": true, "box_size": true, "categories": [125] },
+        { "id": 992618, "box_product": true, "box_size": false, "categories": [125] },
+        { "id": 992620, "box_product": false, "box_size": false, "categories": [125] },
+        { "id": 992621, "box_product": false, "box_size": false, "categories": [125] },
+        { "id": 500, "box_product": false, "box_size": false, "categories": [130] },
+        { "id": 600, "box_product": false, "box_size": false, "categories": [125, 130] },
+        { "id": 700, "box_product": false, "box_size": true, "categories": [140] }
+      ], "categories": { "box": [125], "card": [], "ribbon": [] }, "expect": { "box": [992616, 992617], "card": [], "ribbon": [] } },
+    { "name": "a product in no chosen category plays no role", "rows": [
+        { "id": 992616, "box_product": true, "box_size": true, "categories": [125] },
+        { "id": 992617, "box_product": true, "box_size": true, "categories": [125] },
+        { "id": 992618, "box_product": true, "box_size": false, "categories": [125] },
+        { "id": 992620, "box_product": false, "box_size": false, "categories": [125] },
+        { "id": 992621, "box_product": false, "box_size": false, "categories": [125] },
+        { "id": 500, "box_product": false, "box_size": false, "categories": [130] },
+        { "id": 600, "box_product": false, "box_size": false, "categories": [125, 130] },
+        { "id": 700, "box_product": false, "box_size": true, "categories": [140] }
+      ], "categories": { "box": [999], "card": [999], "ribbon": [999] }, "expect": { "box": [], "card": [], "ribbon": [] } },
+    { "name": "box_size without box_product is not a box", "rows": [
+        { "id": 992616, "box_product": true, "box_size": true, "categories": [125] },
+        { "id": 992617, "box_product": true, "box_size": true, "categories": [125] },
+        { "id": 992618, "box_product": true, "box_size": false, "categories": [125] },
+        { "id": 992620, "box_product": false, "box_size": false, "categories": [125] },
+        { "id": 992621, "box_product": false, "box_size": false, "categories": [125] },
+        { "id": 500, "box_product": false, "box_size": false, "categories": [130] },
+        { "id": 600, "box_product": false, "box_size": false, "categories": [125, 130] },
+        { "id": 700, "box_product": false, "box_size": true, "categories": [140] }
+      ], "categories": { "box": [140], "card": [], "ribbon": [140] }, "expect": { "box": [], "card": [], "ribbon": [700] } }
+  ],
   "total": [
     { "name": "cents, not floats", "lines": [{ "price": 19.9, "quantity": 2 }, { "price": 12, "quantity": 1 }, { "price": 0.1, "quantity": 3 }], "expect": 5210 },
     { "name": "nothing", "lines": [], "expect": 0 },
