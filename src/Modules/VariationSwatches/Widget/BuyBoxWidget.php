@@ -525,7 +525,7 @@ final class BuyBoxWidget extends Widget_Base {
 			'giftwrap_note',
 			array(
 				'type'            => Controls_Manager::RAW_HTML,
-				'raw'             => esc_html__( 'Sits just above the buttons, or wherever a "Gift (Presente)" row is placed in Blocks. Ticked, Add to Cart and Buy Now open the popup below first; its Confirm and "continue without" buttons carry on with the purchase. Closing the popup cancels it.', 'galaxie-woo' ),
+				'raw'             => esc_html__( 'Sits just above the buttons, or wherever a "Gift (Presente)" row is placed in Blocks. Ticked, Add to Cart and Buy Now open the popup below first; its Confirm and "continue without" buttons close it and carry on with the purchase. In the popup\'s pixfort settings, turn off the close button, click outside and Esc, so the shopper always picks one of the two.', 'galaxie-woo' ),
 				'content_classes' => 'elementor-descriptor',
 				'condition'       => $on,
 			)
@@ -543,15 +543,26 @@ final class BuyBoxWidget extends Widget_Base {
 		);
 
 		$this->add_control(
+			'giftwrap_popup_link',
+			array(
+				'label'       => __( 'Gift builder popup link', 'galaxie-woo' ),
+				'description' => __( 'The pixfort popup holding the Galaxie Gift Builder widget. Paste its link from wp-admin → Popups ("Popup Link" column), e.g. #pix_popup_4041 — the id alone (4041) works too. Empty: the checkbox only marks the item as a gift.', 'galaxie-woo' ),
+				'label_block' => true,
+				'type'        => Controls_Manager::TEXT,
+				'default'     => '',
+				'placeholder' => '#pix_popup_4041',
+				'condition'   => $on,
+			)
+		);
+
+		// The first version saved a popup id from a dropdown under this key.
+		// Kept registered, and read when the link is empty, so widgets saved then
+		// keep their popup until someone pastes a link.
+		$this->add_control(
 			'giftwrap_popup',
 			array(
-				'label'       => __( 'Gift builder popup', 'galaxie-woo' ),
-				'description' => __( 'A pixfort popup holding the Galaxie Gift Builder widget. With none, the checkbox only marks the item as a gift.', 'galaxie-woo' ),
-				'label_block' => true,
-				'type'        => Controls_Manager::SELECT,
-				'options'     => self::popup_options(),
-				'default'     => '',
-				'condition'   => $on,
+				'type'    => Controls_Manager::HIDDEN,
+				'default' => '',
 			)
 		);
 
@@ -1249,11 +1260,7 @@ final class BuyBoxWidget extends Widget_Base {
 		}
 
 		$preview = $editing && 'yes' === ( $settings['giftwrap_preview'] ?? '' );
-		$popup   = absint( $settings['giftwrap_popup'] ?? 0 );
-
-		if ( $popup && 'publish' !== get_post_status( $popup ) ) {
-			$popup = 0;
-		}
+		$popup   = self::giftwrap_popup_id( $settings );
 
 		$image   = wp_get_attachment_image_url( (int) $product->get_image_id(), 'woocommerce_thumbnail' );
 		$label   = trim( (string) ( $settings['giftwrap_label_text'] ?? '' ) );
@@ -1300,31 +1307,38 @@ final class BuyBoxWidget extends Widget_Base {
 		echo '</div>';
 	}
 
-	/** @return array<string,string> Published pixfort popups, id => title. */
-	private static function popup_options(): array {
-		$options = array( '' => __( 'None — only mark as a gift', 'galaxie-woo' ) );
+	/**
+	 * The published pixfort popup the section points at, or 0.
+	 *
+	 * The link field first, then the id the first version of this section saved
+	 * from a dropdown.
+	 *
+	 * @param array<string,mixed> $settings
+	 */
+	private static function giftwrap_popup_id( array $settings ): int {
+		$link = trim( (string) ( $settings['giftwrap_popup_link'] ?? '' ) );
+		$id   = '' !== $link ? self::parse_popup_link( $link ) : absint( $settings['giftwrap_popup'] ?? 0 );
 
-		if ( ! post_type_exists( 'pixpopup' ) ) {
-			return $options;
+		if ( ! $id || 'pixpopup' !== get_post_type( $id ) || 'publish' !== get_post_status( $id ) ) {
+			return 0;
 		}
 
-		$popups = get_posts(
-			array(
-				'post_type'        => 'pixpopup',
-				'post_status'      => 'publish',
-				'numberposts'      => 200,
-				'orderby'          => 'title',
-				'order'            => 'ASC',
-				'suppress_filters' => false,
-			)
-		);
+		return $id;
+	}
 
-		foreach ( $popups as $popup ) {
-			/* translators: 1: popup title, 2: popup id. */
-			$options[ (string) $popup->ID ] = sprintf( __( '%1$s (#%2$d)', 'galaxie-woo' ), '' !== $popup->post_title ? $popup->post_title : __( '(no title)', 'galaxie-woo' ), $popup->ID );
-		}
-
-		return $options;
+	/**
+	 * A popup id from what a merchant pastes.
+	 *
+	 * pixfort's own link for a popup is `#pix_popup_{id}` — the "Popup Link"
+	 * column and the "Open from Link" field print it (includes/post-types/
+	 * popup.php), and its menu script opens any href starting with it. Accepted:
+	 * that link (`#pix_popup_4041`), a full URL ending in it
+	 * (`https://shop/page/#pix_popup_4041`), or the bare id (`4041`). Anything
+	 * else is 0, not a guess: a number pulled out of an unrelated URL would
+	 * point the buttons at some other post.
+	 */
+	private static function parse_popup_link( string $link ): int {
+		return preg_match( '/^(?:\S*#pix_popup_)?(\d+)$/i', trim( $link ), $match ) ? absint( $match[1] ) : 0;
 	}
 
 
