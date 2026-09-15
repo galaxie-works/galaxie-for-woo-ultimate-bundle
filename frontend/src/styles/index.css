@@ -681,10 +681,62 @@ form.galaxie-buybox .galaxie-buybox-row {
   display: inline-block;
 }
 
+/* Inline-block like the saved state, so a stretched row can widen it. */
+.galaxie-wishlist-btn .galaxie-wishlist-add {
+  display: inline-block;
+}
+
 /* Icon only: pixfort still spaces the icon for text that is not there. */
 .galaxie-wishlist-icon-only .pixfort-icon,
 .galaxie-wishlist-icon-only svg {
   margin: 0 !important;
+}
+
+/* The row the heart and "Salvar em uma lista" share. The widget's Alignment
+   sets --galaxie-wl-stretch to 1 for Stretch; 0 leaves every size alone,
+   because a min-width of 0% constrains nothing. */
+.galaxie-wishlist-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.galaxie-wishlist-buttons > * {
+  flex-grow: var(--galaxie-wl-stretch, 0);
+}
+
+.galaxie-wishlist-buttons .galaxie-wishlist-btn > span,
+.galaxie-wishlist-buttons .galaxie-wishlist-btn > span > .btn,
+.galaxie-wishlist-list-anchor > .galaxie-wishlist-list-btn,
+.galaxie-wishlist-list-anchor > .galaxie-wishlist-list-btn > .btn {
+  min-width: calc(var(--galaxie-wl-stretch, 0) * 100%);
+  justify-content: center;
+}
+
+/* Circle and rounded square: one size both ways, no padding, icon centred.
+   The widget's sliders only set the variables. */
+.galaxie-wishlist-shape-circle > span,
+.galaxie-wishlist-shape-square > span {
+  min-width: 0 !important;
+}
+
+.galaxie-wishlist-shape-circle .btn,
+.galaxie-wishlist-shape-square .btn {
+  width: var(--galaxie-wl-size, 44px);
+  min-width: 0 !important;
+  height: var(--galaxie-wl-size, 44px);
+  padding: 0 !important;
+  justify-content: center;
+  line-height: 1;
+}
+
+.galaxie-wishlist-shape-circle .btn {
+  border-radius: 50% !important;
+}
+
+.galaxie-wishlist-shape-square .btn {
+  border-radius: var(--galaxie-wl-radius, 12px) !important;
 }
 
 /* Only a heading that actually has an icon becomes a row. Without the
@@ -2867,26 +2919,41 @@ address.galaxie-order-body {
   font-weight: 600;
 }
 
-/* The "add to a list" popover beside a product's heart. */
-.galaxie-wishlist-list-btn {
+/* The "add to a list" popover beside a product's heart. The gap of
+   .galaxie-wishlist-buttons spaces it now; the margin is for cached markup
+   that has no row around the two buttons. */
+:not(.galaxie-wishlist-list-anchor) > .galaxie-wishlist-list-btn {
   margin-left: 8px;
 }
 
+/* The popover opens in here, positioned against the button. */
+.galaxie-wishlist-list-anchor {
+  position: relative;
+  display: inline-flex;
+}
+
+/* Below the button, left edges together, unless the widget's Position
+   controls say otherwise. The script adds --galaxie-wl-nudge when that would
+   leave the viewport. */
 .galaxie-wishlist-popover {
   position: absolute;
+  top: calc(100% + var(--galaxie-wl-pop-y, 8px));
+  left: 0;
   z-index: 9999;
   display: flex;
   flex-direction: column;
   gap: 10px;
   width: min(300px, calc(100vw - 16px));
+  max-width: calc(100vw - 16px);
   padding: 14px;
   border-radius: 12px;
   background-color: var(--pix-body-bg-color, #fff);
   box-shadow: 0 16px 40px rgb(0 0 0 / 18%);
+  transform: translateX(calc(var(--galaxie-wl-pop-shift, 0%) + var(--galaxie-wl-pop-x, 0px) + var(--galaxie-wl-nudge, 0px)));
 }
 
 .galaxie-wishlist-popover-title {
-  font-weight: 600;
+  margin: 0;
 }
 
 .galaxie-wishlist-popover-lists {
@@ -2913,9 +2980,14 @@ address.galaxie-order-body {
   gap: 8px;
 }
 
+/* `auto`, not a zero basis: stacked, a zero basis can collapse the field. */
 .galaxie-wishlist-popover-new input {
-  flex: 1;
+  flex: 1 1 auto;
   min-width: 0;
+}
+
+.galaxie-wishlist-popover-create {
+  flex: 0 0 auto;
 }
 
 .galaxie-wishlist-thumb {

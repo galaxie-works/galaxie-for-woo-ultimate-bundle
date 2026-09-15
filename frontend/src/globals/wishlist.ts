@@ -135,33 +135,73 @@ async function openPopover(config: WishlistConfig, trigger: HTMLButtonElement): 
   closePopover()
   trigger.disabled = true
 
+  // The widget's anchor: its template carries the classes the Style tab chose,
+  // and opening inside it is what lets those styles reach the popover.
+  const anchor = trigger.closest<HTMLElement>('.galaxie-wishlist-list-anchor')
+  const template = anchor?.querySelector<HTMLTemplateElement>('template.galaxie-wishlist-popover-template')
+
   try {
     const json = await call(config, 'lists', { product_id: productId })
     if (!json.success || !json.data?.lists) return
 
-    popover = buildPopover(config, trigger, productId, json.data.lists)
-    document.body.appendChild(popover)
-    place(popover, trigger)
+    // The editor's always-open preview makes way for the real one.
+    anchor?.querySelector('.galaxie-wishlist-popover.is-preview')?.remove()
+
+    popover = buildPopover(config, trigger, productId, json.data.lists, template)
+
+    if (anchor && template) {
+      anchor.appendChild(popover)
+      keepInView(popover)
+    } else {
+      document.body.appendChild(popover)
+      place(popover, trigger)
+    }
+
     popover.querySelector<HTMLInputElement>('input[type="checkbox"]')?.focus()
   } finally {
     trigger.disabled = false
   }
 }
 
-function buildPopover(config: WishlistConfig, trigger: HTMLButtonElement, productId: string, lists: WishlistList[]): HTMLElement {
+/** The widget's own skeleton, or the one this script built before it had one. */
+function skeleton(trigger: HTMLButtonElement, template?: HTMLTemplateElement | null): HTMLElement {
+  const cloned = template?.content.firstElementChild?.cloneNode(true)
+  if (cloned instanceof HTMLElement) return cloned
+
   const box = document.createElement('div')
   box.className = 'galaxie-wishlist-popover'
-  box.dataset.productId = productId
   box.setAttribute('role', 'dialog')
 
   const title = document.createElement('div')
-  title.className = 'galaxie-wishlist-popover-title'
+  title.className = 'galaxie-wishlist-popover-title font-weight-bold'
   title.textContent = trigger.dataset.title || 'Salvar em'
-  box.appendChild(title)
 
   const list = document.createElement('ul')
   list.className = 'galaxie-wishlist-popover-lists'
-  box.appendChild(list)
+
+  const form = document.createElement('form')
+  form.className = 'galaxie-wishlist-popover-new'
+  const field = document.createElement('input')
+  field.type = 'text'
+  field.maxLength = 60
+  field.placeholder = trigger.dataset.placeholder || 'Nome da nova lista'
+  field.className = 'form-control'
+  const create = document.createElement('button')
+  create.type = 'submit'
+  create.className = 'btn btn-sm btn-primary'
+  create.textContent = trigger.dataset.create || 'Criar lista'
+  form.append(field, create)
+
+  box.append(title, list, form)
+  return box
+}
+
+function buildPopover(config: WishlistConfig, trigger: HTMLButtonElement, productId: string, lists: WishlistList[], template?: HTMLTemplateElement | null): HTMLElement {
+  const box = skeleton(trigger, template)
+  box.dataset.productId = productId
+
+  const list = box.querySelector<HTMLUListElement>('.galaxie-wishlist-popover-lists') ?? box.appendChild(document.createElement('ul'))
+  const rowClass = list.dataset.rowClass ?? ''
 
   const render = (items: WishlistList[]) => {
     list.replaceChildren(
@@ -171,6 +211,7 @@ function buildPopover(config: WishlistConfig, trigger: HTMLButtonElement, produc
         const input = document.createElement('input')
         const name = document.createElement('span')
 
+        if (rowClass) label.className = rowClass
         input.type = 'checkbox'
         input.checked = item.has
         name.textContent = item.name
@@ -202,19 +243,10 @@ function buildPopover(config: WishlistConfig, trigger: HTMLButtonElement, produc
 
   render(lists)
 
-  const form = document.createElement('form')
-  form.className = 'galaxie-wishlist-popover-new'
-  const field = document.createElement('input')
-  field.type = 'text'
-  field.maxLength = 60
-  field.placeholder = trigger.dataset.placeholder || 'Nome da nova lista'
-  field.className = 'form-control'
-  const create = document.createElement('button')
-  create.type = 'submit'
-  create.className = 'btn btn-sm btn-primary'
-  create.textContent = trigger.dataset.create || 'Criar lista'
-  form.append(field, create)
-  box.appendChild(form)
+  const form = box.querySelector<HTMLFormElement>('.galaxie-wishlist-popover-new')
+  const field = form?.querySelector<HTMLInputElement>('input[type="text"]')
+  const create = form?.querySelector<HTMLButtonElement>('button[type="submit"]')
+  if (!form || !field || !create) return box
 
   form.addEventListener('submit', (event) => {
     event.preventDefault()
@@ -245,7 +277,25 @@ function syncFromLists(productId: string, lists: WishlistList[]): void {
   if (main) syncHearts(productId, main.has)
 }
 
-/** Under the button, kept inside the viewport. */
+/**
+ * Inside the widget the stylesheet places the popover; this only slides it
+ * back when that would leave the viewport, through the variable the
+ * stylesheet's transform already adds.
+ */
+function keepInView(box: HTMLElement): void {
+  box.style.removeProperty('--galaxie-wl-nudge')
+
+  const rect = box.getBoundingClientRect()
+  const edge = 8
+  let nudge = 0
+
+  if (rect.left < edge) nudge = edge - rect.left
+  else if (rect.right > window.innerWidth - edge) nudge = window.innerWidth - edge - rect.right
+
+  if (nudge) box.style.setProperty('--galaxie-wl-nudge', `${nudge}px`)
+}
+
+/** Fallback for markup with no anchor: under the button, kept inside the viewport. */
 function place(box: HTMLElement, trigger: HTMLElement): void {
   const rect = trigger.getBoundingClientRect()
   const width = box.offsetWidth
