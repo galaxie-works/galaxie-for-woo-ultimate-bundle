@@ -61,8 +61,9 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 	}
 
 	public function boot(): void {
+		// The "Presente" badge in wp-admin is not booted here: Support\GiftOrders
+		// runs from Plugin::boot() so gift orders keep it with this module off.
 		Flag::hooks();
-		AdminTag::hooks();
 
 		// Phase 2 (branch feat/gift-wrap-packing): box variation fields — internal
 		// size and max candles on each gift box variation. Booted here once that

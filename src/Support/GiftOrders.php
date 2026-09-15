@@ -1,11 +1,13 @@
 <?php
 /**
- * The "Presente" tag on orders in wp-admin.
+ * Which orders are gifts, and the "Presente" tag that says so in wp-admin.
  *
  * @package Galaxie\Woo
  */
 
-namespace Galaxie\Woo\Modules\GiftWrap;
+namespace Galaxie\Woo\Support;
+
+use Galaxie\Woo\Modules\Wishlist\Gifts;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -13,12 +15,18 @@ defined( 'ABSPATH' ) || exit;
  * A badge beside the order heading and a column in the orders list, so whoever
  * packs the order sees it is a gift before opening the items.
  *
+ * Booted from Plugin::boot() whatever modules are on, not by Gift Wrap: an
+ * order stays a gift after a module is switched off, and a shared wish list's
+ * gift is one without Gift Wrap ever having been enabled. It only reads order
+ * meta, so there is nothing for a toggle to guard.
+ *
  * Both order storages are covered: HPOS lists orders on `wc-orders` and hands
  * the column callback the order itself; the legacy posts table hands a post id.
- * Which orders count is {@see Flag::is_gift()}'s decision, so a shared wish
- * list's gift wears the same tag as one marked on the product page.
  */
-final class AdminTag {
+final class GiftOrders {
+
+	/** On the order: `yes` for any gift — Gift Wrap's, or a shared wish list's. */
+	public const ORDER_META = '_galaxie_is_gift';
 
 	private const COLUMN = 'galaxie_gift';
 
@@ -36,6 +44,11 @@ final class AdminTag {
 		add_action( 'manage_woocommerce_page_wc-orders_custom_column', array( self::class, 'hpos_column' ), 10, 2 );
 		add_action( 'woocommerce_admin_order_data_after_order_details', array( self::class, 'order_heading' ) );
 		add_action( 'admin_head', array( self::class, 'styles' ) );
+	}
+
+	/** Tagged, or placed from a shared wish list before the tag existed. */
+	public static function is_gift( \WC_Order $order ): bool {
+		return 'yes' === $order->get_meta( self::ORDER_META ) || '' !== (string) $order->get_meta( Gifts::ORDER_OWNER );
 	}
 
 	/**
@@ -89,7 +102,7 @@ final class AdminTag {
 	 * @param mixed $order
 	 */
 	public static function order_heading( $order ): void {
-		if ( ! $order instanceof \WC_Order || ! Flag::is_gift( $order ) ) {
+		if ( ! $order instanceof \WC_Order || ! self::is_gift( $order ) ) {
 			return;
 		}
 
@@ -113,7 +126,7 @@ final class AdminTag {
 
 	/** @param mixed $order */
 	private static function cell( $order ): void {
-		if ( $order instanceof \WC_Order && Flag::is_gift( $order ) ) {
+		if ( $order instanceof \WC_Order && self::is_gift( $order ) ) {
 			printf( '<span class="galaxie-gift-badge">%s</span>', esc_html__( 'Presente', 'galaxie-woo' ) );
 		}
 	}

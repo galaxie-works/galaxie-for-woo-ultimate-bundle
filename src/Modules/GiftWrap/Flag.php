@@ -8,6 +8,7 @@
 namespace Galaxie\Woo\Modules\GiftWrap;
 
 use Galaxie\Woo\Modules\Wishlist\Gifts;
+use Galaxie\Woo\Support\GiftOrders;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -28,6 +29,9 @@ defined( 'ABSPATH' ) || exit;
  * - Ordering: `woocommerce_checkout_create_order_line_item` runs for both
  *   checkouts (the Store API builds its line items through WC_Checkout too),
  *   and the order-level tag is written where each checkout finalises the order.
+ *
+ * The tag's reader — the "Presente" badge in wp-admin — is not here but in
+ * {@see GiftOrders}, which runs whether or not this module is on.
  */
 final class Flag {
 
@@ -36,9 +40,6 @@ final class Flag {
 
 	/** The Buy Box checkbox's name, and the field the AJAX add copies it into. */
 	public const REQUEST_FIELD = 'galaxie_gift_wrap';
-
-	/** On the order: `yes` for any gift — this module's, or a shared wish list's. */
-	public const ORDER_META = '_galaxie_is_gift';
 
 	/** On the line item, hidden: which lines were bought as a gift. */
 	public const ITEM_META = '_galaxie_gift_wrap';
@@ -114,18 +115,13 @@ final class Flag {
 		}
 
 		if ( self::cart_has_gift() ) {
-			$order->update_meta_data( self::ORDER_META, 'yes' );
+			$order->update_meta_data( GiftOrders::ORDER_META, 'yes' );
 			return;
 		}
 
 		if ( '' === (string) $order->get_meta( Gifts::ORDER_OWNER ) ) {
-			$order->delete_meta_data( self::ORDER_META );
+			$order->delete_meta_data( GiftOrders::ORDER_META );
 		}
-	}
-
-	/** Whether an order is a gift: tagged, or placed from a shared wish list before the tag existed. */
-	public static function is_gift( \WC_Order $order ): bool {
-		return 'yes' === $order->get_meta( self::ORDER_META ) || '' !== (string) $order->get_meta( Gifts::ORDER_OWNER );
 	}
 
 	/** @param mixed $cart_item */

@@ -10,6 +10,7 @@ namespace Galaxie\Woo\Core;
 use Galaxie\Woo\Core\Admin\SettingsPage;
 use Galaxie\Woo\Elementor\Widgets;
 use Galaxie\Woo\Integrations\Acf;
+use Galaxie\Woo\Support\GiftOrders;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -60,6 +61,11 @@ final class Plugin {
 		// ACF is, with no module toggle standing between a deploy and the
 		// definitions the storefront reads.
 		Acf::hooks();
+
+		// Also unconditional: an order is a gift whichever modules are on today —
+		// a shared wish list's gift never needed Gift Wrap — so the "Presente"
+		// tag in wp-admin reads order meta with no toggle in the way.
+		GiftOrders::hooks();
 
 		if ( is_admin() ) {
 			( new SettingsPage( $this->modules, $this->settings ) )->hooks();
