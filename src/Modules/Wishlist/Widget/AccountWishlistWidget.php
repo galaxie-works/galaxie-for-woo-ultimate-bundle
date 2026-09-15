@@ -57,6 +57,21 @@ final class AccountWishlistWidget extends Widget_Base {
 	protected function register_controls(): void {
 		$this->start_controls_section( 'wl_section', array( 'label' => __( 'Wishlist', 'galaxie-woo' ) ) );
 
+		// The tabs switch lists on the site. In the editor, which shows only unsaved settings, this does.
+		$this->add_control(
+			'wl_preview',
+			array(
+				'label'       => __( 'Shown in the editor', 'galaxie-woo' ),
+				'type'        => Controls_Manager::SELECT,
+				'options'     => array(
+					'items' => __( 'A list with products', 'galaxie-woo' ),
+					'empty' => __( 'An empty list', 'galaxie-woo' ),
+				),
+				'default'     => 'items',
+				'description' => __( 'On the site, the list tapped in the tabs decides. In the editor the tabs stay put; switch here to style the empty list.', 'galaxie-woo' ),
+			)
+		);
+
 		$this->add_control( 'wl_heading', array( 'label' => __( 'Heading', 'galaxie-woo' ), 'type' => Controls_Manager::TEXT, 'label_block' => true, 'default' => __( 'Lista de desejos', 'galaxie-woo' ) ) );
 
 		$this->add_responsive_control(
@@ -304,8 +319,10 @@ final class AccountWishlistWidget extends Widget_Base {
 		// The editor keeps it, beside its sample products, to be styled.
 		$shareable = (bool) $products || $editing;
 
-		// Something to style in the editor, where the list may be empty.
-		if ( ! $products && $editing ) {
+		// In the editor the preview control decides: no products, or something to style.
+		if ( $editing && 'empty' === ( $s['wl_preview'] ?? 'items' ) ) {
+			$products = array();
+		} elseif ( ! $products && $editing ) {
 			$products = wc_get_products( array( 'status' => 'publish', 'limit' => 3, 'orderby' => 'date' ) );
 		}
 
