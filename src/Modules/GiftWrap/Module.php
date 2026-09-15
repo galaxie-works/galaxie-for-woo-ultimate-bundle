@@ -204,7 +204,7 @@ final class Module implements ModuleContract, ProvidesBootData, ProvidesElemento
 				key: 'ribbon_categories',
 				label: __( 'Ribbon categories', 'galaxie-woo' ),
 				type: Field::TYPE_MULTI,
-				description: __( 'Products in these categories are offered as ribbons. The Gift Builder widget can override this.', 'galaxie-woo' ),
+				description: __( 'Optional. Products in these categories are offered as extra ribbons. Leave empty when gift boxes are sold with their ribbon: the builder then has no ribbon step at all. The Gift Builder widget can override this.', 'galaxie-woo' ),
 				default: self::DEFAULTS['ribbon_categories'],
 				options: $categories
 			),

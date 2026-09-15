@@ -579,8 +579,13 @@ function createController(root: HTMLElement, pending: PendingCandle, token: numb
     const wrap = slot(node, `${kind}-wrap`)
     const list = slot(node, kind)
 
-    if (wrap) wrap.hidden = !options.length
-    if (!list) return
+    // Optional steps: no category set, or nothing in it on sale, and the step —
+    // heading included — is not there at all. Boxes sold with their ribbon leave
+    // the ribbon category empty.
+    const offered = options.some((option) => option.stock !== 0)
+
+    if (wrap) wrap.hidden = !offered
+    if (!list || !offered) return
 
     const d = current()
 
