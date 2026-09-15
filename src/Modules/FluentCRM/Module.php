@@ -220,6 +220,12 @@ final class Module implements ModuleContract, ProvidesSettings {
 	/** Memo of store_api_request(). */
 	private ?string $store_api = null;
 
+	/** @var array<int,array{columns:array<string,string>,custom:array<string,string>}> Contact id => its profile before FluentCRM's admin saved it. */
+	private array $panel_before = array();
+
+	/** A contact's profile was saved in FluentCRM's admin in this request, and noted there. */
+	private bool $panel_edit = false;
+
 	/**
 	 * Old values set aside by Store API customer updates, for the checkout to
 	 * note and sync. Not in PROFILE_META, so writing it is not itself a change.
@@ -251,6 +257,212 @@ final class Module implements ModuleContract, ProvidesSettings {
 
 		add_action( 'wp_loaded', array( $this, 'queue_pending_changes' ) );
 		add_action( 'shutdown', array( $this, 'flush_profile_sync' ) );
+
+		if ( $this->log_changes ) {
+			add_filter( 'rest_request_before_callbacks', array( $this, 'snapshot_panel_contacts' ), 10, 3 );
+			add_filter( 'rest_request_after_callbacks', array( $this, 'note_panel_contacts' ), 10, 3 );
+		}
+	}
+
+	/**
+	 * FluentCRM's admin saving a contact's profile (FluentCRM 2.9.x,
+	 * app/Http/Routes/api.php): `PUT subscribers/{id}` — SubscriberController@
+	 * updateSubscriber, columns and `custom_values` in one request — and
+	 * `PUT subscribers/subscribers-property` with `property=status` —
+	 * @updateProperty, the status dropdown. The admin sends both as POST with
+	 * X-HTTP-Method-Override, which WordPress resolves before these filters.
+	 * Notes, tags, lists, e-mails and the rest are not profile edits and match
+	 * nothing, so writing a note never leads to another.
+	 *
+	 * @return int[] Contact ids the request edits.
+	 */
+	private function panel_contact_ids( \WP_REST_Request $request ): array {
+		if ( ! in_array( strtoupper( $request->get_method() ), array( 'PUT', 'PATCH', 'POST' ), true ) ) {
+			return array();
+		}
+
+		$route = '/' . trim( (string) $request->get_route(), '/' );
+
+		if ( preg_match( '#^/fluent-crm/v\d+/subscribers/(\d+)$#', $route, $match ) ) {
+			return array( (int) $match[1] );
+		}
+
+		if ( preg_match( '#^/fluent-crm/v\d+/subscribers/subscribers-property$#', $route ) && 'status' === $request->get_param( 'property' ) ) {
+			$ids = array_filter( array_map( 'absint', (array) $request->get_param( 'subscribers' ) ) );
+
+			// A handful at a time in practice; the cap keeps a very large bulk
+			// change from reading every contact twice.
+			return array_slice( array_values( array_unique( $ids ) ), 0, 200 );
+		}
+
+		return array();
+	}
+
+	/**
+	 * What each contact the panel is about to save holds, before it saves.
+	 * A filter that changes nothing.
+	 *
+	 * @param mixed $response
+	 * @param mixed $handler
+	 * @param mixed $request
+	 * @return mixed
+	 */
+	public function snapshot_panel_contacts( $response, $handler, $request ) {
+		try {
+			if ( ! $request instanceof \WP_REST_Request || is_wp_error( $response ) ) {
+				return $response;
+			}
+
+			foreach ( $this->panel_contact_ids( $request ) as $id ) {
+				$before = FluentCRMApi::contact_profile( $id );
+
+				if ( null !== $before ) {
+					$this->panel_before[ $id ] = $before;
+					$this->panel_edit          = true;
+				}
+			}
+		} catch ( \Throwable $e ) {
+			// Never in the way of the merchant's save.
+		}
+
+		return $response;
+	}
+
+	/**
+	 * One "Alteração de perfil" note per contact the panel changed, comparing
+	 * the contact with what it held before the save — whatever the response
+	 * says, so a save that failed halfway still notes what it did write.
+	 *
+	 * @param mixed $response
+	 * @param mixed $handler
+	 * @param mixed $request
+	 * @return mixed
+	 */
+	public function note_panel_contacts( $response, $handler, $request ) {
+		if ( ! $this->panel_before ) {
+			return $response;
+		}
+
+		$snapshots          = $this->panel_before;
+		$this->panel_before = array();
+
+		try {
+			$actor = wp_get_current_user();
+			$by    = $actor && $actor->exists() ? (string) $actor->display_name : __( 'sistema', 'galaxie-woo' );
+			$names = null;
+
+			foreach ( $snapshots as $id => $before ) {
+				$after = FluentCRMApi::contact_profile( (int) $id );
+
+				if ( null === $after ) {
+					continue;
+				}
+
+				$names ??= FluentCRMApi::custom_field_labels();
+				$lines   = $this->panel_changes( $before, $after, $names );
+
+				if ( $lines ) {
+					FluentCRMApi::add_note_by_contact_id( (int) $id, __( 'Alteração de perfil', 'galaxie-woo' ), $this->note_description( __( 'FluentCRM (painel)', 'galaxie-woo' ), $by, $lines ) );
+				}
+			}
+		} catch ( \Throwable $e ) {
+			// Best effort, like every other note.
+		}
+
+		return $response;
+	}
+
+	/**
+	 * @param array{columns:array<string,string>,custom:array<string,string>} $before
+	 * @param array{columns:array<string,string>,custom:array<string,string>} $after
+	 * @param array<string,string>                                            $names Custom field labels by slug.
+	 * @return string[] Escaped lines.
+	 */
+	private function panel_changes( array $before, array $after, array $names ): array {
+		$lines   = array();
+		$columns = array(
+			'first_name'     => __( 'Nome', 'galaxie-woo' ),
+			'last_name'      => __( 'Sobrenome', 'galaxie-woo' ),
+			'email'          => __( 'E-mail', 'galaxie-woo' ),
+			'phone'          => __( 'Telefone', 'galaxie-woo' ),
+			'date_of_birth'  => __( 'Data de nascimento', 'galaxie-woo' ),
+			'address_line_1' => __( 'Endereço', 'galaxie-woo' ),
+			'address_line_2' => __( 'Complemento', 'galaxie-woo' ),
+			'city'           => __( 'Cidade', 'galaxie-woo' ),
+			'state'          => __( 'Estado', 'galaxie-woo' ),
+			'postal_code'    => __( 'CEP', 'galaxie-woo' ),
+			'country'        => __( 'País', 'galaxie-woo' ),
+			'status'         => __( 'Status', 'galaxie-woo' ),
+		);
+
+		foreach ( $columns as $column => $label ) {
+			$old = $before['columns'][ $column ] ?? '';
+			$new = $after['columns'][ $column ] ?? '';
+
+			if ( $old !== $new ) {
+				$lines[] = sprintf( '<strong>%1$s:</strong> %2$s → %3$s', esc_html( $label ), esc_html( $this->panel_value( $column, $old ) ), esc_html( $this->panel_value( $column, $new ) ) );
+			}
+		}
+
+		// Our own fields keep their label when the definitions cannot be read.
+		$known = array( self::OTHER_ADDRESSES_SLUG => self::OTHER_ADDRESSES_LABEL );
+
+		foreach ( self::CUSTOM_FIELDS as $field ) {
+			$known[ $field['slug'] ] = $field['label'];
+		}
+
+		$custom = array_keys( $before['custom'] + $after['custom'] );
+
+		foreach ( $custom as $slug ) {
+			$old = $before['custom'][ $slug ] ?? '';
+			$new = $after['custom'][ $slug ] ?? '';
+
+			if ( $old === $new ) {
+				continue;
+			}
+
+			$label = ( $names[ $slug ] ?? '' ) ?: ( $known[ $slug ] ?? $slug );
+
+			// Multi-line values — the other addresses above all — keep their lines.
+			$lines[] = sprintf(
+				'<strong>%1$s:</strong> %2$s → %3$s',
+				esc_html( $label ),
+				nl2br( esc_html( '' === $old ? __( '(vazio)', 'galaxie-woo' ) : $old ), false ),
+				nl2br( esc_html( '' === $new ? __( '(vazio)', 'galaxie-woo' ) : $new ), false )
+			);
+		}
+
+		return $lines;
+	}
+
+	private function panel_value( string $column, string $value ): string {
+		if ( '' === $value ) {
+			return __( '(vazio)', 'galaxie-woo' );
+		}
+
+		if ( 'date_of_birth' === $column && preg_match( '/^(\d{4})-(\d{2})-(\d{2})$/', $value, $date ) ) {
+			return $date[3] . '/' . $date[2] . '/' . $date[1];
+		}
+
+		if ( 'country' === $column && function_exists( 'WC' ) && WC()->countries ) {
+			return (string) ( WC()->countries->get_countries()[ $value ] ?? $value );
+		}
+
+		if ( 'status' === $column ) {
+			$statuses = array(
+				'subscribed'    => __( 'Inscrito', 'galaxie-woo' ),
+				'pending'       => __( 'Pendente', 'galaxie-woo' ),
+				'unsubscribed'  => __( 'Descadastrado', 'galaxie-woo' ),
+				'transactional' => __( 'Transacional', 'galaxie-woo' ),
+				'bounced'       => __( 'Devolvido (bounce)', 'galaxie-woo' ),
+				'complained'    => __( 'Reclamação', 'galaxie-woo' ),
+				'spammed'       => __( 'Marcado como spam', 'galaxie-woo' ),
+			);
+
+			return $statuses[ $value ] ?? $value;
+		}
+
+		return $value;
 	}
 
 	/**
@@ -505,7 +717,10 @@ final class Module implements ModuleContract, ProvidesSettings {
 
 			// The note first: it records the account's own before and after,
 			// whatever the contact happened to hold.
-			if ( $this->log_changes && ! isset( $this->registered[ $user->ID ] ) ) {
+			// A contact saved in FluentCRM's admin was noted from the contact
+			// itself (note_panel_contacts()); the name FluentCRM then writes into
+			// the account is the same change, and is not noted twice.
+			if ( $this->log_changes && ! $this->panel_edit && ! isset( $this->registered[ $user->ID ] ) ) {
 				// Changes that are all set aside from checkout's customer updates
 				// were made at checkout, whatever page flushes them.
 				$own_changes = '' !== $old_email || ! empty( $this->event_log[ $user->ID ] );
@@ -639,18 +854,25 @@ final class Module implements ModuleContract, ProvidesSettings {
 		$who   = $actor ? get_userdata( $actor ) : false;
 		$by    = $actor === $user->ID ? __( 'o próprio cliente', 'galaxie-woo' ) : ( $who ? (string) $who->display_name : __( 'sistema', 'galaxie-woo' ) );
 
-		$description = sprintf(
+		FluentCRMApi::add_note( (string) $user->user_email, __( 'Alteração de perfil', 'galaxie-woo' ), $this->note_description( $source ?? $this->change_source(), $by, $lines ), $user->ID, $old_email );
+	}
+
+	/**
+	 * A profile note's body: when, where and by whom, then one item per change.
+	 *
+	 * @param string[] $lines Already escaped.
+	 */
+	private function note_description( string $source, string $by, array $lines ): string {
+		return sprintf(
 			'<p><strong>%1$s</strong> %2$s<br><strong>%3$s</strong> %4$s<br><strong>%5$s</strong> %6$s</p><ul><li>%7$s</li></ul>',
 			esc_html__( 'Data e hora:', 'galaxie-woo' ),
 			esc_html( wp_date( 'd/m/Y H:i:s' ) ),
 			esc_html__( 'Origem:', 'galaxie-woo' ),
-			esc_html( $source ?? $this->change_source() ),
+			esc_html( $source ),
 			esc_html__( 'Alterado por:', 'galaxie-woo' ),
 			esc_html( $by ),
 			implode( '</li><li>', $lines )
 		);
-
-		FluentCRMApi::add_note( (string) $user->user_email, __( 'Alteração de perfil', 'galaxie-woo' ), $description, $user->ID, $old_email );
 	}
 
 	/**
@@ -1149,7 +1371,7 @@ final class Module implements ModuleContract, ProvidesSettings {
 				key: 'profile_notes',
 				label: __( 'Record profile changes in contact notes', 'galaxie-woo' ),
 				type: Field::TYPE_TOGGLE,
-				description: __( 'Every change a customer makes — profile fields, addresses, communication consent, interests, saved cards (brand, last four digits, expiry) — is written on their FluentCRM contact\'s Notes tab as before → after, with the date and time, where it was made and who made it. Keeps a record of data the contact itself no longer shows.', 'galaxie-woo' ),
+				description: __( 'Every change a customer makes — profile fields, addresses, communication consent, interests, saved cards (brand, last four digits, expiry) — is written on their FluentCRM contact\'s Notes tab as before → after, with the date and time, where it was made and who made it. Edits to a contact\'s profile in FluentCRM\'s own admin (columns, status and custom fields) are noted too, credited to the admin who made them. Keeps a record of data the contact itself no longer shows.', 'galaxie-woo' ),
 				default: true
 			),
 		);
