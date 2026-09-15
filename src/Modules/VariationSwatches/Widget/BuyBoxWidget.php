@@ -9,6 +9,8 @@ namespace Galaxie\Woo\Modules\VariationSwatches\Widget;
 
 use Elementor\Controls_Manager;
 use Galaxie\Woo\Core\Plugin;
+use Galaxie\Woo\Modules\GiftWrap\Flag as GiftFlag;
+use Galaxie\Woo\Modules\GiftWrap\Module as GiftWrapModule;
 use Galaxie\Woo\Modules\Wishlist\Gifts;
 use Galaxie\Woo\Support\PixfortControls;
 use Galaxie\Woo\Support\QuantityField;
@@ -98,6 +100,7 @@ final class BuyBoxWidget extends Widget_Base {
 		$this->register_variations_section();
 		$this->register_alert_section();
 		$this->register_gift_section();
+		$this->register_giftwrap_section();
 		$this->register_quantity_section();
 		$this->register_button_section( 'addcart', __( 'Add to Cart button', 'galaxie-woo' ), __( 'Adicionar ao carrinho', 'galaxie-woo' ), '' );
 		$this->register_button_section( 'buynow', __( 'Buy Now button', 'galaxie-woo' ), __( 'Comprar agora', 'galaxie-woo' ), 'outline' );
@@ -475,6 +478,146 @@ final class BuyBoxWidget extends Widget_Base {
 		$this->end_controls_section();
 	}
 
+	/**
+	 * "Estou comprando um presente para alguém" — the Gift Wrap module's
+	 * checkbox, and nothing to do with the section above: that one is a notice
+	 * for a shopper sent here by someone else's wish list, this is a shopper
+	 * deciding on their own that what they buy is a gift.
+	 *
+	 * Ticked, it opens the chosen pixfort popup (holding the Galaxie Gift Builder
+	 * widget) before Add to Cart or Buy Now act; both carry on from the popup.
+	 * With no popup chosen it only marks the cart line as a gift.
+	 *
+	 * Placement follows the Blocks list when a "Gift (Presente)" row is in it;
+	 * turning the section on without one puts it just above the buttons, so the
+	 * switch alone is enough and the row is only needed to move it.
+	 */
+	private function register_giftwrap_section(): void {
+		$this->start_controls_section(
+			'giftwrap_section',
+			array( 'label' => __( 'Gift (Presente)', 'galaxie-woo' ) )
+		);
+
+		if ( ! Plugin::instance()->modules()->is_enabled_by_id( GiftWrapModule::ID ) ) {
+			$this->add_control(
+				'giftwrap_module_note',
+				array(
+					'type'            => Controls_Manager::RAW_HTML,
+					'raw'             => esc_html__( 'The Gift Wrap module is off, so this section shows nothing on the site. Turn it on in wp-admin → Galaxie → Modules.', 'galaxie-woo' ),
+					'content_classes' => 'elementor-panel-alert elementor-panel-alert-warning',
+				)
+			);
+		}
+
+		$this->add_control(
+			'giftwrap_enable',
+			array(
+				'label'        => __( 'Offer "this is a gift"', 'galaxie-woo' ),
+				'type'         => Controls_Manager::SWITCHER,
+				'return_value' => 'yes',
+				'default'      => '',
+			)
+		);
+
+		$on = array( 'giftwrap_enable' => 'yes' );
+
+		$this->add_control(
+			'giftwrap_note',
+			array(
+				'type'            => Controls_Manager::RAW_HTML,
+				'raw'             => esc_html__( 'Sits just above the buttons, or wherever a "Gift (Presente)" row is placed in Blocks. Ticked, Add to Cart and Buy Now open the popup below first; its Confirm and "continue without" buttons close it and carry on with the purchase. In the popup\'s pixfort settings, turn off the close button, click outside and Esc, so the shopper always picks one of the two.', 'galaxie-woo' ),
+				'content_classes' => 'elementor-descriptor',
+				'condition'       => $on,
+			)
+		);
+
+		$this->add_control(
+			'giftwrap_label_text',
+			array(
+				'label'       => __( 'Checkbox text', 'galaxie-woo' ),
+				'label_block' => true,
+				'type'        => Controls_Manager::TEXT,
+				'default'     => __( 'Estou comprando um presente para alguém', 'galaxie-woo' ),
+				'condition'   => $on,
+			)
+		);
+
+		$this->add_control(
+			'giftwrap_popup_link',
+			array(
+				'label'       => __( 'Gift builder popup link', 'galaxie-woo' ),
+				'description' => __( 'The pixfort popup holding the Galaxie Gift Builder widget. Paste its link from wp-admin → Popups ("Popup Link" column), e.g. #pix_popup_4041 — the id alone (4041) works too. Empty: the checkbox only marks the item as a gift.', 'galaxie-woo' ),
+				'label_block' => true,
+				'type'        => Controls_Manager::TEXT,
+				'default'     => '',
+				'placeholder' => '#pix_popup_4041',
+				'condition'   => $on,
+			)
+		);
+
+		// The first version saved a popup id from a dropdown under this key.
+		// Kept registered, and read when the link is empty, so widgets saved then
+		// keep their popup until someone pastes a link.
+		$this->add_control(
+			'giftwrap_popup',
+			array(
+				'type'    => Controls_Manager::HIDDEN,
+				'default' => '',
+			)
+		);
+
+		$this->add_control(
+			'giftwrap_preview',
+			array(
+				'label'        => __( 'Show ticked in the editor', 'galaxie-woo' ),
+				'type'         => Controls_Manager::SWITCHER,
+				'return_value' => 'yes',
+				'default'      => '',
+				'condition'    => $on,
+			)
+		);
+
+		$this->heading( 'giftwrap_label_heading', __( 'Checkbox', 'galaxie-woo' ) );
+		PixfortControls::palette_control( $this, 'giftwrap_check_color', __( 'Tick color', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-giftwrap-check input', 'accent-color', $on );
+		PixfortControls::text( $this, 'giftwrap_label', array( 'bold' => '' ), $on, '{{WRAPPER}} .galaxie-giftwrap-label', 'text', array( 'inline', 'position' ) );
+
+		$this->heading( 'giftwrap_summary_heading', __( 'Summary line', 'galaxie-woo' ) );
+
+		$this->add_control(
+			'giftwrap_summary_confirm',
+			array(
+				'label'       => __( 'After Confirm', 'galaxie-woo' ),
+				'label_block' => true,
+				'type'        => Controls_Manager::TEXT,
+				'default'     => __( 'Presente configurado.', 'galaxie-woo' ),
+				'condition'   => $on,
+			)
+		);
+
+		$this->add_control(
+			'giftwrap_summary_bypass',
+			array(
+				'label'       => __( 'After "continue without"', 'galaxie-woo' ),
+				'label_block' => true,
+				'type'        => Controls_Manager::TEXT,
+				'default'     => __( 'Vai como presente, sem acessórios.', 'galaxie-woo' ),
+				'condition'   => $on,
+			)
+		);
+
+		PixfortControls::text( $this, 'giftwrap_summary', array( 'size' => 'text-sm', 'bold' => '' ), $on, '{{WRAPPER}} .galaxie-giftwrap-summary', 'text', array( 'inline', 'position' ) );
+
+		$this->heading( 'giftwrap_btn_heading', __( '"Configurar presente" button', 'galaxie-woo' ) );
+		PixfortControls::button(
+			$this,
+			'giftwrap_btn',
+			array( 'text' => __( 'Configurar presente', 'galaxie-woo' ), 'style' => 'link', 'color' => 'primary', 'size' => 'sm', 'icon' => 'Line/pixfort-icon-gift-1' ),
+			$on
+		);
+
+		$this->end_controls_section();
+	}
+
 	private function register_button_section( string $prefix, string $label, string $default_text, string $default_style ): void {
 		$this->start_controls_section(
 			$prefix . '_section',
@@ -630,6 +773,7 @@ final class BuyBoxWidget extends Widget_Base {
 	 * @param array<string,mixed>            $settings
 	 */
 	private function render_blocks( array $rows, \WC_Product $product, array $settings ): void {
+		$rows    = $this->with_giftwrap_row( $rows, $settings );
 		$inline  = 'yes' === ( $settings['inline_actions'] ?? 'yes' );
 		$buttons = array( 'addcart', 'buynow' );
 		$count   = count( $rows );
@@ -761,6 +905,9 @@ final class BuyBoxWidget extends Widget_Base {
 				break;
 			case 'quantity':
 				$this->render_quantity( $settings, $product );
+				break;
+			case 'giftwrap':
+				$this->render_giftwrap( $settings, $product );
 				break;
 			case 'addcart':
 			case 'buynow':
@@ -1049,6 +1196,151 @@ final class BuyBoxWidget extends Widget_Base {
 		echo '</div>';
 	}
 
+	/**
+	 * The rows with a "Gift (Presente)" block where one belongs.
+	 *
+	 * A row the merchant placed is left where it is. Otherwise the section's
+	 * switch places it above the first button — and above the quantity when
+	 * that quantity would share the buttons' row, so the checkbox never lands
+	 * inside the row it is meant to sit over.
+	 *
+	 * @param array<int,array<string,mixed>> $rows
+	 * @param array<string,mixed>            $settings
+	 * @return array<int,array<string,mixed>>
+	 */
+	private function with_giftwrap_row( array $rows, array $settings ): array {
+		if ( 'yes' !== ( $settings['giftwrap_enable'] ?? '' ) ) {
+			return $rows;
+		}
+
+		$blocks = array_map( static fn( $row ): string => (string) ( is_array( $row ) ? ( $row['block'] ?? '' ) : '' ), array_values( $rows ) );
+
+		if ( in_array( 'giftwrap', $blocks, true ) ) {
+			return $rows;
+		}
+
+		$rows = array_values( $rows );
+		$at   = count( $rows );
+
+		foreach ( $blocks as $i => $block ) {
+			if ( in_array( $block, array( 'addcart', 'buynow' ), true ) ) {
+				$at = $i;
+				break;
+			}
+		}
+
+		if ( $at > 0 && $at < count( $rows ) && 'quantity' === $blocks[ $at - 1 ] ) {
+			--$at;
+		}
+
+		array_splice( $rows, $at, 0, array( array( 'block' => 'giftwrap' ) ) );
+
+		return $rows;
+	}
+
+	/**
+	 * The checkbox, the summary under it and "Configurar presente".
+	 *
+	 * The checkbox is a named field of this form, so a native submit — Buy Now,
+	 * or Add to Cart without JS — posts the flag by itself. The product's name
+	 * and picture ride along for the popup, which is fetched without a product
+	 * in context and cannot look them up (see GiftBuilderWidget).
+	 *
+	 * @param array<string,mixed> $settings
+	 */
+	private function render_giftwrap( array $settings, \WC_Product $product ): void {
+		if ( 'yes' !== ( $settings['giftwrap_enable'] ?? '' ) ) {
+			return;
+		}
+
+		$editing = self::is_editing();
+
+		if ( ! $editing && ! Plugin::instance()->modules()->is_enabled_by_id( GiftWrapModule::ID ) ) {
+			return;
+		}
+
+		$preview = $editing && 'yes' === ( $settings['giftwrap_preview'] ?? '' );
+		$popup   = self::giftwrap_popup_id( $settings );
+
+		$image   = wp_get_attachment_image_url( (int) $product->get_image_id(), 'woocommerce_thumbnail' );
+		$label   = trim( (string) ( $settings['giftwrap_label_text'] ?? '' ) );
+		$confirm = trim( (string) ( $settings['giftwrap_summary_confirm'] ?? '' ) );
+		$bypass  = trim( (string) ( $settings['giftwrap_summary_bypass'] ?? '' ) );
+
+		printf(
+			'<div class="galaxie-buybox-giftwrap" data-galaxie-giftwrap data-popup="%1$s" data-product-name="%2$s" data-product-image="%3$s" data-unit-one="%4$s" data-unit-many="%5$s"%6$s>',
+			$popup ? esc_attr( (string) $popup ) : '',
+			esc_attr( wp_strip_all_tags( $product->get_name() ) ),
+			esc_url( $image ? $image : ( function_exists( 'wc_placeholder_img_src' ) ? wc_placeholder_img_src( 'woocommerce_thumbnail' ) : '' ) ),
+			/* translators: %d: quantity, exactly one. Kept as %d for the script to fill in. */
+			esc_attr__( '%d unidade', 'galaxie-woo' ),
+			/* translators: %d: quantity, more than one. Kept as %d for the script to fill in. */
+			esc_attr__( '%d unidades', 'galaxie-woo' ),
+			$editing ? ' data-editing="1"' : ''
+		);
+
+		echo '<label class="galaxie-giftwrap-check">';
+		printf( '<input type="checkbox" name="%s" value="1"%s />', esc_attr( GiftFlag::REQUEST_FIELD ), $preview ? ' checked' : '' );
+		printf(
+			'<span class="galaxie-giftwrap-label %1$s">%2$s</span>',
+			esc_attr( PixfortControls::text_classes( $settings, 'giftwrap_label' ) ),
+			esc_html( $label )
+		);
+		echo '</label>';
+
+		printf(
+			'<div class="galaxie-giftwrap-summary %1$s" data-text-confirm="%2$s" data-text-bypass="%3$s" role="status"%4$s>%5$s</div>',
+			esc_attr( PixfortControls::text_classes( $settings, 'giftwrap_summary' ) ),
+			esc_attr( $confirm ),
+			esc_attr( $bypass ),
+			$preview && '' !== $confirm ? '' : ' hidden',
+			$preview ? esc_html( $confirm ) : ''
+		);
+
+		// Only with somewhere to open; in the editor always, so it can be styled.
+		if ( $popup || $editing ) {
+			printf( '<button type="button" class="galaxie-buybox-btn galaxie-giftwrap-configure"%s>', $preview ? '' : ' hidden' );
+			echo PixfortControls::render_button( $settings, 'giftwrap_btn', (string) ( $settings['giftwrap_btn_text'] ?? '' ) ); // phpcs:ignore WordPress.Security.EscapeOutput -- pixfort's own component markup.
+			echo '</button>';
+		}
+
+		echo '</div>';
+	}
+
+	/**
+	 * The published pixfort popup the section points at, or 0.
+	 *
+	 * The link field first, then the id the first version of this section saved
+	 * from a dropdown.
+	 *
+	 * @param array<string,mixed> $settings
+	 */
+	private static function giftwrap_popup_id( array $settings ): int {
+		$link = trim( (string) ( $settings['giftwrap_popup_link'] ?? '' ) );
+		$id   = '' !== $link ? self::parse_popup_link( $link ) : absint( $settings['giftwrap_popup'] ?? 0 );
+
+		if ( ! $id || 'pixpopup' !== get_post_type( $id ) || 'publish' !== get_post_status( $id ) ) {
+			return 0;
+		}
+
+		return $id;
+	}
+
+	/**
+	 * A popup id from what a merchant pastes.
+	 *
+	 * pixfort's own link for a popup is `#pix_popup_{id}` — the "Popup Link"
+	 * column and the "Open from Link" field print it (includes/post-types/
+	 * popup.php), and its menu script opens any href starting with it. Accepted:
+	 * that link (`#pix_popup_4041`), a full URL ending in it
+	 * (`https://shop/page/#pix_popup_4041`), or the bare id (`4041`). Anything
+	 * else is 0, not a guess: a number pulled out of an unrelated URL would
+	 * point the buttons at some other post.
+	 */
+	private static function parse_popup_link( string $link ): int {
+		return preg_match( '/^(?:\S*#pix_popup_)?(\d+)$/i', trim( $link ), $match ) ? absint( $match[1] ) : 0;
+	}
+
 
 	/**
 	 * @param array<string,mixed> $settings
@@ -1178,6 +1470,7 @@ final class BuyBoxWidget extends Widget_Base {
 			'variations' => __( 'Variations', 'galaxie-woo' ),
 			'alert'      => __( 'Alert', 'galaxie-woo' ),
 			'quantity'   => __( 'Quantity', 'galaxie-woo' ),
+			'giftwrap'   => __( 'Gift (Presente)', 'galaxie-woo' ),
 			'addcart'    => __( 'Add to Cart', 'galaxie-woo' ),
 			'buynow'     => __( 'Buy Now', 'galaxie-woo' ),
 		);

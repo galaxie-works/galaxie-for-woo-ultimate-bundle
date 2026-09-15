@@ -10,6 +10,8 @@ namespace Galaxie\Woo\Core;
 use Galaxie\Woo\Core\Admin\SettingsPage;
 use Galaxie\Woo\Elementor\Widgets;
 use Galaxie\Woo\Integrations\Acf;
+use Galaxie\Woo\Support\GiftOrders;
+use Galaxie\Woo\Support\GiftSummary;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -61,6 +63,15 @@ final class Plugin {
 		// definitions the storefront reads.
 		Acf::hooks();
 
+		// Also unconditional: an order is a gift whichever modules are on today —
+		// a shared wish list's gift never needed Gift Wrap — so the "Presente"
+		// tag in wp-admin reads order meta with no toggle in the way.
+		GiftOrders::hooks();
+
+		// And for the same reason, what goes in each gift box: the order screen and
+		// the e-mails read it from the order's own line items.
+		GiftSummary::hooks();
+
 		if ( is_admin() ) {
 			( new SettingsPage( $this->modules, $this->settings ) )->hooks();
 		} else {
@@ -106,6 +117,8 @@ final class Plugin {
 		$this->modules->register( new \Galaxie\Woo\Modules\Cart\Module() );
 		$this->modules->register( new \Galaxie\Woo\Modules\FreeShipping\Module() );
 		$this->modules->register( new \Galaxie\Woo\Modules\Wishlist\Module() );
+		$this->modules->register( new \Galaxie\Woo\Modules\GiftWrap\Module() );
+		$this->modules->register( new \Galaxie\Woo\Modules\ShippingCartons\Module() );
 		$this->modules->register( new \Galaxie\Woo\Modules\AddressBook\Module() );
 		$this->modules->register( new \Galaxie\Woo\Modules\AccountDeletion\Module() );
 		$this->modules->register( new \Galaxie\Woo\Modules\ToastNotices\Module() );
