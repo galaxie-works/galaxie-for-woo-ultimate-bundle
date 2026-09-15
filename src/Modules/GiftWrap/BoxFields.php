@@ -197,10 +197,13 @@ final class BoxFields {
 
 		foreach ( GiftPacking::summary( $box, $sizes, $options ) as $row ) {
 			$parts = array();
-			foreach ( $row as $size => $count ) {
+			foreach ( $row['counts'] as $size => $count ) {
 				$parts[] = $count . ' × ' . ( $labels[ $size ] ?? $size );
 			}
-			$rows[] = implode( ' + ', $parts );
+
+			// The check stops at 12 candles; a bigger box is not "12".
+			/* translators: %s: a fit such as "12 × 50g" that the box may exceed */
+			$rows[] = $row['capped'] ? sprintf( __( '%s ou mais', 'galaxie-woo' ), implode( ' + ', $parts ) ) : implode( ' + ', $parts );
 		}
 
 		if ( ! $rows ) {

@@ -287,12 +287,21 @@ export function room(box: Box, candles: Candle[], sizes: Candle[] = [], options:
   return fit
 }
 
+export interface SummaryRow {
+  /** Size key → count. */
+  counts: Record<string, number>
+  /** Reached MAX_ITEMS: the box may hold more than this. */
+  capped: boolean
+}
+
 /**
  * Representative fits for a box: the most of each size alone, then every mix
- * that cannot take one more of anything. For 14 × 11 × 9.5 and the Eir sizes:
- * `[{ '50g': 4 }, { '190g': 1 }, { '50g': 2, '190g': 1 }]`.
+ * that cannot take one more of anything. For 14 × 11 × 9.5 and the Eir sizes the
+ * counts are `{ '50g': 4 }`, `{ '190g': 1 }`, `{ '50g': 2, '190g': 1 }`.
+ * A row that reaches MAX_ITEMS is `capped` (unless the box `max` is a real limit
+ * at or below it) — the same rule as GiftPacking::summary().
  */
-export function summary(box: Box, sizes: Candle[], options: PackingOptions = {}): Record<string, number>[] {
+export function summary(box: Box, sizes: Candle[], options: PackingOptions = {}): SummaryRow[] {
   const list = distinct(sizes)
   const k = list.length
   const memo = new Map<string, boolean>()
@@ -352,13 +361,42 @@ export function summary(box: Box, sizes: Candle[], options: PackingOptions = {})
     }
   }
 
+  const max = Math.max(0, Math.trunc(Number(box.max ?? 0)) || 0)
+
   return [...pure.filter(Boolean), ...mixes].map((v) => {
-    const row: Record<string, number> = {}
+    const counts: Record<string, number> = {}
     v.forEach((c, i) => {
-      if (c > 0) row[String(list[i].size)] = c
+      if (c > 0) counts[String(list[i].size)] = c
     })
-    return row
+    return { counts, capped: sum(v) >= MAX_ITEMS && (max === 0 || max > MAX_ITEMS) }
   })
+}
+
+/**
+ * One candle per size that no candle of that size can outgrow: longest long
+ * side, longest short side, tallest height. Other keys come from the first seen.
+ */
+export function cover<C extends Candle>(candles: C[]): C[] {
+  const out = new Map<string, C>()
+
+  for (const candle of candles) {
+    const key = String(candle.size ?? '')
+    const long = Math.max(candle.length ?? 0, candle.width ?? 0)
+    const short = Math.min(candle.length ?? 0, candle.width ?? 0)
+    const tall = candle.height ?? 0
+    const seen = out.get(key)
+
+    if (!seen) {
+      out.set(key, { ...candle, length: long, width: short, height: tall })
+      continue
+    }
+
+    seen.length = Math.max(seen.length, long)
+    seen.width = Math.max(seen.width, short)
+    seen.height = Math.max(seen.height, tall)
+  }
+
+  return [...out.values()]
 }
 
 function place(s: Search, last: number, left: number, area: number): boolean {

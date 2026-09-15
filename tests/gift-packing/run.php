@@ -73,6 +73,15 @@ foreach ( $fixtures['summary'] as $case ) {
 	$check( 'summary', $case['name'], GiftPacking::summary( $boxes[ $case['box'] ], $try ), $case['expect'] );
 }
 
+foreach ( $fixtures['cover'] as $case ) {
+	$covered = GiftPacking::cover( array_map( static fn( string $s ): array => $sizes[ $s ], $case['candles'] ) );
+	$check( 'cover', $case['name'], $covered, $case['expect'] );
+
+	if ( isset( $case['box'] ) ) {
+		$check( 'cover', $case['name'] . ' (fits ' . $case['box'] . ')', GiftPacking::fits( $boxes[ $case['box'] ], $covered ), $case['fits'] );
+	}
+}
+
 // Timing, not pass/fail: the slowest 12-candle cases.
 echo "\n  timing (best of 5):\n";
 $time = static function ( string $label, callable $run ): void {
