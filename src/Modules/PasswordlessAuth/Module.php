@@ -200,6 +200,15 @@ final class Module implements ModuleContract, ProvidesBootData {
 			return new \WP_Error( 'invalid_cpf', __( 'Please enter a valid CPF.', 'galaxie-woo' ) );
 		}
 
+		// Optional, but stored in E.164 like everywhere else `billing_phone` is written.
+		$phone = isset( $data['phone'] ) ? sanitize_text_field( $data['phone'] ) : '';
+		if ( '' !== $phone ) {
+			$phone = (string) \Galaxie\Woo\Support\Phone::normalize( $phone );
+			if ( '' === $phone ) {
+				return new \WP_Error( 'invalid_phone', __( 'Please enter a valid phone number, with area code.', 'galaxie-woo' ) );
+			}
+		}
+
 		if ( empty( $data['terms'] ) ) {
 			return new \WP_Error( 'terms_required', __( 'Please accept the terms to continue.', 'galaxie-woo' ) );
 		}
@@ -209,7 +218,7 @@ final class Module implements ModuleContract, ProvidesBootData {
 			'last_name'  => $last_name,
 			'birthdate'  => $birthdate,
 			'cpf'        => $cpf,
-			'phone'      => isset( $data['phone'] ) ? sanitize_text_field( $data['phone'] ) : '',
+			'phone'      => $phone,
 			'marketing'  => ! empty( $data['marketing'] ),
 		);
 	}

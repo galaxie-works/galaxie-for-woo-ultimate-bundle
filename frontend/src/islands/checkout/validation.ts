@@ -35,6 +35,20 @@ const BAD_NATIVE = 'Alguns dados do pedido não foram aceitos. Revise as informa
 /** Eight digits, hyphen after the fifth optional — the only two shapes a Brazilian CEP is written in. */
 const CEP_SHAPE = /^\d{5}-?\d{3}$/
 
+export const BAD_PHONE = 'Informe um celular válido, com DDD.'
+
+/**
+ * What `Support\Phone::normalize` accepts: E.164 (what the flag field sends,
+ * +5511980409005), or a Brazilian number with its area code, as typed before
+ * the flag field or without its script. Whether the number itself exists is
+ * the field's and the server's call; this only rejects what cannot be one.
+ */
+function isPhoneShape(value: string): boolean {
+  const compact = value.trim().replace(/[\s().-]+/g, '')
+
+  return /^\+[1-9]\d{7,14}$/.test(compact) || /^(?:0|55)?\d{10,11}$/.test(compact)
+}
+
 /** Deliberately loose: this exists to catch a missing "@" or domain, not to relitigate RFC 5322. */
 const EMAIL_SHAPE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
 
@@ -111,6 +125,10 @@ export function validateProfileStep(
     if ('' === values[key].trim()) {
       errors[key] = REQUIRED
     }
+  }
+
+  if (!errors.phone && !isPhoneShape(values.phone)) {
+    errors.phone = BAD_PHONE
   }
 
   const unattributed = applyNative(nativeFailures, PROFILE_NATIVE, errors)

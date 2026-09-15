@@ -61,6 +61,10 @@ function scopeUtilities(): Plugin {
 // (../assets/dist). Fixed filenames (no hash) so PHP can enqueue them by a
 // stable path; cache-busting is done PHP-side with filemtime().
 export default defineConfig({
+  // Relative, so the lazy chunks (the phone field's library, see lib/phone.ts)
+  // load from beside galaxie.js and the flag sprites resolve from beside
+  // galaxie.css, wherever WordPress serves the plugin from.
+  base: './',
   plugins: [react(), tailwindcss(), scopeUtilities()],
   resolve: {
     alias: {
@@ -76,9 +80,12 @@ export default defineConfig({
       output: {
         // ES-module output so CSS is emitted as a separate, cacheable
         // `galaxie.css` (an IIFE build inlines the CSS into the JS). The entry
-        // has no code-split chunks, so it's a single `galaxie.js` module,
-        // enqueued in WordPress with `type="module"` (see Support\Assets).
+        // is `galaxie.js`, enqueued in WordPress with `type="module"` (see
+        // Support\Assets). Its only code-split chunks are dynamic imports that
+        // it loads itself, relative to its own URL; none of them may import
+        // CSS, which all goes into the one `galaxie.css`.
         entryFileNames: 'galaxie.js',
+        chunkFileNames: 'chunks/[name]-[hash].js',
         assetFileNames: (info) =>
           info.name?.endsWith('.css') ? 'galaxie.css' : 'assets/[name]-[hash][extname]',
       },

@@ -10,6 +10,7 @@
 
 import { getGalaxieConfig, post } from '@/lib/wp'
 import { ask } from '@/lib/dialog'
+import { attachPhoneInput, readPhone } from '@/lib/phone'
 
 interface WishlistConfig {
   ajaxUrl: string
@@ -67,45 +68,74 @@ function sparkle(el: HTMLElement): void {
   }
 }
 
-/** A Brazilian number as it is typed: (11) 1234-5678, or (11) 91234-5678 for a mobile. */
-function maskPhone(value: string): string {
-  const d = value.replace(/\D/g, '').slice(0, 11)
-  if (d.length === 0) return ''
-  if (d.length <= 2) return `(${d}`
-  if (d.length <= 6) return `(${d.slice(0, 2)}) ${d.slice(2)}`
-  if (d.length <= 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`
-  return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`
+/** The details form's phone field, which becomes intl-tel-input's flag field. */
+const PHONE_FIELD = '.galaxie-details-form input[name="phone"]'
+
+/** Loads the library only when there is a phone field to put it on. */
+function attachPhones(root: ParentNode): void {
+  root.querySelectorAll<HTMLInputElement>(PHONE_FIELD).forEach((input) => {
+    attachPhoneInput(input).catch(() => undefined)
+  })
 }
 
 export function bootAccountScreens(_wishlist?: WishlistConfig): void {
   const config = getGalaxieConfig()
 
   // Personal details.
+  attachPhones(document)
+  // A screen the account menu swaps in, and, as a fallback for markup drawn
+  // some other way (Elementor's editor), the first touch of the field.
+  document.addEventListener('galaxie:account-screen', (event) => {
+    attachPhones((event as CustomEvent<Element>).detail ?? document)
+  })
+  document.addEventListener('focusin', (event) => {
+    const input = event.target as HTMLInputElement | null
+    if (input?.matches?.(PHONE_FIELD)) attachPhoneInput(input).catch(() => undefined)
+  })
+
   document.addEventListener('submit', (event) => {
     const form = (event.target as Element | null)?.closest?.<HTMLFormElement>('.galaxie-details-form')
     if (!form || !config.myAccount) return
 
     event.preventDefault()
 
+    const myAccount = config.myAccount
     const data = Object.fromEntries(
       [...new FormData(form).entries()].filter(([key]) => key !== 'email').map(([key, value]) => [key, String(value)])
     )
+    const phoneInput = form.querySelector<HTMLInputElement>('input[name="phone"]')
 
     busy(form, true)
     message(form, '', true)
 
-    void post(config.myAccount.ajaxUrl, 'galaxie_myaccount_save_details', config.myAccount.nonce, data).then((res) => {
+    void (async () => {
+      // Sent in E.164, +5511980409005, the format FluentCRM keeps. An invalid
+      // number stops here with the handler's own message; if the library
+      // could not load, the typed text goes and the server decides.
+      if (phoneInput && 'phone' in data) {
+        const iti = await attachPhoneInput(phoneInput).catch(() => null)
+        const phone = await readPhone(phoneInput, iti)
+
+        if (false === phone.valid) {
+          busy(form, false)
+          message(form, form.dataset.phoneError || GENERIC_ERROR, false)
+          phoneInput.focus()
+          return
+        }
+
+        data.phone = phone.value
+      }
+
+      const res = await post(myAccount.ajaxUrl, 'galaxie_myaccount_save_details', myAccount.nonce, data)
       busy(form, false)
       message(form, res.success ? (form.dataset.saved ?? '') : (res.data?.message ?? GENERIC_ERROR), res.success)
-    })
+    })()
   })
 
   document.addEventListener('input', (event) => {
     const input = event.target as HTMLInputElement | null
     if (input?.matches?.('.galaxie-details-form input[name="cpf"]')) {
       input.value = maskCpf(input.value)
-    } else if (input?.matches?.('.galaxie-details-form input[name="phone"]')) {
-      input.value = maskPhone(input.value)
     }
   })
 

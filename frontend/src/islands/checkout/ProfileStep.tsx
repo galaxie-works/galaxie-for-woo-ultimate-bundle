@@ -3,8 +3,9 @@ import * as React from 'react'
 import { Button } from '@/ui/button'
 import { Field } from '@/ui/field'
 import { Input } from '@/ui/input'
+import { PhoneInput } from '@/ui/phone-input'
 import type { ProfileValues } from './types'
-import type { ProfileErrors } from './validation'
+import { BAD_PHONE, type ProfileErrors } from './validation'
 
 interface ProfileStepProps {
   initial: Partial<ProfileValues>
@@ -22,6 +23,12 @@ function ProfileStep({ initial, busy, errors, onSave }: ProfileStepProps) {
     cpf: initial.cpf ?? '',
   })
 
+  // The flag field's verdict on the number (null: it can't tell yet), and the
+  // message it earns on submit. Kept here, not in validation.ts, because only
+  // the field knows the selected country's rules.
+  const [phoneValid, setPhoneValid] = React.useState<boolean | null>(null)
+  const [phoneError, setPhoneError] = React.useState<string | undefined>()
+
   function set<K extends keyof ProfileValues>(key: K, value: ProfileValues[K]) {
     setValues((prev) => ({ ...prev, [key]: value }))
   }
@@ -34,6 +41,11 @@ function ProfileStep({ initial, busy, errors, onSave }: ProfileStepProps) {
       noValidate
       onSubmit={(e) => {
         e.preventDefault()
+        if ('' !== values.phone && false === phoneValid) {
+          setPhoneError(BAD_PHONE)
+          return
+        }
+        setPhoneError(undefined)
         onSave(values)
       }}
       className="mx-auto flex max-w-sm flex-col gap-4"
@@ -76,13 +88,15 @@ function ProfileStep({ initial, busy, errors, onSave }: ProfileStepProps) {
           />
         </Field>
       </div>
-      <Field label="Phone" error={errors.phone}>
-        <Input
-          type="tel"
+      <Field label="Phone" error={phoneError ?? errors.phone}>
+        <PhoneInput
           required
-          aria-invalid={!!errors.phone}
+          aria-invalid={!!(phoneError ?? errors.phone)}
           value={values.phone}
-          onChange={(e) => set('phone', e.target.value)}
+          onChange={(phone, valid) => {
+            set('phone', phone)
+            setPhoneValid(valid)
+          }}
         />
       </Field>
       <Button type="submit" disabled={busy}>
