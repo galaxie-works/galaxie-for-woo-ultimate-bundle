@@ -11,6 +11,7 @@ use Galaxie\Woo\Core\Admin\SettingsPage;
 use Galaxie\Woo\Elementor\Widgets;
 use Galaxie\Woo\Integrations\Acf;
 use Galaxie\Woo\Support\GiftOrders;
+use Galaxie\Woo\Support\GiftSummary;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -66,6 +67,10 @@ final class Plugin {
 		// a shared wish list's gift never needed Gift Wrap — so the "Presente"
 		// tag in wp-admin reads order meta with no toggle in the way.
 		GiftOrders::hooks();
+
+		// And for the same reason, what goes in each gift box: the order screen and
+		// the e-mails read it from the order's own line items.
+		GiftSummary::hooks();
 
 		if ( is_admin() ) {
 			( new SettingsPage( $this->modules, $this->settings ) )->hooks();

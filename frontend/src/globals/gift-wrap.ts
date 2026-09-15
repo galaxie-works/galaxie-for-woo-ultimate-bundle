@@ -4,7 +4,8 @@
  *
  * The checkbox is a real field of the Buy Box form (`galaxie_gift_wrap`), so a
  * native submit carries it with no help and the AJAX add only copies it — see
- * buy-box.ts. What lives here is the popup in between.
+ * buy-box.ts. What lives here is the popup in between; what happens inside the
+ * builder once it is open is gift-builder.ts.
  *
  * OPENING. pixfort exposes one global for it, `window.loadPopup({ id })`, the
  * same call its own `.pix-popup-link` click handler makes (dist/front/common.js).
@@ -13,11 +14,16 @@
  * page — or fetches the popup over AJAX and inserts it. So the dialog, and the
  * builder inside it, may not exist yet at the moment we ask.
  *
- * CONTINUING. The click that opened the popup is held as a callback. Confirm or
- * "Seguir sem incrementar o presente" settles the gift, closes the popup and
- * runs it. The merchant's popup has pixfort's close button, click-outside and
- * Esc turned off, so those two buttons are the only ways out and there is no
- * "closed without choosing" to handle.
+ * CONTINUING. The click that opened the popup is held as a callback.
+ * - Confirm keeps the builder's plan for this form, closes the popup and runs
+ *   the callback; the Buy Box then sends the plan to the gift endpoint instead
+ *   of its own add (the whole gift goes in at once). Confirm does nothing while
+ *   the builder is loading or the plan breaks a rule; it says why.
+ * - "Seguir sem incrementar o presente" closes and runs the callback with no
+ *   plan: the Buy Box's own add, with the gift flag alone.
+ * The merchant's popup has pixfort's close button, click-outside and Esc turned
+ * off, so those two buttons are the only ways out and there is no "closed
+ * without choosing" to handle.
  *
  * CLOSING. pixfort exports no close function to the page: the popup manager
  * (`M` in dist/front/dialog.*.js, webpack module 1895) stays inside its chunk.
@@ -35,6 +41,9 @@
  * `dialog.close()` behind that.
  */
 
+import { builderController, configureGiftBuilder, mountBuilder } from '@/globals/gift-builder'
+import type { GiftConfig, GiftRequest, PendingCandle } from '@/globals/gift-builder'
+
 type Resolution = 'confirm' | 'bypass'
 
 interface GiftItem {
@@ -47,6 +56,8 @@ interface Pending {
   form: HTMLFormElement
   block: HTMLElement
   item: GiftItem
+  candle: PendingCandle
+  token: number
   popupId: string
   proceed: (() => void) | null
   done: boolean
@@ -68,9 +79,12 @@ const OPEN_TIMEOUT = 10000
 
 let pending: Pending | null = null
 let stopWatching: (() => void) | null = null
+let openings = 0
 
 /** How each form's gift was last settled, until the choice or the cart changes. */
 const resolutions = new WeakMap<HTMLFormElement, Resolution>()
+/** What Confirm built, for the add that follows. */
+const plans = new WeakMap<HTMLFormElement, GiftRequest>()
 const variationImages = new WeakMap<HTMLFormElement, string>()
 
 function loadPopup(): LoadPopup | null {
@@ -89,6 +103,25 @@ function checkbox(block: HTMLElement | null): HTMLInputElement | null {
 /** Whether the shopper ticked "Estou comprando um presente" on this form. */
 export function giftWrapChecked(form: HTMLFormElement): boolean {
   return !!checkbox(giftBlock(form))?.checked
+}
+
+/**
+ * The gift Confirm built for this form's current choice, or null — no gift,
+ * not settled, or settled with "Seguir sem incrementar o presente".
+ */
+export function giftPlanRequest(form: HTMLFormElement): GiftRequest | null {
+  return giftWrapChecked(form) && resolutions.get(form) === 'confirm' ? (plans.get(form) ?? null) : null
+}
+
+/** What the form is about to add: the ids and quantity the add would send. */
+export function pendingCandle(form: HTMLFormElement): PendingCandle {
+  const field = form.querySelector<HTMLInputElement | HTMLSelectElement>('.galaxie-buybox-quantity .qty')
+
+  return {
+    productId: Number(form.querySelector<HTMLInputElement>('input[name="add-to-cart"]')?.value) || 0,
+    variationId: Number(form.querySelector<HTMLInputElement>('input[name="variation_id"]')?.value) || 0,
+    quantity: field ? Number(field.value) || 1 : 1,
+  }
 }
 
 /**
@@ -132,6 +165,7 @@ function selectionResolved(form: HTMLFormElement): boolean {
 
 /** After an add succeeded: the next one is a new gift, and asks again. */
 export function giftWrapAdded(form: HTMLFormElement): void {
+  plans.delete(form)
   if (!resolutions.delete(form)) return
 
   const block = giftBlock(form)
@@ -144,8 +178,7 @@ function describe(form: HTMLFormElement, block: HTMLElement): GiftItem {
     .map((select) => select.selectedOptions[0]?.textContent?.trim() ?? '')
     .filter((label) => label !== '')
 
-  const field = form.querySelector<HTMLInputElement | HTMLSelectElement>('.galaxie-buybox-quantity .qty')
-  const quantity = field ? Number(field.value) || 1 : 1
+  const quantity = pendingCandle(form).quantity
   const unit = (quantity === 1 ? block.dataset.unitOne : block.dataset.unitMany) || '%d'
 
   return {
@@ -163,7 +196,16 @@ function open(form: HTMLFormElement, block: HTMLElement, proceed: (() => void) |
 
   stopWatching?.()
 
-  const current: Pending = { form, block, item: describe(form, block), popupId, proceed, done: false }
+  const current: Pending = {
+    form,
+    block,
+    item: describe(form, block),
+    candle: pendingCandle(form),
+    token: ++openings,
+    popupId,
+    proceed,
+    done: false,
+  }
   pending = current
   stopWatching = watch(current)
 
@@ -211,12 +253,28 @@ function watch(current: Pending): () => void {
 
 function resolve(kind: Resolution, trigger: HTMLElement): void {
   const current = pending && !pending.done ? pending : null
+  const builder = trigger.closest<HTMLElement>('[data-galaxie-gift-builder]')
+
+  // Confirm hands over the builder's plan, or stays open saying what is missing.
+  if (current && kind === 'confirm' && builder) {
+    const controller = builderController(builder)
+    const request = controller && controller.token === current.token ? controller.request() : null
+
+    if (!request) {
+      controller?.explain()
+      return
+    }
+
+    plans.set(current.form, request)
+  }
 
   if (current) {
     current.done = true
     pending = null
     stopWatching?.()
     stopWatching = null
+
+    if (kind === 'bypass') plans.delete(current.form)
 
     resolutions.set(current.form, kind)
     paintBlock(current.form, current.block)
@@ -257,7 +315,8 @@ function setText(el: Element | null, text: string): void {
 }
 
 function paintBuilders(root: ParentNode): void {
-  const item = pending && !pending.done ? pending.item : null
+  const current = pending && !pending.done ? pending : null
+  const item = current?.item ?? null
 
   root.querySelectorAll<HTMLElement>('[data-galaxie-gift-builder]').forEach((builder) => {
     if (builder.dataset.sample) return
@@ -266,19 +325,24 @@ function paintBuilders(root: ParentNode): void {
     const card = builder.querySelector<HTMLElement>('[data-gift-item]')
 
     if (empty) empty.hidden = !!item
-    if (!card) return
 
-    card.hidden = !item
-    if (!item) return
+    if (card) {
+      card.hidden = !item
 
-    setText(card.querySelector('[data-gift-name]'), item.name)
-    setText(card.querySelector('[data-gift-meta]'), item.meta)
+      if (item) {
+        setText(card.querySelector('[data-gift-name]'), item.name)
+        setText(card.querySelector('[data-gift-meta]'), item.meta)
 
-    const image = card.querySelector<HTMLImageElement>('[data-gift-image]')
-    if (image) {
-      if (item.image && image.getAttribute('src') !== item.image) image.src = item.image
-      image.hidden = !item.image
+        const image = card.querySelector<HTMLImageElement>('[data-gift-image]')
+        if (image) {
+          if (item.image && image.getAttribute('src') !== item.image) image.src = item.image
+          image.hidden = !item.image
+        }
+      }
     }
+
+    // Once per opening: the builder asks the cart and the store, then draws.
+    if (current) mountBuilder(builder, current.candle, current.token)
   })
 }
 
@@ -299,23 +363,29 @@ function paintBlock(form: HTMLFormElement, block: HTMLElement): void {
   }
 }
 
+function forget(form: HTMLFormElement): boolean {
+  plans.delete(form)
+  return resolutions.delete(form)
+}
+
 function initBlock(form: HTMLFormElement, block: HTMLElement): void {
   const box = checkbox(block)
 
   box?.addEventListener('change', () => {
-    if (!box.checked) resolutions.delete(form)
+    if (!box.checked) forget(form)
     paintBlock(form, block)
   })
 
   block.querySelector<HTMLElement>('.galaxie-giftwrap-configure')?.addEventListener('click', (event) => {
     event.preventDefault()
+    if (!selectionResolved(form)) return
     open(form, block, null)
   })
 
   // Another size or quantity is another gift: settle it again.
   form.addEventListener('change', (event) => {
     if (event.target === box) return
-    if (resolutions.delete(form)) paintBlock(form, block)
+    if (forget(form)) paintBlock(form, block)
   })
 
   const jq = window.jQuery
@@ -335,7 +405,9 @@ function initBlock(form: HTMLFormElement, block: HTMLElement): void {
   paintBlock(form, block)
 }
 
-export function bootGiftWrap(): void {
+export function bootGiftWrap(config?: GiftConfig): void {
+  configureGiftBuilder(config)
+
   const run = () => {
     document.querySelectorAll<HTMLFormElement>('form.galaxie-buybox').forEach((form) => {
       const block = giftBlock(form)

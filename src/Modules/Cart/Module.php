@@ -465,6 +465,9 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 		wp_send_json_success(
 			array(
 				'removed'   => ! $item,
+				// A removal can take other lines with it (a gift's accessories), so
+				// the table is told what is left rather than only what went.
+				'keys'      => array_map( 'strval', array_keys( WC()->cart->get_cart() ) ),
 				'subtotal'  => $item ? WC()->cart->get_product_subtotal( $item['data'], $item['quantity'] ) : '',
 				'count'     => WC()->cart->get_cart_contents_count(),
 				'empty'     => WC()->cart->is_empty(),

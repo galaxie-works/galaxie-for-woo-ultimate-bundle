@@ -10,6 +10,7 @@ namespace Galaxie\Woo\Modules\GiftWrap;
 use Galaxie\Woo\Core\Field;
 use Galaxie\Woo\Core\Module as ModuleContract;
 use Galaxie\Woo\Core\Plugin;
+use Galaxie\Woo\Core\ProvidesBootData;
 use Galaxie\Woo\Core\ProvidesElementorWidgets;
 use Galaxie\Woo\Core\ProvidesSettings;
 use Galaxie\Woo\Modules\GiftWrap\Widget\GiftBuilderWidget;
@@ -19,28 +20,30 @@ defined( 'ABSPATH' ) || exit;
 /**
  * A shopper ticks "Estou comprando um presente para alguém" in the Galaxie Buy
  * Box; Add to Cart and Buy Now then open a pixfort popup holding the Galaxie
- * Gift Builder before they act. The cart line carries the flag through to the
- * order, which wp-admin tags "Presente" — as it does a shared wish list's gift.
+ * Gift Builder before they act. There the candles are shared out over gift
+ * boxes, with ribbons and cards, and everything goes into the cart as one gift
+ * ({@see Groups}). The order keeps the gift and wp-admin tags it "Presente".
  *
  * The Buy Box's own "Gift (Presente)" section is where the storefront part is
- * configured, per widget; this module owns what is store-wide.
- *
- * Phase 1 is the flag alone. The settings below already hold what Phase 2's
- * boxes, fitting and accessories read (docs/gift-wrap-scope.md), so the tab does
- * not change shape when that lands.
+ * configured, per widget; this module owns what is store-wide: the packing
+ * rules, which categories hold boxes, ribbons and cards, and the card limit.
  */
-final class Module implements ModuleContract, ProvidesElementorWidgets, ProvidesSettings {
+final class Module implements ModuleContract, ProvidesBootData, ProvidesElementorWidgets, ProvidesSettings {
 
 	public const ID = 'gift-wrap';
 
 	/** Largest packing gap the settings accept, in cm. */
 	private const MAX_PACKING_GAP = 5;
 
+	/** How candles may lie in a box, as the packing engine names it. */
+	private const ORIENTATIONS = array( 'lying', 'upright', 'any' );
+
 	/** Defaults for every setting, read through {@see self::setting()}. */
 	private const DEFAULTS = array(
 		'size_attribute'     => 'pa_peso',
 		'packing_gap'        => 0.5,
 		'allow_stacking'     => false,
+		'candle_orientation' => 'lying',
 		'box_categories'     => array(),
 		'ribbon_categories'  => array(),
 		'card_categories'    => array(),
@@ -56,7 +59,7 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 	}
 
 	public function description(): string {
-		return __( 'A "this is a gift" checkbox in the Galaxie Buy Box, a gift builder popup before adding to cart, and a "Presente" tag on gift orders.', 'galaxie-woo' );
+		return __( 'A "this is a gift" checkbox in the Galaxie Buy Box, a gift builder popup with boxes, ribbons and cards, gifts grouped in the cart, and a packing summary on gift orders.', 'galaxie-woo' );
 	}
 
 	public function default_enabled(): bool {
@@ -64,20 +67,35 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 	}
 
 	public function boot(): void {
-		// The "Presente" badge in wp-admin is not booted here: Support\GiftOrders
-		// runs from Plugin::boot() so gift orders keep it with this module off.
+		// The "Presente" badge and the packing summary in wp-admin and e-mails are
+		// not booted here: Support\GiftOrders and Support\GiftSummary run from
+		// Plugin::boot() so gift orders keep them with this module off.
 		Flag::hooks();
+		Groups::hooks();
+		Builder::hooks();
 
-		// Phase 2 (branch feat/gift-wrap-packing): box variation fields — internal
-		// size and max candles on each gift box variation. Booted here once that
-		// class exists; nothing to do until then.
-		if ( class_exists( BoxFields::class ) ) {
-			( new BoxFields() )->register();
-		}
+		$options = self::packing_options();
+
+		( new BoxFields(
+			(string) self::setting( 'size_attribute' ),
+			$options['gap'],
+			$options['stacking'],
+			self::categories( 'box' ),
+			$options['orientation']
+		) )->register();
 	}
 
 	public function elementor_widgets(): array {
 		return array( GiftBuilderWidget::class );
+	}
+
+	public function boot_data(): array {
+		return array(
+			'giftWrap' => array(
+				'ajaxUrl' => admin_url( 'admin-ajax.php' ),
+				'nonce'   => wp_create_nonce( Builder::NONCE ),
+			),
+		);
 	}
 
 	/**
@@ -89,6 +107,41 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 		$values = Plugin::instance()->settings()->module_settings( self::ID );
 
 		return $values[ $key ] ?? ( self::DEFAULTS[ $key ] ?? null );
+	}
+
+	/**
+	 * The options every packing question is asked with — here, in the cart, on
+	 * the server and, through the builder's data, in the popup.
+	 *
+	 * @return array{gap:float, stacking:bool, orientation:string}
+	 */
+	public static function packing_options(): array {
+		$orientation = (string) self::setting( 'candle_orientation' );
+
+		return array(
+			'gap'         => (float) self::setting( 'packing_gap' ),
+			'stacking'    => (bool) self::setting( 'allow_stacking' ),
+			'orientation' => in_array( $orientation, self::ORIENTATIONS, true ) ? $orientation : self::DEFAULTS['candle_orientation'],
+		);
+	}
+
+	/**
+	 * Product category ids holding one kind of accessory: the widget's own
+	 * choice when it made one, the module setting otherwise.
+	 *
+	 * @param string $kind     `box`, `ribbon` or `card`.
+	 * @param mixed  $override The Gift Builder widget's value for that kind.
+	 * @return int[]
+	 */
+	public static function categories( string $kind, $override = array() ): array {
+		$ids = array_filter( array_map( 'absint', is_array( $override ) ? $override : array() ) );
+
+		if ( ! $ids ) {
+			$saved = self::setting( $kind . '_categories' );
+			$ids   = array_filter( array_map( 'absint', is_array( $saved ) ? $saved : array() ) );
+		}
+
+		return array_values( array_unique( $ids ) );
 	}
 
 	// -------------------------------------------------------------- settings
@@ -123,14 +176,26 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 				key: 'allow_stacking',
 				label: __( 'Stacking allowed', 'galaxie-woo' ),
 				type: Field::TYPE_TOGGLE,
-				description: __( 'Let candles be stacked in a box. Off: candles stand upright, side by side.', 'galaxie-woo' ),
+				description: __( 'Let candles be stacked in a box. Off: one layer, side by side.', 'galaxie-woo' ),
 				default: self::DEFAULTS['allow_stacking']
+			),
+			new Field(
+				key: 'candle_orientation',
+				label: __( 'Posição das velas na caixa', 'galaxie-woo' ),
+				type: Field::TYPE_SELECT,
+				description: __( 'How candles are laid in a gift box when checking what fits. "Qualquer uma" lets each candle lie down or stand up, whichever fits.', 'galaxie-woo' ),
+				default: self::DEFAULTS['candle_orientation'],
+				options: array(
+					'lying'   => __( 'Deitadas', 'galaxie-woo' ),
+					'upright' => __( 'Em pé', 'galaxie-woo' ),
+					'any'     => __( 'Qualquer uma', 'galaxie-woo' ),
+				)
 			),
 			new Field(
 				key: 'box_categories',
 				label: __( 'Gift box categories', 'galaxie-woo' ),
 				type: Field::TYPE_MULTI,
-				description: __( 'Products in these categories are offered as gift boxes. The Gift Builder widget can override this.', 'galaxie-woo' ),
+				description: __( 'Products in these categories are offered as gift boxes: each variation with inside dimensions (Products → edit → Variations) is one box size. The Gift Builder widget can override this.', 'galaxie-woo' ),
 				default: self::DEFAULTS['box_categories'],
 				options: $categories
 			),
@@ -161,26 +226,34 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 	}
 
 	public function render_extra_settings( array $values ): void {
+		echo '<h2>' . esc_html__( 'Accessory products', 'galaxie-woo' ) . '</h2>';
+
 		printf(
 			'<p class="description">%s</p>',
-			esc_html__( 'Boxes, ribbons and cards are not offered yet: this version only marks purchases as gifts. The product page part — the checkbox, its popup and its styling — is set in the Galaxie Buy Box widget, section "Gift (Presente)", in Elementor.', 'galaxie-woo' )
+			esc_html__( 'Gift boxes, ribbons and cards are ordinary WooCommerce products in the categories above, added to the cart at their own price as part of a gift. So they are offered only inside the gift builder, set each one\'s Catalog visibility to "Hidden" in WooCommerce (Products → edit → Publish box → Catalog visibility). This plugin does not change your products for you.', 'galaxie-woo' )
+		);
+
+		printf(
+			'<p class="description">%s</p>',
+			esc_html__( 'The product page part — the checkbox, its popup and its styling — is set in the Galaxie Buy Box widget, section "Gift (Presente)", in Elementor. The popup\'s content and texts are the Galaxie Gift Builder widget, edited in the pixfort popup.', 'galaxie-woo' )
 		);
 	}
 
 	public function sanitize_settings( array $submitted, array $current ): array {
 		$values = array_merge( $current, Field::sanitize_all( $this->settings_fields(), $submitted ) );
 
-		$values['size_attribute']   = '' !== sanitize_title( (string) $values['size_attribute'] ) ? sanitize_title( (string) $values['size_attribute'] ) : self::DEFAULTS['size_attribute'];
+		$values['size_attribute']     = '' !== sanitize_title( (string) $values['size_attribute'] ) ? sanitize_title( (string) $values['size_attribute'] ) : self::DEFAULTS['size_attribute'];
 		// A float, clamped: centimetres of paper, where 0.5 is the usual answer
 		// and anything past a few cm is a typo, not a packing choice.
-		$values['packing_gap']      = round( min( (float) self::MAX_PACKING_GAP, max( 0.0, (float) $values['packing_gap'] ) ), 2 );
-		$values['card_message_max'] = max( 1, (int) $values['card_message_max'] );
+		$values['packing_gap']        = round( min( (float) self::MAX_PACKING_GAP, max( 0.0, (float) $values['packing_gap'] ) ), 2 );
+		$values['candle_orientation'] = in_array( $values['candle_orientation'] ?? '', self::ORIENTATIONS, true ) ? $values['candle_orientation'] : self::DEFAULTS['candle_orientation'];
+		$values['card_message_max']   = max( 1, (int) $values['card_message_max'] );
 
 		return $values;
 	}
 
-	/** @return array<string,string> product category id => name, parents before children. */
-	private static function category_options(): array {
+	/** @return array<string,string> product category id => name. */
+	public static function category_options(): array {
 		$terms = get_terms(
 			array(
 				'taxonomy'   => 'product_cat',

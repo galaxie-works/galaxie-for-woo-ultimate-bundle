@@ -79,7 +79,8 @@ final class Flag {
 	 * @return mixed
 	 */
 	public static function item_data( $data, $cart_item ) {
-		if ( is_array( $data ) && self::is_gift_item( $cart_item ) ) {
+		// A candle in a built gift says which one instead ("Presente 1: Vela", Groups).
+		if ( is_array( $data ) && self::is_gift_item( $cart_item ) && ! Groups::group_of( $cart_item ) ) {
 			$data[] = array(
 				'key'   => __( 'Presente', 'galaxie-woo' ),
 				'value' => __( 'Sim', 'galaxie-woo' ),
@@ -96,7 +97,10 @@ final class Flag {
 		}
 
 		$item->add_meta_data( self::ITEM_META, 'yes', true );
-		$item->add_meta_data( __( 'Presente', 'galaxie-woo' ), __( 'Sim', 'galaxie-woo' ), true );
+
+		if ( ! Groups::group_of( $values ) ) {
+			$item->add_meta_data( __( 'Presente', 'galaxie-woo' ), __( 'Sim', 'galaxie-woo' ), true );
+		}
 	}
 
 	/**
