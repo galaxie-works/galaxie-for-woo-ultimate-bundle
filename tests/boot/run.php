@@ -1,0 +1,327 @@
+<?php
+/**
+ * Boot smoke test: `php tests/boot/run.php` (exits 1 on any failure).
+ *
+ * The plain runners in tests/gift-packing call pure code and never load the
+ * plugin, and `php -l` only parses — so a module that breaks the site on boot
+ * (a method calling itself, an undefined function on a boot path) passed both
+ * and took every page down on test. This runner loads the real plugin file on
+ * stubbed WordPress (wp-stubs.php) and boots it.
+ *
+ * 1. Static check: no method whose first statement calls itself (`self::name(`,
+ *    `static::name(`, `$this->name(` inside `name`).
+ * 2. Boot scenarios, each in its own PHP process (the plugin is a singleton,
+ *    and a runaway recursion must kill a child, not the runner), with
+ *    memory_limit 128M and a 2 s time limit; PHP's call-stack guard turns deep
+ *    recursion into an Error. Every module on, front end and admin, with the
+ *    Gift Wrap size attribute 'pa_peso' and 'peso', plus the modules' own
+ *    defaults — then the static helpers read on boot.
+ *
+ * `--root=<dir>` points at another copy of the plugin (to prove the runner
+ * catches a bug, run it on a copy that has one).
+ *
+ * @package Galaxie\Woo
+ */
+
+// phpcs:disable
+
+$args  = getopt( '', array( 'root:', 'child:' ) );
+$root  = rtrim( str_replace( '\\', '/', (string) ( $args['root'] ?? dirname( __DIR__, 2 ) ) ), '/' );
+$child = $args['child'] ?? null;
+
+/** The scenarios, by name: which modules are on and what settings they hold. */
+function galaxie_boot_scenarios(): array {
+	$gift = static fn( string $attribute ): array => array(
+		'gift-wrap' => array(
+			'size_attribute'     => $attribute,
+			'packing_gap'        => 0,
+			'allow_stacking'     => false,
+			'candle_orientation' => 'lying',
+			'box_categories'     => array( 125 ),
+			'ribbon_categories'  => array(),
+			'card_categories'    => array( 125 ),
+			'card_message_max'   => 200,
+		),
+		'shipping-cartons' => array(
+			'cartons'  => array(
+				array( 'code' => 'N12', 'name' => 'N12', 'length' => 19, 'width' => 12, 'height' => 12, 'outer_length' => '', 'outer_width' => '', 'outer_height' => '', 'empty_weight' => 60, 'max_load' => 30000, 'active' => true ),
+				// Missing an inside measure: kept in settings, never used.
+				array( 'code' => 'X', 'name' => 'X', 'length' => 20, 'width' => 0, 'height' => 10, 'outer_length' => '', 'outer_width' => '', 'outer_height' => '', 'empty_weight' => 0, 'max_load' => 30000, 'active' => true ),
+			),
+			'margin'   => 1.5,
+			'gap'      => 0,
+			'density'  => 29,
+			'stacking' => true,
+			'fallback' => 'split',
+		),
+	);
+
+	return array(
+		'module defaults, front end'           => array( 'all' => false, 'admin' => false, 'settings' => array() ),
+		'every module on, front end, pa_peso'  => array( 'all' => true, 'admin' => false, 'settings' => $gift( 'pa_peso' ) ),
+		'every module on, front end, peso'     => array( 'all' => true, 'admin' => false, 'settings' => $gift( 'peso' ) ),
+		'every module on, wp-admin, pa_peso'   => array( 'all' => true, 'admin' => true, 'settings' => $gift( 'pa_peso' ) ),
+		'every module on, wp-admin, peso'      => array( 'all' => true, 'admin' => true, 'settings' => $gift( 'peso' ) ),
+	);
+}
+
+// ------------------------------------------------------------------ child
+
+if ( null !== $child ) {
+	set_time_limit( 2 );
+
+	$scenario = galaxie_boot_scenarios()[ $child ] ?? null;
+
+	if ( ! $scenario ) {
+		fwrite( STDERR, "unknown scenario {$child}\n" );
+		exit( 2 );
+	}
+
+	register_shutdown_function(
+		static function () {
+			$error = error_get_last();
+
+			if ( $error && in_array( $error['type'], array( E_ERROR, E_CORE_ERROR, E_COMPILE_ERROR, E_PARSE ), true ) ) {
+				fwrite( STDERR, "fatal: {$error['message']} in {$error['file']}:{$error['line']}\n" );
+			}
+		}
+	);
+
+	require __DIR__ . '/wp-stubs.php';
+
+	$GLOBALS['galaxie_boot']['admin'] = $scenario['admin'];
+
+	try {
+		require $root . '/galaxie-bundle.php';
+
+		// Every module on: the registry reads the enabled map, so it needs the
+		// module ids, which it only knows once the plugin has registered them.
+		// A throwaway registry gives the ids without booting anything.
+		if ( $scenario['all'] ) {
+			$registry = new \Galaxie\Woo\Core\ModuleRegistry( new \Galaxie\Woo\Core\Settings() );
+			$plugin   = new ReflectionClass( \Galaxie\Woo\Core\Plugin::class );
+			$method   = $plugin->getMethod( 'register_modules' );
+			$property = $plugin->getProperty( 'modules' );
+			$probe    = $plugin->newInstanceWithoutConstructor();
+
+			$property->setValue( $probe, $registry );
+			$method->invoke( $probe );
+
+			update_option( 'galaxie_woo_modules', array_fill_keys( array_keys( $registry->all() ), true ) );
+		}
+
+		update_option( 'galaxie_woo_settings', $scenario['settings'] );
+
+		// The plugin boots on plugins_loaded.
+		galaxie_boot_fire( 'plugins_loaded' );
+
+		$modules = \Galaxie\Woo\Core\Plugin::instance()->modules();
+		$booted  = array_keys( $modules->enabled() );
+
+		// The static helpers modules read while booting and on every request.
+		if ( class_exists( \Galaxie\Woo\Modules\GiftWrap\Module::class ) ) {
+			$gift = \Galaxie\Woo\Modules\GiftWrap\Module::class;
+			$gift::size_attribute();
+			$gift::packing_options();
+
+			foreach ( array( 'box', 'card', 'ribbon' ) as $kind ) {
+				$gift::categories( $kind );
+			}
+		}
+
+		// The attribute the variation fields were built with, at boot — before
+		// init, when WooCommerce's pa_* taxonomies do not exist yet.
+		$fields = array();
+
+		foreach ( $GLOBALS['galaxie_boot']['hooks'] as $callbacks ) {
+			foreach ( $callbacks as $callback ) {
+				if ( is_array( $callback ) && is_object( $callback[0] ) && in_array( get_class( $callback[0] ), array( \Galaxie\Woo\Modules\GiftWrap\BoxFields::class, \Galaxie\Woo\Modules\GiftWrap\CandleFields::class ), true ) ) {
+					$property = new ReflectionProperty( $callback[0], 'attribute' );
+					$fields[ ( new ReflectionClass( $callback[0] ) )->getShortName() ] = $property->getValue( $callback[0] );
+				}
+			}
+		}
+
+		$attribute = isset( $gift ) ? $gift::size_attribute() : null;
+
+		// A store whose global attribute is Peso: whatever was typed, the
+		// helper and the fields must name the taxonomy.
+		if ( in_array( 'gift-wrap', $booted, true ) ) {
+			$wanted = 'pa_peso';
+
+			if ( $attribute !== $wanted ) {
+				throw new RuntimeException( "Module::size_attribute() is '{$attribute}', expected '{$wanted}'" );
+			}
+
+			// Not a check that passes by finding nothing: both field classes hooked in.
+			foreach ( array( 'BoxFields', 'CandleFields' ) as $class ) {
+				if ( ! isset( $fields[ $class ] ) ) {
+					throw new RuntimeException( "{$class} was not registered on boot" );
+				}
+			}
+
+			foreach ( $fields as $class => $value ) {
+				if ( $value !== $wanted ) {
+					throw new RuntimeException( "{$class} was built with '{$value}', expected '{$wanted}'" );
+				}
+			}
+		}
+
+		// Shipping Cartons: booted whenever every module is on, its hooks where
+		// they belong, and what it reads on every HTTP request safe on boot.
+		$shipping = '';
+
+		if ( $scenario['all'] && ! in_array( 'shipping-cartons', $booted, true ) ) {
+			throw new RuntimeException( 'Shipping Cartons did not boot with every module on' );
+		}
+
+		if ( in_array( 'shipping-cartons', $booted, true ) ) {
+			$hooked = static function ( string $hook, string $class, string $method ): bool {
+				foreach ( $GLOBALS['galaxie_boot']['hooks'][ $hook ] ?? array() as $callback ) {
+					if ( is_array( $callback ) && $class === ( is_object( $callback[0] ) ? get_class( $callback[0] ) : $callback[0] ) && $method === $callback[1] ) {
+						return true;
+					}
+				}
+				return false;
+			};
+
+			$expected = array(
+				array( 'http_request_args', \Galaxie\Woo\Modules\ShippingCartons\Rewriter::class, 'filter', true ),
+				array( 'woocommerce_order_get_items', \Galaxie\Woo\Modules\ShippingCartons\Context::class, 'record', true ),
+				array( 'woocommerce_checkout_order_processed', \Galaxie\Woo\Modules\ShippingCartons\Context::class, 'enter_checkout', true ),
+				array( 'add_meta_boxes', \Galaxie\Woo\Modules\ShippingCartons\OrderBox::class, 'meta_box', $scenario['admin'] ),
+				array( 'admin_notices', \Galaxie\Woo\Modules\ShippingCartons\Module::class, 'notices', $scenario['admin'] ),
+			);
+
+			foreach ( $expected as list( $hook, $class, $method, $wanted ) ) {
+				if ( $hooked( $hook, $class, $method ) !== $wanted ) {
+					throw new RuntimeException( "Shipping Cartons: {$class}::{$method} on {$hook} should " . ( $wanted ? '' : 'not ' ) . 'be hooked here' );
+				}
+			}
+
+			$module  = \Galaxie\Woo\Modules\ShippingCartons\Module::class;
+			$cartons = $module::cartons();
+			$module::packing_options();
+
+			if ( array( 'N12' ) !== array_column( $cartons, 'code' ) ) {
+				throw new RuntimeException( 'Shipping Cartons: cartons() read ' . json_encode( array_column( $cartons, 'code' ) ) . ', expected ["N12"]' );
+			}
+
+			// Not a quote: untouched. A quote whose products WooCommerce does not
+			// know (the stubs know none): fails open, body unchanged.
+			$rewriter = \Galaxie\Woo\Modules\ShippingCartons\Rewriter::class;
+			$other    = array( 'method' => 'POST', 'body' => '{"products":[{"id":1,"quantity":1}]}' );
+			$quote    = $other + array();
+
+			if ( $rewriter::filter( $other, 'https://example.test/wp-json/' ) !== $other ) {
+				throw new RuntimeException( 'Shipping Cartons: a non-quote request was changed' );
+			}
+
+			if ( $rewriter::filter( $quote, 'https://api.melhorenvio.com/v2/me/shipment/calculate' ) !== $quote ) {
+				throw new RuntimeException( 'Shipping Cartons: an unknown-product quote was changed instead of kept' );
+			}
+
+			$shipping = count( $cartons ) . ' carton, rewrite fails open';
+		}
+
+		echo json_encode( array( 'booted' => $booted, 'attribute' => $attribute, 'fields' => $fields, 'shipping' => $shipping ) );
+		exit( 0 );
+	} catch ( \Throwable $e ) {
+		fwrite( STDERR, get_class( $e ) . ': ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine() . "\n" );
+		exit( 1 );
+	}
+}
+
+// ------------------------------------------------------------ orchestrator
+
+$failed = 0;
+$passed = 0;
+
+$report = static function ( bool $ok, string $name, string $detail = '' ) use ( &$failed, &$passed ): void {
+	if ( $ok ) {
+		++$passed;
+		echo "  ok    {$name}" . ( '' !== $detail ? "  ({$detail})" : '' ) . "\n";
+		return;
+	}
+
+	++$failed;
+	echo "  FAIL  {$name}\n" . ( '' !== $detail ? '        ' . str_replace( "\n", "\n        ", trim( $detail ) ) . "\n" : '' );
+};
+
+// 1. Methods whose first statement calls themselves.
+$files = new RecursiveIteratorIterator( new RecursiveDirectoryIterator( $root . '/src', FilesystemIterator::SKIP_DOTS ) );
+$self  = array();
+
+foreach ( $files as $file ) {
+	if ( 'php' !== $file->getExtension() ) {
+		continue;
+	}
+
+	$tokens = array_values( array_filter( token_get_all( (string) file_get_contents( $file->getPathname() ) ), static fn( $t ): bool => ! is_array( $t ) || ! in_array( $t[0], array( T_WHITESPACE, T_COMMENT, T_DOC_COMMENT ), true ) ) );
+	$count  = count( $tokens );
+
+	for ( $i = 0; $i < $count; $i++ ) {
+		if ( ! is_array( $tokens[ $i ] ) || T_FUNCTION !== $tokens[ $i ][0] || ! isset( $tokens[ $i + 1 ] ) || ! is_array( $tokens[ $i + 1 ] ) || T_STRING !== $tokens[ $i + 1 ][0] ) {
+			continue;
+		}
+
+		$name = $tokens[ $i + 1 ][1];
+		$line = $tokens[ $i + 1 ][2];
+
+		// Find the body's opening brace (an abstract or interface method has none).
+		for ( $j = $i + 2; $j < $count && '{' !== $tokens[ $j ] && ';' !== $tokens[ $j ]; $j++ );
+
+		if ( $j >= $count || ';' === $tokens[ $j ] ) {
+			continue;
+		}
+
+		// The first statement: up to its ';' (or a nested block's opening brace).
+		$statement = array();
+		for ( $k = $j + 1; $k < $count && ';' !== $tokens[ $k ] && '{' !== $tokens[ $k ] && '}' !== $tokens[ $k ]; $k++ ) {
+			$statement[] = is_array( $tokens[ $k ] ) ? $tokens[ $k ][1] : $tokens[ $k ];
+		}
+
+		$code = implode( '', $statement );
+
+		if ( preg_match( '/(?:\bself::|\bstatic::|\$this->)' . preg_quote( $name, '/' ) . '\(/', $code ) ) {
+			$self[] = substr( $file->getPathname(), strlen( $root ) + 1 ) . ":{$line} {$name}() starts with {$code}";
+		}
+	}
+}
+
+$report( ! $self, 'no method calls itself as its first statement', $self ? implode( "\n", $self ) : '' );
+
+// 2. Boot every scenario in its own process.
+$php = PHP_BINARY;
+
+foreach ( array_keys( galaxie_boot_scenarios() ) as $name ) {
+	$command = sprintf(
+		'%s -d memory_limit=128M -d zend.max_allowed_stack_size=0 -d display_errors=stderr %s --child=%s --root=%s',
+		escapeshellarg( $php ),
+		escapeshellarg( __FILE__ ),
+		escapeshellarg( $name ),
+		escapeshellarg( $root )
+	);
+
+	$pipes   = array();
+	$process = proc_open( $command, array( 1 => array( 'pipe', 'w' ), 2 => array( 'pipe', 'w' ) ), $pipes );
+	$out     = stream_get_contents( $pipes[1] );
+	$err     = stream_get_contents( $pipes[2] );
+	fclose( $pipes[1] );
+	fclose( $pipes[2] );
+	$code = proc_close( $process );
+
+	$result = json_decode( (string) $out, true );
+	$ok     = 0 === $code && is_array( $result );
+	$detail = $ok
+		? count( $result['booted'] ) . ' modules booted'
+			. ( null !== $result['attribute'] ? ", size attribute {$result['attribute']}" : '' )
+			. ( ! empty( $result['fields'] ) ? ', fields ' . implode( ' ', array_map( static fn( $class, $value ): string => "{$class}={$value}", array_keys( $result['fields'] ), $result['fields'] ) ) : '' )
+			. ( ! empty( $result['shipping'] ) ? ", shipping cartons: {$result['shipping']}" : '' )
+		: "exit {$code}\n" . trim( $err . "\n" . substr( (string) $out, 0, 500 ) );
+
+	$report( $ok, "boot: {$name}", $detail );
+}
+
+echo "\n  {$passed} passed, {$failed} failed\n";
+exit( $failed > 0 ? 1 : 0 );
