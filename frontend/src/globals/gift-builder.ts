@@ -30,12 +30,10 @@ import { fits, MAX_ITEMS, room } from '@/lib/gift-packing'
 import type { Box, Candle, PackingOptions } from '@/lib/gift-packing'
 import { arrangeAll, cardFor as cardIdFor, cleanMessage, fill, messageLength, total, validate } from '@/lib/gift-groups'
 import type { Plan, PlanCandle, PlanError, PlanGroup, PlanItem } from '@/lib/gift-groups'
-import { post } from '@/lib/wp'
 import type { AjaxResult } from '@/lib/wp'
 
 export interface GiftConfig {
   ajaxUrl: string
-  nonce: string
 }
 
 /** What the Buy Box is about to add. */
@@ -171,13 +169,67 @@ export function builderController(root: HTMLElement): BuilderController | null {
   return controllers.get(root) ?? null
 }
 
+let nonce: Promise<string> | null = null
+
+/**
+ * The builder's nonce, from an endpoint nothing caches: the product page the
+ * popup opens on may be days old, and a nonce printed into it long expired.
+ * Asked once per page, again when `fresh` is set.
+ */
+function builderNonce(fresh = false): Promise<string> {
+  if (!config) return Promise.resolve('')
+
+  if (!nonce || fresh) {
+    const body = new FormData()
+    body.append('action', 'galaxie_gift_builder_nonce')
+
+    nonce = fetch(config.ajaxUrl, { method: 'POST', credentials: 'same-origin', cache: 'no-store', body })
+      .then((response) => response.json() as Promise<AjaxResult<{ nonce?: string }>>)
+      .then((json) => (json.success && json.data?.nonce ? json.data.nonce : ''))
+      .catch(() => '')
+  }
+
+  return nonce
+}
+
+/**
+ * POST to one of the builder's endpoints with a fresh nonce. A refusal for the
+ * nonce itself (403, or WordPress's bare "-1") gets one retry with a nonce
+ * asked for again; any other answer is returned as it is.
+ */
+async function call<T>(action: string, data: Record<string, string | number>): Promise<AjaxResult<T>> {
+  const failed = { success: false, data: { message: 'Não foi possível falar com a loja. Tente de novo.' } } as AjaxResult<T>
+  if (!config) return failed
+
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const body = new FormData()
+    body.append('action', action)
+    body.append('nonce', await builderNonce(attempt > 0))
+    for (const [key, value] of Object.entries(data)) body.append(key, String(value))
+
+    try {
+      const response = await fetch(config.ajaxUrl, { method: 'POST', credentials: 'same-origin', cache: 'no-store', body })
+      const text = await response.text()
+
+      if ((response.status === 403 || text.trim() === '-1') && attempt === 0) continue
+
+      const json = JSON.parse(text) as AjaxResult<T>
+      return json && typeof json === 'object' ? json : failed
+    } catch {
+      return failed
+    }
+  }
+
+  return failed
+}
+
 /** Confirm's plan into the cart, in place of the Buy Box's own add. */
 export function addGift(request: GiftRequest, pending: PendingCandle): Promise<AjaxResult<GiftAdded>> {
   if (!config) {
     return Promise.resolve({ success: false, data: { message: 'Não foi possível adicionar o presente ao carrinho.' } })
   }
 
-  return post<GiftAdded>(config.ajaxUrl, 'galaxie_gift_builder_add', config.nonce, {
+  return call<GiftAdded>('galaxie_gift_builder_add', {
     product_id: pending.productId,
     variation_id: pending.variationId,
     quantity: pending.quantity,
@@ -289,7 +341,7 @@ function createController(root: HTMLElement, pending: PendingCandle, token: numb
   if (!config) {
     fail()
   } else {
-    void post<BuilderData>(config.ajaxUrl, 'galaxie_gift_builder_data', config.nonce, {
+    void call<BuilderData>('galaxie_gift_builder_data', {
       product_id: pending.productId,
       variation_id: pending.variationId,
       quantity: pending.quantity,

@@ -40,6 +40,12 @@ final class Builder {
 	public const ADD_ACTION  = 'galaxie_gift_builder_add';
 	public const NONCE       = 'galaxie_gift_builder';
 
+	/**
+	 * Hands out that nonce. Never printed into a page: product pages are cached
+	 * (LiteSpeed, up to days) and a guest's nonce expires in 12–24 hours.
+	 */
+	public const NONCE_ACTION = 'galaxie_gift_builder_nonce';
+
 	/** Accessory products read per kind. A gift builder, not a catalogue. */
 	private const CATALOGUE_LIMIT = 50;
 
@@ -52,15 +58,42 @@ final class Builder {
 	private const CART_FIELDS = array( 'key', 'product_id', 'variation_id', 'variation', 'quantity', 'data', 'data_hash', 'line_tax_data', 'line_subtotal', 'line_subtotal_tax', 'line_total', 'line_tax' );
 
 	public static function hooks(): void {
-		foreach ( array( self::DATA_ACTION => 'ajax_data', self::ADD_ACTION => 'ajax_add' ) as $action => $method ) {
+		foreach ( array( self::NONCE_ACTION => 'ajax_nonce', self::DATA_ACTION => 'ajax_data', self::ADD_ACTION => 'ajax_add' ) as $action => $method ) {
 			add_action( 'wp_ajax_' . $action, array( self::class, $method ) );
 			add_action( 'wp_ajax_nopriv_' . $action, array( self::class, $method ) );
+		}
+	}
+
+	// ----------------------------------------------------------------- nonce
+
+	/**
+	 * A fresh nonce for this visitor, asked for when the builder opens.
+	 *
+	 * The nonce only lets the other two requests act on the caller's own
+	 * session cart, and another site's page cannot read this answer (same-origin
+	 * rules), so handing it out without a nonce of its own gives nothing away.
+	 * What matters is that nothing in between keeps it.
+	 */
+	public static function ajax_nonce(): void {
+		self::no_cache();
+
+		wp_send_json_success( array( 'nonce' => wp_create_nonce( self::NONCE ) ) );
+	}
+
+	/** Tells WordPress, the browser and LiteSpeed not to keep this answer. */
+	private static function no_cache(): void {
+		do_action( 'litespeed_control_set_nocache', 'galaxie gift builder' );
+
+		if ( ! headers_sent() ) {
+			nocache_headers();
+			header( 'X-LiteSpeed-Cache-Control: no-cache' );
 		}
 	}
 
 	// ------------------------------------------------------------------ data
 
 	public static function ajax_data(): void {
+		self::no_cache();
 		check_ajax_referer( self::NONCE, 'nonce' );
 		self::require_cart();
 
@@ -95,6 +128,7 @@ final class Builder {
 	// ------------------------------------------------------------------- add
 
 	public static function ajax_add(): void {
+		self::no_cache();
 		check_ajax_referer( self::NONCE, 'nonce' );
 		self::require_cart();
 

@@ -97,8 +97,9 @@ final class Module implements ModuleContract, ProvidesBootData, ProvidesElemento
 	public function boot_data(): array {
 		return array(
 			'giftWrap' => array(
+				// No nonce here: this is printed into pages LiteSpeed caches for days.
+				// The builder asks Builder::NONCE_ACTION for a fresh one when it opens.
 				'ajaxUrl' => admin_url( 'admin-ajax.php' ),
-				'nonce'   => wp_create_nonce( Builder::NONCE ),
 			),
 		);
 	}
