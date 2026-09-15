@@ -126,6 +126,24 @@ foreach ( $fixtures['total'] as $case ) {
 	$check( 'total', $case['name'], GiftGroups::total( $case['lines'] ), $case['expect'] );
 }
 
+foreach ( $fixtures['arrange_all'] as $case ) {
+	$list   = array_map( static fn( string $id ): array => $boxes[ $id ], $case['boxes'] );
+	$result = GiftGroups::arrange_all( $expand( $case['candles'] ), $list, $case['options'] ?? array() );
+	$got    = array(
+		'gifts' => $shape( $result['gifts'] ),
+		'loose' => array_map( static fn( array $c ): string => $c['size'], $result['loose'] ),
+	);
+
+	$check( 'arrange_all', $case['name'], $got, $case['expect'] );
+
+	// Whatever the answer, every box closes and holds no more than MAX_ITEMS.
+	$sound = true;
+	foreach ( $result['gifts'] as $gift ) {
+		$sound = $sound && count( $gift['candles'] ) <= GiftPacking::MAX_ITEMS && GiftPacking::fits( $gift['box'], $gift['candles'], $case['options'] ?? array() );
+	}
+	$check( 'arrange_all', $case['name'] . ' (every box fits)', $sound, true );
+}
+
 // Timing, not pass/fail: the slowest 12-candle cases.
 echo "\n  timing (best of 5):\n";
 $time = static function ( string $label, callable $run ): void {

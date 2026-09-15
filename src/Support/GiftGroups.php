@@ -73,6 +73,111 @@ final class GiftGroups {
 	}
 
 	/**
+	 * Shares any number of candles out over boxes, leaving loose only what no
+	 * box can take at all.
+	 *
+	 * {@see GiftPacking::arrange()} is exact but made for a gift's dozen, and its
+	 * search cap is per box. So: candles no box holds even alone are loose; up to
+	 * MAX_ITEMS of the rest go to arrange() as they are; past that, boxes are
+	 * filled one at a time — for each box, candles largest first join while
+	 * fits() still says yes (exact per box, at most MAX_ITEMS in one), the box
+	 * taking the most wins (then the cheaper, then the earlier) — until
+	 * MAX_ITEMS or fewer are left, and those go to arrange(). Deterministic, and
+	 * the same in the TypeScript twin.
+	 *
+	 * @param array $candles Candle arrays.
+	 * @param array $boxes   Box arrays.
+	 * @param array $options { gap, stacking, orientation }.
+	 * @return array{gifts: array<int, array{box: array, candles: array}>, loose: array}
+	 */
+	public static function arrange_all( array $candles, array $boxes, array $options = array() ): array {
+		$loose = array();
+		$rest  = array();
+
+		foreach ( array_values( $candles ) as $candle ) {
+			$alone = false;
+
+			foreach ( $boxes as $box ) {
+				if ( GiftPacking::fits( $box, array( $candle ), $options ) ) {
+					$alone = true;
+					break;
+				}
+			}
+
+			if ( $alone ) {
+				$rest[] = $candle;
+			} else {
+				$loose[] = $candle;
+			}
+		}
+
+		// Largest first, input order on a tie.
+		$order = array_keys( $rest );
+		usort(
+			$order,
+			static function ( int $p, int $q ) use ( $rest ): int {
+				return ( self::volume( $rest[ $q ] ) <=> self::volume( $rest[ $p ] ) ) ?: ( $p <=> $q );
+			}
+		);
+
+		$left  = array_map( static fn( int $i ): array => $rest[ $i ], $order );
+		$gifts = array();
+
+		while ( count( $left ) > GiftPacking::MAX_ITEMS ) {
+			$best = null;
+
+			foreach ( array_values( $boxes ) as $b => $box ) {
+				$taken  = array();
+				$chosen = array();
+
+				foreach ( $left as $i => $candle ) {
+					if ( count( $chosen ) >= GiftPacking::MAX_ITEMS ) {
+						break;
+					}
+
+					$with   = $chosen;
+					$with[] = $candle;
+
+					if ( GiftPacking::fits( $box, $with, $options ) ) {
+						$chosen  = $with;
+						$taken[] = $i;
+					}
+				}
+
+				if ( ! $taken ) {
+					continue;
+				}
+
+				if ( null === $best || count( $taken ) > count( $best['taken'] ) || ( count( $taken ) === count( $best['taken'] ) && self::cents( $box['price'] ?? 0 ) < self::cents( $best['box']['price'] ?? 0 ) ) ) {
+					$best = array(
+						'box'     => $box,
+						'taken'   => $taken,
+						'candles' => $chosen,
+					);
+				}
+			}
+
+			foreach ( $best['taken'] as $i ) {
+				unset( $left[ $i ] );
+			}
+
+			$gifts[] = array(
+				'box'     => $best['box'],
+				'candles' => $best['candles'],
+			);
+		}
+
+		if ( $left ) {
+			$gifts = array_merge( $gifts, GiftPacking::arrange( array_values( $left ), $boxes, $options ) );
+		}
+
+		return array(
+			'gifts' => $gifts,
+			'loose' => $loose,
+		);
+	}
+
+	/**
 	 * The most of one candle line a boxed gift can take, never less than it has.
 	 *
 	 * For the block cart's stepper: the Store API refuses a quantity past this.
@@ -230,6 +335,11 @@ final class GiftGroups {
 		}
 
 		return $best;
+	}
+
+	/** @param array $candle Candle array. */
+	private static function volume( array $candle ): int {
+		return self::units( $candle['length'] ?? 0 ) * self::units( $candle['width'] ?? 0 ) * self::units( $candle['height'] ?? 0 );
 	}
 
 	/** @param mixed $cm */

@@ -15,8 +15,8 @@
  * test straight from source).
  */
 
-import { fits, MAX_ITEMS } from './gift-packing.ts'
-import type { Box, Candle, PackingOptions } from './gift-packing.ts'
+import { arrange, fits, MAX_ITEMS } from './gift-packing.ts'
+import type { Box, Candle, Gift, PackingOptions } from './gift-packing.ts'
 
 export interface PlanCandle extends Candle {
   id: string | number
@@ -82,6 +82,61 @@ export function fill(box: Box, candles: Candle[], sizes: Candle[] = [], options:
   }
 
   return Math.floor((n * 100 + Math.floor((n + extra) / 2)) / (n + extra))
+}
+
+/**
+ * Shares any number of candles out over boxes, leaving loose only what no box
+ * can take at all: exact `arrange()` for MAX_ITEMS or fewer, boxes filled one
+ * at a time (largest candles first, exact fit per box, the box taking the most,
+ * then the cheaper, then the earlier) past that. See GiftGroups::arrange_all().
+ */
+export function arrangeAll<C extends Candle, B extends Box>(candles: C[], boxes: B[], options: PackingOptions = {}): { gifts: Gift<C, B>[]; loose: C[] } {
+  const loose: C[] = []
+  const rest: C[] = []
+
+  for (const candle of candles) {
+    if (boxes.some((box) => fits(box, [candle], options))) rest.push(candle)
+    else loose.push(candle)
+  }
+
+  const order = rest.map((_, i) => i).sort((p, q) => volume(rest[q]) - volume(rest[p]) || p - q)
+  const left = new Map<number, C>(order.map((i, n) => [n, rest[i]]))
+  const gifts: Gift<C, B>[] = []
+
+  while (left.size > MAX_ITEMS) {
+    let best: { box: B; taken: number[]; candles: C[] } | null = null
+
+    for (const box of boxes) {
+      const taken: number[] = []
+      const chosen: C[] = []
+
+      for (const [i, candle] of left) {
+        if (chosen.length >= MAX_ITEMS) break
+        if (fits(box, [...chosen, candle], options)) {
+          chosen.push(candle)
+          taken.push(i)
+        }
+      }
+
+      if (!taken.length) continue
+
+      if (!best || taken.length > best.taken.length || (taken.length === best.taken.length && cents(box.price) < cents(best.box.price))) {
+        best = { box, taken, candles: chosen }
+      }
+    }
+
+    if (!best) break
+    for (const i of best.taken) left.delete(i)
+    gifts.push({ box: best.box, candles: best.candles })
+  }
+
+  if (left.size) gifts.push(...arrange([...left.values()], boxes, options))
+
+  return { gifts, loose }
+}
+
+function volume(candle: Candle): number {
+  return units(candle.length) * units(candle.width) * units(candle.height)
 }
 
 /** The most of one candle line a boxed gift can take, never less than it has. */

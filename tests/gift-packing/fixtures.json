@@ -328,6 +328,15 @@
       "options": { "orientation": "upright" }, "expect": [{ "code": "no_candles", "group": 0, "id": null }, { "code": "box_too_small", "group": 1, "id": "b14" }, { "code": "out_of_stock", "group": -1, "id": "v50" }]
     }
   ],
+  "arrange_all": [
+    { "name": "4 x 50g: exactly arrange()", "candles": [["50g", 4]], "boxes": ["b14", "big"], "options": { "gap": 0.5, "orientation": "upright" }, "expect": { "gifts": [{ "box": "b14", "candles": ["50g", "50g", "50g", "50g"] }], "loose": [] } },
+    { "name": "13 x 50g: a big box of 9, then the cheapest for 4", "candles": [["50g", 13]], "boxes": ["b14", "big"], "options": { "gap": 0.5, "orientation": "upright" }, "expect": { "gifts": [{ "box": "big", "candles": ["50g", "50g", "50g", "50g", "50g", "50g", "50g", "50g", "50g"] }, { "box": "b14", "candles": ["50g", "50g", "50g", "50g"] }], "loose": [] } },
+    { "name": "18 x 190g: two full b30", "candles": [["190g", 18]], "boxes": ["b30"], "options": { "gap": 0.5, "orientation": "upright" }, "expect": { "gifts": [{ "box": "b30", "candles": ["190g", "190g", "190g", "190g", "190g", "190g", "190g", "190g", "190g"] }, { "box": "b30", "candles": ["190g", "190g", "190g", "190g", "190g", "190g", "190g", "190g", "190g"] }], "loose": [] } },
+    { "name": "20 x 50g over b14 and big", "candles": [["50g", 20]], "boxes": ["b14", "big"], "options": { "gap": 0.5, "orientation": "upright" }, "expect": {"gifts":[{"box":"big","candles":["50g","50g","50g","50g","50g","50g","50g","50g","50g"]},{"box":"big","candles":["50g","50g","50g","50g","50g","50g","50g","50g","50g"]},{"box":"b14","candles":["50g","50g"]}],"loose":[]} },
+    { "name": "16 mixed (8 x 190g + 8 x 50g) over b14, big, b30", "candles": [["50g", 8], ["190g", 8]], "boxes": ["b14", "big", "b30"], "options": { "gap": 0.5, "orientation": "upright" }, "expect": {"gifts":[{"box":"b30","candles":["190g","190g","190g","190g","190g","190g","190g","190g","50g","50g","50g","50g"]},{"box":"b14","candles":["50g","50g","50g","50g"]}],"loose":[]} },
+    { "name": "a candle no box can take stays loose, the rest are boxed", "candles": [["190g", 2], ["50g", 2]], "boxes": ["p11"], "options": { "gap": 0.5, "orientation": "upright" }, "expect": { "gifts": [{ "box": "p11", "candles": ["50g", "50g"] }], "loose": ["190g", "190g"] } },
+    { "name": "no boxes: everything loose", "candles": [["50g", 13]], "boxes": [], "options": { "gap": 0.5, "orientation": "upright" }, "expect": { "gifts": [], "loose": ["50g", "50g", "50g", "50g", "50g", "50g", "50g", "50g", "50g", "50g", "50g", "50g", "50g"] } }
+  ],
   "total": [
     { "name": "cents, not floats", "lines": [{ "price": 19.9, "quantity": 2 }, { "price": 12, "quantity": 1 }, { "price": 0.1, "quantity": 3 }], "expect": 5210 },
     { "name": "nothing", "lines": [], "expect": 0 },

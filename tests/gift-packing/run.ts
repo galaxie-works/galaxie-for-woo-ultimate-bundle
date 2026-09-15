@@ -10,7 +10,7 @@ import { isDeepStrictEqual } from 'node:util'
 
 import { arrange, cover, fits, room, summary } from '../../frontend/src/lib/gift-packing.ts'
 import type { Box, Candle, Gift, PackingOptions, SummaryRow } from '../../frontend/src/lib/gift-packing.ts'
-import { fill, maxQuantity, total, validate } from '../../frontend/src/lib/gift-groups.ts'
+import { arrangeAll, fill, maxQuantity, total, validate } from '../../frontend/src/lib/gift-groups.ts'
 import type { PlanError, PlanGroup, PlanItem } from '../../frontend/src/lib/gift-groups.ts'
 
 interface Fixtures {
@@ -33,6 +33,7 @@ interface Fixtures {
     expect: PlanError[]
   }[]
   total: { name: string; lines: { price: number; quantity: number }[]; expect: number }[]
+  arrange_all: { name: string; candles: [string, number][]; boxes: string[]; options?: PackingOptions; expect: { gifts: { box: string; candles: string[] }[]; loose: string[] } | null }[]
 }
 
 const fixtures = JSON.parse(readFileSync(new URL('./fixtures.json', import.meta.url), 'utf8')) as Fixtures
@@ -104,6 +105,14 @@ for (const c of fixtures.validate) {
 
 for (const c of fixtures.total) {
   check('total', c.name, total(c.lines), c.expect)
+}
+
+for (const c of fixtures.arrange_all) {
+  const result = arrangeAll(expand(c.candles), c.boxes.map((id) => boxes[id]), c.options ?? {})
+  check('arrange_all', c.name, { gifts: shape(result.gifts), loose: result.loose.map((candle) => candle.size) }, c.expect)
+
+  const sound = result.gifts.every((gift) => gift.candles.length <= 12 && fits(gift.box, gift.candles, c.options ?? {}))
+  check('arrange_all', `${c.name} (every box fits)`, sound, true)
 }
 
 console.log('\n  timing (best of 5):')
