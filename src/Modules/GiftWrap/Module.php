@@ -121,17 +121,23 @@ final class Module implements ModuleContract, ProvidesBootData, ProvidesElemento
 	 * The setting is typed by hand, and "peso" for the global attribute Peso is
 	 * an easy slip: a variation still answers get_attribute( 'peso' ), so the
 	 * candle being bought looks fine, but there is no taxonomy "peso" to list
-	 * the store's sizes from. When the typed name is no taxonomy and "pa_" plus
-	 * it is one, that is the one meant. A local attribute stays as typed.
+	 * the store's sizes from. When "pa_" plus the typed name is one of the
+	 * store's global attributes, that is the one meant. Anything else stays as
+	 * typed (a local attribute).
+	 *
+	 * Asked of WooCommerce's attribute table, not taxonomy_exists(): modules
+	 * boot on plugins_loaded, and WooCommerce only registers the pa_*
+	 * taxonomies on init, so BoxFields and CandleFields — built at boot — would
+	 * otherwise always get the name as typed.
 	 */
 	public static function size_attribute(): string {
-		$attribute = self::size_attribute();
+		$attribute = (string) self::setting( 'size_attribute' );
 
-		if ( '' !== $attribute && ! taxonomy_exists( $attribute ) && taxonomy_exists( 'pa_' . $attribute ) ) {
-			return 'pa_' . $attribute;
+		if ( '' === $attribute || 0 === strpos( $attribute, 'pa_' ) || ! function_exists( 'wc_get_attribute_taxonomy_names' ) ) {
+			return $attribute;
 		}
 
-		return $attribute;
+		return in_array( 'pa_' . $attribute, (array) wc_get_attribute_taxonomy_names(), true ) ? 'pa_' . $attribute : $attribute;
 	}
 
 	/**
