@@ -69,6 +69,9 @@ function galaxie_boot_scenarios(): array {
 		'every module on, front end, peso'     => array( 'all' => true, 'admin' => false, 'settings' => $gift( 'peso' ) ),
 		'every module on, wp-admin, pa_peso'   => array( 'all' => true, 'admin' => true, 'settings' => $gift( 'pa_peso' ) ),
 		'every module on, wp-admin, peso'      => array( 'all' => true, 'admin' => true, 'settings' => $gift( 'peso' ) ),
+		// The label as wp-admin shows it, and the taxonomy shouted: both name pa_peso.
+		'every module on, front end, Peso'     => array( 'all' => true, 'admin' => false, 'settings' => $gift( 'Peso' ) ),
+		'every module on, front end, PA_PESO'  => array( 'all' => true, 'admin' => false, 'settings' => $gift( ' PA_PESO ' ) ),
 		'module defaults, REST + WP-CLI'       => array( 'all' => false, 'admin' => false, 'settings' => array(), 'rest' => true, 'cli' => true ),
 		'every module on, REST + WP-CLI, peso' => array( 'all' => true, 'admin' => false, 'settings' => $gift( 'peso' ), 'rest' => true, 'cli' => true ),
 	);

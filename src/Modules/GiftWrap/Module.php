@@ -232,13 +232,57 @@ final class Module implements ModuleContract, ProvidesBootData, ProvidesElemento
 	 * otherwise always get the name as typed.
 	 */
 	public static function size_attribute(): string {
-		$attribute = (string) self::setting( 'size_attribute' );
+		$attribute = trim( (string) self::setting( 'size_attribute' ) );
 
-		if ( '' === $attribute || 0 === strpos( $attribute, 'pa_' ) || ! function_exists( 'wc_get_attribute_taxonomy_names' ) ) {
+		if ( '' === $attribute || ! function_exists( 'wc_get_attribute_taxonomy_names' ) ) {
 			return $attribute;
 		}
 
-		return in_array( 'pa_' . $attribute, (array) wc_get_attribute_taxonomy_names(), true ) ? 'pa_' . $attribute : $attribute;
+		$names = (array) wc_get_attribute_taxonomy_names();
+
+		if ( in_array( $attribute, $names, true ) ) {
+			return $attribute;
+		}
+
+		// "Peso", "peso", "PA_PESO": the taxonomy is the same one, and a setting
+		// that does not resolve to it leaves the store with no sizes at all.
+		$bare = preg_replace( '/^pa_/i', '', $attribute );
+		$slug = function_exists( 'wc_attribute_taxonomy_name' ) ? wc_attribute_taxonomy_name( (string) $bare ) : 'pa_' . sanitize_title( (string) $bare );
+
+		if ( in_array( $slug, $names, true ) ) {
+			return $slug;
+		}
+
+		// Last try: the label the merchant sees in wp-admin ("Peso").
+		foreach ( function_exists( 'wc_get_attribute_taxonomies' ) ? (array) wc_get_attribute_taxonomies() : array() as $taxonomy ) {
+			$label = strtolower( (string) ( $taxonomy->attribute_label ?? '' ) );
+
+			if ( '' !== $label && $label === strtolower( (string) $bare ) ) {
+				return 'pa_' . $taxonomy->attribute_name;
+			}
+		}
+
+		return $attribute;
+	}
+
+	/**
+	 * What the store's candles amount to right now, said on the settings page.
+	 * With no size the packing engine can answer nothing, and every box reports
+	 * that it holds nothing — a silence that used to look like a bug in the kit.
+	 */
+	private static function sizes_found(): string {
+		$attribute = self::size_attribute();
+		$sizes     = \Galaxie\Woo\Support\GiftPacking::store_sizes( $attribute );
+
+		if ( ! $sizes ) {
+			/* translators: %s: attribute taxonomy, e.g. pa_peso. */
+			return sprintf( __( 'No size found with "%s" right now, so no box can hold anything: check the attribute name and the candle variations\' dimensions.', 'galaxie-woo' ), $attribute );
+		}
+
+		$labels = array_map( static fn( array $size ): string => (string) ( $size['label'] ?? $size['size'] ), $sizes );
+
+		/* translators: 1: attribute taxonomy, 2: list of sizes. */
+		return sprintf( __( 'Found with "%1$s": %2$s.', 'galaxie-woo' ), $attribute, implode( ', ', $labels ) );
 	}
 
 	/**
@@ -285,7 +329,7 @@ final class Module implements ModuleContract, ProvidesBootData, ProvidesElemento
 				key: 'size_attribute',
 				label: __( 'Candle size attribute', 'galaxie-woo' ),
 				type: Field::TYPE_TEXT,
-				description: __( 'The variation attribute that tells candle sizes apart. Each candle variation\'s own dimensions (L × W × H) are what a gift box is checked against.', 'galaxie-woo' ),
+				description: __( 'The variation attribute that tells candle sizes apart. Each candle variation\'s own dimensions (L × W × H) are what a gift box is checked against.', 'galaxie-woo' ) . ' ' . self::sizes_found(),
 				default: self::DEFAULTS['size_attribute'],
 				placeholder: 'pa_peso'
 			),

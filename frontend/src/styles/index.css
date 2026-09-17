@@ -630,6 +630,8 @@ form.galaxie-buybox .galaxie-kit-button[aria-disabled="true"] {
 
 .galaxie-kit-content {
   gap: 16px;
+  /* So a capped builder can shrink it instead of overflowing the popup. */
+  min-height: 0;
 }
 
 .galaxie-kit-summary,
