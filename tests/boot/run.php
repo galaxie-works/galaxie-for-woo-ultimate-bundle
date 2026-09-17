@@ -255,6 +255,26 @@ function galaxie_boot_kit( array $booted, array $scenario, callable $hooked ): s
 			}
 		}
 
+		// A title and a text keep the merchant's line break and lose everything
+		// else: the same rule the script applies when it fills the slots live.
+		// What travels to the script in data-texts is raw and attribute-escaped;
+		// it is sanitised there, when it lands in the page.
+		if ( 'editor_screen' === $key ) {
+			$widget->settings = array(
+				$key                 => 'welcome',
+				'welcome_title_text' => 'Um presente<br>com seu jeito<script>alert(1)</script>',
+				'welcome_text_text'  => 'Escolha a caixa<br><em>e a mensagem</em><img src=x onerror=alert(1)>',
+			);
+
+			$rich   = (string) strstr( $widget->render_for_test(), 'galaxie-kit-screen--welcome' );
+			$cut    = strpos( $rich, '</section>' );
+			$screen = false === $cut ? '' : substr( $rich, 0, $cut );
+
+			if ( 2 !== substr_count( $screen, '<br>' ) || false === strpos( $screen, '<em>' ) || preg_match( '/<script|<img|onerror/i', $screen ) ) {
+				throw new RuntimeException( 'Kit: titles and texts should keep <br> and drop everything unsafe' );
+			}
+		}
+
 		// Every button role has a section of its own and is used exactly where it
 		// belongs: a role nobody prints is a styling panel that moves nothing.
 		if ( 'editor_screen' === $key ) {

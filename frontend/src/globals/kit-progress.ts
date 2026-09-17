@@ -8,7 +8,7 @@
  * - a full box: confetti (once per filling) and "Adicionar kit ao carrinho".
  */
 
-import { fillText } from '@/lib/gift-kit'
+import { fillText, setRich } from '@/lib/gift-kit'
 import { celebrate, openKit } from '@/globals/kit-open'
 import { kitCall, kitConfig, kitValues, onKit } from '@/globals/kit-store'
 import type { KitView } from '@/globals/kit-store'
@@ -32,8 +32,7 @@ function paint(root: HTMLElement, kit: KitView | null, previous: KitView | null,
   if (!kit || !state) return
 
   const line = state.querySelector('[data-slot="line"]')
-  const text = fillText(root.dataset.message ?? '', kitValues(kit))
-  if (line && line.textContent !== text) line.textContent = text
+  setRich(line, fillText(root.dataset.message ?? '', kitValues(kit)))
 
   const bar = state.querySelector<HTMLElement>('[data-slot="bar"]')
   if (bar) bar.style.width = `${Math.max(0, Math.min(100, kit.fill))}%`

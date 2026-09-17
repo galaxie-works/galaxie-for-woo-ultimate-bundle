@@ -660,6 +660,24 @@ form.galaxie-buybox .galaxie-kit-button[aria-disabled="true"] {
   flex: none;
 }
 
+/* Where the icon sits beside the title. Above and below stack the two and keep
+   them against the text's own side, so a left-aligned step does not end up
+   with a centred icon. */
+.galaxie-kit-head--right {
+  flex-direction: row-reverse;
+  justify-content: flex-end;
+}
+
+.galaxie-kit-head--top {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.galaxie-kit-head--bottom {
+  flex-direction: column-reverse;
+  align-items: flex-start;
+}
+
 .galaxie-kit-text,
 .galaxie-kit-starting,
 .galaxie-kit-loading,

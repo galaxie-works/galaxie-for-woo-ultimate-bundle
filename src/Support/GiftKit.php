@@ -31,6 +31,28 @@ defined( 'ABSPATH' ) || exit;
  */
 final class GiftKit {
 
+	/**
+	 * A title or a text as the merchant wrote it in the Elementor panel: a line
+	 * break and a little emphasis survive, everything else is stripped. The kit
+	 * script allows the same set when it fills those slots live, so a text reads
+	 * the same whether the server or the browser put it there.
+	 */
+	public static function html( string $text ): string {
+		return wp_kses(
+			$text,
+			array(
+				'br'     => array(),
+				'strong' => array(),
+				'b'      => array(),
+				'em'     => array(),
+				'i'      => array(),
+				'u'      => array(),
+				'small'  => array(),
+				'span'   => array( 'class' => array() ),
+			)
+		);
+	}
+
 	/** Longest kit name, in characters. */
 	public const NAME_MAX = 40;
 

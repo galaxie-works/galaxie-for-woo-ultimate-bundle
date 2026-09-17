@@ -239,3 +239,43 @@ export function defaultName(used: string[], format = 'Kit %d'): string {
     if (!taken.has(name.toLowerCase())) return name
   }
 }
+
+/**
+ * The tags a merchant's title or text may carry, matching what the widget lets
+ * through with wp_kses() when it prints the same slots on the server.
+ */
+const RICH_TAGS = new Set(['BR', 'STRONG', 'B', 'EM', 'I', 'U', 'SMALL', 'SPAN'])
+
+/**
+ * A title or a text written in the Elementor panel: line breaks and a little
+ * emphasis survive, everything else is unwrapped to its words. Parsing happens
+ * inside a <template>, so nothing in it loads or runs on the way.
+ */
+export function setRich(el: Element | null | undefined, html: string): void {
+  if (!el) return
+
+  const template = document.createElement('template')
+  template.innerHTML = html
+
+  const clean = (node: ParentNode): void => {
+    Array.from(node.children).forEach((child) => {
+      clean(child)
+
+      if (!RICH_TAGS.has(child.tagName)) {
+        child.replaceWith(...Array.from(child.childNodes))
+        return
+      }
+
+      Array.from(child.attributes).forEach((attr) => {
+        if (child.tagName !== 'SPAN' || attr.name !== 'class') child.removeAttribute(attr.name)
+      })
+    })
+  }
+
+  clean(template.content)
+
+  const holder = document.createElement('div')
+  holder.append(template.content.cloneNode(true))
+
+  if (el.innerHTML !== holder.innerHTML) el.replaceChildren(template.content)
+}
