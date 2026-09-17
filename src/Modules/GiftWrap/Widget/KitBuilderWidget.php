@@ -338,6 +338,20 @@ final class KitBuilderWidget extends Widget_Base {
 		PixfortControls::text( $this, 'title', array( 'size' => 'h5', 'bold' => 'font-weight-bold', 'remove_pb_padding' => 'm-0' ), array(), '{{WRAPPER}} .galaxie-kit-title', 'heading' );
 		PixfortControls::icon_color( $this, 'title_icon_color', __( 'Icon color', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-kit-icon' );
 		$this->icon_size( 'title_icon_size', '{{WRAPPER}}' );
+		$this->add_control(
+			'title_icon_place',
+			array(
+				'label'   => __( 'Icon side', 'galaxie-woo' ),
+				'type'    => Controls_Manager::CHOOSE,
+				'default' => 'left',
+				'options' => array(
+					'left'   => array( 'title' => __( 'Left of the title', 'galaxie-woo' ), 'icon' => 'eicon-h-align-left' ),
+					'top'    => array( 'title' => __( 'Above the title', 'galaxie-woo' ), 'icon' => 'eicon-v-align-top' ),
+					'bottom' => array( 'title' => __( 'Below the title', 'galaxie-woo' ), 'icon' => 'eicon-v-align-bottom' ),
+					'right'  => array( 'title' => __( 'Right of the title', 'galaxie-woo' ), 'icon' => 'eicon-h-align-right' ),
+				),
+			)
+		);
 		$this->margin( 'title_margin', __( 'Space around the title', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-kit-head' );
 		$this->heading( 'body_style_heading', __( 'Text', 'galaxie-woo' ) );
 		PixfortControls::text( $this, 'body', array( 'bold' => '' ), array(), '{{WRAPPER}} .galaxie-kit-text', 'text', array( 'inline', 'position' ) );
@@ -752,6 +766,21 @@ final class KitBuilderWidget extends Widget_Base {
 		$this->margin( $screen . '_title_margin', __( 'Space around the title', 'galaxie-woo' ), $at . ' .galaxie-kit-head' );
 
 		$this->icon_size( $screen . '_icon_size', $at );
+		$this->add_control(
+			$screen . '_icon_place',
+			array(
+				'label'   => __( 'Icon side', 'galaxie-woo' ),
+				'type'    => Controls_Manager::SELECT,
+				'default' => '',
+				'options' => array(
+					''       => __( 'Follow "Titles and text"', 'galaxie-woo' ),
+					'left'   => __( 'Left of the title', 'galaxie-woo' ),
+					'top'    => __( 'Above the title', 'galaxie-woo' ),
+					'bottom' => __( 'Below the title', 'galaxie-woo' ),
+					'right'  => __( 'Right of the title', 'galaxie-woo' ),
+				),
+			)
+		);
 
 		$this->heading( $screen . '_body_heading', __( 'Text', 'galaxie-woo' ) );
 		PixfortControls::text( $this, $screen . '_body', array( 'bold' => '' ), $own, $at . ' .galaxie-kit-text', 'text', array( 'inline', 'position' ) );
@@ -880,7 +909,7 @@ final class KitBuilderWidget extends Widget_Base {
 			'<p class="galaxie-kit-starting galaxie-kit-small %1$s" data-kit-starting%2$s>%3$s</p>',
 			esc_attr( PixfortControls::text_classes( $settings, 'small' ) ),
 			in_array( $screen, array( 'name', 'box' ), true ) && $sample ? '' : ' hidden',
-			$sample ? esc_html( GiftKit::fill( $texts['starting'], array( 'candles' => $sample['starting'] ) ) ) : ''
+			$sample ? GiftKit::html( GiftKit::fill( $texts['starting'], array( 'candles' => $sample['starting'] ) ) ) : '' // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- through wp_kses().
 		);
 
 		printf( '<p class="galaxie-kit-small galaxie-kit-loading %1$s" data-kit-loading hidden>%2$s</p>', esc_attr( PixfortControls::text_classes( $settings, 'small' ) ), esc_html( $texts['loading'] ) );
@@ -967,13 +996,13 @@ final class KitBuilderWidget extends Widget_Base {
 	private function head( array $settings, string $screen, string $title, string $text, bool $slot_text = false ): void {
 		$icon = PixfortControls::icon_value( $settings, $screen . '_icon' );
 
-		echo '<div class="galaxie-kit-head">';
+		printf( '<div class="galaxie-kit-head%s">', esc_attr( $this->head_place( $settings, $screen ) ) );
 
 		if ( '' !== $icon ) {
 			echo '<span class="galaxie-kit-icon">' . self::icon( $icon ) . '</span>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pixfort's own SVG.
 		}
 
-		printf( '<div class="galaxie-kit-title" data-slot="title">%s</div>', PixfortControls::render_text( $settings, $this->text_prefix( $settings, $screen, 'title' ), esc_html( $title ) ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pixfort's element around escaped text.
+		printf( '<div class="galaxie-kit-title" data-slot="title">%s</div>', PixfortControls::render_text( $settings, $this->text_prefix( $settings, $screen, 'title' ), GiftKit::html( $title ) ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pixfort's element around text through wp_kses().
 		echo '</div>';
 
 		$this->hint        = '' !== $text || $slot_text ? $text : null;
@@ -982,6 +1011,22 @@ final class KitBuilderWidget extends Widget_Base {
 		if ( 'title' === ( $settings['hint_place'] ?? 'title' ) ) {
 			$this->hint_print( $settings );
 		}
+	}
+
+	/**
+	 * The modifier that puts the title's icon on a side: this screen's choice,
+	 * or the one "Titles and text" made for every screen.
+	 *
+	 * @param array<string,mixed> $settings
+	 */
+	private function head_place( array $settings, string $screen ): string {
+		$place = (string) ( $settings[ $screen . '_icon_place' ] ?? '' );
+
+		if ( '' === $place ) {
+			$place = (string) ( $settings['title_icon_place'] ?? 'left' );
+		}
+
+		return in_array( $place, array( 'right', 'top', 'bottom' ), true ) ? ' galaxie-kit-head--' . $place : '';
 	}
 
 	/**
@@ -1009,7 +1054,7 @@ final class KitBuilderWidget extends Widget_Base {
 			'<p class="galaxie-kit-text %1$s%2$s" data-slot="text">%3$s</p>',
 			esc_attr( PixfortControls::text_classes( $settings, $this->hint_prefix ) ),
 			'yes' === ( $settings['hint_badge'] ?? '' ) ? ' galaxie-kit-badge' : '',
-			esc_html( $text )
+			GiftKit::html( $text ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- through wp_kses().
 		);
 	}
 

@@ -161,6 +161,7 @@ function esc_url_raw( $url ) { return (string) $url; }
 function esc_js( $text ) { return (string) $text; }
 function esc_textarea( $text ) { return esc_html( $text ); }
 function wp_kses_post( $text ) { return (string) $text; }
+function wp_kses( $text, $allowed = array(), $protocols = array() ) { return preg_replace( '#<(?!/?(' . implode( '|', array_keys( (array) $allowed ) ) . ')\b)[^>]*>#i', '', (string) $text ); }
 function sanitize_key( $key ) { return preg_replace( '/[^a-z0-9_\-]/', '', strtolower( (string) $key ) ); }
 function sanitize_text_field( $text ) { return trim( (string) $text ); }
 function sanitize_title( $title ) { return trim( preg_replace( '/[^a-z0-9]+/', '-', strtolower( (string) $title ) ), '-' ); }

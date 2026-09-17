@@ -30,7 +30,7 @@
 import { fits, MAX_ITEMS } from '@/lib/gift-packing'
 import type { Candle } from '@/lib/gift-packing'
 import { cleanMessage, messageLength } from '@/lib/gift-groups'
-import { cleanName, combos, defaultName, fillText, wording } from '@/lib/gift-kit'
+import { cleanName, combos, defaultName, fillText, setRich, wording } from '@/lib/gift-kit'
 import { closePopup, isPopupOpen } from '@/lib/pix-popup'
 import { ask } from '@/lib/dialog'
 import { celebrate } from '@/globals/kit-open'
@@ -260,7 +260,7 @@ function create(root: HTMLElement): Controller {
     if (starting) {
       const show = mode === 'new' && !!pending && ['name', 'box', 'card'].includes(next)
       starting.hidden = !show
-      if (show) setText(starting, fillText(texts.starting ?? '', { candles: pendingText() }))
+      if (show) setRich(starting, fillText(texts.starting ?? '', { candles: pendingText() }))
     }
 
     draw()
@@ -311,7 +311,7 @@ function create(root: HTMLElement): Controller {
     const el = screenEl('name')
     const input = el.querySelector<HTMLInputElement>('[data-kit-name]')
     if (input && document.activeElement !== input) input.value = form.name
-    setText(slot(el, 'text'), fillText(texts.name_text ?? '', { kit: defaultKitName() }))
+    setRich(slot(el, 'text'), fillText(texts.name_text ?? '', { kit: defaultKitName() }))
     setDisabled(el.querySelector('[data-kit-action="next"]'), busy)
   }
 
@@ -447,10 +447,10 @@ function create(root: HTMLElement): Controller {
     const kit = currentKit()
     const values = kitValues(kit)
 
-    setText(textTarget(slot(el, 'title')), fillText(texts.continue_title ?? '', values))
+    setRich(textTarget(slot(el, 'title')), fillText(texts.continue_title ?? '', values))
     const state = kit?.room.state
     // Nothing settled in time: say nothing rather than a list with a hole in it.
-    setText(slot(el, 'text'), kit?.full ? (texts.continue_full ?? '') : state === 'many' || state === 'one' ? fillText(texts.continue_text ?? '', values) : '')
+    setRich(slot(el, 'text'), kit?.full ? (texts.continue_full ?? '') : state === 'many' || state === 'one' ? fillText(texts.continue_text ?? '', values) : '')
 
     // This step can offer "Adicionar kit ao carrinho" too, and the cart takes
     // no kit without a candle in it.

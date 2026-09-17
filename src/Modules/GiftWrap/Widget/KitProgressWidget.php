@@ -11,6 +11,7 @@ use Elementor\Controls_Manager;
 use Elementor\Widget_Base;
 use Galaxie\Woo\Support\Assets;
 use Galaxie\Woo\Support\CartParts;
+use Galaxie\Woo\Support\GiftKit;
 use Galaxie\Woo\Support\PixfortControls;
 
 defined( 'ABSPATH' ) || exit;
@@ -344,7 +345,7 @@ final class KitProgressWidget extends Widget_Base {
 
 		// Without a kit.
 		printf( '<div class="galaxie-kit-progress-part galaxie-kit-progress-invite" data-kit-invite%s>', 'invite' === $preview ? '' : ' hidden' );
-		printf( '<div class="galaxie-kit-progress-text">%s</div>', PixfortControls::render_text( $settings, 'progress_text', esc_html( (string) ( $settings['invite_text'] ?? '' ) ) ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pixfort's element around escaped text.
+		printf( '<div class="galaxie-kit-progress-text">%s</div>', PixfortControls::render_text( $settings, 'progress_text', GiftKit::html( (string) ( $settings['invite_text'] ?? '' ) ) ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pixfort's element around text through wp_kses().
 		echo $this->button( $settings, 'progress_invite', 'open', (string) ( $settings['invite_button'] ?? '' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in button().
 		echo '</div>';
 
@@ -363,7 +364,7 @@ final class KitProgressWidget extends Widget_Base {
 
 		printf(
 			'<div class="galaxie-kit-progress-text">%s</div>',
-			PixfortControls::render_text( $settings, 'progress_text', '<span data-slot="line">' . esc_html( $editing ? $line : '' ) . '</span>' ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pixfort's element around escaped text.
+			PixfortControls::render_text( $settings, 'progress_text', '<span data-slot="line">' . GiftKit::html( $editing ? $line : '' ) . '</span>' ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pixfort's element around text through wp_kses().
 		);
 
 		echo $this->button( $settings, 'progress_link', 'view', (string) ( $settings['view_text'] ?? '' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in button().
