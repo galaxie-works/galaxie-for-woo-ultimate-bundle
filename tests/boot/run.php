@@ -184,7 +184,7 @@ function galaxie_boot_kit( array $booted, array $scenario, callable $hooked ): s
 		$buybox = new \Galaxie\Woo\Modules\VariationSwatches\Widget\BuyBoxWidget();
 		$buybox->register_for_test();
 
-		foreach ( array( 'giftwrap_enable', 'giftkit_start_text', 'giftkit_add_text', 'giftkit_full_text', 'giftwrap_popup_link', 'giftkit_btn_style' ) as $control ) {
+		foreach ( array( 'giftwrap_enable', 'giftkit_start_text', 'giftkit_add_text', 'giftkit_full_text', 'giftkit_cap_text', 'giftwrap_popup_link', 'giftkit_btn_style' ) as $control ) {
 			if ( ! isset( $buybox->controls[ $control ] ) ) {
 				throw new RuntimeException( "Kit: Buy Box has no {$control} control" );
 			}

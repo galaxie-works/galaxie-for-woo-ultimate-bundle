@@ -536,6 +536,8 @@ final class BuyBoxWidget extends Widget_Base {
 			'giftkit_start_text' => array( __( 'Text with no kit open', 'galaxie-woo' ), __( 'Montar um kit ou presente', 'galaxie-woo' ) ),
 			'giftkit_add_text'   => array( __( 'Text with a kit open', 'galaxie-woo' ), __( 'Adicionar ao kit {kit}', 'galaxie-woo' ) ),
 			'giftkit_full_text'  => array( __( 'Text when the candle does not fit', 'galaxie-woo' ), __( 'Não cabe na caixa deste kit', 'galaxie-woo' ) ),
+			/* translators: {n}: how many fit. Kept for the script. */
+			'giftkit_cap_text'   => array( __( 'When fewer fit than the quantity chosen ({n})', 'galaxie-woo' ), __( 'Cabem só {n} no kit', 'galaxie-woo' ) ),
 		);
 
 		foreach ( $texts as $key => $text ) {
@@ -1255,18 +1257,20 @@ final class BuyBoxWidget extends Widget_Base {
 		$start   = (string) ( $settings['giftkit_start_text'] ?? '' );
 		$add     = (string) ( $settings['giftkit_add_text'] ?? '' );
 		$full    = (string) ( $settings['giftkit_full_text'] ?? '' );
+		$cap     = (string) ( $settings['giftkit_cap_text'] ?? '' );
 		$preview = $editing ? (string) ( $settings['giftkit_preview'] ?? 'start' ) : 'start';
 		$label   = 'add' === $preview ? str_replace( '{kit}', __( 'Kit 1', 'galaxie-woo' ), $add ) : ( 'full' === $preview ? $full : $start );
 
 		printf(
-			'<div class="galaxie-buybox-kit%1$s" data-galaxie-kit-button data-popup="%2$d" data-candles="%3$s" data-text-start="%4$s" data-text-add="%5$s" data-text-full="%6$s"%7$s>',
+			'<div class="galaxie-buybox-kit%1$s" data-galaxie-kit-button data-popup="%2$d" data-candles="%3$s" data-text-start="%4$s" data-text-add="%5$s" data-text-full="%6$s" data-text-cap="%8$s"%7$s>',
 			$editing ? '' : ' is-loading',
 			(int) $popup,
 			esc_attr( (string) wp_json_encode( (object) $candles ) ),
 			esc_attr( $start ),
 			esc_attr( $add ),
 			esc_attr( $full ),
-			$editing ? ' data-editing="1"' : ''
+			$editing ? ' data-editing="1"' : '',
+			esc_attr( $cap )
 		);
 
 		printf(

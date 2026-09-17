@@ -8,7 +8,9 @@
  * - a kit open: "Adicionar ao kit {kit}" — adds the candle, updates the badge
  *   and the widgets from the answer, and says so in a toast;
  * - a kit whose box cannot take this candle: disabled, "Não cabe na caixa deste
- *   kit"; otherwise the quantity field is capped to what fits.
+ *   kit"; a quantity past what fits is added as what fits, and the button says
+ *   so ("Cabem só 2 no kit"). The quantity field itself is Add to Cart's and Buy
+ *   Now's too, so it is never capped here.
  * With no valid variation, the click gets the same Buy Box alert as Add to Cart.
  *
  * The page is cached, so the widget prints the button hidden (`is-loading`) and
@@ -29,6 +31,8 @@ import type { KitView } from '@/globals/kit-store'
 import { showToast } from '@/globals/toast-notices'
 
 interface ButtonState {
+  /** What fits of the chosen candle, as last painted; null: not limited here. */
+  cap: number | null
   form: HTMLFormElement
   holder: HTMLElement
   button: HTMLButtonElement
@@ -59,36 +63,6 @@ function chosen(form: HTMLFormElement): { id: number; qty: number } {
   const field = quantityField(form)
 
   return { id: variation || (form.querySelector('.variations select') ? 0 : product), qty: field ? Math.max(1, Number(field.value) || 1) : 1 }
-}
-
-/** Caps the quantity field to what fits, and puts its own limit back without a kit. */
-function capQuantity(form: HTMLFormElement, cap: number | null): void {
-  const field = quantityField(form)
-  if (!field) return
-
-  if (field instanceof HTMLSelectElement) {
-    Array.from(field.options).forEach((option) => {
-      option.disabled = cap !== null && Number(option.value) > cap
-    })
-    if (cap !== null && cap > 0 && Number(field.value) > cap) {
-      field.value = String(cap)
-      field.dispatchEvent(new Event('change', { bubbles: true }))
-    }
-    return
-  }
-
-  if (field.dataset.kitMax === undefined) field.dataset.kitMax = field.getAttribute('max') ?? ''
-
-  const own = field.dataset.kitMax ? Number(field.dataset.kitMax) : Infinity
-  const limit = cap === null ? own : Math.min(own, Math.max(1, cap))
-
-  if (Number.isFinite(limit)) field.max = String(limit)
-  else field.removeAttribute('max')
-
-  if (cap !== null && cap > 0 && Number(field.value) > limit) {
-    field.value = String(limit)
-    field.dispatchEvent(new Event('change', { bubbles: true }))
-  }
 }
 
 const caps = new Map<string, number | null>()
@@ -139,6 +113,9 @@ function paint(state: ButtonState): void {
       if (cap !== null && cap < 1) {
         disabled = true
         text = holder.dataset.textFull ?? text
+      } else if (cap !== null && chosen(form).qty > cap) {
+        // Only the kit's add is limited: the field stays Add to Cart's.
+        text = `${text} · ${fillText(holder.dataset.textCap ?? '', { n: String(cap) })}`
       }
     }
   }
@@ -149,13 +126,17 @@ function paint(state: ButtonState): void {
   holder.classList.toggle('is-full', disabled)
   holder.classList.toggle('has-kit', !!kit)
 
-  capQuantity(form, cap)
+  state.cap = cap
 }
 
 async function add(state: ButtonState, kit: KitView): Promise<void> {
   const { form, holder } = state
-  const { id, qty } = chosen(form)
+  const { id, qty: asked } = chosen(form)
   const wasFull = kit.full
+
+  // What fits, when less than asked: added as that, and said.
+  const qty = state.cap !== null && state.cap > 0 ? Math.min(asked, state.cap) : asked
+  const limited = qty < asked
 
   state.busy = true
   paint(state)
@@ -174,7 +155,8 @@ async function add(state: ButtonState, kit: KitView): Promise<void> {
   const next = result.data?.kit ?? null
   const texts = kitConfig()?.texts ?? {}
 
-  showToast(fillText(texts.added ?? '', kitValues(next)), 'success')
+  const note = limited ? `${fillText(holder.dataset.textCap ?? '', { n: String(qty) })} ` : ''
+  showToast(note + fillText(texts.added ?? '', kitValues(next)), limited ? 'info' : 'success')
 
   if (next?.full && !wasFull) celebrate(holder)
 }
@@ -192,6 +174,7 @@ function init(holder: HTMLElement): void {
   }
 
   const state: ButtonState = {
+    cap: null,
     form,
     holder,
     button,
