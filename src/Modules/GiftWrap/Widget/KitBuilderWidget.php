@@ -172,6 +172,24 @@ final class KitBuilderWidget extends Widget_Base {
 		);
 	}
 
+	/**
+	 * How a flex container spreads what it holds. Empty: whatever the
+	 * stylesheet already does.
+	 *
+	 * @return array<string,string>
+	 */
+	private static function distribution(): array {
+		return array(
+			''              => __( 'Default', 'galaxie-woo' ),
+			'flex-start'    => __( 'Start', 'galaxie-woo' ),
+			'center'        => __( 'Middle', 'galaxie-woo' ),
+			'flex-end'      => __( 'End', 'galaxie-woo' ),
+			'space-between' => __( 'Space between', 'galaxie-woo' ),
+			'space-around'  => __( 'Space around', 'galaxie-woo' ),
+			'space-evenly'  => __( 'Space evenly', 'galaxie-woo' ),
+		);
+	}
+
 	/** Icons by screen, shown before the title. */
 	private const ICONS = array(
 		'welcome'  => 'Line/pixfort-icon-gift-1',
@@ -583,7 +601,119 @@ final class KitBuilderWidget extends Widget_Base {
 				'selectors'   => array( '{{WRAPPER}} .galaxie-kit-scroll' => 'max-height: {{SIZE}}{{UNIT}}; overflow-y: auto;' ),
 			)
 		);
+		// The popup holds three blocks in a column — the steps, the step's content
+		// and its buttons. A popup with a height of its own needs to say how the
+		// three share it, or one screen sits at the top and the next at the
+		// bottom. The height is what makes a distribution mean anything: without
+		// it the column is exactly as tall as its content.
+		$this->heading( 'kit_distribute_heading', __( 'The three blocks', 'galaxie-woo' ) );
+		$this->add_responsive_control(
+			'kit_min_height',
+			array(
+				'label'       => __( 'Minimum height', 'galaxie-woo' ),
+				'description' => __( 'Empty: as tall as the content. A height is what gives the distribution below something to share.', 'galaxie-woo' ),
+				'type'        => Controls_Manager::SLIDER,
+				'size_units'  => array( 'px', 'vh' ),
+				'range'       => array( 'px' => array( 'min' => 100, 'max' => 900 ), 'vh' => array( 'min' => 10, 'max' => 90 ) ),
+				'selectors'   => array( '{{WRAPPER}} .galaxie-kit-builder' => 'min-height: {{SIZE}}{{UNIT}};' ),
+			)
+		);
+		$this->add_responsive_control(
+			'kit_distribute',
+			array(
+				'label'     => __( 'Distribute the blocks', 'galaxie-woo' ),
+				'type'      => Controls_Manager::SELECT,
+				'default'   => '',
+				'options'   => self::distribution(),
+				'selectors' => array( '{{WRAPPER}} .galaxie-kit-builder' => 'justify-content: {{VALUE}};' ),
+			)
+		);
+		$this->add_control(
+			'kit_screen_grow',
+			array(
+				'label'        => __( 'The step takes the leftover height', 'galaxie-woo' ),
+				'description'  => __( 'Then the content and the buttons share what is left under the steps.', 'galaxie-woo' ),
+				'type'         => Controls_Manager::SWITCHER,
+				'return_value' => 'yes',
+				'default'      => '',
+				'selectors'    => array( '{{WRAPPER}} .galaxie-kit-screen' => 'flex: 1 1 auto;' ),
+			)
+		);
+		$this->add_responsive_control(
+			'kit_screen_distribute',
+			array(
+				'label'     => __( 'Content and buttons inside the step', 'galaxie-woo' ),
+				'type'      => Controls_Manager::SELECT,
+				'default'   => '',
+				'options'   => self::distribution(),
+				'selectors' => array( '{{WRAPPER}} .galaxie-kit-screen' => 'justify-content: {{VALUE}};' ),
+			)
+		);
+
+		$this->heading( 'steps_align_heading', __( 'The steps block', 'galaxie-woo' ) );
+		$this->add_responsive_control(
+			'steps_justify',
+			array(
+				'label'     => __( 'Spread the steps', 'galaxie-woo' ),
+				'type'      => Controls_Manager::SELECT,
+				'default'   => 'space-between',
+				'options'   => self::distribution(),
+				'selectors' => array( '{{WRAPPER}} .galaxie-kit-steps' => 'justify-content: {{VALUE}};' ),
+			)
+		);
+		$this->add_responsive_control(
+			'steps_grow',
+			array(
+				'label'        => __( 'Each step takes the same width', 'galaxie-woo' ),
+				'type'         => Controls_Manager::SWITCHER,
+				'return_value' => 'yes',
+				'default'      => 'yes',
+				'selectors'    => array( '{{WRAPPER}} .galaxie-kit-step' => 'flex: 1 1 0;' ),
+			)
+		);
+
+		$this->heading( 'content_align_heading', __( 'The content block', 'galaxie-woo' ) );
+		$this->add_responsive_control(
+			'content_align',
+			array(
+				'label'     => __( 'Align what is inside', 'galaxie-woo' ),
+				'type'      => Controls_Manager::SELECT,
+				'default'   => '',
+				'options'   => array(
+					''           => __( 'Full width', 'galaxie-woo' ),
+					'flex-start' => __( 'Left', 'galaxie-woo' ),
+					'center'     => __( 'Center', 'galaxie-woo' ),
+					'flex-end'   => __( 'Right', 'galaxie-woo' ),
+				),
+				'selectors' => array( '{{WRAPPER}} .galaxie-kit-content' => 'align-items: {{VALUE}};' ),
+			)
+		);
+		$this->add_responsive_control(
+			'content_text_align',
+			array(
+				'label'     => __( 'Align the text', 'galaxie-woo' ),
+				'type'      => Controls_Manager::CHOOSE,
+				'options'   => array(
+					'left'   => array( 'title' => __( 'Left', 'galaxie-woo' ), 'icon' => 'eicon-text-align-left' ),
+					'center' => array( 'title' => __( 'Center', 'galaxie-woo' ), 'icon' => 'eicon-text-align-center' ),
+					'right'  => array( 'title' => __( 'Right', 'galaxie-woo' ), 'icon' => 'eicon-text-align-right' ),
+				),
+				'selectors' => array( '{{WRAPPER}} .galaxie-kit-content' => 'text-align: {{VALUE}};' ),
+			)
+		);
+
 		$this->heading( 'actions_heading', __( 'The row of buttons', 'galaxie-woo' ) );
+		$this->add_responsive_control(
+			'actions_justify',
+			array(
+				'label'     => __( 'Spread the buttons', 'galaxie-woo' ),
+				'description' => __( 'The Back / Next row is spread apart unless you choose otherwise here.', 'galaxie-woo' ),
+				'type'      => Controls_Manager::SELECT,
+				'default'   => '',
+				'options'   => self::distribution(),
+				'selectors' => array( '{{WRAPPER}} .galaxie-kit-actions' => 'justify-content: {{VALUE}};' ),
+			)
+		);
 		$this->add_responsive_control(
 			'actions_gap',
 			array(
