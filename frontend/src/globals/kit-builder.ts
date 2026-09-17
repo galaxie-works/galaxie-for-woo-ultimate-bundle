@@ -32,6 +32,7 @@ import { ask } from '@/lib/dialog'
 import { burst } from '@/globals/confetti'
 import { currentKit, kitCall, kitConfig, kitUnits, kitValues, onKit, refreshKit, roomSentence } from '@/globals/kit-store'
 import type { KitAnswer, KitBox, KitCard, KitCatalog, KitPending, KitView } from '@/globals/kit-store'
+import type { Wording } from '@/lib/gift-kit'
 
 export interface KitIntent {
   screen?: 'welcome' | 'summary'
@@ -206,6 +207,30 @@ function create(root: HTMLElement): Controller {
     return pendingText()
   }
 
+  /**
+   * Whether a box takes these candles, and what is left beside them — each
+   * asked once per opening (the search is budgeted, but a click redraws every
+   * box). An empty box's answer comes with the catalog.
+   */
+  const packed = new Map<string, { holds: boolean; room: Wording }>()
+
+  function packingFor(box: KitBox, units: Candle[]): { holds: boolean; room: Wording } {
+    if (!units.length && box.holds) return { holds: true, room: box.holds }
+
+    const key = `${box.id}|${units.map((u) => `${u.size}:${u.length}x${u.width}x${u.height}`).join(',')}`
+    let found = packed.get(key)
+
+    if (!found) {
+      // Past the packing search's dozen nothing is a fit (and nothing is searched).
+      const holds = !units.length || (units.length <= MAX_ITEMS && fits(box.shape, units, catalog?.options ?? {}))
+      const room = holds ? wording(combos(box.shape, units, catalog?.sizes ?? [], catalog?.options ?? {}), labels()) : { state: 'full' as const, combos: '' }
+      found = { holds, room }
+      packed.set(key, found)
+    }
+
+    return found
+  }
+
   function boxOf(id: number): KitBox | null {
     return catalog?.boxes.find((box) => box.id === id) ?? null
   }
@@ -299,8 +324,6 @@ function create(root: HTMLElement): Controller {
     if (!list || !catalog) return
 
     const units = unitsToHold()
-    const sizes = catalog.sizes
-    const options = catalog.options
     const kit = currentKit()
     const current = mode === 'change-box' ? (kit?.box?.id ?? 0) : 0
     let usable = 0
@@ -309,19 +332,20 @@ function create(root: HTMLElement): Controller {
       const node = clone(root, 'choice')
       if (!node) return null
 
-      // Past the packing search's dozen nothing is a fit (and nothing is searched).
-      const holds = !units.length || (units.length <= MAX_ITEMS && fits(box.shape, units, options))
+      const answer = packingFor(box, units)
+      const holds = answer.holds
       const sold = box.stock === 0 && box.id !== current
       const disabled = !holds || sold
       if (!disabled) usable++
 
-      // What it takes empty, or what is still left beside these candles.
-      const room = wording(combos(box.shape, units, sizes, options), labels())
+      // What it takes empty (worked out on the server, once for everyone), or
+      // what is still left beside these candles.
+      const room = answer.room
       const holdsText = units.length
         ? holds
           ? roomSentence(room, kitValues(kit))
           : ''
-        : room.state === 'full'
+        : room.state === 'full' || room.state === 'unknown'
           ? ''
           : fillText(config?.texts.box_holds ?? '', { combos: room.combos })
 
@@ -426,7 +450,9 @@ function create(root: HTMLElement): Controller {
     const values = kitValues(kit)
 
     setText(textTarget(slot(el, 'title')), fillText(texts.continue_title ?? '', values))
-    setText(slot(el, 'text'), kit?.full ? (texts.continue_full ?? '') : fillText(texts.continue_text ?? '', values))
+    const state = kit?.room.state
+    // Nothing settled in time: say nothing rather than a list with a hole in it.
+    setText(slot(el, 'text'), kit?.full ? (texts.continue_full ?? '') : state === 'many' || state === 'one' ? fillText(texts.continue_text ?? '', values) : '')
   }
 
   function drawSummary(): void {
@@ -569,6 +595,7 @@ function create(root: HTMLElement): Controller {
     }
 
     catalog = answer.catalog
+    packed.clear()
     pending = next.pending ? (answer.pending ?? null) : null
     mode = 'new'
 

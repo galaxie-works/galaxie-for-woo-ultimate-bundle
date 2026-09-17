@@ -47,4 +47,12 @@ interface Catalog {
 
 	/** A price as the store prints it, as plain text. */
 	public function money( float $amount ): string;
+
+	/**
+	 * A packing answer every shopper shares, kept between requests (the site: a
+	 * transient flushed with the store sizes). `$compute` runs when it is not kept.
+	 *
+	 * @return mixed
+	 */
+	public function remember( string $key, callable $compute );
 }

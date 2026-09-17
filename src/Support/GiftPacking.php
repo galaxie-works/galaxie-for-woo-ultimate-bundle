@@ -59,6 +59,59 @@ final class GiftPacking {
 	/** Largest group `arrange()` and `summary()` consider at once. */
 	public const MAX_ITEMS = 12;
 
+	/** Transient holding the kit popup's "Leva até …" per box, flushed with the sizes. */
+	public const HOLDS_TRANSIENT = 'galaxie_kit_holds';
+
+	/** hrtime() past which fits() gives up; null for no clock (the default). */
+	private static ?int $deadline = null;
+
+	/** Whether a fits() gave up on the clock since the deadline was set. */
+	private static bool $expired = false;
+
+	/**
+	 * Runs `$run` with a wall-clock limit on every fits() inside it. A fits()
+	 * that runs out answers "does not fit", like the step limit, and the second
+	 * value says whether any did — so the caller can tell a real "no" from an
+	 * unknown one. Nested calls keep the earlier deadline when it is sooner.
+	 *
+	 * @param float    $ms  Milliseconds.
+	 * @param callable $run Called with no arguments.
+	 * @return array{0:mixed, 1:bool} [ what $run returned, whether the clock ran out ]
+	 */
+	public static function with_deadline( float $ms, callable $run ): array {
+		$previous = self::$deadline;
+		$was      = self::$expired;
+		$mine     = hrtime( true ) + (int) round( max( 0.0, $ms ) * 1e6 );
+
+		self::$deadline = null === $previous ? $mine : min( $previous, $mine );
+		self::$expired  = false;
+
+		try {
+			$result  = $run();
+			$expired = self::$expired;
+		} finally {
+			$inner          = self::$expired;
+			self::$deadline = $previous;
+			self::$expired  = $was || ( null !== $previous && $inner );
+		}
+
+		return array( $result, $expired );
+	}
+
+	/** Whether the running deadline has passed (and remembers it). */
+	private static function late(): bool {
+		if ( null === self::$deadline ) {
+			return false;
+		}
+
+		if ( self::$expired || hrtime( true ) > self::$deadline ) {
+			self::$expired = true;
+			return true;
+		}
+
+		return false;
+	}
+
 	/**
 	 * Whether all these candles go in the box together.
 	 *
@@ -81,6 +134,10 @@ final class GiftPacking {
 		}
 
 		if ( ( $max > 0 && $n > $max ) || $bx <= 0 || $by <= 0 || $bz <= 0 ) {
+			return false;
+		}
+
+		if ( self::late() ) {
 			return false;
 		}
 
@@ -155,6 +212,7 @@ final class GiftPacking {
 			'dead'   => array(),
 			'stop'   => false,
 			'proved' => false,
+			'clock'  => 0,
 		);
 
 		return self::place( $search, -1, $n, $area );
@@ -687,6 +745,7 @@ final class GiftPacking {
 		self::$sizes = array();
 		self::$terms = array();
 		delete_transient( self::SIZES_TRANSIENT );
+		delete_transient( self::HOLDS_TRANSIENT );
 	}
 
 	/**
@@ -824,6 +883,12 @@ final class GiftPacking {
 			// Work, not just states, is what the limit counts: a fine grid of
 			// corners makes each state expensive.
 			if ( ++$s['steps'] > self::STEP_LIMIT ) {
+				$s['stop'] = true;
+				return false;
+			}
+
+			// The clock, every 1024 corners, when with_deadline() set one.
+			if ( null !== self::$deadline && 0 === ( ++$s['clock'] & 1023 ) && self::late() ) {
 				$s['stop'] = true;
 				return false;
 			}

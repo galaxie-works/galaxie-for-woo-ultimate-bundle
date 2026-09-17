@@ -98,6 +98,50 @@ interface Search {
   stop: boolean
   /** The conservative-scale bound showed the candles cannot fit. */
   proved: boolean
+  /** Corners tried, for the clock. */
+  clock: number
+}
+
+/** performance.now() past which fits() gives up; null for no clock (the default). */
+let deadline: number | null = null
+let expiredFlag = false
+
+function now(): number {
+  return typeof performance !== 'undefined' && typeof performance.now === 'function' ? performance.now() : Date.now()
+}
+
+function late(): boolean {
+  if (deadline === null) return false
+  if (expiredFlag || now() > deadline) {
+    expiredFlag = true
+    return true
+  }
+  return false
+}
+
+/**
+ * Runs `run` with a wall-clock limit on every fits() inside it; a fits() that
+ * runs out answers "does not fit". `expired` says whether any did. Twin of
+ * GiftPacking::with_deadline().
+ */
+export function withDeadline<T>(ms: number, run: () => T): { value: T; expired: boolean } {
+  const previous = deadline
+  const was = expiredFlag
+  const mine = now() + Math.max(0, ms)
+
+  deadline = previous === null ? mine : Math.min(previous, mine)
+  expiredFlag = false
+
+  let inner = false
+  try {
+    const value = run()
+    inner = expiredFlag
+    return { value, expired: inner }
+  } finally {
+    inner = inner || expiredFlag
+    deadline = previous
+    expiredFlag = was || (previous !== null && inner)
+  }
 }
 
 /** Whether all these candles go in the box together. */
@@ -114,6 +158,8 @@ export function fits(box: Box, candles: Candle[], options: PackingOptions = {}):
   if (n === 0) return true
 
   if ((max > 0 && n > max) || bx <= 0 || by <= 0 || bz <= 0) return false
+
+  if (late()) return false
 
   // Candles may stand a little proud of the base when the lid still closes over
   // them: usable height = height + overflow (the gap still applies).
@@ -170,6 +216,7 @@ export function fits(box: Box, candles: Candle[], options: PackingOptions = {}):
     dead: new Set<string>(),
     stop: false,
     proved: false,
+    clock: 0,
   }
 
   return place(search, -1, n, area)
@@ -462,6 +509,12 @@ function place(s: Search, last: number, left: number, area: number): boolean {
     // Work, not just states, is what the limit counts: a fine grid of corners
     // makes each state expensive.
     if (++s.steps > STEP_LIMIT) {
+      s.stop = true
+      return false
+    }
+
+    // The clock, every 1024 corners, when withDeadline() set one.
+    if (deadline !== null && (++s.clock & 1023) === 0 && late()) {
       s.stop = true
       return false
     }

@@ -65,6 +65,8 @@ export interface KitBox {
   shape: Box
   /** Card product id => the card variation for this box. */
   cards?: Record<string, number>
+  /** What the empty box takes (catalog only), worked out on the server. */
+  holds?: { state: RoomState; combos: string }
 }
 
 export interface KitCard {
@@ -304,7 +306,7 @@ export function kitUnits(view: KitView | null): Candle[] {
 /** "Ainda cabem …" / "Ainda cabe …" / "Caixa completa! 🎉", from the store's texts. */
 export function roomSentence(room: { state: string; combos: string } | null | undefined, values: Record<string, string> = {}): string {
   const texts = kitConfig()?.texts ?? {}
-  if (!room || room.state === 'none') return ''
+  if (!room || room.state === 'none' || room.state === 'unknown') return ''
 
   const template = room.state === 'full' ? texts.full : room.state === 'one' ? texts.room_one : texts.room_many
   return fillText(template ?? '', { combos: room.combos, ...values })

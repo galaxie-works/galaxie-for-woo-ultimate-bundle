@@ -32,6 +32,9 @@ final class Store {
 	/** Sentences for the next kit request to show (a login merge's notice). */
 	public const NOTICE_KEY = 'galaxie_kit_notices';
 
+	/** The draft's last packing answer ({@see self::remember()}). */
+	public const PACKING_KEY = 'galaxie_kit_packing';
+
 	/** Cookie telling the page's script a draft may exist. */
 	public const HINT_COOKIE = 'galaxie_kit';
 
@@ -103,6 +106,36 @@ final class Store {
 	/** An account's saved draft. */
 	public static function account_draft( int $user ): ?array {
 		return $user ? GiftKit::normalize( get_user_meta( $user, self::USER_META, true ) ) : null;
+	}
+
+	/**
+	 * One packing answer for this visitor's draft, kept in the session by key
+	 * (the draft's box, candles, sizes and options): the kit endpoint answers
+	 * every request with the draft, and the answer only changes with those.
+	 *
+	 * @return mixed
+	 */
+	public static function remember( string $key, callable $compute ) {
+		$session = self::session();
+		$kept    = $session ? $session->get( self::PACKING_KEY ) : null;
+
+		if ( is_array( $kept ) && ( $kept['key'] ?? null ) === $key && array_key_exists( 'value', $kept ) ) {
+			return $kept['value'];
+		}
+
+		$value = $compute();
+
+		if ( $session && self::get() ) {
+			self::session_set(
+				self::PACKING_KEY,
+				array(
+					'key'   => $key,
+					'value' => $value,
+				)
+			);
+		}
+
+		return $value;
 	}
 
 	/** A fresh draft id, lowercase letters and digits. */

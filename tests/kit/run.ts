@@ -10,6 +10,7 @@ import { isDeepStrictEqual } from 'node:util'
 
 import { cleanName, combos, defaultName, fillText, wording } from '../../frontend/src/lib/gift-kit.ts'
 import type { Combos, Wording } from '../../frontend/src/lib/gift-kit.ts'
+import { fits } from '../../frontend/src/lib/gift-packing.ts'
 import type { Box, Candle } from '../../frontend/src/lib/gift-packing.ts'
 
 interface Fixtures {
@@ -21,6 +22,7 @@ interface Fixtures {
   fill: { name: string; text: string; values: Record<string, string>; expect: string }[]
   clean_name: { name: string; name_in: string; expect: string }[]
   default_name: { name: string; used: string[]; expect: string }[]
+  timing: { name: string; box: string; candles: [string, number][]; sizes: string[]; max_ms: number }[]
 }
 
 const fixtures = JSON.parse(readFileSync(new URL('./fixtures.json', import.meta.url), 'utf8')) as Fixtures
@@ -45,6 +47,33 @@ for (const c of fixtures.combos) {
   const found = combos(boxes[c.box], expand(c.candles), c.sizes.map((s) => sizes[s]))
   check('combos', c.name, found, c.expect)
   check('combos wording', c.name, wording(found, fixtures.labels), c.wording)
+}
+
+// Timing: answered within the bound, and what is listed is true.
+for (const c of fixtures.timing) {
+  const box = boxes[c.box]
+  const inside = expand(c.candles)
+  const started = performance.now()
+  const found = combos(box, inside, c.sizes.map((s) => sizes[s]))
+  const ms = performance.now() - started
+
+  check('timing', `${c.name}: within ${c.max_ms} ms`, ms <= c.max_ms, true)
+  console.log(`        ${Math.round(ms)} ms, ${found.singles.length} single(s), ${found.mixes.length} mix(es), ${found.complete ? 'complete' : 'partial'}`)
+
+  const room = 12 - inside.length
+  let truth = true
+
+  for (const row of found.singles) {
+    const size = sizes[row[0].size]
+    const withN = (n: number): Candle[] => [...inside, ...Array.from({ length: n }, () => size)]
+    truth = truth && row.length === 1 && fits(box, withN(row[0].count)) && (row[0].count + 1 > room || !fits(box, withN(row[0].count + 1)))
+  }
+
+  for (const row of found.mixes) {
+    truth = truth && fits(box, [...inside, ...row.flatMap((entry) => Array.from({ length: entry.count }, () => sizes[entry.size]))])
+  }
+
+  check('timing', `${c.name}: every size listed is its exact most, every mix fits`, truth, true)
 }
 
 for (const c of fixtures.wording) {

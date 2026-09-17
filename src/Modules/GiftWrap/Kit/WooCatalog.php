@@ -21,6 +21,9 @@ defined( 'ABSPATH' ) || exit;
  */
 final class WooCatalog implements Catalog {
 
+	/** Shared packing answers kept at once. */
+	private const HOLDS_KEPT = 100;
+
 	/** @var array<int, array|null> */
 	private array $candles = array();
 
@@ -145,6 +148,28 @@ final class WooCatalog implements Catalog {
 
 	public function money( float $amount ): string {
 		return html_entity_decode( wp_strip_all_tags( wc_price( $amount ) ), ENT_QUOTES, get_bloginfo( 'charset' ) );
+	}
+
+	/**
+	 * In GiftPacking::HOLDS_TRANSIENT, a day at most, the newest HOLDS_KEPT
+	 * answers; GiftPacking::flush_sizes() clears it with the sizes.
+	 *
+	 * @return mixed
+	 */
+	public function remember( string $key, callable $compute ) {
+		$kept = get_transient( GiftPacking::HOLDS_TRANSIENT );
+		$kept = is_array( $kept ) ? $kept : array();
+
+		if ( array_key_exists( $key, $kept ) ) {
+			return $kept[ $key ];
+		}
+
+		$value        = $compute();
+		$kept[ $key ] = $value;
+
+		set_transient( GiftPacking::HOLDS_TRANSIENT, array_slice( $kept, -self::HOLDS_KEPT, null, true ), DAY_IN_SECONDS );
+
+		return $value;
 	}
 
 	/** @return array{box: array<int,\WC_Product>, ribbon: array<int,\WC_Product>, card: array<int,\WC_Product>} */

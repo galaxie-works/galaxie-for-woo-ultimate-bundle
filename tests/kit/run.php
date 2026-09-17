@@ -55,6 +55,7 @@ function get_user_meta( $user, $key, $single = false ) { return $GLOBALS['kt']['
 function update_user_meta( $user, $key, $value ) { $GLOBALS['kt']['meta'][ $user ][ $key ] = $value; return true; }
 function delete_user_meta( $user, $key ) { unset( $GLOBALS['kt']['meta'][ $user ][ $key ] ); return true; }
 function wp_generate_password( $length = 12, $special = true ) { static $n = 0; return substr( str_pad( 'Gen' . ( ++$n ), $length, 'x' ), 0, $length ); }
+function wp_json_encode( $data, $options = 0 ) { return json_encode( $data, $options ); }
 function wp_create_nonce( $action = -1 ) { return 'nonce:' . $action; }
 function check_ajax_referer( $action, $field ) {
 	$sent = $_REQUEST[ $field ] ?? '';
@@ -154,6 +155,7 @@ use Galaxie\Woo\Modules\GiftWrap\Kit\Kits;
 use Galaxie\Woo\Modules\GiftWrap\Kit\Store;
 use Galaxie\Woo\Support\GiftGroups;
 use Galaxie\Woo\Support\GiftKit;
+use Galaxie\Woo\Support\GiftPacking;
 
 /**
  * The test store: 190g (100, unlimited) and 50g (101, 5 left) candles; the big
@@ -217,6 +219,8 @@ final class KtCatalog implements Catalog {
 	public function message_max(): int { return 20; }
 	public function can_add( array $product, int $quantity ): string { return 101 === $product['id'] && $quantity > 3 ? 'A loja recusou.' : ''; }
 	public function money( float $amount ): string { return 'R$ ' . number_format( $amount, 2, ',', '.' ); }
+	public array $kept = array();
+	public function remember( string $key, callable $compute ) { return $this->kept[ $key ] ??= $compute(); }
 }
 
 // ---------------------------------------------------------------- runner
@@ -252,6 +256,38 @@ foreach ( $fixtures['combos'] as $case ) {
 	$found = GiftKit::combos( $fixtures['boxes'][ $case['box'] ], $expand( $case['candles'] ), $sizes );
 	$check( 'combos', $case['name'], $found, $case['expect'] );
 	$check( 'combos wording', $case['name'], GiftKit::wording( $found, $fixtures['labels'] ), $case['wording'] );
+}
+
+// Timing: answered within the bound, and what is listed is true.
+foreach ( $fixtures['timing'] as $case ) {
+	$box     = $fixtures['boxes'][ $case['box'] ];
+	$sizes   = array_map( static fn( string $s ): array => $fixtures['sizes'][ $s ], $case['sizes'] );
+	$inside  = $expand( $case['candles'] );
+	$started = hrtime( true );
+	$found   = GiftKit::combos( $box, $inside, $sizes );
+	$ms      = ( hrtime( true ) - $started ) / 1e6;
+
+	$check( 'timing', "{$case['name']}: within {$case['max_ms']} ms", $ms <= $case['max_ms'], true );
+	echo sprintf( "        %.0f ms, %d single(s), %d mix(es), %s\n", $ms, count( $found['singles'] ), count( $found['mixes'] ), $found['complete'] ? 'complete' : 'partial' );
+
+	$room = 12 - count( $inside );
+	$true = true;
+
+	foreach ( $found['singles'] as $row ) {
+		$size = $fixtures['sizes'][ $row[0]['size'] ] ?? null;
+		$with = static fn( int $n ): array => array_merge( $inside, array_fill( 0, $n, $size ) );
+		$true = $true && 1 === count( $row ) && GiftPacking::fits( $box, $with( $row[0]['count'] ) ) && ( $row[0]['count'] + 1 > $room || ! GiftPacking::fits( $box, $with( $row[0]['count'] + 1 ) ) );
+	}
+
+	foreach ( $found['mixes'] as $row ) {
+		$group = $inside;
+		foreach ( $row as $entry ) {
+			$group = array_merge( $group, array_fill( 0, $entry['count'], $fixtures['sizes'][ $entry['size'] ] ) );
+		}
+		$true = $true && GiftPacking::fits( $box, $group );
+	}
+
+	$check( 'timing', "{$case['name']}: every size listed is its exact most, every mix fits", $true, true );
 }
 
 foreach ( $fixtures['wording'] as $case ) {
@@ -395,6 +431,20 @@ $response = $call( 'start', array( 'name' => 'Stella', 'box' => '10', 'card' => 
 $check( 'ajax', 'a change with a wrong nonce is refused', array( $response->ok, $response->status ), array( false, 403 ) );
 $response = $call( 'start', array( 'name' => 'Stella', 'box' => '10', 'card' => '30', 'message' => 'Oi', 'candle' => '100', 'qty' => '2' ) );
 $check( 'ajax', 'start opens a session and answers with the kit and its new nonce', array( $response->ok, $response->data['kit']['name'], $response->data['kit']['count'], $response->data['nonce'] ), array( true, 'Stella', 2, 'nonce:galaxie_kit|guest42' ) );
+$kept = WC()->session->get( Store::PACKING_KEY );
+$check( 'cache', 'the draft\'s packing answer is kept in the session', array( is_array( $kept ), $kept['value']['room'] ?? null ), array( true, $response->data['kit']['room'] ) );
+WC()->session->set( Store::PACKING_KEY, array( 'key' => $kept['key'], 'value' => array( 'room' => array( 'state' => 'many', 'combos' => 'cached' ), 'extras' => array(), 'complete' => true, 'fill' => 7 ) ) );
+$check( 'cache', 'and read back while the draft is unchanged', array( $call( 'get', array(), '' )->data['kit']['room']['combos'], $call( 'get', array(), '' )->data['kit']['fill'] ), array( 'cached', 7 ) );
+WC()->session->set( Store::PACKING_KEY, $kept );
+$response = $call( 'get', array( 'catalog' => '1' ), '' );
+$check( 'cache', 'the catalog sends each box\'s "Leva até" answer', array_map( fn( $b ) => $b['holds'], $response->data['catalog']['boxes'] ), array( array( 'state' => 'many', 'combos' => '3 × 190g ou 4 × 50g ou 2 × 190g + 1 × 50g ou 1 × 190g + 3 × 50g' ), array( 'state' => 'many', 'combos' => '4 × 50g' ) ) );
+foreach ( array( array( 'big', array() ), array( 'big', array( array( '190g', 2 ) ) ), array( 'big', array( array( '190g', 1 ), array( '50g', 2 ) ) ), array( 'square', array( array( '50g', 3 ) ) ), array( 'big', array( array( '190g', 3 ) ) ) ) as list( $b, $pairs ) ) {
+	$inside = $expand( $pairs );
+	$sizes  = array( $fixtures['sizes']['190g'], $fixtures['sizes']['50g'] );
+	$check( 'fill', "{$b} with " . json_encode( $pairs ) . ': same as GiftGroups::fill()', GiftKit::fill_percent( GiftKit::combos( $fixtures['boxes'][ $b ], $inside, $sizes ), $sizes, count( $inside ) ), GiftGroups::fill( $fixtures['boxes'][ $b ], $inside, $sizes ) );
+}
+$check( 'fill', 'unknown room: an empty bar, never a full one', GiftKit::fill_percent( array( 'singles' => array(), 'mixes' => array(), 'complete' => false ), array( $fixtures['sizes']['50g'] ), 3 ), 0 );
+
 $response = $call( 'start', array( 'box' => '10' ) );
 $check( 'ajax', 'one draft at a time', array( $response->ok, $response->data['reason'], $response->data['kit']['name'] ), array( false, 'draft_open', 'Stella' ) );
 $response = $call( 'add_candle', array( 'candle' => '100', 'qty' => '5' ) );

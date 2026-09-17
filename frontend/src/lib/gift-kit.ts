@@ -9,7 +9,7 @@
  * test straight from source).
  */
 
-import { fits, MAX_ITEMS } from './gift-packing.ts'
+import { fits, MAX_ITEMS, withDeadline } from './gift-packing.ts'
 import type { Box, Candle, PackingOptions } from './gift-packing.ts'
 import { cleanMessage } from './gift-groups.ts'
 
@@ -22,6 +22,9 @@ export const MIXES = 2
 /** Fit checks one combos() call may make. */
 export const CHECK_LIMIT = 600
 
+/** Wall-clock budget of one combos() call, in ms (GiftKit::BUDGET_MS). */
+export const BUDGET_MS = 250
+
 export interface ComboEntry {
   size: string
   count: number
@@ -30,9 +33,11 @@ export interface ComboEntry {
 export interface Combos {
   singles: ComboEntry[][]
   mixes: ComboEntry[][]
+  /** False when some size's most could not be settled in the budget. */
+  complete?: boolean
 }
 
-export type RoomState = 'full' | 'one' | 'many'
+export type RoomState = 'full' | 'one' | 'many' | 'unknown'
 
 export interface Wording {
   state: RoomState
@@ -75,7 +80,7 @@ function compareDesc(a: number[], b: number[]): number {
 }
 
 /** What still fits, as rows of { size, count } in size order. See GiftKit::combos(). */
-export function combos(box: Box, candles: Candle[], sizes: Candle[], options: PackingOptions = {}): Combos {
+export function combos(box: Box, candles: Candle[], sizes: Candle[], options: PackingOptions = {}, budgetMs = BUDGET_MS): Combos {
   const list = ordered(sizes)
   const k = list.length
   let limit = MAX_ITEMS
@@ -85,72 +90,101 @@ export function combos(box: Box, candles: Candle[], sizes: Candle[], options: Pa
 
   const room = limit - candles.length
 
-  if (k === 0 || room < 1) return { singles: [], mixes: [] }
+  if (k === 0 || room < 1) return { singles: [], mixes: [], complete: true }
 
-  let checks = 0
-  const memo = new Map<string, boolean>()
+  const found = withDeadline(budgetMs, () => {
+    let checks = 0
+    const memo = new Map<string, boolean | null>()
 
-  const check = (v: number[]): boolean => {
-    const key = v.join(',')
-    const known = memo.get(key)
-    if (known !== undefined) return known
+    // true / false, or null when the answer is not known (budget, limit).
+    const check = (v: number[]): boolean | null => {
+      const key = v.join(',')
+      if (memo.has(key)) return memo.get(key) as boolean | null
 
-    if (sum(v) > room || checks >= CHECK_LIMIT) {
-      memo.set(key, false)
-      return false
+      if (sum(v) > room) {
+        memo.set(key, false)
+        return false
+      }
+
+      if (checks >= CHECK_LIMIT) return null
+
+      checks++
+      const group = [...candles]
+      v.forEach((c, i) => {
+        for (let j = 0; j < c; j++) group.push(list[i])
+      })
+
+      const result = withDeadline(3600000, () => fits(box, group, options))
+      // A "no" the clock gave is not an answer.
+      const answer = result.expired && !result.value ? null : result.value
+      memo.set(key, answer)
+      return answer
     }
 
-    checks++
-    const group = [...candles]
-    v.forEach((c, i) => {
-      for (let j = 0; j < c; j++) group.push(list[i])
-    })
-
-    const result = fits(box, group, options)
-    memo.set(key, result)
-    return result
-  }
-
-  const singles = new Map<number, number[]>()
-  const mixes: number[][] = []
-  const queue: number[][] = [new Array<number>(k).fill(0)]
-  const seen = new Set<string>([queue[0].join(',')])
-
-  for (let q = 0; q < queue.length; q++) {
-    const v = queue[q]
-    let maximal = true
+    // The most of each size alone: one size, so each check is quick.
+    const singles = new Map<number, number[]>()
+    let complete = true
 
     for (let i = 0; i < k; i++) {
-      const next = [...v]
-      next[i]++
+      let v = new Array<number>(k).fill(0)
+      let answer: boolean | null = true
 
-      if (!check(next)) continue
-
-      maximal = false
-      const key = next.join(',')
-
-      if (!seen.has(key)) {
-        seen.add(key)
-        queue.push(next)
+      for (;;) {
+        const next = [...v]
+        next[i]++
+        answer = check(next)
+        if (answer !== true) break
+        v = next
       }
+
+      if (answer === null) {
+        complete = false
+        continue
+      }
+
+      if (v[i] > 0) singles.set(i, v)
     }
 
-    const used = v.filter((c) => c > 0).length
+    // Mixes that leave no room for one more candle of any size.
+    const mixes: number[][] = []
+    let settled = complete
+    const queue: number[][] = [new Array<number>(k).fill(0)]
+    const seen = new Set<string>([queue[0].join(',')])
 
-    if (used === 1) {
-      const i = v.findIndex((c) => c > 0)
-      const next = [...v]
-      next[i]++
+    for (let q = 0; settled && q < queue.length; q++) {
+      const v = queue[q]
+      let maximal = true
 
-      if (!check(next)) singles.set(i, v)
-    } else if (used > 1 && maximal) {
-      mixes.push(v)
+      for (let i = 0; i < k; i++) {
+        const next = [...v]
+        next[i]++
+        const answer = check(next)
+
+        if (answer === null) {
+          settled = false
+          break
+        }
+
+        if (!answer) continue
+
+        maximal = false
+        const key = next.join(',')
+
+        if (!seen.has(key)) {
+          seen.add(key)
+          queue.push(next)
+        }
+      }
+
+      if (settled && maximal && v.filter((c) => c > 0).length > 1) mixes.push(v)
     }
-  }
+
+    return { singles, mixes: settled ? mixes : [], complete }
+  }).value
 
   const volumes = list.map(volume)
 
-  mixes.sort((a, b) => {
+  found.mixes.sort((a, b) => {
     const va = sum(a.map((c, i) => c * volumes[i]))
     const vb = sum(b.map((c, i) => c * volumes[i]))
     return vb - va || sum(b) - sum(a) || compareDesc(a, b)
@@ -160,21 +194,24 @@ export function combos(box: Box, candles: Candle[], sizes: Candle[], options: Pa
     v.flatMap((c, i) => (c > 0 ? [{ size: String(list[i].size), count: c }] : []))
 
   return {
-    singles: Array.from(singles.keys())
+    singles: Array.from(found.singles.keys())
       .sort((a, b) => a - b)
-      .map((i) => row(singles.get(i) as number[])),
-    mixes: mixes.slice(0, MIXES).map(row),
+      .map((i) => row(found.singles.get(i) as number[])),
+    mixes: found.mixes.slice(0, MIXES).map(row),
+    complete: found.complete,
   }
 }
 
 /** combos() in words. See GiftKit::wording(). */
 export function wording(found: Combos, labels: Record<string, string> = {}, or = ' ou ', plus = ' + '): Wording {
   const rows = [...found.singles, ...found.mixes]
+  const complete = found.complete !== false
 
-  if (!rows.length) return { state: 'full', combos: '' }
+  if (!rows.length) return { state: complete ? 'full' : 'unknown', combos: '' }
 
   const text = rows.map((entries) => entries.map((entry) => `${entry.count} × ${labels[entry.size] ?? entry.size}`).join(plus)).join(or)
-  const one = rows.length === 1 && sum(rows[0].map((entry) => entry.count)) === 1
+  // "Only one fits" is only said when every size was settled.
+  const one = complete && rows.length === 1 && sum(rows[0].map((entry) => entry.count)) === 1
 
   return { state: one ? 'one' : 'many', combos: text }
 }

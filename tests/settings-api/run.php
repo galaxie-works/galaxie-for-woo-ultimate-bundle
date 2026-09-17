@@ -432,7 +432,7 @@ $GLOBALS['gx_deleted'] = array();
 ProductMeta::changed( 1, 501, '_price' );
 $check( 'meta', 'another key changed: sizes cache kept', $GLOBALS['gx_deleted'], array() );
 ProductMeta::changed( 1, 501, '_galaxie_gift_height' );
-$check( 'meta', 'a size changed (any way, REST included): sizes cache cleared', $GLOBALS['gx_deleted'], array( GiftPacking::SIZES_TRANSIENT ) );
+$check( 'meta', 'a size changed (any way, REST included): sizes and kit "Leva até" caches cleared', $GLOBALS['gx_deleted'], array( GiftPacking::SIZES_TRANSIENT, GiftPacking::HOLDS_TRANSIENT ) );
 
 $variation = new WC_Product( array( 'id' => 501 ) );
 $touching  = new WP_REST_Request( array( 'meta_data' => array( array( 'key' => '_galaxie_box_overflow', 'value' => 1 ) ) ) );
@@ -507,7 +507,7 @@ $check( 'term meta', 'another term meta changed: sizes cache kept', $GLOBALS['gx
 foreach ( $GLOBALS['gx_hooks']['updated_term_meta'] ?? array() as $callback ) {
 	$callback( 1, 12, '_galaxie_gift_length' );
 }
-$check( 'term meta', 'a size term gift dimension changed (form or REST): sizes cache cleared', $GLOBALS['gx_deleted'], array( GiftPacking::SIZES_TRANSIENT ) );
+$check( 'term meta', 'a size term gift dimension changed (form or REST): sizes and kit "Leva até" caches cleared', $GLOBALS['gx_deleted'], array( GiftPacking::SIZES_TRANSIENT, GiftPacking::HOLDS_TRANSIENT ) );
 
 // ------------------------------------------------------------ gift wrap schema
 

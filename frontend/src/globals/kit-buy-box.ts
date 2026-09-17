@@ -17,9 +17,10 @@
  * lets the cap be worked out here with the engine's TypeScript twin.
  */
 
+import { MAX_ITEMS, withDeadline } from '@/lib/gift-packing'
 import type { Candle } from '@/lib/gift-packing'
 import { maxQuantity } from '@/lib/gift-groups'
-import { fillText } from '@/lib/gift-kit'
+import { BUDGET_MS, fillText } from '@/lib/gift-kit'
 import { tell } from '@/lib/dialog'
 import { blockedByChoice, findAlert, missingChoice, wooChoiceNotice } from '@/globals/buy-box-alert'
 import { celebrate, openKit } from '@/globals/kit-builder'
@@ -90,6 +91,31 @@ function capQuantity(form: HTMLFormElement, cap: number | null): void {
   }
 }
 
+const caps = new Map<string, number | null>()
+
+/**
+ * How many of this candle the kit's box still takes, or null when the search
+ * ran out of time: then nothing is capped or disabled (the server checks the
+ * add itself). Asked once per kit state and candle.
+ */
+function capFor(kit: KitView, candle: Candle): number | null {
+  const box = kit.box
+  if (!box) return 0
+
+  const units = kitUnits(kit)
+  if (units.length >= MAX_ITEMS) return 0
+
+  const key = JSON.stringify([box.id, units, candle, kit.options])
+  if (caps.has(key)) return caps.get(key) as number | null
+
+  const found = withDeadline(BUDGET_MS, () => maxQuantity(box.shape, units, candle, 0, kit.options))
+  const cap = found.expired ? null : found.value
+
+  if (caps.size > 50) caps.clear()
+  caps.set(key, cap)
+  return cap
+}
+
 function paint(state: ButtonState): void {
   const { form, holder, button } = state
   const kit = currentKit()
@@ -108,10 +134,9 @@ function paint(state: ButtonState): void {
     const candle = id ? state.candles[String(id)] : undefined
 
     if (candle && kit.box) {
-      const units = kitUnits(kit)
-      cap = units.length >= 12 ? 0 : maxQuantity(kit.box.shape, units, candle, 0, kit.options)
+      cap = capFor(kit, candle)
 
-      if (cap < 1) {
+      if (cap !== null && cap < 1) {
         disabled = true
         text = holder.dataset.textFull ?? text
       }

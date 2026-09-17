@@ -35,7 +35,16 @@ defined( 'ABSPATH' ) || exit;
  */
 final class Kits {
 
-	public function __construct( private Catalog $catalog ) {}
+	/** @var callable|null ( string $key, callable $compute ): mixed — the session's packing cache. */
+	private $remember;
+
+	/**
+	 * @param callable|null $remember Keeps the draft's packing answer between
+	 *                                requests ({@see Store::remember()}); none: computed each time.
+	 */
+	public function __construct( private Catalog $catalog, ?callable $remember = null ) {
+		$this->remember = $remember;
+	}
 
 	public function catalog(): Catalog {
 		return $this->catalog;
@@ -172,10 +181,9 @@ final class Kits {
 		}
 
 		$candle = $this->candle( $id );
-		$cap    = $this->room_for( $draft, $candle );
 
-		if ( $qty > $cap ) {
-			throw self::no_room( $cap );
+		if ( ! $this->takes( $draft, $candle, $qty ) ) {
+			throw self::no_room( $this->room_within( $draft, $candle ) );
 		}
 
 		$current = 0;
@@ -233,10 +241,9 @@ final class Kits {
 		$candle = $this->candle( $id );
 		$others = $draft;
 		unset( $others['candles'][ $index ] );
-		$cap = $this->room_for( $others, $candle );
 
-		if ( $qty > $cap ) {
-			throw self::no_room( $cap );
+		if ( ! $this->takes( $others, $candle, $qty ) ) {
+			throw self::no_room( $this->room_within( $others, $candle ) );
 		}
 
 		$this->check_stock( $candle, $qty, $in_cart );
@@ -276,25 +283,109 @@ final class Kits {
 	}
 
 	/**
-	 * What still fits, in words: { state: full|one|many, combos }.
+	 * Whether the draft's box takes `$qty` more of this candle: one fit check.
+	 */
+	private function takes( array $draft, array $candle, int $qty ): bool {
+		$box   = $this->catalog->boxes()[ (int) $draft['box'] ] ?? null;
+		$units = $this->units( $draft );
+
+		if ( ! $box || count( $units ) + $qty > GiftPacking::MAX_ITEMS ) {
+			return false;
+		}
+
+		for ( $i = 0; $i < $qty; $i++ ) {
+			$units[] = $candle['candle'];
+		}
+
+		return GiftPacking::fits( self::shape( $box ), $units, $this->catalog->options() );
+	}
+
+	/**
+	 * room_for() within the combinations' budget, for the refusal message and
+	 * the popup's + button: at worst it says less than fits, never more.
+	 */
+	private function room_within( array $draft, array $candle ): int {
+		list( $cap ) = GiftPacking::with_deadline( (float) GiftKit::BUDGET_MS, fn(): int => $this->room_for( $draft, $candle ) );
+
+		return (int) $cap;
+	}
+
+	/**
+	 * What still fits, in words: { state: full|one|many|unknown, combos }.
 	 *
 	 * @return array{state:string, combos:string}
 	 */
 	public function room( array $draft ): array {
+		return $this->packing( $draft )['room'];
+	}
+
+	/**
+	 * The draft's packing answer — what still fits, in words and per size, and
+	 * how full the box is — from one budgeted combos() call, kept in the session
+	 * by the draft's box, candles, the store's sizes and options.
+	 *
+	 * @return array{room: array{state:string, combos:string}, extras: array<string,int>, complete: bool, fill: int}
+	 */
+	public function packing( array $draft ): array {
 		$box = $this->catalog->boxes()[ (int) $draft['box'] ] ?? null;
 
 		if ( ! $box ) {
 			return array(
-				'state'  => 'none',
-				'combos' => '',
+				'room'     => array(
+					'state'  => 'none',
+					'combos' => '',
+				),
+				'extras'   => array(),
+				'complete' => true,
+				'fill'     => 0,
 			);
 		}
 
-		$sizes = $this->catalog->sizes();
+		$sizes   = $this->catalog->sizes();
+		$options = $this->catalog->options();
+		$units   = $this->units( $draft );
+		$key     = 'packing|' . md5( (string) wp_json_encode( array( self::shape( $box ), $units, $sizes, $options, GiftKit::BUDGET_MS ) ) );
 
-		return GiftKit::wording(
-			GiftKit::combos( self::shape( $box ), $this->units( $draft ), $sizes, $this->catalog->options() ),
-			self::labels( $sizes )
+		$compute = static function () use ( $box, $units, $sizes, $options ): array {
+			$combos = GiftKit::combos( self::shape( $box ), $units, $sizes, $options );
+			$extras = array();
+
+			foreach ( $combos['singles'] as $row ) {
+				$extras[ (string) $row[0]['size'] ] = (int) $row[0]['count'];
+			}
+
+			return array(
+				'room'     => GiftKit::wording( $combos, self::labels( $sizes ) ),
+				'extras'   => $extras,
+				'complete' => (bool) $combos['complete'],
+				'fill'     => GiftKit::fill_percent( $combos, $sizes, count( $units ) ),
+			);
+		};
+
+		$found = $this->remember ? ( $this->remember )( $key, $compute ) : $compute();
+
+		return is_array( $found ) && isset( $found['room'], $found['extras'] ) ? $found : $compute();
+	}
+
+	/**
+	 * "Leva até …" for an empty box: the same answer for every shopper, kept by
+	 * the catalog (a transient on the site) by box, sizes and options.
+	 *
+	 * @return array{state:string, combos:string}
+	 */
+	public function box_holds( array $box ): array {
+		$sizes   = $this->catalog->sizes();
+		$options = $this->catalog->options();
+		$key     = 'holds|' . md5( (string) wp_json_encode( array( self::shape( $box ), $sizes, $options, GiftKit::BUDGET_MS ) ) );
+
+		$found = $this->catalog->remember(
+			$key,
+			static fn(): array => GiftKit::wording( GiftKit::combos( self::shape( $box ), array(), $sizes, $options ), self::labels( $sizes ) )
+		);
+
+		return is_array( $found ) && isset( $found['state'] ) ? $found : array(
+			'state'  => 'unknown',
+			'combos' => '',
 		);
 	}
 
@@ -437,7 +528,13 @@ final class Kits {
 		$box     = $boxes[ (int) $draft['box'] ] ?? null;
 		$sizes   = $this->catalog->sizes();
 		$labels  = self::labels( $sizes );
+		$packing = $this->packing( $draft );
+		$shapes  = array();
 		$total   = 0.0;
+
+		foreach ( $sizes as $size ) {
+			$shapes[ (string) $size['size'] ] = array( (float) $size['length'], (float) $size['width'], (float) $size['height'] );
+		}
 		$count   = 0;
 		$candles = array();
 
@@ -477,7 +574,7 @@ final class Kits {
 				'candle'  => $candle['candle'],
 				'missing' => false,
 				// The most this line may hold, for the popup's + button.
-				'cap'     => $box ? min( $this->room_for( $others, $candle ), self::stock_left( $candle, $in_cart ) ) : (int) $line['qty'],
+				'cap'     => $box ? min( $this->line_cap( $packing, $shapes, $line, $candle, $others ), self::stock_left( $candle, $in_cart ) ) : (int) $line['qty'],
 			);
 		}
 
@@ -501,12 +598,11 @@ final class Kits {
 			);
 		}
 
-		$room = $this->room( $draft );
-		$fill = 0;
+		$room = $packing['room'];
+		$fill = $packing['fill'];
 
 		if ( $box ) {
 			$total += $box['price'];
-			$fill   = GiftGroups::fill( self::shape( $box ), $this->units( $draft ), $sizes, $this->catalog->options() );
 		}
 
 		$warnings = array();
@@ -585,6 +681,25 @@ final class Kits {
 		}
 
 		return GiftKit::units( $draft['candles'], $shapes );
+	}
+
+	/**
+	 * The most a candle line may hold: its quantity plus what the packing
+	 * answer says still fits of its size, when the candle is exactly that
+	 * size's shape; otherwise the line's own search, within the budget.
+	 *
+	 * @param array                         $packing From packing().
+	 * @param array<string, array<int,float>> $shapes  Size => [ length, width, height ].
+	 */
+	private function line_cap( array $packing, array $shapes, array $line, array $candle, array $others ): int {
+		$size = (string) $candle['candle']['size'];
+		$same = isset( $shapes[ $size ] ) && array( (float) $candle['candle']['length'], (float) $candle['candle']['width'], (float) $candle['candle']['height'] ) === $shapes[ $size ];
+
+		if ( $same && ( isset( $packing['extras'][ $size ] ) || $packing['complete'] ) ) {
+			return (int) $line['qty'] + (int) ( $packing['extras'][ $size ] ?? 0 );
+		}
+
+		return max( (int) $line['qty'], $this->room_within( $others, $candle ) );
 	}
 
 	/** "Kit %d", translatable. */

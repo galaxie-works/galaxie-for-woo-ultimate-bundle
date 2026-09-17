@@ -69,12 +69,12 @@ final class Ajax {
 	}
 
 	public static function kits(): Kits {
-		return self::$kits ??= new Kits( new WooCatalog() );
+		return self::$kits ??= new Kits( new WooCatalog(), array( Store::class, 'remember' ) );
 	}
 
 	/** Another catalog for every later request in this process (tests/kit/run.php). */
 	public static function use_catalog( Catalog $catalog ): void {
-		self::$kits  = new Kits( $catalog );
+		self::$kits  = new Kits( $catalog, array( Store::class, 'remember' ) );
 		self::$carts = null;
 	}
 
@@ -266,6 +266,8 @@ final class Ajax {
 		foreach ( $catalog->boxes() as $id => $box ) {
 			$row      = Kits::box_json( $box );
 			$row['priceText'] = $catalog->money( (float) $box['price'] );
+			// "Leva até …", worked out once for every shopper, not in each browser.
+			$row['holds'] = $kits->box_holds( $box );
 			$row['cards']     = new \stdClass();
 
 			foreach ( $catalog->cards() as $card ) {
