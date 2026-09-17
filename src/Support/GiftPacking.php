@@ -663,9 +663,13 @@ final class GiftPacking {
 				)
 			);
 
+			// `fields => 'id=>parent'` hands back [ variation id => parent id ],
+			// not rows: read as objects, every variation was thrown away here and
+			// the store ended up with no size at all.
+			//
 			// Only variations of published products: a draft or trashed candle
 			// must not widen the shape of its size.
-			$parents   = array_values( array_unique( array_map( static fn( $row ): int => (int) $row->post_parent, $rows ) ) );
+			$parents   = array_values( array_unique( array_map( 'intval', (array) $rows ) ) );
 			$published = $parents ? array_flip(
 				get_posts(
 					array(
@@ -680,12 +684,12 @@ final class GiftPacking {
 			) : array();
 
 			$found = array();
-			foreach ( $rows as $row ) {
-				if ( ! isset( $published[ (int) $row->post_parent ] ) ) {
+			foreach ( (array) $rows as $variation => $parent ) {
+				if ( ! isset( $published[ (int) $parent ] ) ) {
 					continue;
 				}
 
-				$product = wc_get_product( (int) $row->ID );
+				$product = wc_get_product( (int) $variation );
 				$candle  = $product ? self::candle_from_product( $product, $attribute ) : null;
 
 				if ( $candle ) {
@@ -769,15 +773,15 @@ final class GiftPacking {
 				)
 			);
 
-			$report['matched'] += count( $rows );
+			$report['matched'] += count( (array) $rows );
 
-			foreach ( $rows as $row ) {
-				if ( 'publish' !== get_post_status( (int) $row->post_parent ) ) {
+			foreach ( (array) $rows as $variation => $parent ) {
+				if ( 'publish' !== get_post_status( (int) $parent ) ) {
 					continue;
 				}
 
 				++$report['published'];
-				$product = wc_get_product( (int) $row->ID );
+				$product = wc_get_product( (int) $variation );
 
 				if ( $product && self::candle_from_product( $product, $attribute ) ) {
 					++$report['measured'];
