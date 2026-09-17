@@ -44,6 +44,8 @@ function sanitize_key( $key ) { return preg_replace( '/[^a-z0-9_\-]/', '', strto
 function wp_unslash( $value ) { return $value; }
 function absint( $value ) { return abs( (int) $value ); }
 function home_url( $path = '' ) { return 'https://example.test/' . ltrim( $path, '/' ); }
+function site_url( $path = '' ) { return home_url( $path ); }
+function wp_parse_url( $url, $component = -1 ) { return parse_url( $url, $component ); }
 function wc_get_page_permalink( $page ) { return 'https://example.test/loja/'; }
 function apply_filters( $hook, $value, ...$args ) { return $value; }
 function do_action( ...$args ) { $GLOBALS['kt']['actions'][] = $args[0]; }
@@ -332,6 +334,8 @@ $reset = static function () use ( $catalog ): void {
 	$_REQUEST                  = array();
 	$_POST                     = array();
 	$_COOKIE                   = array();
+	$_SERVER['HTTP_SEC_FETCH_SITE'] = 'same-origin';
+	unset( $_SERVER['HTTP_ORIGIN'], $_SERVER['HTTP_REFERER'] );
 	$GLOBALS['kt']['cookies']  = array();
 	Ajax::use_catalog( $catalog );
 };
@@ -445,6 +449,24 @@ $_COOKIE[ Store::HINT_COOKIE ] = 'g';
 $response = $call( 'get', array(), '' );
 $check( 'hint', 'a hint with no draft behind it is cleared by the next answer', array( kt_cookie( Store::HINT_COOKIE ), isset( $_COOKIE[ Store::HINT_COOKIE ] ) ), array( null, false ) );
 $check( 'ajax', 'get needs no nonce and hands out one', array( $response->ok, $response->data['kit'], $response->data['nonce'] ), array( true, null, 'nonce:galaxie_kit|' ) );
+$response = $call( 'rename', array( 'name' => 'x' ) );
+$check( 'origin', 'no session yet: only start may change anything', array( $response->ok, $response->data['reason'] ), array( false, 'no_session' ) );
+$_SERVER['HTTP_SEC_FETCH_SITE'] = 'cross-site';
+$response = $call( 'start', array( 'box' => '10' ) );
+$check( 'origin', 'a cross-site start is refused, valid nonce or not', array( $response->ok, $response->status, $response->data['reason'], WC()->session->cookie ), array( false, 403, 'cross_site', false ) );
+unset( $_SERVER['HTTP_SEC_FETCH_SITE'] );
+$_SERVER['HTTP_ORIGIN'] = 'https://evil.test';
+$check( 'origin', 'no Sec-Fetch-Site: another Origin is refused', Ajax::same_origin(), false );
+$_SERVER['HTTP_ORIGIN'] = 'https://EXAMPLE.test:443';
+$check( 'origin', 'no Sec-Fetch-Site: our Origin passes', Ajax::same_origin(), true );
+unset( $_SERVER['HTTP_ORIGIN'] );
+$check( 'origin', 'no Sec-Fetch-Site nor Origin, and no Referer: refused', Ajax::same_origin(), false );
+$_SERVER['HTTP_REFERER'] = 'https://example.test/produto/vela/';
+$check( 'origin', 'no Sec-Fetch-Site nor Origin: one of our pages as Referer passes', Ajax::same_origin(), true );
+$_SERVER['HTTP_REFERER'] = 'https://example.test.evil.test/';
+$check( 'origin', 'a look-alike Referer host is refused', Ajax::same_origin(), false );
+unset( $_SERVER['HTTP_REFERER'] );
+$_SERVER['HTTP_SEC_FETCH_SITE'] = 'same-origin';
 $response = $call( 'start', array( 'name' => 'Stella', 'box' => '10', 'card' => '30', 'message' => 'Oi', 'candle' => '100', 'qty' => '2' ), 'forged' );
 $check( 'ajax', 'a change with a wrong nonce is refused', array( $response->ok, $response->status ), array( false, 403 ) );
 $response = $call( 'start', array( 'name' => 'Stella', 'box' => '10', 'card' => '30', 'message' => 'Oi', 'candle' => '100', 'qty' => '2' ) );

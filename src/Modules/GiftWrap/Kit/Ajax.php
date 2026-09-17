@@ -108,7 +108,31 @@ final class Ajax {
 		}
 
 		if ( 'get' !== $name ) {
+			// A change must come from the store's own pages, whatever its nonce:
+			// a guest's nonce is only as private as their session.
+			if ( ! self::same_origin() ) {
+				wp_send_json_error(
+					array(
+						'message' => __( 'Pedido recusado.', 'galaxie-woo' ),
+						'reason'  => 'cross_site',
+					),
+					403
+				);
+			}
+
 			check_ajax_referer( self::nonce_action(), 'nonce' );
+
+			// Only `start` may open a session; any other change is about a draft
+			// that lives in one.
+			if ( 'start' !== $name && ! self::has_session() ) {
+				wp_send_json_error(
+					array(
+						'message' => __( 'Nenhum kit em montagem. Comece um kit primeiro.', 'galaxie-woo' ),
+						'reason'  => 'no_session',
+						'kit'     => null,
+					)
+				);
+			}
 		}
 
 		if ( ! CartKits::cart() ) {
@@ -383,6 +407,53 @@ final class Ajax {
 			'nonce'   => wp_create_nonce( self::nonce_action() ),
 			'notices' => Store::take_notices(),
 		);
+	}
+
+	/**
+	 * Whether this request comes from the store's own pages.
+	 *
+	 * The browser's `Sec-Fetch-Site` says so directly (only `same-origin`
+	 * passes); without it, `Origin` must be the store's; without either, the
+	 * `Referer` must be one of the store's pages. None of the three: refused.
+	 */
+	public static function same_origin(): bool {
+		// phpcs:disable WordPress.Security.ValidatedSanitizedInput -- compared only.
+		$site    = isset( $_SERVER['HTTP_SEC_FETCH_SITE'] ) ? strtolower( trim( (string) $_SERVER['HTTP_SEC_FETCH_SITE'] ) ) : '';
+		$origin  = isset( $_SERVER['HTTP_ORIGIN'] ) ? trim( (string) $_SERVER['HTTP_ORIGIN'] ) : '';
+		$referer = isset( $_SERVER['HTTP_REFERER'] ) ? trim( (string) $_SERVER['HTTP_REFERER'] ) : '';
+		// phpcs:enable
+
+		if ( '' !== $site ) {
+			return 'same-origin' === $site;
+		}
+
+		$ours = array_unique( array_filter( array( self::origin_of( home_url( '/' ) ), self::origin_of( site_url( '/' ) ) ) ) );
+
+		if ( '' !== $origin ) {
+			return in_array( self::origin_of( $origin ), $ours, true );
+		}
+
+		return '' !== $referer && in_array( self::origin_of( $referer ), $ours, true );
+	}
+
+	/** `scheme://host:port`, lowercased; '' for anything else. */
+	private static function origin_of( string $url ): string {
+		$parts = wp_parse_url( $url );
+
+		if ( ! is_array( $parts ) || empty( $parts['scheme'] ) || empty( $parts['host'] ) ) {
+			return '';
+		}
+
+		$scheme = strtolower( $parts['scheme'] );
+		$port   = isset( $parts['port'] ) ? (int) $parts['port'] : ( 'https' === $scheme ? 443 : 80 );
+
+		return $scheme . '://' . strtolower( $parts['host'] ) . ':' . $port;
+	}
+
+	private static function has_session(): bool {
+		$session = function_exists( 'WC' ) && isset( WC()->session ) && is_object( WC()->session ) ? WC()->session : null;
+
+		return is_user_logged_in() || ( $session && method_exists( $session, 'has_session' ) && $session->has_session() );
 	}
 
 	/**
