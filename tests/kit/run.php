@@ -144,6 +144,9 @@ class WooCommerce {
 
 function WC() { static $wc = null; return $wc ??= new WooCommerce(); }
 
+/** The one Module method the kit code asks, with a popup the tests set. */
+eval( 'namespace Galaxie\\Woo\\Modules\\GiftWrap; final class Module { public static int $popup = 0; public static function kit_popup_id(): int { return self::$popup; } public static function size_attribute(): string { return "pa_peso"; } public static function packing_options(): array { return array(); } }' );
+
 foreach ( array(
 	'src/Support/GiftPacking.php',
 	'src/Support/GiftGroups.php',
@@ -559,6 +562,13 @@ $stored = esc_html( Groups::label( 1, "Presente da D'Ávila & Cia <3" ) );
 $check( 'labels', 'plain-text e-mails: the stored (escaped) key reads as typed after WooCommerce strips tags', strip_tags( \Galaxie\Woo\Support\GiftSummary::decode_plain( "\n- " . $stored . ': Caixa' ) ), "\n- Presente da D'Ávila & Cia &lt;3: Caixa" );
 $check( 'labels', 'plain-text e-mails: only while a gift line is printed as plain text', \Galaxie\Woo\Support\GiftSummary::plain_meta( $stored ), $stored );
 $check( 'labels', 'a kit name is escaped where WooCommerce prints item data keys as markup', Groups::item_data( array(), $named )[0]['key'], '&lt;a href=&quot;x&quot;&gt;Mãe&lt;/a&gt; &amp; &lt;3' );
+WC()->cart->add_to_cart( 1000, 1, 100, array(), Groups::data( 'named', Groups::ROLE_CANDLE, '', '<a href="x">Mãe</a> & <3' ) );
+$_SERVER['REQUEST_URI'] = '/wp-json/wc/store/v1/cart';
+$check( 'edit link', 'block cart: no "Editar kit" without a kit popup', isset( Groups::item_data( array(), $named )[0]['display'] ), false );
+\Galaxie\Woo\Modules\GiftWrap\Module::$popup = 4549;
+$check( 'edit link', 'block cart: "Editar kit" on the box line once the popup is set', Groups::item_data( array(), $named )[0]['display'] ?? '', 'Caixa · <a href="#galaxie-kit-edit-named" class="galaxie-kit-edit">Editar kit</a>' );
+\Galaxie\Woo\Modules\GiftWrap\Module::$popup = 0;
+unset( $_SERVER['REQUEST_URI'] );
 $check( 'labels', 'an older gift keeps its number', Groups::label( 2 ), 'Presente 2' );
 
 // login merge

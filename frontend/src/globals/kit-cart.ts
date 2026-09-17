@@ -15,7 +15,7 @@ import { ask, tell } from '@/lib/dialog'
 import { refreshFragments, jq } from '@/globals/cart-fragments'
 import { kitCall, kitConfig } from '@/globals/kit-store'
 import type { KitAnswer } from '@/globals/kit-store'
-import { openKit } from '@/globals/kit-open'
+import { canOpenKit, openKit } from '@/globals/kit-open'
 
 const HASH = '#galaxie-kit-edit-'
 
@@ -55,6 +55,12 @@ export function refreshCart(answer?: KitAnswer | null): void {
 }
 
 async function edit(group: string, from: Element): Promise<void> {
+  // Taking the kit out of the cart only makes sense if its popup can open.
+  if (!canOpenKit()) {
+    await tell(from, 'kit_edit', { fallback: 'Não foi possível abrir o kit agora. Tente de novo em instantes.' })
+    return
+  }
+
   let result = await kitCall('edit_from_cart', { group })
 
   if (!result.ok && result.data?.reason === 'needs_confirm') {
@@ -70,7 +76,9 @@ async function edit(group: string, from: Element): Promise<void> {
   }
 
   refreshCart(result.data)
-  openKit({ screen: 'summary' })
+  if (!openKit({ screen: 'summary' })) {
+    await tell(from, 'kit_edit', { fallback: 'O kit saiu do carrinho para edição. Abra-o pelo botão do kit.' })
+  }
 }
 
 export function bootKitCart(): void {

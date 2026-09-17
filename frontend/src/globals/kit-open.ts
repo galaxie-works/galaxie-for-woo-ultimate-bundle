@@ -10,7 +10,7 @@
 
 import { burst } from '@/globals/confetti'
 import { kitConfig } from '@/globals/kit-store'
-import { isPopupOpen, openPopup, popupElement, watchPopup } from '@/lib/pix-popup'
+import { isPopupOpen, openPopup, popupAvailable, popupElement, watchPopup } from '@/lib/pix-popup'
 
 export interface KitIntent {
   screen?: 'welcome' | 'summary'
@@ -60,6 +60,11 @@ export function openKit(next: KitIntent = {}): boolean {
 
   intent = next
   return true
+}
+
+/** Whether openKit() can open the popup on this page. */
+export function canOpenKit(): boolean {
+  return !!kitConfig() && popupAvailable()
 }
 
 /** One burst per filling, however many widgets see it. */

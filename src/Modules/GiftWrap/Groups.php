@@ -351,7 +351,9 @@ final class Groups {
 	private static function edit_target( $item ): string {
 		$group = self::group_of( $item );
 
-		if ( ! $group || self::ROLE_BOX !== $group['role'] || ! function_exists( 'WC' ) || ! WC()->cart ) {
+		// The link opens the kit popup: none set, no link (the kit script is
+		// only on the page when there is one, see Kit\Launcher).
+		if ( ! $group || self::ROLE_BOX !== $group['role'] || ! function_exists( 'WC' ) || ! WC()->cart || ! Module::kit_popup_id() ) {
 			return '';
 		}
 
