@@ -16,6 +16,10 @@
 
 define( 'ABSPATH', __DIR__ . '/' );
 
+// The kit sets cookies only while headers can still be sent; in the CLI that
+// is until the first output, so the report is buffered and printed at the end.
+ob_start();
+
 $root = dirname( __DIR__, 2 );
 
 // ------------------------------------------------------------------ stubs
@@ -65,6 +69,14 @@ function check_ajax_referer( $action, $field ) {
 	return 1;
 }
 function wc_get_notices( $type = '' ) { return array(); }
+function is_ssl() { return true; }
+define( 'DAY_IN_SECONDS', 86400 );
+define( 'YEAR_IN_SECONDS', 31536000 );
+/** Records what the kit sets, as the browser would keep it. */
+function wc_setcookie( $name, $value, $expire = 0, $secure = false, $httponly = true ) {
+	$GLOBALS['kt']['cookies'][ $name ] = array( $expire > time() ? $value : null, $httponly );
+}
+function kt_cookie( $name ) { return $GLOBALS['kt']['cookies'][ $name ][0] ?? null; }
 function wc_clear_notices() {}
 
 final class KtResponse extends \Exception {
@@ -318,6 +330,8 @@ $reset = static function () use ( $catalog ): void {
 	$GLOBALS['kt']['fail_add'] = 0;
 	$_REQUEST                  = array();
 	$_POST                     = array();
+	$_COOKIE                   = array();
+	$GLOBALS['kt']['cookies']  = array();
 	Ajax::use_catalog( $catalog );
 };
 
@@ -420,12 +434,15 @@ Store::put( $draft );
 $check( 'store', 'a guest draft lives in the session', array( Store::get()['id'] ?? null, WC()->session->cookie ), array( $draft['id'], true ) );
 Store::clear();
 $check( 'store', 'discard forgets it', Store::get(), null );
+$check( 'hint', 'a guest draft set the hint cookie ("g", readable by the script) and discard cleared it', array( $GLOBALS['kt']['cookies'][ Store::HINT_COOKIE ][1] ?? null, kt_cookie( Store::HINT_COOKIE ) ), array( false, null ) );
 WC()->session->set( Store::SESSION_KEY, array( 'id' => 'bad id!' ) );
 $check( 'store', 'a malformed draft reads as none', Store::get(), null );
 
 // endpoints: get without nonce, start, nonce, add, to_cart
 $reset();
+$_COOKIE[ Store::HINT_COOKIE ] = 'g';
 $response = $call( 'get', array(), '' );
+$check( 'hint', 'a hint with no draft behind it is cleared by the next answer', array( kt_cookie( Store::HINT_COOKIE ), isset( $_COOKIE[ Store::HINT_COOKIE ] ) ), array( null, false ) );
 $check( 'ajax', 'get needs no nonce and hands out one', array( $response->ok, $response->data['kit'], $response->data['nonce'] ), array( true, null, 'nonce:galaxie_kit|' ) );
 $response = $call( 'start', array( 'name' => 'Stella', 'box' => '10', 'card' => '30', 'message' => 'Oi', 'candle' => '100', 'qty' => '2' ), 'forged' );
 $check( 'ajax', 'a change with a wrong nonce is refused', array( $response->ok, $response->status ), array( false, 403 ) );
@@ -446,6 +463,7 @@ foreach ( array( array( 'big', array() ), array( 'big', array( array( '190g', 2 
 $check( 'fill', 'unknown room: an empty bar, never a full one', GiftKit::fill_percent( array( 'singles' => array(), 'mixes' => array(), 'complete' => false ), array( $fixtures['sizes']['50g'] ), 3 ), 0 );
 
 $response = $call( 'start', array( 'box' => '10' ) );
+$check( 'hint', 'start sets the guest hint', kt_cookie( Store::HINT_COOKIE ), 'g' );
 $check( 'ajax', 'one draft at a time', array( $response->ok, $response->data['reason'], $response->data['kit']['name'] ), array( false, 'draft_open', 'Stella' ) );
 $response = $call( 'add_candle', array( 'candle' => '100', 'qty' => '5' ) );
 $check( 'ajax', 'add past the box: refused with the cap', array( $response->ok, $response->data['reason'], $response->data['cap'] ), array( false, 'no_room', 1 ) );
@@ -525,6 +543,10 @@ $check( 'login', 'the guest draft wins and becomes the account\'s', array( Store
 $check( 'login', 'the older account draft is in the cart', array_values( array_map( fn( $g ) => $g['name'], $groups ) ), array( 'Antigo' ) );
 $check( 'login', 'with a notice, once', array( Store::take_notices(), Store::take_notices() ), array( array( 'Encontramos o kit Antigo que você começou antes e colocamos no carrinho. Você pode editar ou remover.' ), array() ) );
 ( new CartKits( $kits ) )->merge_login();
+Store::sync_hint();
+$check( 'hint', 'signed in with a draft: the hint names the account', kt_cookie( Store::HINT_COOKIE ), 'u7' );
+Store::forget_hint();
+$check( 'hint', 'logout clears it', kt_cookie( Store::HINT_COOKIE ), null );
 $check( 'login', 'nothing happens twice', count( Groups::groups( WC()->cart->get_cart_contents() ) ), 1 );
 
 $reset();

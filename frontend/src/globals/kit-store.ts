@@ -8,9 +8,9 @@
  * page's HTML, which LiteSpeed caches for days.
  *
  * LOADING. `galaxie_kit_get` is uncached and costs a request, so it is only
- * asked when there can be a draft: the server sets a `galaxie_kit` cookie
- * while one exists, and a signed-in shopper's may come from another device.
- * Otherwise the page starts with "no kit" at once. The nonce for changes comes
+ * asked when there can be a draft: the server keeps a `galaxie_kit` cookie
+ * while one exists (for guests and accounts alike, re-checked on signed-in
+ * page loads). Otherwise the page starts with "no kit" at once. The nonce for changes comes
  * with that answer, or is asked for right before the first change.
  *
  * SYNC. Every answer is broadcast to the store's other tabs, and a page shown
@@ -209,7 +209,7 @@ function apply(data: KitAnswer | null | undefined, broadcast = true): void {
 
 /** Whether the server said there may be a draft (see the file header). */
 function mayHaveDraft(): boolean {
-  return document.cookie.split(';').some((part) => part.trim().startsWith('galaxie_kit=')) || document.body.classList.contains('logged-in')
+  return document.cookie.split(';').some((part) => /^galaxie_kit=[^;]+/.test(part.trim()))
 }
 
 async function post(action: string, data: Record<string, string | number>, sendNonce: boolean): Promise<{ status: number; text: string }> {

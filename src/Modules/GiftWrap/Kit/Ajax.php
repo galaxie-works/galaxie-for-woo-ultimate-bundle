@@ -66,6 +66,9 @@ final class Ajax {
 
 		// After WooCommerce loaded the cart: a guest draft meets the account.
 		add_action( 'wp_loaded', array( self::class, 'merge_on_load' ), 30 );
+
+		// The next person on this browser is not told about this account's kit.
+		add_action( 'wp_logout', array( Store::class, 'forget_hint' ) );
 	}
 
 	public static function kits(): Kits {
@@ -88,6 +91,9 @@ final class Ajax {
 		}
 
 		self::carts()->merge_login();
+
+		// A kit started or finished on another device: the hint follows.
+		Store::sync_hint();
 	}
 
 	public static function dispatch(): void {
@@ -368,6 +374,9 @@ final class Ajax {
 	/** @return array<string,mixed> The draft, a fresh nonce and kept notices. */
 	private static function state(): array {
 		$draft = Store::get();
+
+		// The hint cookie follows every answer, whatever else went wrong.
+		Store::sync_hint();
 
 		return array(
 			'kit'     => $draft ? self::kits()->view( $draft, self::carts()->in_cart() ) : null,

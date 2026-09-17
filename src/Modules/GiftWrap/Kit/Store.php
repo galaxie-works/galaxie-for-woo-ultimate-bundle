@@ -65,23 +65,47 @@ final class Store {
 	}
 
 	/**
-	 * `galaxie_kit=1` while there is a draft: kit-store.ts only asks the kit
-	 * endpoint when it sees this (or a signed-in shopper), so a visitor who never
-	 * started a kit costs no request per page. It says nothing about the kit.
+	 * The `galaxie_kit` cookie while there is a draft: kit-store.ts only asks the
+	 * kit endpoint when it sees it, so a page without a kit costs no request,
+	 * signed in or not. It says nothing about the kit; its value says whose
+	 * (`g` for a guest, `u{id}` for an account), so another account signing in
+	 * on the same browser is not told about the last one's kit.
+	 *
+	 * Kept in step by every kit answer (sync_hint()), by every signed-in page
+	 * load (another device may have started or finished the kit), and cleared
+	 * at logout.
 	 */
 	private static function hint( bool $on ): void {
 		if ( headers_sent() || ! function_exists( 'wc_setcookie' ) ) {
 			return;
 		}
 
-		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- only compared.
-		$has = isset( $_COOKIE[ self::HINT_COOKIE ] );
+		$user   = self::user();
+		$wanted = $user ? 'u' . $user : 'g';
+		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput -- only compared.
+		$now = isset( $_COOKIE[ self::HINT_COOKIE ] ) ? (string) $_COOKIE[ self::HINT_COOKIE ] : null;
 
-		if ( $on && ! $has ) {
-			wc_setcookie( self::HINT_COOKIE, '1', time() + 30 * DAY_IN_SECONDS, is_ssl(), false );
-		} elseif ( ! $on && $has ) {
-			wc_setcookie( self::HINT_COOKIE, '', time() - YEAR_IN_SECONDS, is_ssl(), false );
+		if ( $on && $now !== $wanted ) {
+			wc_setcookie( self::HINT_COOKIE, $wanted, time() + 30 * DAY_IN_SECONDS, is_ssl(), false );
+			$_COOKIE[ self::HINT_COOKIE ] = $wanted;
+		} elseif ( ! $on && null !== $now ) {
+			self::forget_hint();
 		}
+	}
+
+	/** The hint cookie as the visitor's draft says it should be. */
+	public static function sync_hint(): void {
+		self::hint( null !== self::get() );
+	}
+
+	/** No hint (logout: the next visitor of this browser is someone else). */
+	public static function forget_hint(): void {
+		if ( headers_sent() || ! function_exists( 'wc_setcookie' ) ) {
+			return;
+		}
+
+		wc_setcookie( self::HINT_COOKIE, '', time() - YEAR_IN_SECONDS, is_ssl(), false );
+		unset( $_COOKIE[ self::HINT_COOKIE ] );
 	}
 
 	/** Forgets this visitor's draft, in both places. */
