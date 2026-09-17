@@ -128,6 +128,13 @@ function paint(state: ButtonState): void {
   state.cap = cap
 }
 
+/** A sentence in the Buy Box's Alert block, or its dialog without one. */
+function say(form: HTMLFormElement, message: string): void {
+  if (!(findAlert()?.show('error', message) ?? false)) {
+    void tell(form, 'buybox_dialog', { text: message, fallback: message })
+  }
+}
+
 async function add(state: ButtonState, kit: KitView): Promise<void> {
   const { form, holder } = state
   const { id, qty: asked } = chosen(form)
@@ -144,10 +151,7 @@ async function add(state: ButtonState, kit: KitView): Promise<void> {
   paint(state)
 
   if (!result.ok) {
-    const message = result.data?.message ?? ''
-    if (!(findAlert()?.show('error', message) ?? false)) {
-      void tell(form, 'buybox_dialog', { text: message, fallback: 'Não foi possível adicionar ao kit.' })
-    }
+    say(form, result.data?.message || 'Não foi possível adicionar ao kit.')
     return
   }
 
@@ -205,7 +209,12 @@ function init(holder: HTMLElement): void {
     }
 
     const { id, qty } = chosen(form)
-    if (!id || !candles[String(id)]) return
+
+    // A variation that is not a candle (no size or no packing size): say so.
+    if (!id || !candles[String(id)]) {
+      say(form, 'Este produto não entra em kits.')
+      return
+    }
 
     const kit = currentKit()
 
