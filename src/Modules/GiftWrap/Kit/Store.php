@@ -32,6 +32,9 @@ final class Store {
 	/** Sentences for the next kit request to show (a login merge's notice). */
 	public const NOTICE_KEY = 'galaxie_kit_notices';
 
+	/** Cookie telling the page's script a draft may exist. */
+	public const HINT_COOKIE = 'galaxie_kit';
+
 	/** The visitor's draft, or null. */
 	public static function get(): ?array {
 		$user = self::user();
@@ -55,6 +58,27 @@ final class Store {
 
 		self::ensure_session();
 		self::session_set( self::SESSION_KEY, $draft );
+		self::hint( true );
+	}
+
+	/**
+	 * `galaxie_kit=1` while there is a draft: kit-store.ts only asks the kit
+	 * endpoint when it sees this (or a signed-in shopper), so a visitor who never
+	 * started a kit costs no request per page. It says nothing about the kit.
+	 */
+	private static function hint( bool $on ): void {
+		if ( headers_sent() || ! function_exists( 'wc_setcookie' ) ) {
+			return;
+		}
+
+		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- only compared.
+		$has = isset( $_COOKIE[ self::HINT_COOKIE ] );
+
+		if ( $on && ! $has ) {
+			wc_setcookie( self::HINT_COOKIE, '1', time() + 30 * DAY_IN_SECONDS, is_ssl(), false );
+		} elseif ( ! $on && $has ) {
+			wc_setcookie( self::HINT_COOKIE, '', time() - YEAR_IN_SECONDS, is_ssl(), false );
+		}
 	}
 
 	/** Forgets this visitor's draft, in both places. */
@@ -66,6 +90,7 @@ final class Store {
 		}
 
 		self::session_set( self::SESSION_KEY, null );
+		self::hint( false );
 	}
 
 	/** The draft in the session, whoever made it. */

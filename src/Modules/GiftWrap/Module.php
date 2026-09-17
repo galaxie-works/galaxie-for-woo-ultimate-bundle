@@ -13,20 +13,25 @@ use Galaxie\Woo\Core\Plugin;
 use Galaxie\Woo\Core\ProvidesBootData;
 use Galaxie\Woo\Core\ProvidesElementorWidgets;
 use Galaxie\Woo\Core\ProvidesSettings;
-use Galaxie\Woo\Modules\GiftWrap\Widget\GiftBuilderWidget;
+use Galaxie\Woo\Modules\GiftWrap\Widget\KitBuilderWidget;
+use Galaxie\Woo\Modules\GiftWrap\Widget\KitProgressWidget;
 
 defined( 'ABSPATH' ) || exit;
 
 /**
- * A shopper ticks "Estou comprando um presente para alguém" in the Galaxie Buy
- * Box; Add to Cart and Buy Now then open a pixfort popup holding the Galaxie
- * Gift Builder before they act. There the candles are shared out over gift
- * boxes, with ribbons and cards, and everything goes into the cart as one gift
- * ({@see Groups}). The order keeps the gift and wp-admin tags it "Presente".
+ * Gift kits (PR #21, kit-flow-scope.md). A shopper builds a kit — a name, a
+ * gift box, an optional card with a message, and candles — in a pixfort popup
+ * holding the Galaxie Kit Builder, opened from the Galaxie Buy Box ("Montar um
+ * kit ou presente"), the popup's launcher or the Galaxie Kit Progress widget.
+ * The kit being built is a draft outside the cart (Kit\Store); "Adicionar kit
+ * ao carrinho" puts it in as one gift ({@see Groups}), titled with the kit's
+ * name in the cart, the order, the e-mails and the packing summary. The order
+ * keeps the gift and wp-admin tags it "Presente".
  *
- * The Buy Box's own "Gift (Presente)" section is where the storefront part is
+ * The Buy Box's "Kit (Presente)" section is where the product page part is
  * configured, per widget; this module owns what is store-wide: the packing
- * rules, which categories hold boxes, ribbons and cards, and the card limit.
+ * rules, which categories hold boxes, ribbons and cards, the card limit, the
+ * kit popup, its launcher and the room-left wording.
  */
 final class Module implements ModuleContract, ProvidesBootData, ProvidesElementorWidgets, ProvidesSettings {
 
@@ -49,7 +54,28 @@ final class Module implements ModuleContract, ProvidesBootData, ProvidesElemento
 		'ribbon_categories'  => array(),
 		'card_categories'    => array(),
 		'card_message_max'   => 200,
+		// The kit flow (PR #21).
+		'kit_popup'              => '',
+		'kit_continue_url'       => '',
+		'kit_launcher_icon'      => true,
+		'kit_launcher_icon_name' => 'Line/pixfort-icon-gift-1',
+		'kit_badge'              => true,
+		'kit_badge_bg'           => 'primary',
+		'kit_badge_color'        => '#ffffff',
+		'kit_badge_size'         => 20,
+		'kit_text_room_many'     => 'Ainda cabem {combos}',
+		'kit_text_room_one'      => 'Ainda cabe {combos}',
+		'kit_text_full'          => 'Caixa completa! 🎉',
+		'kit_text_box_holds'     => 'Leva até {combos}',
+		'kit_text_added'         => 'Adicionada ao kit {kit}. {room}',
 	);
+
+	/**
+	 * The popup the Buy Box widget pointed at before the kit flow, kept once by
+	 * the widget ({@see self::remember_legacy_popup()}) and used while "Popup do
+	 * kit" is empty.
+	 */
+	public const LEGACY_POPUP_OPTION = 'galaxie_kit_popup_legacy';
 
 	public function id(): string {
 		return self::ID;
@@ -60,7 +86,7 @@ final class Module implements ModuleContract, ProvidesBootData, ProvidesElemento
 	}
 
 	public function description(): string {
-		return __( 'A "this is a gift" checkbox in the Galaxie Buy Box, a gift builder popup with boxes, ribbons and cards, gifts grouped in the cart, and a packing summary on gift orders.', 'galaxie-woo' );
+		return __( 'Gift kits: a "Montar um kit" button in the Galaxie Buy Box, a kit builder popup with gift boxes and cards, a launcher badge and a progress widget, kits grouped in the cart by name, and a packing summary on gift orders.', 'galaxie-woo' );
 	}
 
 	public function default_enabled(): bool {
@@ -73,8 +99,14 @@ final class Module implements ModuleContract, ProvidesBootData, ProvidesElemento
 		// Plugin::boot() so gift orders keep them with this module off.
 		Flag::hooks();
 		Groups::hooks();
-		Builder::hooks();
 		DimensionNotice::hooks();
+
+		// The kit flow: the draft's requests, and the popup launcher's icon and badge.
+		Kit\Ajax::hooks();
+
+		if ( ! is_admin() ) {
+			Kit\Launcher::hooks();
+		}
 
 		$options = self::packing_options();
 
@@ -98,17 +130,78 @@ final class Module implements ModuleContract, ProvidesBootData, ProvidesElemento
 	}
 
 	public function elementor_widgets(): array {
-		return array( GiftBuilderWidget::class );
+		return array( KitBuilderWidget::class, KitProgressWidget::class );
 	}
 
+	/**
+	 * Store configuration only. No nonce and nothing about the visitor's kit:
+	 * this is printed into pages LiteSpeed caches for days. The scripts ask the
+	 * kit endpoint (Kit\Ajax, `get`) for both.
+	 */
 	public function boot_data(): array {
+		$texts = array();
+
+		foreach ( array( 'room_many', 'room_one', 'full', 'box_holds', 'added' ) as $key ) {
+			$texts[ $key ] = (string) self::setting( 'kit_text_' . $key );
+		}
+
+		$continue = trim( (string) self::setting( 'kit_continue_url' ) );
+
 		return array(
 			'giftWrap' => array(
-				// No nonce here: this is printed into pages LiteSpeed caches for days.
-				// The builder asks Builder::NONCE_ACTION for a fresh one when it opens.
 				'ajaxUrl' => admin_url( 'admin-ajax.php' ),
+				'kit'     => array(
+					'popup'        => self::kit_popup_id(),
+					'launcherIcon' => (bool) self::setting( 'kit_launcher_icon' ),
+					'badge'        => (bool) self::setting( 'kit_badge' ),
+					'texts'        => $texts,
+					'continueUrl'  => '' !== $continue ? esc_url_raw( $continue ) : ( function_exists( 'wc_get_page_permalink' ) ? (string) wc_get_page_permalink( 'shop' ) : home_url( '/' ) ),
+					'nameFormat'   => Kit\Kits::name_format(),
+					'nameMax'      => \Galaxie\Woo\Support\GiftKit::NAME_MAX,
+				),
 			),
 		);
+	}
+
+	/**
+	 * The published pixfort popup holding the Galaxie Kit Builder, or 0: "Popup
+	 * do kit", else the one the Buy Box widget used to name.
+	 */
+	public static function kit_popup_id(): int {
+		static $resolved = array();
+
+		$link = trim( (string) self::setting( 'kit_popup' ) );
+		$id   = '' !== $link ? self::parse_popup_link( $link ) : absint( get_option( self::LEGACY_POPUP_OPTION, 0 ) );
+
+		if ( isset( $resolved[ $id ] ) ) {
+			return $resolved[ $id ];
+		}
+
+		return $resolved[ $id ] = ( $id && 'pixpopup' === get_post_type( $id ) && 'publish' === get_post_status( $id ) ) ? $id : 0;
+	}
+
+	/**
+	 * A popup id from what a merchant pastes.
+	 *
+	 * pixfort's own link for a popup is `#pix_popup_{id}` — the "Popup Link"
+	 * column and the "Open from Link" field print it (includes/post-types/
+	 * popup.php). Accepted: that link (`#pix_popup_4549`), a full URL ending in
+	 * it, or the bare id (`4549`). Anything else is 0, not a guess.
+	 */
+	public static function parse_popup_link( string $link ): int {
+		return preg_match( '/^(?:\S*#pix_popup_)?(\d+)$/i', trim( $link ), $match ) ? absint( $match[1] ) : 0;
+	}
+
+	/**
+	 * Keeps, once, the popup a Buy Box widget was saved with before "Popup do
+	 * kit" existed, so the kit flow opens it until the merchant sets one here.
+	 */
+	public static function remember_legacy_popup( int $id ): void {
+		if ( $id < 1 || '' !== trim( (string) self::setting( 'kit_popup' ) ) || false !== get_option( self::LEGACY_POPUP_OPTION, false ) ) {
+			return;
+		}
+
+		update_option( self::LEGACY_POPUP_OPTION, $id, true );
 	}
 
 	/**
@@ -255,6 +348,106 @@ final class Module implements ModuleContract, ProvidesBootData, ProvidesElemento
 				description: __( 'The longest message a shopper can write on a card.', 'galaxie-woo' ),
 				default: self::DEFAULTS['card_message_max']
 			),
+
+			// ------------------------------------------------------ kit flow
+			new Field(
+				key: 'kit_popup',
+				label: __( 'Popup do kit', 'galaxie-woo' ),
+				type: Field::TYPE_TEXT,
+				description: __( 'The pixfort popup holding the Galaxie Kit Builder widget: its link from wp-admin → Popups ("Popup Link" column), e.g. #pix_popup_4549, or the id alone. The Buy Box button, the launcher and the Kit Progress widget all open it. Empty: the popup the Buy Box widget was set to before, if any.', 'galaxie-woo' ),
+				default: self::DEFAULTS['kit_popup'],
+				placeholder: '#pix_popup_4549'
+			),
+			new Field(
+				key: 'kit_continue_url',
+				label: __( '"Continuar escolhendo" goes to', 'galaxie-woo' ),
+				type: Field::TYPE_TEXT,
+				description: __( 'Where the kit popup sends the shopper to keep choosing candles. Empty: the WooCommerce shop page.', 'galaxie-woo' ),
+				default: self::DEFAULTS['kit_continue_url'],
+				placeholder: '/loja/'
+			),
+			new Field(
+				key: 'kit_launcher_icon',
+				label: __( 'Ícone de presente no launcher', 'galaxie-woo' ),
+				type: Field::TYPE_TOGGLE,
+				description: __( 'Replace the icon of the kit popup\'s pixfort launcher (turn "Launcher" on in the popup\'s pixfort settings) with the icon below.', 'galaxie-woo' ),
+				default: self::DEFAULTS['kit_launcher_icon']
+			),
+			new Field(
+				key: 'kit_launcher_icon_name',
+				label: __( 'Launcher icon', 'galaxie-woo' ),
+				type: Field::TYPE_TEXT,
+				description: __( 'A pixfort icon name, as in the icon pickers (e.g. Line/pixfort-icon-gift-1). Empty or unknown: a plain gift outline.', 'galaxie-woo' ),
+				default: self::DEFAULTS['kit_launcher_icon_name'],
+				placeholder: 'Line/pixfort-icon-gift-1'
+			),
+			new Field(
+				key: 'kit_badge',
+				label: __( 'Badge com a quantidade', 'galaxie-woo' ),
+				type: Field::TYPE_TOGGLE,
+				description: __( 'A number on the launcher: the candles in the kit being built. No kit, no badge; kits already in the cart do not count.', 'galaxie-woo' ),
+				default: self::DEFAULTS['kit_badge']
+			),
+			new Field(
+				key: 'kit_badge_bg',
+				label: __( 'Badge background', 'galaxie-woo' ),
+				type: Field::TYPE_TEXT,
+				description: __( 'A pixfort palette name (primary, secondary, dark…) or a colour (#e11d48, rgb(…)).', 'galaxie-woo' ),
+				default: self::DEFAULTS['kit_badge_bg'],
+				placeholder: 'primary'
+			),
+			new Field(
+				key: 'kit_badge_color',
+				label: __( 'Badge text colour', 'galaxie-woo' ),
+				type: Field::TYPE_TEXT,
+				description: __( 'Same format as the background.', 'galaxie-woo' ),
+				default: self::DEFAULTS['kit_badge_color'],
+				placeholder: '#ffffff'
+			),
+			new Field(
+				key: 'kit_badge_size',
+				label: __( 'Badge size (px)', 'galaxie-woo' ),
+				type: Field::TYPE_NUMBER,
+				description: __( 'From 10 to 48.', 'galaxie-woo' ),
+				default: self::DEFAULTS['kit_badge_size'],
+				step: '1',
+				min: '10',
+				max: '48'
+			),
+			new Field(
+				key: 'kit_text_room_many',
+				label: __( 'Room left (several)', 'galaxie-woo' ),
+				type: Field::TYPE_TEXT,
+				description: __( '{combos} becomes e.g. "2 × 190g ou 4 × 50g ou 1 × 190g + 2 × 50g". Used by the popup, the Buy Box toast and the Kit Progress widget.', 'galaxie-woo' ),
+				default: self::DEFAULTS['kit_text_room_many']
+			),
+			new Field(
+				key: 'kit_text_room_one',
+				label: __( 'Room left (one candle)', 'galaxie-woo' ),
+				type: Field::TYPE_TEXT,
+				description: __( 'When a single candle is all that still fits.', 'galaxie-woo' ),
+				default: self::DEFAULTS['kit_text_room_one']
+			),
+			new Field(
+				key: 'kit_text_full',
+				label: __( 'Box full', 'galaxie-woo' ),
+				type: Field::TYPE_TEXT,
+				default: self::DEFAULTS['kit_text_full']
+			),
+			new Field(
+				key: 'kit_text_box_holds',
+				label: __( 'What an empty box holds', 'galaxie-woo' ),
+				type: Field::TYPE_TEXT,
+				description: __( 'Under each box in the popup. {combos} as above.', 'galaxie-woo' ),
+				default: self::DEFAULTS['kit_text_box_holds']
+			),
+			new Field(
+				key: 'kit_text_added',
+				label: __( 'Toast after "Adicionar ao kit"', 'galaxie-woo' ),
+				type: Field::TYPE_TEXT,
+				description: __( '{kit} is the kit\'s name, {room} the room-left sentence, {combos} the bare list.', 'galaxie-woo' ),
+				default: self::DEFAULTS['kit_text_added']
+			),
 		);
 	}
 
@@ -268,7 +461,27 @@ final class Module implements ModuleContract, ProvidesBootData, ProvidesElemento
 
 		printf(
 			'<p class="description">%s</p>',
-			esc_html__( 'The product page part — the checkbox, its popup and its styling — is set in the Galaxie Buy Box widget, section "Gift (Presente)", in Elementor. The popup\'s content and texts are the Galaxie Gift Builder widget, edited in the pixfort popup.', 'galaxie-woo' )
+			esc_html__( 'Kits: the "Montar um kit ou presente" button and its texts are set in the Galaxie Buy Box widget, section "Kit (Presente)", in Elementor. The popup\'s screens, texts and styling are the Galaxie Kit Builder widget, edited in the pixfort popup named above. The Galaxie Kit Progress widget can go anywhere.', 'galaxie-woo' )
+		);
+
+		echo '<h2>' . esc_html__( 'Kit popup', 'galaxie-woo' ) . '</h2>';
+
+		$typed  = trim( (string) ( $values['kit_popup'] ?? '' ) );
+		$legacy = absint( get_option( self::LEGACY_POPUP_OPTION, 0 ) );
+		$popup  = self::kit_popup_id();
+
+		if ( '' !== $typed && ! $popup ) {
+			printf( '<div class="notice notice-warning inline"><p>%s</p></div>', esc_html__( '"Popup do kit" does not name a published pixfort popup: the kit button, launcher and progress widget have nothing to open.', 'galaxie-woo' ) );
+		} elseif ( '' === $typed && $popup ) {
+			/* translators: %s: pixfort popup link. */
+			printf( '<p class="description">%s</p>', esc_html( sprintf( __( 'Using the popup the Buy Box widget was set to before (%s) until one is set above.', 'galaxie-woo' ), '#pix_popup_' . $legacy ) ) );
+		} elseif ( ! $popup ) {
+			printf( '<div class="notice notice-info inline"><p>%s</p></div>', esc_html__( 'No kit popup yet: the kit flow stays hidden on the store.', 'galaxie-woo' ) );
+		}
+
+		printf(
+			'<p class="description">%s</p>',
+			esc_html__( 'In the popup\'s pixfort settings, turn "Launcher" on (and set its display conditions to every page) for the floating gift button. The popup keeps its own close button: the kit is saved as the shopper goes.', 'galaxie-woo' )
 		);
 	}
 
@@ -281,6 +494,24 @@ final class Module implements ModuleContract, ProvidesBootData, ProvidesElemento
 		$values['packing_gap']        = round( min( (float) self::MAX_PACKING_GAP, max( 0.0, (float) $values['packing_gap'] ) ), 2 );
 		$values['candle_orientation'] = in_array( $values['candle_orientation'] ?? '', self::ORIENTATIONS, true ) ? $values['candle_orientation'] : self::DEFAULTS['candle_orientation'];
 		$values['card_message_max']   = max( 1, (int) $values['card_message_max'] );
+
+		// Kit flow. A popup link that names no popup is kept as typed (the tab
+		// says so); colours that are neither a palette name nor a colour fall back.
+		$values['kit_popup']        = trim( (string) $values['kit_popup'] );
+		$values['kit_continue_url'] = esc_url_raw( trim( (string) $values['kit_continue_url'] ) );
+		$values['kit_badge_size']   = (int) max( 10, min( 48, (int) $values['kit_badge_size'] ) );
+
+		foreach ( array( 'kit_badge_bg', 'kit_badge_color' ) as $key ) {
+			if ( '' === Kit\Launcher::colour( (string) $values[ $key ] ) ) {
+				$values[ $key ] = self::DEFAULTS[ $key ];
+			}
+		}
+
+		foreach ( array( 'kit_text_room_many', 'kit_text_room_one', 'kit_text_full', 'kit_text_box_holds', 'kit_text_added' ) as $key ) {
+			if ( '' === trim( (string) $values[ $key ] ) ) {
+				$values[ $key ] = self::DEFAULTS[ $key ];
+			}
+		}
 
 		return $values;
 	}

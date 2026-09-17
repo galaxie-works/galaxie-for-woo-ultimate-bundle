@@ -523,7 +523,7 @@ final class Kits {
 			'id'         => $draft['id'],
 			'name'       => $draft['name'],
 			'named'      => (bool) $draft['named'],
-			'box'        => $box ? self::box_json( $box ) : null,
+			'box'        => $box ? self::box_json( $box ) + array( 'priceText' => $this->catalog->money( (float) $box['price'] ) ) : null,
 			'card'       => $card,
 			'cardParent' => (int) $draft['card'],
 			'message'    => $draft['message'],
