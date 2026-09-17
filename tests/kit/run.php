@@ -70,7 +70,7 @@ function check_ajax_referer( $action, $field ) {
 	}
 	return 1;
 }
-function wc_get_notices( $type = '' ) { return array(); }
+function wc_get_notices( $type = '' ) { $all = $GLOBALS['kt']['notices'] ?? array(); return '' === $type ? $all : ( $all[ $type ] ?? array() ); }
 function is_ssl() { return true; }
 define( 'DAY_IN_SECONDS', 86400 );
 define( 'YEAR_IN_SECONDS', 31536000 );
@@ -79,7 +79,17 @@ function wc_setcookie( $name, $value, $expire = 0, $secure = false, $httponly = 
 	$GLOBALS['kt']['cookies'][ $name ] = array( $expire > time() ? $value : null, $httponly );
 }
 function kt_cookie( $name ) { return $GLOBALS['kt']['cookies'][ $name ][0] ?? null; }
-function wc_clear_notices() {}
+function wc_clear_notices() { $GLOBALS['kt']['notices'] = array(); }
+function wc_set_notices( $notices ) { $GLOBALS['kt']['notices'] = $notices; }
+function add_option( $name, $value = '', $deprecated = '', $autoload = null ) {
+	if ( isset( $GLOBALS['kt']['options'][ $name ] ) ) {
+		return false;
+	}
+	$GLOBALS['kt']['options'][ $name ] = $value;
+	return true;
+}
+function get_option( $name, $default = false ) { return $GLOBALS['kt']['options'][ $name ] ?? $default; }
+function delete_option( $name ) { unset( $GLOBALS['kt']['options'][ $name ] ); return true; }
 
 final class KtResponse extends \Exception {
 	public function __construct( public bool $ok, public array $data, public int $status = 200 ) {
@@ -364,6 +374,8 @@ $call = static function ( string $action, array $fields = array(), ?string $nonc
 	try {
 		Ajax::dispatch();
 	} catch ( KtResponse $response ) {
+		// WordPress would run `shutdown` now.
+		Ajax::release_lock();
 		return $response;
 	}
 
@@ -537,9 +549,24 @@ $check( 'names', 'renamed to blank: still "Kit 2"', $response->data['kit']['name
 // a failed add leaves the cart as it was
 $before = WC()->cart->get_cart_contents();
 $GLOBALS['kt']['fail_add'] = 11;
+$GLOBALS['kt']['notices']  = array( 'success' => array( array( 'notice' => 'Produto adicionado.' ) ) );
 $response = $call( 'to_cart' );
+$check( 'to_cart', 'a refused line keeps the shopper\'s other notices', $GLOBALS['kt']['notices'], array( 'success' => array( array( 'notice' => 'Produto adicionado.' ) ) ) );
 $check( 'to_cart', 'a refused line: nothing added, the draft kept', array( $response->ok, WC()->cart->get_cart_contents() === $before, $response->data['kit']['name'] ), array( false, true, 'Kit 2' ) );
 $GLOBALS['kt']['fail_add'] = 0;
+
+// one change at a time
+$lock = 'galaxie_kit_lock_' . md5( 'sguest42' );
+$GLOBALS['kt']['options'][ $lock ] = time();
+$response = $call( 'rename', array( 'name' => 'Dois cliques' ) );
+$check( 'lock', 'a change while another is saving: busy, nothing changed', array( $response->ok, $response->data['reason'], $response->data['kit']['name'] ), array( false, 'busy', 'Kit 2' ) );
+$GLOBALS['kt']['options'][ $lock ] = time() - 60;
+$response = $call( 'rename', array( 'name' => 'Kit 2' ) );
+$check( 'lock', 'a lock left behind by a crashed request is taken over, and freed after', array( $response->ok, isset( $GLOBALS['kt']['options'][ $lock ] ) ), array( true, false ) );
+$response = $call( 'get', array(), '' );
+$GLOBALS['kt']['options'][ $lock ] = time();
+$check( 'lock', 'reading needs no lock', $call( 'get', array(), '' )->ok, true );
+unset( $GLOBALS['kt']['options'][ $lock ] );
 
 // edit_from_cart with an open draft
 $stella = array_keys( array_filter( Groups::groups( WC()->cart->get_cart_contents() ), fn( $g ) => 'Stella' === $g['name'] ) )[0];

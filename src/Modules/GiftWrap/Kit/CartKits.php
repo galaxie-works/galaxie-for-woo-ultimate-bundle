@@ -116,6 +116,7 @@ final class CartKits {
 
 		$snapshot = $contents;
 		$added    = true;
+		$notices  = function_exists( 'wc_get_notices' ) ? wc_get_notices() : array();
 
 		foreach ( $lines as $line ) {
 			$product = $line['product'];
@@ -139,16 +140,18 @@ final class CartKits {
 		}
 
 		if ( ! $added ) {
-			$notices = function_exists( 'wc_get_notices' ) ? wc_get_notices( 'error' ) : array();
+			$errors = function_exists( 'wc_get_notices' ) ? wc_get_notices( 'error' ) : array();
+			$errors = array_slice( $errors, count( (array) ( $notices['error'] ?? array() ) ) );
 
-			if ( function_exists( 'wc_clear_notices' ) ) {
-				wc_clear_notices();
+			// The shopper's other notices stay; only the refusal is taken, to say it here.
+			if ( function_exists( 'wc_set_notices' ) ) {
+				wc_set_notices( $notices );
 			}
 
 			$cart->set_cart_contents( $snapshot );
 			$cart->calculate_totals();
 
-			throw new KitError( 'refused', $notices ? wp_strip_all_tags( (string) $notices[0]['notice'] ) : __( 'Não foi possível adicionar o kit ao carrinho.', 'galaxie-woo' ) );
+			throw new KitError( 'refused', $errors ? wp_strip_all_tags( (string) $errors[0]['notice'] ) : __( 'Não foi possível adicionar o kit ao carrinho.', 'galaxie-woo' ) );
 		}
 
 		Groups::tidy( $cart );

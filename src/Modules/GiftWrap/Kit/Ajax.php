@@ -54,6 +54,12 @@ final class Ajax {
 		'restore_previous',
 	);
 
+	/** Seconds after which a kit lock left behind (a crashed request) no longer counts. */
+	private const LOCK_TTL = 15;
+
+	/** The option name of the lock this request holds, or ''. */
+	private static string $lock = '';
+
 	/** Longest text field accepted, in bytes, before it is even cleaned. */
 	private const RAW_LIMIT = 4000;
 
@@ -142,6 +148,12 @@ final class Ajax {
 			self::fail( new KitError( 'no_cart', __( 'Carrinho indisponível.', 'galaxie-woo' ) ) );
 		}
 
+		// One change at a time per visitor: two quick clicks (add, then add to
+		// cart) must not both read the draft and the cart as they were.
+		if ( 'get' !== $name && ! self::lock() ) {
+			self::fail( new KitError( 'busy', __( 'Outra alteração do kit está em andamento. Tente de novo.', 'galaxie-woo' ) ) );
+		}
+
 		self::carts()->merge_login();
 
 		try {
@@ -151,6 +163,57 @@ final class Ajax {
 		}
 
 		self::respond( $extra );
+	}
+
+	/**
+	 * Takes this visitor's kit lock: an option added only if absent (one row,
+	 * so the database decides between two requests). Released on `shutdown`,
+	 * after WooCommerce has saved the session, so the next change reads it.
+	 * A lock older than LOCK_TTL is taken over. No session yet (a first
+	 * `start`): nothing to protect, no lock.
+	 */
+	private static function lock(): bool {
+		$who = is_user_logged_in() ? 'u' . get_current_user_id() : ( self::has_session() ? 's' . self::session_id() : '' );
+
+		if ( '' === $who ) {
+			return true;
+		}
+
+		$name = 'galaxie_kit_lock_' . md5( $who );
+
+		if ( ! add_option( $name, time(), '', false ) ) {
+			$since = (int) get_option( $name, 0 );
+
+			if ( $since > time() - self::LOCK_TTL ) {
+				return false;
+			}
+
+			delete_option( $name );
+
+			if ( ! add_option( $name, time(), '', false ) ) {
+				return false;
+			}
+		}
+
+		self::$lock = $name;
+		// After WC_Session_Handler::save_data (shutdown, 20).
+		add_action( 'shutdown', array( self::class, 'release_lock' ), 99 );
+
+		return true;
+	}
+
+	/** Frees the lock this request took, if any. */
+	public static function release_lock(): void {
+		if ( '' !== self::$lock ) {
+			delete_option( self::$lock );
+			self::$lock = '';
+		}
+	}
+
+	private static function session_id(): string {
+		$session = function_exists( 'WC' ) && isset( WC()->session ) && is_object( WC()->session ) ? WC()->session : null;
+
+		return $session && method_exists( $session, 'get_customer_id' ) ? (string) $session->get_customer_id() : '';
 	}
 
 	/**

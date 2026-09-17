@@ -282,8 +282,10 @@ const offline: KitResult = { ok: false, data: { kit: null, nonce: '', message: '
 export async function kitCall(action: string, data: Record<string, string | number> = {}): Promise<KitResult> {
   if (!config) return offline
 
+  let busyTries = 0
+
   for (let attempt = 0; attempt < 2; attempt++) {
-    if (!nonce || attempt > 0) await refreshKit()
+    if (!nonce || (attempt > 0 && busyTries === 0)) await refreshKit()
 
     try {
       const { status, text } = await post(action, data, true)
@@ -294,6 +296,15 @@ export async function kitCall(action: string, data: Record<string, string | numb
       if (!json) return offline
 
       const answer = (json.data ?? null) as KitAnswer | null
+
+      // Another change of this kit is still being saved: wait and send again.
+      if (!json.success && answer?.reason === 'busy' && busyTries < 3) {
+        busyTries++
+        await new Promise((resolve) => window.setTimeout(resolve, 350 * busyTries))
+        attempt--
+        continue
+      }
+
       // A refusal still carries the draft as it is.
       apply(answer)
 
