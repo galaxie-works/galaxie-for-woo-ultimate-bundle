@@ -453,6 +453,9 @@ final class Ajax {
 			// The taxonomy the sizes came from: with none found, this is the first
 			// thing to check, and it saves guessing from outside the site.
 			'sizeAttribute' => Module::size_attribute(),
+			// Counts only, and only when there is nothing to pack with: the step
+			// where the sizes are lost is otherwise invisible from outside.
+			'sizeReport'    => $catalog->sizes() ? null : \Galaxie\Woo\Support\GiftPacking::size_report( Module::size_attribute() ),
 			'options'    => $catalog->options(),
 			'messageMax' => $catalog->message_max(),
 			'shopUrl'    => function_exists( 'wc_get_page_permalink' ) ? (string) wc_get_page_permalink( 'shop' ) : home_url( '/' ),
