@@ -430,13 +430,15 @@ final class KitBuilderWidget extends Widget_Base {
 
 		printf(
 			'<div class="galaxie-kit-builder%1$s" data-galaxie-kit-builder data-texts="%2$s" data-confetti="%3$s"%4$s>',
-			'yes' === ( $settings['steps_show'] ?? 'yes' ) ? '' : ' no-steps',
+			'yes' === ( $settings['steps_show'] ?? 'yes' ) ? '' : ' no-steps', // Nothing to hide then: the indicator is not printed.
 			esc_attr( (string) wp_json_encode( $texts ) ),
 			'yes' === ( $settings['confetti'] ?? 'yes' ) ? '1' : '0',
 			$editing ? ' data-sample="' . esc_attr( $screen ) . '"' : ''
 		);
 
-		$this->render_steps( $settings, $texts, $screen );
+		if ( 'yes' === ( $settings['steps_show'] ?? 'yes' ) ) {
+			$this->render_steps( $settings, $texts, $screen, $editing );
+		}
 
 		printf(
 			'<p class="galaxie-kit-starting galaxie-kit-small %1$s" data-kit-starting%2$s>%3$s</p>',
@@ -462,12 +464,22 @@ final class KitBuilderWidget extends Widget_Base {
 		echo '</div>';
 	}
 
-	/** @param array<string,mixed> $settings @param array<string,string> $texts */
-	private function render_steps( array $settings, array $texts, string $screen ): void {
+	/**
+	 * The 1•2•3•4 indicator, printed only with "Show the steps" on.
+	 *
+	 * Live it starts hidden and kit-builder.ts shows it on the four stepper
+	 * screens. In the editor it is always visible, whichever screen is drawn —
+	 * on the welcome and the summary with no step marked current — so its style
+	 * controls can be seen.
+	 *
+	 * @param array<string,mixed>  $settings
+	 * @param array<string,string> $texts
+	 */
+	private function render_steps( array $settings, array $texts, string $screen, bool $editing ): void {
 		$steps   = array( 'name' => 'step_name', 'box' => 'step_box', 'card' => 'step_card', 'continue' => 'step_more' );
 		$current = array_search( $screen, array_keys( $steps ), true );
 
-		printf( '<ol class="galaxie-kit-steps" data-kit-steps%s>', false === $current ? ' hidden' : '' );
+		printf( '<ol class="galaxie-kit-steps" data-kit-steps%s>', $editing || false !== $current ? '' : ' hidden' );
 
 		$n = 0;
 

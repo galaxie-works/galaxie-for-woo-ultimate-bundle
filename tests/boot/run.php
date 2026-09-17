@@ -175,6 +175,29 @@ function galaxie_boot_kit( array $booted, array $scenario, callable $hooked ): s
 			}
 		}
 
+		// The step indicator in the editor: visible on every screen with the
+		// switch on (hidden attribute never), absent with it off.
+		if ( 'editor_screen' === $key ) {
+			foreach ( $states as $state ) {
+				$widget->settings = array( $key => $state, 'steps_show' => 'yes' );
+				$on               = $widget->render_for_test();
+				$widget->settings = array( $key => $state, 'steps_show' => '' );
+				$off              = $widget->render_for_test();
+
+				if ( ! preg_match( '/<ol class="galaxie-kit-steps" data-kit-steps>/', $on ) || false !== strpos( $off, 'data-kit-steps' ) ) {
+					throw new RuntimeException( "Kit: step indicator in the editor, screen '{$state}': shown " . ( preg_match( '/data-kit-steps>/', $on ) ? 'yes' : 'no' ) . ' with the switch on, printed ' . ( false !== strpos( $off, 'data-kit-steps' ) ? 'yes' : 'no' ) . ' with it off' );
+				}
+			}
+
+			// Live: printed, hidden until the script shows it on a step.
+			$GLOBALS['galaxie_boot']['editing'] = false;
+			$widget->settings                   = array();
+
+			if ( ! preg_match( '/<ol class="galaxie-kit-steps" data-kit-steps hidden>/', $widget->render_for_test() ) ) {
+				throw new RuntimeException( 'Kit: live step indicator should start hidden' );
+			}
+		}
+
 		$GLOBALS['galaxie_boot']['editing'] = false;
 		$widget->settings                   = array();
 		$parts[]                            = ( new ReflectionClass( $class ) )->getShortName() . ' ' . count( $widget->controls ) . ' controls';
