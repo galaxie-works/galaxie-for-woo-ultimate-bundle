@@ -1,0 +1,427 @@
+<?php
+/**
+ * The kit's requests: read the draft, change it, send it to the cart.
+ *
+ * @package Galaxie\Woo
+ */
+
+namespace Galaxie\Woo\Modules\GiftWrap\Kit;
+
+defined( 'ABSPATH' ) || exit;
+
+/**
+ * `admin-ajax.php?action=galaxie_kit_{name}`, public (a guest builds kits too)
+ * and only ever about the caller's own session and account.
+ *
+ * - `get` reads: the draft, and with `catalog=1` the boxes, cards and sizes
+ *   the popup lists (with `pending_id` / `pending_qty`, the candle a product
+ *   page starts a kit with). It changes nothing, so it needs no nonce, and it
+ *   hands one out: pages are cached (LiteSpeed, for days) and never carry a
+ *   nonce or any draft state — the badge, the Buy Box label and the widgets
+ *   all fill themselves from here.
+ * - Every other action changes something and checks the nonce first. Each
+ *   answer carries a fresh one: a guest's first change opens a WooCommerce
+ *   session, and a nonce made before it no longer matches.
+ * - Every answer carries the draft as it now is (`kit`, null without one), so
+ *   whatever asked can redraw from it, and notices kept for the visitor.
+ * - All of them send no-cache headers, LiteSpeed's included.
+ *
+ * Input is bounded before use (ids as positive ints, quantities 1–12, texts cut
+ * off at RAW_LIMIT bytes and then cleaned and measured by {@see Kits}), and
+ * every change runs through the kit rules and the packing engine.
+ */
+final class Ajax {
+
+	public const NONCE  = 'galaxie_kit';
+	public const PREFIX = 'galaxie_kit_';
+
+	public const ACTIONS = array(
+		'get',
+		'start',
+		'rename',
+		'set_box',
+		'set_card',
+		'set_message',
+		'add_candle',
+		'update_candle',
+		'remove_candle',
+		'discard',
+		'to_cart',
+		'to_cart_and_new',
+		'edit_from_cart',
+	);
+
+	/** Longest text field accepted, in bytes, before it is even cleaned. */
+	private const RAW_LIMIT = 4000;
+
+	private static ?Kits $kits = null;
+
+	private static ?CartKits $carts = null;
+
+	public static function hooks(): void {
+		foreach ( self::ACTIONS as $action ) {
+			add_action( 'wp_ajax_' . self::PREFIX . $action, array( self::class, 'dispatch' ) );
+			add_action( 'wp_ajax_nopriv_' . self::PREFIX . $action, array( self::class, 'dispatch' ) );
+		}
+
+		// After WooCommerce loaded the cart: a guest draft meets the account.
+		add_action( 'wp_loaded', array( self::class, 'merge_on_load' ), 30 );
+	}
+
+	public static function kits(): Kits {
+		return self::$kits ??= new Kits( new WooCatalog() );
+	}
+
+	public static function carts(): CartKits {
+		return self::$carts ??= new CartKits( self::kits() );
+	}
+
+	public static function merge_on_load(): void {
+		if ( ! is_user_logged_in() || ( is_admin() && ! wp_doing_ajax() ) || ! function_exists( 'WC' ) || ! isset( WC()->session ) ) {
+			return;
+		}
+
+		self::carts()->merge_login();
+	}
+
+	public static function dispatch(): void {
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.NonceVerification.Recommended -- checked below for every action that changes something.
+		$action = isset( $_REQUEST['action'] ) ? sanitize_key( wp_unslash( (string) $_REQUEST['action'] ) ) : '';
+		$name   = 0 === strpos( $action, self::PREFIX ) ? substr( $action, strlen( self::PREFIX ) ) : '';
+
+		self::no_cache();
+
+		if ( ! in_array( $name, self::ACTIONS, true ) ) {
+			wp_send_json_error( array( 'message' => __( 'Pedido inválido.', 'galaxie-woo' ) ), 400 );
+		}
+
+		if ( 'get' !== $name ) {
+			check_ajax_referer( self::nonce_action(), 'nonce' );
+		}
+
+		if ( ! CartKits::cart() ) {
+			self::fail( new KitError( 'no_cart', __( 'Carrinho indisponível.', 'galaxie-woo' ) ) );
+		}
+
+		self::carts()->merge_login();
+
+		try {
+			$extra = self::run( $name );
+		} catch ( KitError $error ) {
+			self::fail( $error );
+		}
+
+		self::respond( $extra );
+	}
+
+	/**
+	 * @return array<string,mixed> Extra fields for the answer.
+	 */
+	private static function run( string $name ): array {
+		$kits  = self::kits();
+		$carts = self::carts();
+		$draft = Store::get();
+		$user  = is_user_logged_in() ? (int) get_current_user_id() : 0;
+
+		switch ( $name ) {
+			case 'get':
+				return self::read();
+
+			case 'start':
+				if ( $draft ) {
+					throw new KitError( 'draft_open', __( 'Já existe um kit em montagem. Adicione-o ao carrinho ou descarte-o antes de começar outro.', 'galaxie-woo' ) );
+				}
+
+				Store::ensure_session();
+				Store::put(
+					$kits->start(
+						Store::new_id(),
+						$user,
+						array(
+							'name'    => self::text( 'name' ),
+							'box'     => self::id( 'box' ),
+							'card'    => self::id( 'card' ),
+							'message' => self::text( 'message' ),
+							'candle'  => self::id( 'candle' ),
+							'qty'     => self::quantity( 'qty', 1 ),
+						),
+						$carts->kit_names(),
+						$carts->in_cart()
+					)
+				);
+				return array();
+
+			case 'discard':
+				Store::clear();
+				return array();
+
+			case 'to_cart':
+			case 'to_cart_and_new':
+				$group = $carts->add( self::need( $draft ) );
+				Store::clear();
+				return self::cart_fields() + array(
+					'added' => $group,
+					'next'  => 'to_cart_and_new' === $name ? 'new' : 'close',
+				);
+
+			case 'edit_from_cart':
+				return self::edit( $draft );
+		}
+
+		$draft = self::need( $draft );
+
+		switch ( $name ) {
+			case 'rename':
+				$draft = $kits->rename( $draft, self::text( 'name' ), $carts->kit_names() );
+				break;
+			case 'set_box':
+				$draft = $kits->set_box( $draft, self::id( 'box' ) );
+				break;
+			case 'set_card':
+				$draft = $kits->set_card( $draft, self::id( 'card' ) );
+				break;
+			case 'set_message':
+				$draft = $kits->set_message( $draft, self::text( 'message' ) );
+				break;
+			case 'add_candle':
+				$draft = $kits->add_candle( $draft, self::id( 'candle' ), self::quantity( 'qty', 1 ), $carts->in_cart() );
+				break;
+			case 'update_candle':
+				$draft = $kits->update_candle( $draft, self::id( 'candle' ), self::quantity( 'qty', 0 ), $carts->in_cart() );
+				break;
+			case 'remove_candle':
+				$draft = $kits->remove_candle( $draft, self::id( 'candle' ) );
+				break;
+		}
+
+		Store::put( $draft );
+
+		return array();
+	}
+
+	/**
+	 * "Editar kit". With another draft open, the shopper is asked first
+	 * (`confirm=1` answers yes): that draft goes to the cart — or, with no
+	 * candle yet, is dropped — and the kit comes out.
+	 *
+	 * @return array<string,mixed>
+	 */
+	private static function edit( ?array $draft ): array {
+		$carts = self::carts();
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- checked in dispatch().
+		$group = isset( $_POST['group'] ) ? sanitize_key( wp_unslash( (string) $_POST['group'] ) ) : '';
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- checked in dispatch().
+		$yes = ! empty( $_POST['confirm'] );
+
+		// The kit must be there to edit before anything else moves.
+		$gift = \Galaxie\Woo\Modules\GiftWrap\Groups::groups( CartKits::cart()->get_cart_contents() )[ $group ] ?? null;
+
+		if ( ! $gift || ! \Galaxie\Woo\Modules\GiftWrap\Groups::editable( $gift ) ) {
+			throw new KitError( 'gone', __( 'Esse kit não está mais no carrinho.', 'galaxie-woo' ) );
+		}
+
+		if ( $draft && ! $yes ) {
+			throw new KitError(
+				'needs_confirm',
+				$draft['candles']
+					/* translators: %s: the open kit's name. */
+					? sprintf( __( 'Adicionar o kit %s ao carrinho e editar este?', 'galaxie-woo' ), $draft['name'] )
+					/* translators: %s: the open kit's name. */
+					: sprintf( __( 'O kit %s ainda não tem velas. Descartá-lo e editar este?', 'galaxie-woo' ), $draft['name'] ),
+				array( 'current' => $draft['name'] )
+			);
+		}
+
+		if ( $draft && $draft['candles'] ) {
+			$carts->add( $draft );
+		}
+
+		Store::clear();
+		Store::ensure_session();
+		Store::put( $carts->extract( $group ) );
+
+		return self::cart_fields() + array( 'edited' => $group );
+	}
+
+	/** @return array<string,mixed> */
+	private static function read(): array {
+		// phpcs:disable WordPress.Security.NonceVerification.Missing, WordPress.Security.NonceVerification.Recommended -- a read of the caller's own draft.
+		$out = array();
+
+		if ( empty( $_REQUEST['catalog'] ) ) {
+			return $out;
+		}
+
+		$kits    = self::kits();
+		$catalog = $kits->catalog();
+		$boxes   = array();
+		$cards   = array();
+
+		foreach ( $catalog->boxes() as $id => $box ) {
+			$row      = Kits::box_json( $box );
+			$row['priceText'] = $catalog->money( (float) $box['price'] );
+			$row['cards']     = new \stdClass();
+
+			foreach ( $catalog->cards() as $card ) {
+				$for = $catalog->card_for( (int) $card['parent'], (int) $id );
+
+				if ( $for ) {
+					$row['cards']->{(string) $card['parent']} = $for;
+				}
+			}
+
+			$boxes[] = $row;
+		}
+
+		foreach ( $catalog->cards() as $card ) {
+			$cards[] = array(
+				'id'        => (int) $card['id'],
+				'parent'    => (int) $card['parent'],
+				'name'      => $card['name'],
+				'title'     => $card['title'],
+				'image'     => $card['image'],
+				'price'     => $card['price'],
+				'priceText' => $catalog->money( (float) $card['price'] ),
+				'stock'     => $card['stock'],
+			);
+		}
+
+		$out['catalog'] = array(
+			'boxes'      => $boxes,
+			'cards'      => $cards,
+			'sizes'      => array_values( $catalog->sizes() ),
+			'options'    => $catalog->options(),
+			'messageMax' => $catalog->message_max(),
+			'shopUrl'    => function_exists( 'wc_get_page_permalink' ) ? (string) wc_get_page_permalink( 'shop' ) : home_url( '/' ),
+			'kitNames'   => self::carts()->kit_names(),
+		);
+
+		$pending = self::id( 'pending_id' );
+
+		if ( $pending ) {
+			$candle = $catalog->candle( $pending );
+			$qty    = self::quantity( 'pending_qty', 1 );
+
+			$out['pending'] = $candle ? array(
+				'id'        => (int) $candle['id'],
+				'name'      => $candle['name'],
+				'image'     => $candle['image'],
+				'price'     => $candle['price'],
+				'priceText' => $catalog->money( (float) $candle['price'] ),
+				'stock'     => $candle['stock'],
+				'qty'       => $qty,
+				'candle'    => $candle['candle'],
+			) : null;
+
+			if ( ! $candle ) {
+				$out['pendingError'] = __( 'Não foi possível calcular a embalagem deste produto. Fale com a loja.', 'galaxie-woo' );
+			}
+		}
+
+		// phpcs:enable
+		return $out;
+	}
+
+	/** @return array<string,mixed> What a page needs to redraw its cart. */
+	private static function cart_fields(): array {
+		$cart = CartKits::cart();
+
+		return array(
+			'fragments' => apply_filters( 'woocommerce_add_to_cart_fragments', array() ),
+			'cart_hash' => $cart ? $cart->get_cart_hash() : '',
+			'cartCount' => $cart ? (int) $cart->get_cart_contents_count() : 0,
+		);
+	}
+
+	private static function need( ?array $draft ): array {
+		if ( ! $draft ) {
+			throw new KitError( 'no_draft', __( 'Nenhum kit em montagem. Comece um kit primeiro.', 'galaxie-woo' ) );
+		}
+
+		return $draft;
+	}
+
+	/** @param array<string,mixed> $extra */
+	private static function respond( array $extra ): void {
+		wp_send_json_success( self::state() + $extra );
+	}
+
+	/** @return never */
+	private static function fail( KitError $error ): void {
+		wp_send_json_error(
+			self::state() + $error->data + array(
+				'message' => $error->getMessage(),
+				'reason'  => $error->reason,
+			)
+		);
+	}
+
+	/** @return array<string,mixed> The draft, a fresh nonce and kept notices. */
+	private static function state(): array {
+		$draft = Store::get();
+
+		return array(
+			'kit'     => $draft ? self::kits()->view( $draft, self::carts()->in_cart() ) : null,
+			'nonce'   => wp_create_nonce( self::nonce_action() ),
+			'notices' => Store::take_notices(),
+		);
+	}
+
+	/**
+	 * The nonce action, tied to the visitor's WooCommerce session.
+	 *
+	 * WordPress gives every guest the same nonce (user 0), and WooCommerce only
+	 * swaps in the session for actions named `woocommerce*`. Naming the session
+	 * here keeps a nonce fetched by someone else useless against this visitor.
+	 * A guest with no session yet gets the bare action; the answer to their
+	 * first change, which opens the session, brings the new one.
+	 */
+	private static function nonce_action(): string {
+		$session = function_exists( 'WC' ) && isset( WC()->session ) && is_object( WC()->session ) ? WC()->session : null;
+		$id      = $session && method_exists( $session, 'has_session' ) && $session->has_session() && method_exists( $session, 'get_customer_id' ) ? (string) $session->get_customer_id() : '';
+
+		return self::NONCE . '|' . $id;
+	}
+
+	private static function id( string $key ): int {
+		// phpcs:ignore WordPress.Security.NonceVerification -- checked in dispatch() for changes; reads are the caller's own.
+		$raw = $_REQUEST[ $key ] ?? 0;
+
+		return is_scalar( $raw ) ? min( PHP_INT_MAX, absint( $raw ) ) : 0;
+	}
+
+	private static function quantity( string $key, int $default ): int {
+		// phpcs:ignore WordPress.Security.NonceVerification -- as above.
+		if ( ! isset( $_REQUEST[ $key ] ) || ! is_scalar( $_REQUEST[ $key ] ) ) {
+			return $default;
+		}
+
+		// phpcs:ignore WordPress.Security.NonceVerification, WordPress.Security.ValidatedSanitizedInput -- cast and bounded.
+		$value = (int) $_REQUEST[ $key ];
+
+		// Out of range goes through as -1 and the rules refuse it.
+		return $value >= 0 && $value <= 12 ? $value : -1;
+	}
+
+	private static function text( string $key ): string {
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- checked in dispatch().
+		$raw = isset( $_POST[ $key ] ) && is_string( $_POST[ $key ] ) ? wp_unslash( $_POST[ $key ] ) : '';
+
+		if ( strlen( $raw ) > self::RAW_LIMIT ) {
+			throw new KitError( 'too_long', __( 'Texto longo demais.', 'galaxie-woo' ) );
+		}
+
+		// Kept as typed, cleaned by the kit rules; escaped where printed.
+		return $raw;
+	}
+
+	/** Tells WordPress, the browser and LiteSpeed not to keep this answer. */
+	private static function no_cache(): void {
+		do_action( 'litespeed_control_set_nocache', 'galaxie gift kit' );
+
+		if ( ! headers_sent() ) {
+			nocache_headers();
+			header( 'X-LiteSpeed-Cache-Control: no-cache' );
+		}
+	}
+}

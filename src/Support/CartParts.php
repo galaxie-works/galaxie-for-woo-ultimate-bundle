@@ -1005,8 +1005,11 @@ final class CartParts {
 
 				$meta = wc_get_formatted_cart_item_data( $item, true );
 				if ( $meta ) {
-					printf( '<span class="galaxie-cart-meta">%s</span>', esc_html( $meta ) );
+					printf( '<span class="galaxie-cart-meta">%s</span>', esc_html( wp_strip_all_tags( $meta ) ) );
 				}
+
+				// Links a module adds under the line (Gift Wrap: "Editar kit").
+				do_action( 'galaxie_cart_item_after_meta', $item, $key );
 				break;
 
 			case 'price':

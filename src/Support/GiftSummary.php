@@ -34,8 +34,8 @@ final class GiftSummary {
 	/**
 	 * Each gift in the order, by number.
 	 *
-	 * @return array<int, array{candles:array, box:array, ribbons:array, cards:array}>
-	 *         Lists of [ name, quantity, message ].
+	 * @return array<int, array{name:string, candles:array, box:array, ribbons:array, cards:array}>
+	 *         Lists of [ name, quantity, message ]; `name` is the kit's name, or ''.
 	 */
 	public static function groups( \WC_Order $order ): array {
 		$groups = array();
@@ -65,7 +65,12 @@ final class GiftSummary {
 			$number = '' === $id ? 0 : max( 0, (int) $item->get_meta( Groups::ITEM_NUMBER ) );
 
 			if ( ! isset( $groups[ $number ] ) ) {
-				$groups[ $number ] = array_fill_keys( array_values( $keys ), array() );
+				$groups[ $number ] = array( 'name' => '' ) + array_fill_keys( array_values( $keys ), array() );
+			}
+
+			// A kit's name, on every line of it.
+			if ( '' === $groups[ $number ]['name'] && '' !== $id ) {
+				$groups[ $number ]['name'] = (string) $item->get_meta( Groups::ITEM_NAME );
 			}
 
 			$groups[ $number ][ $keys[ $role ] ][] = array(
@@ -167,7 +172,8 @@ final class GiftSummary {
 		$out   = $email ? '<h2>' . esc_html__( 'Montagem dos presentes', 'galaxie-woo' ) . '</h2>' : '';
 
 		foreach ( $groups as $number => $gift ) {
-			$out .= $email ? '<h3>' . esc_html( Groups::label( (int) $number ) ) . '</h3>' : '<h4 style="margin:8px 0">' . esc_html( Groups::label( (int) $number ) ) . '</h4>';
+			$title = Groups::label( (int) $number, (string) ( $gift['name'] ?? '' ) );
+			$out  .= $email ? '<h3>' . esc_html( $title ) . '</h3>' : '<h4 style="margin:8px 0">' . esc_html( $title ) . '</h4>';
 			$out .= '<table' . $table . '><tbody>';
 
 			foreach ( self::rows( $gift ) as $row ) {
@@ -185,7 +191,7 @@ final class GiftSummary {
 		$out = "\n" . strtoupper( __( 'Montagem dos presentes', 'galaxie-woo' ) ) . "\n\n";
 
 		foreach ( $groups as $number => $gift ) {
-			$out .= Groups::label( (int) $number ) . "\n";
+			$out .= Groups::label( (int) $number, (string) ( $gift['name'] ?? '' ) ) . "\n";
 
 			foreach ( self::rows( $gift ) as $row ) {
 				$out .= '  ' . $row[0] . ': ' . implode( '; ', $row[1] ) . "\n";

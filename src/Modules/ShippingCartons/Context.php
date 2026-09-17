@@ -173,7 +173,7 @@ final class Context {
 	/**
 	 * An order's shippable lines, as the Melhor Envio plugin sends them.
 	 *
-	 * @return array<int, array{id:int, quantity:int, group:string, role:string, product:\WC_Product}>
+	 * @return array<int, array{id:int, quantity:int, group:string, role:string, name:string, product:\WC_Product}>
 	 */
 	public static function order_lines( \WC_Order $order ): array {
 		self::$reading = true;
@@ -204,6 +204,7 @@ final class Context {
 				'quantity' => (int) $item->get_quantity(),
 				'group'    => (string) $item->get_meta( Groups::ITEM_GROUP ),
 				'role'     => (string) $item->get_meta( Groups::ITEM_ROLE ),
+				'name'     => (string) $item->get_meta( Groups::ITEM_NAME ),
 				'product'  => $product,
 			);
 		}

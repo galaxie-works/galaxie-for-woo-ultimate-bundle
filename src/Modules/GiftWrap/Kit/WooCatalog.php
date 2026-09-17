@@ -1,0 +1,177 @@
+<?php
+/**
+ * The kit catalog, read from WooCommerce.
+ *
+ * @package Galaxie\Woo
+ */
+
+namespace Galaxie\Woo\Modules\GiftWrap\Kit;
+
+use Galaxie\Woo\Modules\GiftWrap\Builder;
+use Galaxie\Woo\Modules\GiftWrap\Module;
+use Galaxie\Woo\Support\GiftPacking;
+
+defined( 'ABSPATH' ) || exit;
+
+/**
+ * Boxes and cards are the Gift Wrap offer ({@see Builder::offer()}); a candle
+ * is any purchasable simple product or variation, of a published product, with
+ * the size attribute and dimensions to pack with, that is not itself on offer
+ * as a box or card. Rows are built once per request.
+ */
+final class WooCatalog implements Catalog {
+
+	/** @var array<int, array|null> */
+	private array $candles = array();
+
+	/** @var array<int, array>|null */
+	private ?array $boxes = null;
+
+	/** @var array<int, array>|null */
+	private ?array $cards = null;
+
+	/** @var array{box: array<int,\WC_Product>, ribbon: array<int,\WC_Product>, card: array<int,\WC_Product>}|null */
+	private ?array $offer = null;
+
+	public function candle( int $id ): ?array {
+		if ( array_key_exists( $id, $this->candles ) ) {
+			return $this->candles[ $id ];
+		}
+
+		$offer   = $this->offer();
+		$product = $id > 0 && ! isset( $offer['box'][ $id ] ) && ! isset( $offer['card'][ $id ] ) ? wc_get_product( $id ) : null;
+
+		if ( ! $product instanceof \WC_Product || $product->is_type( 'variable' ) || ! $product->is_purchasable() ) {
+			return $this->candles[ $id ] = null;
+		}
+
+		$parent = $product->is_type( 'variation' ) ? $product->get_parent_id() : $product->get_id();
+
+		if ( 'publish' !== get_post_status( $parent ) ) {
+			return $this->candles[ $id ] = null;
+		}
+
+		$candle = GiftPacking::candle_from_product( $product, Module::size_attribute() );
+
+		if ( ! $candle ) {
+			return $this->candles[ $id ] = null;
+		}
+
+		return $this->candles[ $id ] = self::row( $product ) + array( 'candle' => $candle );
+	}
+
+	public function boxes(): array {
+		if ( null === $this->boxes ) {
+			$this->boxes = array();
+
+			foreach ( $this->offer()['box'] as $id => $product ) {
+				$shape = GiftPacking::box_from_product( $product );
+
+				if ( $shape ) {
+					$this->boxes[ (int) $id ] = self::row( $product ) + array(
+						'shape'       => $shape,
+						'attrs'       => Builder::attributes( $product ),
+						'description' => trim( wp_strip_all_tags( (string) $product->get_description() ) ),
+					);
+				}
+			}
+		}
+
+		return $this->boxes;
+	}
+
+	public function cards(): array {
+		if ( null === $this->cards ) {
+			$this->cards = array();
+
+			foreach ( $this->offer()['card'] as $id => $product ) {
+				$this->cards[ (int) $id ] = self::row( $product ) + array( 'attrs' => Builder::attributes( $product ) );
+			}
+		}
+
+		return $this->cards;
+	}
+
+	public function card_for( int $parent, int $box ): int {
+		$offer   = $this->offer();
+		$product = $box ? ( $offer['box'][ $box ] ?? null ) : null;
+
+		if ( $box && ! $product ) {
+			return 0;
+		}
+
+		return Builder::card_id( $parent, $product, $offer['card'] );
+	}
+
+	public function sizes(): array {
+		return array_values( GiftPacking::store_sizes( Module::size_attribute() ) );
+	}
+
+	public function options(): array {
+		return Module::packing_options();
+	}
+
+	public function message_max(): int {
+		return (int) Module::setting( 'card_message_max' );
+	}
+
+	/**
+	 * WooCommerce's add-to-cart validation for one product, with its notices
+	 * kept aside: a plugin that refuses the product refuses the kit, in its own
+	 * words, and nothing is left on the page's notice stack.
+	 */
+	public function can_add( array $product, int $quantity ): string {
+		$before = wc_get_notices();
+		wc_clear_notices();
+
+		$passed = apply_filters(
+			'woocommerce_add_to_cart_validation',
+			true,
+			(int) $product['parent'],
+			$quantity,
+			$product['variation'] ? (int) $product['id'] : 0,
+			(array) $product['attributes']
+		);
+
+		$errors = wc_get_notices( 'error' );
+		wc_set_notices( $before );
+
+		if ( $passed ) {
+			return '';
+		}
+
+		return $errors ? wp_strip_all_tags( (string) $errors[0]['notice'] ) : __( 'Não foi possível adicionar o kit ao carrinho.', 'galaxie-woo' );
+	}
+
+	public function money( float $amount ): string {
+		return html_entity_decode( wp_strip_all_tags( wc_price( $amount ) ), ENT_QUOTES, get_bloginfo( 'charset' ) );
+	}
+
+	/** @return array{box: array<int,\WC_Product>, ribbon: array<int,\WC_Product>, card: array<int,\WC_Product>} */
+	private function offer(): array {
+		return $this->offer ??= Builder::offer();
+	}
+
+	/**
+	 * The fields every row has.
+	 *
+	 * @return array<string,mixed>
+	 */
+	private static function row( \WC_Product $product ): array {
+		$variation = $product->is_type( 'variation' );
+		$image     = wp_get_attachment_image_url( (int) $product->get_image_id(), 'woocommerce_thumbnail' );
+
+		return array(
+			'id'         => $product->get_id(),
+			'parent'     => $variation ? $product->get_parent_id() : $product->get_id(),
+			'variation'  => $variation,
+			'attributes' => $variation ? $product->get_variation_attributes() : array(),
+			'name'       => wp_strip_all_tags( $product->get_name() ),
+			'title'      => wp_strip_all_tags( $product->get_title() ),
+			// The variation's picture, falling back to the product's (get_image_id() does), then the placeholder.
+			'image'      => $image ? (string) $image : ( function_exists( 'wc_placeholder_img_src' ) ? (string) wc_placeholder_img_src( 'woocommerce_thumbnail' ) : '' ),
+			'price'      => (float) wc_get_price_to_display( $product ),
+			'stock'      => Builder::units_left( $product ),
+		);
+	}
+}

@@ -28,6 +28,8 @@ defined( 'ABSPATH' ) || exit;
  *
  * Gifts are numbered by first appearance in the cart ("Presente 1"), so the
  * numbers need no storage either; the order copies the number it had at checkout.
+ * A kit (Kit flow, {@see Kit\Kits}) also carries its name in that same item
+ * data, and the name is its title everywhere instead of the number.
  *
  * What keeps a group honest once it is in the cart:
  * - A group left without candles loses its accessories (removal, a product
@@ -56,10 +58,19 @@ final class Groups {
 	public const ITEM_ROLE    = '_galaxie_gift_role';
 	public const ITEM_NUMBER  = '_galaxie_gift_number';
 	public const ITEM_MESSAGE = '_galaxie_gift_message';
+	public const ITEM_NAME    = '_galaxie_gift_name';
+
+	/** "Editar kit" links point here, followed by the group id; kit-cart.ts answers them. */
+	public const EDIT_HASH = '#galaxie-kit-edit-';
 
 	public static function hooks(): void {
 		// After Flag::item_data (10), which leaves grouped lines to this one.
 		add_filter( 'woocommerce_get_item_data', array( self::class, 'item_data' ), 11, 2 );
+
+		// "Editar kit": the classic cart and checkout templates print the name
+		// through this filter; the Galaxie Cart widget has its own place for it.
+		add_filter( 'woocommerce_cart_item_name', array( self::class, 'name_with_edit' ), 20, 3 );
+		add_action( 'galaxie_cart_item_after_meta', array( self::class, 'print_edit' ), 10, 2 );
 
 		add_action( 'woocommerce_cart_item_removed', array( self::class, 'after_removal' ), 20, 2 );
 		// After WooCommerce dropped what can no longer be bought, and after a login merge.
@@ -83,7 +94,7 @@ final class Groups {
 	 * The gift a cart item belongs to, or null.
 	 *
 	 * @param mixed $item Cart item.
-	 * @return array{id:string, role:string, message:string}|null
+	 * @return array{id:string, role:string, message:string, name:string}|null
 	 */
 	public static function group_of( $item ): ?array {
 		$group = is_array( $item ) ? ( $item[ self::CART_KEY ] ?? null ) : null;
@@ -96,6 +107,8 @@ final class Groups {
 			'id'      => $group['id'],
 			'role'    => (string) $group['role'],
 			'message' => (string) ( $group['message'] ?? '' ),
+			// A kit's name (Kit flow); gifts built before kits have none.
+			'name'    => is_string( $group['name'] ?? null ) ? $group['name'] : '',
 		);
 	}
 
@@ -104,8 +117,11 @@ final class Groups {
 		return strtolower( wp_generate_password( 12, false ) );
 	}
 
-	/** The cart item data that puts a line in a gift. */
-	public static function data( string $id, string $role, string $message = '' ): array {
+	/**
+	 * The cart item data that puts a line in a gift. A kit's name rides on every
+	 * line of it, so the cart, the order and the e-mails all title it the same.
+	 */
+	public static function data( string $id, string $role, string $message = '', string $name = '' ): array {
 		$group = array(
 			'id'   => $id,
 			'role' => $role,
@@ -113,6 +129,10 @@ final class Groups {
 
 		if ( self::ROLE_CARD === $role && '' !== $message ) {
 			$group['message'] = $message;
+		}
+
+		if ( '' !== $name ) {
+			$group['name'] = $name;
 		}
 
 		return array( self::CART_KEY => $group );
@@ -156,8 +176,8 @@ final class Groups {
 	 * Every gift in the cart with what is in it, numbered.
 	 *
 	 * @param array $contents Cart contents.
-	 * @return array<string, array{number:int, candles:array<string,array>, box:?array, ribbons:array<string,array>, cards:array<string,array>}>
-	 *         Lines by cart key; `box` is [ key => item ] or null.
+	 * @return array<string, array{number:int, name:string, candles:array<string,array>, box:?array, ribbons:array<string,array>, cards:array<string,array>}>
+	 *         Lines by cart key; `box` is [ key => item ] or null; `name` the kit's, or ''.
 	 */
 	public static function groups( array $contents ): array {
 		$groups  = array();
@@ -175,11 +195,16 @@ final class Groups {
 			if ( ! isset( $groups[ $id ] ) ) {
 				$groups[ $id ] = array(
 					'number'  => $numbers[ $id ],
+					'name'    => '',
 					'candles' => array(),
 					'box'     => null,
 					'ribbons' => array(),
 					'cards'   => array(),
 				);
+			}
+
+			if ( '' === $groups[ $id ]['name'] ) {
+				$groups[ $id ]['name'] = $group['name'];
 			}
 
 			switch ( $group['role'] ) {
@@ -257,14 +282,82 @@ final class Groups {
 		}
 	}
 
-	/** "Presente 1", or for 0 the candles outside any box. */
-	public static function label( int $number ): string {
+	/**
+	 * A gift's title: the kit's name when it has one, else "Presente 1", or for
+	 * 0 the candles outside any box.
+	 */
+	public static function label( int $number, string $name = '' ): string {
+		if ( '' !== $name ) {
+			return $name;
+		}
+
 		if ( $number < 1 ) {
 			return __( 'Fora das caixas (embalagem padrão)', 'galaxie-woo' );
 		}
 
 		/* translators: %d: gift number in the cart or order. */
 		return sprintf( __( 'Presente %d', 'galaxie-woo' ), $number );
+	}
+
+	/** The title of the gift a cart line is in, from the cart it is in. */
+	private static function title_of( array $group, array $contents ): string {
+		return self::label( self::numbers( $contents )[ $group['id'] ] ?? 0, $group['name'] );
+	}
+
+	/**
+	 * Whether a gift in the cart can go back to the kit popup ("Editar kit"): a
+	 * kit's shape — a box, at least one candle and no more than a box takes, at
+	 * most one card of one, no ribbons. Gifts built before kits may not be.
+	 *
+	 * @param array $gift One entry of groups().
+	 */
+	public static function editable( array $gift ): bool {
+		if ( ! $gift['box'] || ! $gift['candles'] || $gift['ribbons'] || count( $gift['cards'] ) > 1 ) {
+			return false;
+		}
+
+		$box = reset( $gift['box'] );
+
+		if ( (int) ( $box['quantity'] ?? 0 ) !== 1 ) {
+			return false;
+		}
+
+		foreach ( $gift['cards'] as $card ) {
+			if ( (int) ( $card['quantity'] ?? 0 ) !== 1 ) {
+				return false;
+			}
+		}
+
+		$count = array_sum( array_map( static fn( array $item ): int => (int) ( $item['quantity'] ?? 0 ), $gift['candles'] ) );
+
+		return $count <= GiftPacking::MAX_ITEMS;
+	}
+
+	/** `<a href="#galaxie-kit-edit-{id}">Editar kit</a>`. */
+	public static function edit_link( string $id ): string {
+		return sprintf(
+			'<a href="%1$s" class="galaxie-kit-edit">%2$s</a>',
+			esc_attr( self::EDIT_HASH . $id ),
+			esc_html__( 'Editar kit', 'galaxie-woo' )
+		);
+	}
+
+	/**
+	 * The group id when this cart line is the one of its kit that carries
+	 * "Editar kit" (the box), and the kit can be edited; '' otherwise.
+	 *
+	 * @param mixed $item Cart item.
+	 */
+	private static function edit_target( $item ): string {
+		$group = self::group_of( $item );
+
+		if ( ! $group || self::ROLE_BOX !== $group['role'] || ! function_exists( 'WC' ) || ! WC()->cart ) {
+			return '';
+		}
+
+		$gift = self::groups( WC()->cart->get_cart() )[ $group['id'] ] ?? null;
+
+		return $gift && self::editable( $gift ) ? $group['id'] : '';
 	}
 
 	/** An accessory: its quantity is its gift's. */
@@ -292,14 +385,24 @@ final class Groups {
 			return $data;
 		}
 
-		$numbers = self::numbers( WC()->cart->get_cart() );
-		$number  = $numbers[ $group['id'] ] ?? 0;
+		$contents = WC()->cart->get_cart();
 
-		if ( isset( $numbers[ $group['id'] ] ) ) {
-			$data[] = array(
-				'key'   => self::label( $number ),
+		if ( isset( self::numbers( $contents )[ $group['id'] ] ) ) {
+			$row = array(
+				'key'   => self::title_of( $group, $contents ),
 				'value' => self::role_label( $group['role'] ),
 			);
+
+			// The block cart and checkout print `display` as markup (links kept):
+			// "Editar kit" goes there. Classic templates get it with the name
+			// instead (name_with_edit()), so flat text elsewhere stays plain.
+			$edit = self::is_store_api() ? self::edit_target( $cart_item ) : '';
+
+			if ( '' !== $edit ) {
+				$row['display'] = esc_html( $row['value'] ) . ' · ' . self::edit_link( $edit );
+			}
+
+			$data[] = $row;
 		}
 
 		if ( self::ROLE_CARD === $group['role'] && '' !== $group['message'] ) {
@@ -310,6 +413,58 @@ final class Groups {
 		}
 
 		return $data;
+	}
+
+	/**
+	 * "Editar kit" after the box's name in the classic cart and checkout
+	 * templates, which print the name as markup. Only while such a page is being
+	 * drawn: the same filter feeds names to places that want plain text.
+	 *
+	 * @param mixed $name
+	 * @param mixed $cart_item
+	 * @param mixed $cart_item_key
+	 * @return mixed
+	 */
+	public static function name_with_edit( $name, $cart_item = array(), $cart_item_key = '' ) {
+		if ( ! is_string( $name ) || self::is_store_api() || did_action( 'woocommerce_checkout_process' ) ) {
+			return $name;
+		}
+
+		$on_page = ( function_exists( 'is_cart' ) && is_cart() ) || ( function_exists( 'is_checkout' ) && is_checkout() );
+
+		if ( ! $on_page ) {
+			return $name;
+		}
+
+		$edit = self::edit_target( $cart_item );
+
+		return '' !== $edit ? $name . ' <span class="galaxie-kit-edit-wrap">' . self::edit_link( $edit ) . '</span>' : $name;
+	}
+
+	/**
+	 * The Galaxie Cart widget's line: "Editar kit" under the item data.
+	 *
+	 * @param mixed $cart_item
+	 * @param mixed $cart_item_key
+	 */
+	public static function print_edit( $cart_item, $cart_item_key = '' ): void {
+		$edit = self::edit_target( $cart_item );
+
+		if ( '' !== $edit ) {
+			echo '<span class="galaxie-cart-meta galaxie-kit-edit-wrap">' . self::edit_link( $edit ) . '</span>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in edit_link().
+		}
+	}
+
+	/** Whether this request is the Store API's (the block cart and checkout). */
+	private static function is_store_api(): bool {
+		if ( function_exists( 'WC' ) && is_object( WC() ) && method_exists( WC(), 'is_store_api_request' ) ) {
+			return (bool) WC()->is_store_api_request();
+		}
+
+		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput -- only compared.
+		$uri = isset( $_SERVER['REQUEST_URI'] ) ? (string) $_SERVER['REQUEST_URI'] : '';
+
+		return false !== strpos( $uri, '/wc/store/' ) || false !== strpos( $uri, 'rest_route=%2Fwc%2Fstore' ) || false !== strpos( $uri, 'rest_route=/wc/store' );
 	}
 
 	/**
@@ -439,7 +594,7 @@ final class Groups {
 
 		if ( self::ROLE_CANDLE !== $group['role'] ) {
 			/* translators: 1: product name, 2: "Presente 1". */
-			wc_add_notice( sprintf( __( 'A quantidade de %1$s acompanha o %2$s e não muda sozinha.', 'galaxie-woo' ), $name, self::label( $number ) ), 'error' );
+			wc_add_notice( sprintf( __( 'A quantidade de %1$s acompanha o %2$s e não muda sozinha.', 'galaxie-woo' ), $name, self::label( $number, $group['name'] ) ), 'error' );
 			return false;
 		}
 
@@ -474,7 +629,7 @@ final class Groups {
 		// fit, and it is never expanded.
 		if ( count( $others ) + $quantity > GiftPacking::MAX_ITEMS ) {
 			/* translators: 1: product name, 2: "Presente 1". */
-			wc_add_notice( sprintf( __( 'Não cabe mais %1$s na caixa do %2$s.', 'galaxie-woo' ), $name, self::label( $number ) ), 'error' );
+			wc_add_notice( sprintf( __( 'Não cabe mais %1$s na caixa do %2$s.', 'galaxie-woo' ), $name, self::label( $number, $group['name'] ) ), 'error' );
 			return false;
 		}
 
@@ -487,7 +642,7 @@ final class Groups {
 		}
 
 		/* translators: 1: product name, 2: "Presente 1". */
-		wc_add_notice( sprintf( __( 'Não cabe mais %1$s na caixa do %2$s.', 'galaxie-woo' ), $name, self::label( $number ) ), 'error' );
+		wc_add_notice( sprintf( __( 'Não cabe mais %1$s na caixa do %2$s.', 'galaxie-woo' ), $name, self::label( $number, $group['name'] ) ), 'error' );
 
 		return false;
 	}
@@ -602,7 +757,12 @@ final class Groups {
 		$item->add_meta_data( self::ITEM_GROUP, $group['id'], true );
 		$item->add_meta_data( self::ITEM_ROLE, $group['role'], true );
 		$item->add_meta_data( self::ITEM_NUMBER, $number, true );
-		$item->add_meta_data( self::label( $number ), self::role_label( $group['role'] ), true );
+
+		if ( '' !== $group['name'] ) {
+			$item->add_meta_data( self::ITEM_NAME, $group['name'], true );
+		}
+
+		$item->add_meta_data( self::label( $number, $group['name'] ), self::role_label( $group['role'] ), true );
 
 		if ( self::ROLE_CARD === $group['role'] && '' !== $group['message'] ) {
 			$item->add_meta_data( self::ITEM_MESSAGE, $group['message'], true );

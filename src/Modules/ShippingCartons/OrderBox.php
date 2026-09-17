@@ -151,10 +151,18 @@ final class OrderBox {
 				'quantity' => $source['quantity'],
 			);
 
-			$lines[] = Rewriter::measure( $source['product'] ) + array(
+			$line = Rewriter::measure( $source['product'] ) + array(
 				'group' => $source['group'],
 				'role'  => $source['role'],
 			);
+
+			// A kit's box is listed under the kit's name: "Kit Stella — Caixa … (com …)".
+			if ( 'box' === $source['role'] && '' !== ( $source['name'] ?? '' ) ) {
+				/* translators: 1: kit name, 2: gift box name. */
+				$line['label'] = sprintf( __( '%1$s — %2$s', 'galaxie-woo' ), $source['name'], $line['label'] );
+			}
+
+			$lines[] = $line;
 		}
 
 		$cartons = Module::cartons();
