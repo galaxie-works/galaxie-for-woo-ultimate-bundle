@@ -124,6 +124,7 @@ final class KitBuilderWidget extends Widget_Base {
 			),
 			'summary'  => array(
 				'summary_title'    => array( __( 'Title', 'galaxie-woo' ), __( 'Seu kit', 'galaxie-woo' ) ),
+				'summary_text'     => array( __( 'Text under the title (optional)', 'galaxie-woo' ), '' ),
 				'summary_name'     => array( __( 'Name label', 'galaxie-woo' ), __( 'Nome', 'galaxie-woo' ) ),
 				'summary_box'      => array( __( 'Box label', 'galaxie-woo' ), __( 'Caixa', 'galaxie-woo' ) ),
 				'summary_card'     => array( __( 'Card label', 'galaxie-woo' ), __( 'Cartão', 'galaxie-woo' ) ),
@@ -395,6 +396,58 @@ final class KitBuilderWidget extends Widget_Base {
 		);
 		$this->end_controls_section();
 
+		// One section per screen, in the order the shopper sees them. Repetitive
+		// on purpose: a cover, a form step and a summary share the markup and
+		// nothing else, and no single set of controls can dress all six.
+		$screens = array(
+			'welcome'  => __( 'Screen · Welcome', 'galaxie-woo' ),
+			'name'     => __( 'Screen · 1 · Name', 'galaxie-woo' ),
+			'box'      => __( 'Screen · 2 · Box', 'galaxie-woo' ),
+			'card'     => __( 'Screen · 3 · Card', 'galaxie-woo' ),
+			'continue' => __( 'Screen · 4 · Keep choosing', 'galaxie-woo' ),
+			'summary'  => __( 'Screen · Kit summary', 'galaxie-woo' ),
+		);
+
+		foreach ( $screens as $screen => $label ) {
+			$this->start_controls_section( 'kit_screen_' . $screen . '_style', $style( $label ) );
+			$this->screen_style( $screen, 'welcome' === $screen ? array( 'size' => 'h4' ) : array() );
+
+			if ( 'welcome' === $screen ) {
+				$this->heading( 'welcome_image_heading', __( 'Image', 'galaxie-woo' ) );
+				$this->add_control(
+					'welcome_image',
+					array(
+						'label'   => __( 'Image', 'galaxie-woo' ),
+						'type'    => Controls_Manager::MEDIA,
+						'default' => array( 'url' => '' ),
+					)
+				);
+				$this->add_responsive_control(
+					'welcome_image_width',
+					array(
+						'label'      => __( 'Width', 'galaxie-woo' ),
+						'type'       => Controls_Manager::SLIDER,
+						'size_units' => array( 'px', '%' ),
+						'range'      => array( 'px' => array( 'min' => 40, 'max' => 600 ) ),
+						'default'    => array( 'unit' => '%', 'size' => 100 ),
+						'selectors'  => array( '{{WRAPPER}} .galaxie-kit-welcome-image' => 'width: {{SIZE}}{{UNIT}};' ),
+					)
+				);
+				$this->add_responsive_control(
+					'welcome_image_radius',
+					array(
+						'label'      => __( 'Border radius', 'galaxie-woo' ),
+						'type'       => Controls_Manager::SLIDER,
+						'size_units' => array( 'px' ),
+						'range'      => array( 'px' => array( 'min' => 0, 'max' => 60 ) ),
+						'selectors'  => array( '{{WRAPPER}} .galaxie-kit-welcome-image' => 'border-radius: {{SIZE}}{{UNIT}};' ),
+					)
+				);
+			}
+
+			$this->end_controls_section();
+		}
+
 		$this->start_controls_section( 'kit_box_style', $style( __( 'Box cards', 'galaxie-woo' ) ) );
 		PixfortControls::surface( $this, 'box_card', '{{WRAPPER}} .galaxie-kit-choice' );
 		PixfortControls::palette_control( $this, 'box_selected', __( 'Selected: border color', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-kit-choice[aria-pressed="true"]', 'border-color', array(), ' border-style: solid; border-width: 2px;' );
@@ -507,99 +560,6 @@ final class KitBuilderWidget extends Widget_Base {
 			$this->end_controls_section();
 		}
 
-		// The welcome screen is a cover, not a step: with this on it keeps its
-		// own title, text and panel, and "Titles and text" / "Step content" stop
-		// reaching it. Off, it follows them as before.
-		$this->start_controls_section( 'kit_welcome_style', $style( __( 'Welcome screen', 'galaxie-woo' ) ) );
-		$this->add_control(
-			'welcome_own',
-			array(
-				'label'        => __( 'Style this screen apart', 'galaxie-woo' ),
-				'description'  => __( 'Otherwise the welcome screen follows "Titles and text" and "Step content".', 'galaxie-woo' ),
-				'type'         => Controls_Manager::SWITCHER,
-				'return_value' => 'yes',
-				'default'      => '',
-			)
-		);
-
-		$own     = array( 'welcome_own' => 'yes' );
-		$screen  = '{{WRAPPER}} .galaxie-kit-screen--welcome';
-
-		$this->heading( 'welcome_title_heading', __( 'Title', 'galaxie-woo' ) );
-		PixfortControls::text( $this, 'welcome_title', array( 'size' => 'h4', 'bold' => 'font-weight-bold', 'remove_pb_padding' => 'm-0' ), $own, $screen . ' .galaxie-kit-title', 'heading' );
-		$this->margin( 'welcome_title_margin', __( 'Space around the title', 'galaxie-woo' ), $screen . ' .galaxie-kit-head', $own );
-
-		$this->heading( 'welcome_body_heading', __( 'Text', 'galaxie-woo' ) );
-		PixfortControls::text( $this, 'welcome_body', array( 'bold' => '' ), $own, $screen . ' .galaxie-kit-text', 'text', array( 'inline', 'position' ) );
-		$this->margin( 'welcome_body_margin', __( 'Space around the text', 'galaxie-woo' ), $screen . ' .galaxie-kit-text', $own );
-
-		$this->heading( 'welcome_panel_heading', __( 'Panel', 'galaxie-woo' ) );
-		PixfortControls::palette_control( $this, 'welcome_panel_bg', __( 'Background', 'galaxie-woo' ), $screen . ' .galaxie-kit-content', 'background-color', $own );
-		$this->add_responsive_control(
-			'welcome_panel_padding',
-			array(
-				'label'      => __( 'Padding', 'galaxie-woo' ),
-				'type'       => Controls_Manager::DIMENSIONS,
-				'size_units' => array( 'px', 'rem', 'em' ),
-				'condition'  => $own,
-				'selectors'  => array( $screen . ' .galaxie-kit-content' => 'padding: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};' ),
-			)
-		);
-		$this->add_responsive_control(
-			'welcome_panel_radius',
-			array(
-				'label'      => __( 'Rounded corners', 'galaxie-woo' ),
-				'type'       => Controls_Manager::SLIDER,
-				'size_units' => array( 'px' ),
-				'range'      => array( 'px' => array( 'min' => 0, 'max' => 60 ) ),
-				'condition'  => $own,
-				'selectors'  => array( $screen . ' .galaxie-kit-content' => 'border-radius: {{SIZE}}{{UNIT}};' ),
-			)
-		);
-		$this->add_responsive_control(
-			'welcome_gap',
-			array(
-				'label'      => __( 'Gap between parts', 'galaxie-woo' ),
-				'type'       => Controls_Manager::SLIDER,
-				'size_units' => array( 'px', 'rem' ),
-				'range'      => array( 'px' => array( 'min' => 0, 'max' => 60 ) ),
-				'condition'  => $own,
-				'selectors'  => array( $screen . ', ' . $screen . ' .galaxie-kit-content' => 'gap: {{SIZE}}{{UNIT}};' ),
-			)
-		);
-
-		$this->heading( 'welcome_image_heading', __( 'Image', 'galaxie-woo' ) );
-		$this->add_control(
-			'welcome_image',
-			array(
-				'label'   => __( 'Image', 'galaxie-woo' ),
-				'type'    => Controls_Manager::MEDIA,
-				'default' => array( 'url' => '' ),
-			)
-		);
-		$this->add_responsive_control(
-			'welcome_image_width',
-			array(
-				'label'      => __( 'Width', 'galaxie-woo' ),
-				'type'       => Controls_Manager::SLIDER,
-				'size_units' => array( 'px', '%' ),
-				'range'      => array( 'px' => array( 'min' => 40, 'max' => 600 ) ),
-				'default'    => array( 'unit' => '%', 'size' => 100 ),
-				'selectors'  => array( '{{WRAPPER}} .galaxie-kit-welcome-image' => 'width: {{SIZE}}{{UNIT}};' ),
-			)
-		);
-		$this->add_responsive_control(
-			'welcome_image_radius',
-			array(
-				'label'      => __( 'Border radius', 'galaxie-woo' ),
-				'type'       => Controls_Manager::SLIDER,
-				'size_units' => array( 'px' ),
-				'range'      => array( 'px' => array( 'min' => 0, 'max' => 60 ) ),
-				'selectors'  => array( '{{WRAPPER}} .galaxie-kit-welcome-image' => 'border-radius: {{SIZE}}{{UNIT}};' ),
-			)
-		);
-		$this->end_controls_section();
-
 		$this->start_controls_section( 'kit_layout_style', $style( __( 'Layout', 'galaxie-woo' ) ) );
 		$this->add_responsive_control(
 			'kit_gap',
@@ -637,6 +597,80 @@ final class KitBuilderWidget extends Widget_Base {
 		);
 		$this->margin( 'actions_margin', __( 'Space around the row', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-kit-actions' );
 		$this->end_controls_section();
+	}
+
+	/**
+	 * One screen's own title, text, panel and spacing.
+	 *
+	 * The typography and the panel wait behind a switch, because they are
+	 * classes this screen's markup has to be printed with. The margins do not:
+	 * an empty one writes no rule, and a filled one beats the shared section
+	 * because its selector names the screen.
+	 *
+	 * @param array<string,string> $title_defaults
+	 */
+	private function screen_style( string $screen, array $title_defaults = array() ): void {
+		$this->add_control(
+			$screen . '_own',
+			array(
+				'label'        => __( 'Style this screen apart', 'galaxie-woo' ),
+				'description'  => __( 'Otherwise this screen follows "Titles and text" and "Step content".', 'galaxie-woo' ),
+				'type'         => Controls_Manager::SWITCHER,
+				'return_value' => 'yes',
+				'default'      => '',
+			)
+		);
+
+		$own  = array( $screen . '_own' => 'yes' );
+		$at   = '{{WRAPPER}} .galaxie-kit-screen--' . $screen;
+		$body = $at . ' .galaxie-kit-content';
+
+		$this->heading( $screen . '_title_heading', __( 'Title', 'galaxie-woo' ) );
+		PixfortControls::text( $this, $screen . '_title', $title_defaults + array( 'size' => 'h5', 'bold' => 'font-weight-bold', 'remove_pb_padding' => 'm-0' ), $own, $at . ' .galaxie-kit-title', 'heading' );
+		$this->margin( $screen . '_title_margin', __( 'Space around the title', 'galaxie-woo' ), $at . ' .galaxie-kit-head' );
+
+		$this->heading( $screen . '_body_heading', __( 'Text', 'galaxie-woo' ) );
+		PixfortControls::text( $this, $screen . '_body', array( 'bold' => '' ), $own, $at . ' .galaxie-kit-text', 'text', array( 'inline', 'position' ) );
+		$this->margin( $screen . '_body_margin', __( 'Space around the text', 'galaxie-woo' ), $at . ' .galaxie-kit-text' );
+
+		$this->heading( $screen . '_panel_heading', __( 'Panel', 'galaxie-woo' ) );
+		PixfortControls::palette_control( $this, $screen . '_panel_bg', __( 'Background', 'galaxie-woo' ), $body, 'background-color', $own );
+		$this->add_responsive_control(
+			$screen . '_panel_padding',
+			array(
+				'label'      => __( 'Padding', 'galaxie-woo' ),
+				'type'       => Controls_Manager::DIMENSIONS,
+				'size_units' => array( 'px', 'rem', 'em' ),
+				'condition'  => $own,
+				'selectors'  => array( $body => 'padding: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};' ),
+			)
+		);
+		$this->add_responsive_control(
+			$screen . '_panel_radius',
+			array(
+				'label'      => __( 'Rounded corners', 'galaxie-woo' ),
+				'type'       => Controls_Manager::SLIDER,
+				'size_units' => array( 'px' ),
+				'range'      => array( 'px' => array( 'min' => 0, 'max' => 60 ) ),
+				'condition'  => $own,
+				'selectors'  => array( $body => 'border-radius: {{SIZE}}{{UNIT}};' ),
+			)
+		);
+		$this->add_responsive_control(
+			$screen . '_gap',
+			array(
+				'label'      => __( 'Gap between parts', 'galaxie-woo' ),
+				'type'       => Controls_Manager::SLIDER,
+				'size_units' => array( 'px', 'rem' ),
+				'range'      => array( 'px' => array( 'min' => 0, 'max' => 60 ) ),
+				'selectors'  => array( $at . ', ' . $body => 'gap: {{SIZE}}{{UNIT}};' ),
+			)
+		);
+
+		$this->heading( $screen . '_space_heading', __( 'Spacing on this screen', 'galaxie-woo' ) );
+		$this->margin( $screen . '_field_margin', __( 'Space around the fields', 'galaxie-woo' ), $at . ' .galaxie-kit-field' );
+		$this->margin( $screen . '_list_margin', __( 'Space around the lists', 'galaxie-woo' ), $at . ' .galaxie-kit-choices, ' . $at . ' .galaxie-kit-lines' );
+		$this->margin( $screen . '_actions_margin', __( 'Space around the buttons', 'galaxie-woo' ), $at . ' .galaxie-kit-actions' );
 	}
 
 	/**
@@ -783,8 +817,8 @@ final class KitBuilderWidget extends Widget_Base {
 	 * @param array<string,mixed> $settings
 	 */
 	private function text_prefix( array $settings, string $screen, string $part ): string {
-		return 'welcome' === $screen && 'yes' === ( $settings['welcome_own'] ?? '' )
-			? 'welcome_' . $part
+		return 'yes' === ( $settings[ $screen . '_own' ] ?? '' )
+			? $screen . '_' . $part
 			: ( 'title' === $part ? 'title' : 'body' );
 	}
 
@@ -982,7 +1016,7 @@ final class KitBuilderWidget extends Widget_Base {
 		$meta  = esc_attr( PixfortControls::text_classes( $settings, 'box_meta' ) );
 		$name  = esc_attr( PixfortControls::text_classes( $settings, 'box_name' ) );
 
-		$this->head( $settings, 'summary', $texts['summary_title'], '' );
+		$this->head( $settings, 'summary', $texts['summary_title'], $texts['summary_text'] );
 
 		echo '<div class="galaxie-kit-scroll galaxie-kit-summary">';
 
