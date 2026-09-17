@@ -459,6 +459,9 @@ $check( 'edit', 'a gift with two boxes is not editable', Groups::editable( Group
 
 // labels
 $check( 'labels', 'a kit is titled by its name', Groups::label( 1, 'Stella' ), 'Stella' );
+WC()->cart->add_to_cart( 9, 1, 10, array(), Groups::data( 'named', Groups::ROLE_BOX, '', '<a href="x">Mãe</a> & <3' ) );
+$named = array_values( array_filter( WC()->cart->get_cart_contents(), fn( $i ) => 'named' === ( Groups::group_of( $i )['id'] ?? '' ) ) )[0];
+$check( 'labels', 'a kit name is escaped where WooCommerce prints item data keys as markup', Groups::item_data( array(), $named )[0]['key'], '&lt;a href=&quot;x&quot;&gt;Mãe&lt;/a&gt; &amp; &lt;3' );
 $check( 'labels', 'an older gift keeps its number', Groups::label( 2 ), 'Presente 2' );
 
 // login merge

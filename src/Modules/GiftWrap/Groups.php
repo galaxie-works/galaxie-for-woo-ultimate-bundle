@@ -389,7 +389,9 @@ final class Groups {
 
 		if ( isset( self::numbers( $contents )[ $group['id'] ] ) ) {
 			$row = array(
-				'key'   => self::title_of( $group, $contents ),
+				// Escaped: a kit's name is the shopper's text, and WooCommerce prints
+				// item data keys through wp_kses_post() (block cart: as markup).
+				'key'   => esc_html( self::title_of( $group, $contents ) ),
 				'value' => self::role_label( $group['role'] ),
 			);
 
@@ -594,7 +596,7 @@ final class Groups {
 
 		if ( self::ROLE_CANDLE !== $group['role'] ) {
 			/* translators: 1: product name, 2: "Presente 1". */
-			wc_add_notice( sprintf( __( 'A quantidade de %1$s acompanha o %2$s e não muda sozinha.', 'galaxie-woo' ), $name, self::label( $number, $group['name'] ) ), 'error' );
+			wc_add_notice( sprintf( __( 'A quantidade de %1$s acompanha o %2$s e não muda sozinha.', 'galaxie-woo' ), $name, esc_html( self::label( $number, $group['name'] ) ) ), 'error' );
 			return false;
 		}
 
@@ -629,7 +631,7 @@ final class Groups {
 		// fit, and it is never expanded.
 		if ( count( $others ) + $quantity > GiftPacking::MAX_ITEMS ) {
 			/* translators: 1: product name, 2: "Presente 1". */
-			wc_add_notice( sprintf( __( 'Não cabe mais %1$s na caixa do %2$s.', 'galaxie-woo' ), $name, self::label( $number, $group['name'] ) ), 'error' );
+			wc_add_notice( sprintf( __( 'Não cabe mais %1$s na caixa do %2$s.', 'galaxie-woo' ), $name, esc_html( self::label( $number, $group['name'] ) ) ), 'error' );
 			return false;
 		}
 
@@ -642,7 +644,7 @@ final class Groups {
 		}
 
 		/* translators: 1: product name, 2: "Presente 1". */
-		wc_add_notice( sprintf( __( 'Não cabe mais %1$s na caixa do %2$s.', 'galaxie-woo' ), $name, self::label( $number, $group['name'] ) ), 'error' );
+		wc_add_notice( sprintf( __( 'Não cabe mais %1$s na caixa do %2$s.', 'galaxie-woo' ), $name, esc_html( self::label( $number, $group['name'] ) ) ), 'error' );
 
 		return false;
 	}
@@ -762,7 +764,10 @@ final class Groups {
 			$item->add_meta_data( self::ITEM_NAME, $group['name'], true );
 		}
 
-		$item->add_meta_data( self::label( $number, $group['name'] ), self::role_label( $group['role'] ), true );
+		// The visible key is escaped: wp-admin and the e-mails print meta keys as
+		// markup (wp_kses_post()), and a kit's name is the shopper's text. The
+		// name itself is kept as typed in ITEM_NAME.
+		$item->add_meta_data( esc_html( self::label( $number, $group['name'] ) ), self::role_label( $group['role'] ), true );
 
 		if ( self::ROLE_CARD === $group['role'] && '' !== $group['message'] ) {
 			$item->add_meta_data( self::ITEM_MESSAGE, $group['message'], true );

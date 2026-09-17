@@ -990,6 +990,9 @@ final class CartParts {
 
 			case 'name':
 				$name = apply_filters( 'woocommerce_cart_item_name', $product->get_name(), $item, $key );
+				// Links a module appends to the name for WooCommerce's own templates
+				// ("Editar kit") are printed under the item data here instead.
+				$name = (string) preg_replace( '#<span class="galaxie-kit-edit-wrap">.*?</span>#s', '', (string) $name );
 				$link = $product->is_visible() ? $product->get_permalink( $item ) : '';
 				echo PixfortControls::render_text( // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pixfort's own element around escaped text.
 					$settings,

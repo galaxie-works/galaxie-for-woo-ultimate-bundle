@@ -306,7 +306,8 @@ final class Ajax {
 
 		if ( $pending ) {
 			$candle = $catalog->candle( $pending );
-			$qty    = self::quantity( 'pending_qty', 1 );
+			// Shown as asked ("13 × …" fits no box), within reason.
+			$qty = isset( $_REQUEST['pending_qty'] ) && is_scalar( $_REQUEST['pending_qty'] ) ? max( 1, min( 99, (int) $_REQUEST['pending_qty'] ) ) : 1;
 
 			$out['pending'] = $candle ? array(
 				'id'        => (int) $candle['id'],

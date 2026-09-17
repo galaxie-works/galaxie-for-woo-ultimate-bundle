@@ -23,7 +23,7 @@
  * but disabled, with the reason, and each box says what it takes.
  */
 
-import { fits } from '@/lib/gift-packing'
+import { fits, MAX_ITEMS } from '@/lib/gift-packing'
 import type { Candle } from '@/lib/gift-packing'
 import { cleanMessage, messageLength } from '@/lib/gift-groups'
 import { cleanName, combos, defaultName, fillText, wording } from '@/lib/gift-kit'
@@ -309,7 +309,8 @@ function create(root: HTMLElement): Controller {
       const node = clone(root, 'choice')
       if (!node) return null
 
-      const holds = !units.length || fits(box.shape, units, options)
+      // Past the packing search's dozen nothing is a fit (and nothing is searched).
+      const holds = !units.length || (units.length <= MAX_ITEMS && fits(box.shape, units, options))
       const sold = box.stock === 0 && box.id !== current
       const disabled = !holds || sold
       if (!disabled) usable++
