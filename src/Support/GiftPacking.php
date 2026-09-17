@@ -631,7 +631,10 @@ final class GiftPacking {
 		$stored = get_transient( self::SIZES_TRANSIENT );
 		$stored = is_array( $stored ) ? $stored : array();
 
-		if ( isset( $stored[ $attribute ] ) && is_array( $stored[ $attribute ] ) ) {
+		// An empty entry is not an answer to keep: it means the store looked like
+		// it had no candle size at all, which is worth asking again rather than
+		// serving for a day. (One written before this rule is dropped here.)
+		if ( ! empty( $stored[ $attribute ] ) && is_array( $stored[ $attribute ] ) ) {
 			return self::$sizes[ $attribute ] = $stored[ $attribute ];
 		}
 
