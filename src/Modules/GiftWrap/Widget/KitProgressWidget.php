@@ -292,11 +292,17 @@ final class KitProgressWidget extends Widget_Base {
 		);
 		$this->end_controls_section();
 
-		$this->start_controls_section( 'kit_progress_primary_style', $style( __( 'Primary button (full box, invitation)', 'galaxie-woo' ) ) );
-		PixfortControls::button( $this, 'progress_primary', array( 'color' => 'primary', 'size' => 'sm' ), array(), '{{WRAPPER}}', array( 'text' ) );
+		// One section per button, not one per look: the invitation and the cart
+		// button say different things and carry different icons.
+		$this->start_controls_section( 'kit_progress_invite_style', $style( __( 'Button · Monte um kit (invitation)', 'galaxie-woo' ) ) );
+		PixfortControls::button( $this, 'progress_invite', array( 'color' => 'primary', 'size' => 'sm', 'icon' => 'Line/pixfort-icon-gift-1' ), array(), '{{WRAPPER}}', array( 'text' ) );
 		$this->end_controls_section();
 
-		$this->start_controls_section( 'kit_progress_link_style', $style( __( '"Ver kit" link', 'galaxie-woo' ) ) );
+		$this->start_controls_section( 'kit_progress_cart_style', $style( __( 'Button · Adicionar kit ao carrinho', 'galaxie-woo' ) ) );
+		PixfortControls::button( $this, 'progress_cart', array( 'color' => 'primary', 'size' => 'sm', 'icon' => 'Line/pixfort-icon-bag-1' ), array(), '{{WRAPPER}}', array( 'text' ) );
+		$this->end_controls_section();
+
+		$this->start_controls_section( 'kit_progress_link_style', $style( __( 'Button · Ver kit', 'galaxie-woo' ) ) );
 		PixfortControls::button( $this, 'progress_link', array( 'style' => 'link', 'color' => 'primary', 'size' => 'sm', 'remove_padding' => 'no-padding' ), array(), '{{WRAPPER}}', array( 'text' ) );
 		$this->end_controls_section();
 	}
@@ -339,7 +345,7 @@ final class KitProgressWidget extends Widget_Base {
 		// Without a kit.
 		printf( '<div class="galaxie-kit-progress-part galaxie-kit-progress-invite" data-kit-invite%s>', 'invite' === $preview ? '' : ' hidden' );
 		printf( '<div class="galaxie-kit-progress-text">%s</div>', PixfortControls::render_text( $settings, 'progress_text', esc_html( (string) ( $settings['invite_text'] ?? '' ) ) ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pixfort's element around escaped text.
-		echo $this->button( $settings, 'progress_primary', 'open', (string) ( $settings['invite_button'] ?? '' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in button().
+		echo $this->button( $settings, 'progress_invite', 'open', (string) ( $settings['invite_button'] ?? '' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in button().
 		echo '</div>';
 
 		// With one.
@@ -368,7 +374,7 @@ final class KitProgressWidget extends Widget_Base {
 		}
 
 		printf( '<div class="galaxie-kit-progress-actions" data-kit-when="full"%s>', $full ? '' : ' hidden' );
-		echo $this->button( $settings, 'progress_primary', 'to-cart', (string) ( $settings['cart_text'] ?? '' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in button().
+		echo $this->button( $settings, 'progress_cart', 'to-cart', (string) ( $settings['cart_text'] ?? '' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in button().
 		echo '</div>';
 
 		echo '</div>';

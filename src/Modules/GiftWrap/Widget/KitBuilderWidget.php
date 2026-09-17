@@ -146,6 +146,31 @@ final class KitBuilderWidget extends Widget_Base {
 		);
 	}
 
+	/**
+	 * The kit's buttons, by what they do. Each one is a section of its own with
+	 * its own look and its own icon: "Voltar" and "Descartar kit" are not two
+	 * shades of the same secondary button, and a shopper reads the icon before
+	 * the label. The defaults reproduce the primary / outline / link looks the
+	 * three shared sections used to draw.
+	 *
+	 * @return array<string, array{0:string, 1:array<string,string>}>
+	 */
+	private static function buttons(): array {
+		return array(
+			'start'     => array( __( 'Button · Montar um kit (welcome)', 'galaxie-woo' ), array( 'color' => 'primary', 'icon' => 'Line/pixfort-icon-gift-1' ) ),
+			'next'      => array( __( 'Button · Próximo', 'galaxie-woo' ), array( 'color' => 'primary', 'icon' => 'Line/pixfort-icon-arrow-right-2', 'icon_position' => 'after' ) ),
+			'back'      => array( __( 'Button · Voltar', 'galaxie-woo' ), array( 'style' => 'outline', 'color' => 'primary', 'icon' => 'Line/pixfort-icon-arrow-left-2' ) ),
+			'choose'    => array( __( 'Button · Continuar escolhendo (step 4)', 'galaxie-woo' ), array( 'color' => 'primary', 'icon' => 'Line/pixfort-icon-arrow-right-2', 'icon_position' => 'after' ) ),
+			'view'      => array( __( 'Button · Ver kit', 'galaxie-woo' ), array( 'style' => 'outline', 'color' => 'primary', 'icon' => 'Line/pixfort-icon-eye-visibility-1' ) ),
+			'cart'      => array( __( 'Button · Adicionar kit ao carrinho', 'galaxie-woo' ), array( 'style' => 'outline', 'color' => 'primary', 'icon' => 'Line/pixfort-icon-bag-1' ) ),
+			'cart_full' => array( __( 'Button · Adicionar kit ao carrinho (box full)', 'galaxie-woo' ), array( 'color' => 'primary', 'icon' => 'Line/pixfort-icon-bag-1' ) ),
+			'cart_new'  => array( __( 'Button · Adicionar e começar outro', 'galaxie-woo' ), array( 'style' => 'outline', 'color' => 'primary', 'icon' => 'Line/pixfort-icon-plus-circle-1' ) ),
+			'close'     => array( __( 'Button · Continuar escolhendo (summary)', 'galaxie-woo' ), array( 'style' => 'outline', 'color' => 'primary' ) ),
+			'previous'  => array( __( 'Button · Recuperar kit anterior', 'galaxie-woo' ), array( 'style' => 'outline', 'color' => 'primary', 'icon' => 'Line/pixfort-icon-clock-1' ) ),
+			'discard'   => array( __( 'Button · Descartar kit', 'galaxie-woo' ), array( 'style' => 'link', 'color' => 'red', 'icon' => 'Line/pixfort-icon-cross-circle-1' ) ),
+		);
+	}
+
 	/** Icons by screen, shown before the title. */
 	private const ICONS = array(
 		'welcome'  => 'Line/pixfort-icon-gift-1',
@@ -476,19 +501,74 @@ final class KitBuilderWidget extends Widget_Base {
 		);
 		$this->end_controls_section();
 
-		$buttons = array(
-			'primary'   => array( __( 'Primary buttons', 'galaxie-woo' ), array( 'color' => 'primary' ) ),
-			'secondary' => array( __( 'Secondary buttons', 'galaxie-woo' ), array( 'style' => 'outline', 'color' => 'primary' ) ),
-			'danger'    => array( __( 'Danger button', 'galaxie-woo' ), array( 'style' => 'link', 'color' => 'red' ) ),
-		);
-
-		foreach ( $buttons as $kind => $button ) {
-			$this->start_controls_section( 'kit_btn_' . $kind . '_style', $style( $button[0] ) );
-			PixfortControls::button( $this, 'kit_' . $kind, $button[1] + array( 'size' => 'md' ), array(), '{{WRAPPER}}', array( 'text' ) );
+		foreach ( self::buttons() as $role => $button ) {
+			$this->start_controls_section( 'kit_btn_' . $role . '_style', $style( $button[0] ) );
+			PixfortControls::button( $this, 'kit_' . $role, $button[1] + array( 'size' => 'md' ), array(), '{{WRAPPER}}', array( 'text' ) );
 			$this->end_controls_section();
 		}
 
-		$this->start_controls_section( 'kit_welcome_style', $style( __( 'Welcome image', 'galaxie-woo' ) ) );
+		// The welcome screen is a cover, not a step: with this on it keeps its
+		// own title, text and panel, and "Titles and text" / "Step content" stop
+		// reaching it. Off, it follows them as before.
+		$this->start_controls_section( 'kit_welcome_style', $style( __( 'Welcome screen', 'galaxie-woo' ) ) );
+		$this->add_control(
+			'welcome_own',
+			array(
+				'label'        => __( 'Style this screen apart', 'galaxie-woo' ),
+				'description'  => __( 'Otherwise the welcome screen follows "Titles and text" and "Step content".', 'galaxie-woo' ),
+				'type'         => Controls_Manager::SWITCHER,
+				'return_value' => 'yes',
+				'default'      => '',
+			)
+		);
+
+		$own     = array( 'welcome_own' => 'yes' );
+		$screen  = '{{WRAPPER}} .galaxie-kit-screen--welcome';
+
+		$this->heading( 'welcome_title_heading', __( 'Title', 'galaxie-woo' ) );
+		PixfortControls::text( $this, 'welcome_title', array( 'size' => 'h4', 'bold' => 'font-weight-bold', 'remove_pb_padding' => 'm-0' ), $own, $screen . ' .galaxie-kit-title', 'heading' );
+		$this->margin( 'welcome_title_margin', __( 'Space around the title', 'galaxie-woo' ), $screen . ' .galaxie-kit-head', $own );
+
+		$this->heading( 'welcome_body_heading', __( 'Text', 'galaxie-woo' ) );
+		PixfortControls::text( $this, 'welcome_body', array( 'bold' => '' ), $own, $screen . ' .galaxie-kit-text', 'text', array( 'inline', 'position' ) );
+		$this->margin( 'welcome_body_margin', __( 'Space around the text', 'galaxie-woo' ), $screen . ' .galaxie-kit-text', $own );
+
+		$this->heading( 'welcome_panel_heading', __( 'Panel', 'galaxie-woo' ) );
+		PixfortControls::palette_control( $this, 'welcome_panel_bg', __( 'Background', 'galaxie-woo' ), $screen . ' .galaxie-kit-content', 'background-color', $own );
+		$this->add_responsive_control(
+			'welcome_panel_padding',
+			array(
+				'label'      => __( 'Padding', 'galaxie-woo' ),
+				'type'       => Controls_Manager::DIMENSIONS,
+				'size_units' => array( 'px', 'rem', 'em' ),
+				'condition'  => $own,
+				'selectors'  => array( $screen . ' .galaxie-kit-content' => 'padding: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};' ),
+			)
+		);
+		$this->add_responsive_control(
+			'welcome_panel_radius',
+			array(
+				'label'      => __( 'Rounded corners', 'galaxie-woo' ),
+				'type'       => Controls_Manager::SLIDER,
+				'size_units' => array( 'px' ),
+				'range'      => array( 'px' => array( 'min' => 0, 'max' => 60 ) ),
+				'condition'  => $own,
+				'selectors'  => array( $screen . ' .galaxie-kit-content' => 'border-radius: {{SIZE}}{{UNIT}};' ),
+			)
+		);
+		$this->add_responsive_control(
+			'welcome_gap',
+			array(
+				'label'      => __( 'Gap between parts', 'galaxie-woo' ),
+				'type'       => Controls_Manager::SLIDER,
+				'size_units' => array( 'px', 'rem' ),
+				'range'      => array( 'px' => array( 'min' => 0, 'max' => 60 ) ),
+				'condition'  => $own,
+				'selectors'  => array( $screen . ', ' . $screen . ' .galaxie-kit-content' => 'gap: {{SIZE}}{{UNIT}};' ),
+			)
+		);
+
+		$this->heading( 'welcome_image_heading', __( 'Image', 'galaxie-woo' ) );
 		$this->add_control(
 			'welcome_image',
 			array(
@@ -692,6 +772,22 @@ final class KitBuilderWidget extends Widget_Base {
 	 */
 	private ?string $hint = null;
 
+	/** The text prefix that hint wears, decided with it. */
+	private string $hint_prefix = 'body';
+
+	/**
+	 * The control prefix a screen's title and text wear: the welcome screen has
+	 * its own pair once "Style this screen apart" is on, every step shares the
+	 * ones in "Titles and text".
+	 *
+	 * @param array<string,mixed> $settings
+	 */
+	private function text_prefix( array $settings, string $screen, string $part ): string {
+		return 'welcome' === $screen && 'yes' === ( $settings['welcome_own'] ?? '' )
+			? 'welcome_' . $part
+			: ( 'title' === $part ? 'title' : 'body' );
+	}
+
 	/** Title (with the screen's icon) and text. @param array<string,mixed> $settings */
 	private function head( array $settings, string $screen, string $title, string $text, bool $slot_text = false ): void {
 		$icon = PixfortControls::icon_value( $settings, $screen . '_icon' );
@@ -702,10 +798,11 @@ final class KitBuilderWidget extends Widget_Base {
 			echo '<span class="galaxie-kit-icon">' . self::icon( $icon ) . '</span>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pixfort's own SVG.
 		}
 
-		printf( '<div class="galaxie-kit-title" data-slot="title">%s</div>', PixfortControls::render_text( $settings, 'title', esc_html( $title ) ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pixfort's element around escaped text.
+		printf( '<div class="galaxie-kit-title" data-slot="title">%s</div>', PixfortControls::render_text( $settings, $this->text_prefix( $settings, $screen, 'title' ), esc_html( $title ) ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pixfort's element around escaped text.
 		echo '</div>';
 
-		$this->hint = '' !== $text || $slot_text ? $text : null;
+		$this->hint        = '' !== $text || $slot_text ? $text : null;
+		$this->hint_prefix = $this->text_prefix( $settings, $screen, 'body' );
 
 		if ( 'title' === ( $settings['hint_place'] ?? 'title' ) ) {
 			$this->hint_print( $settings );
@@ -735,7 +832,7 @@ final class KitBuilderWidget extends Widget_Base {
 
 		printf(
 			'<p class="galaxie-kit-text %1$s%2$s" data-slot="text">%3$s</p>',
-			esc_attr( PixfortControls::text_classes( $settings, 'body' ) ),
+			esc_attr( PixfortControls::text_classes( $settings, $this->hint_prefix ) ),
 			'yes' === ( $settings['hint_badge'] ?? '' ) ? ' galaxie-kit-badge' : '',
 			esc_html( $text )
 		);
@@ -745,15 +842,16 @@ final class KitBuilderWidget extends Widget_Base {
 	 * A button in one of the three looks.
 	 *
 	 * @param array<string,mixed> $settings
+	 * @param string              $role     A key of {@see buttons()}.
 	 * @param string              $extra    More attributes, already escaped.
 	 */
-	private function button( array $settings, string $kind, string $action, string $text, string $extra = '' ): string {
+	private function button( array $settings, string $role, string $action, string $text, string $extra = '' ): string {
 		return sprintf(
 			'<button type="button" class="galaxie-buybox-btn galaxie-kit-btn galaxie-kit-btn--%1$s" data-kit-action="%2$s" data-kit-variant="%1$s"%3$s>%4$s</button>',
-			esc_attr( $kind ),
+			esc_attr( $role ),
 			esc_attr( $action ),
 			$extra,
-			PixfortControls::render_button( $settings, 'kit_' . $kind, $text )
+			PixfortControls::render_button( $settings, 'kit_' . $role, $text )
 		);
 	}
 
@@ -771,8 +869,8 @@ final class KitBuilderWidget extends Widget_Base {
 	/** @param array<string,mixed> $settings */
 	private function nav( array $settings, array $texts, string $next = '' ): void {
 		$this->actions( $settings, 'galaxie-kit-nav' );
-		echo $this->button( $settings, 'secondary', 'back', $texts['back'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in button().
-		echo $this->button( $settings, 'primary', 'next', '' !== $next ? $next : $texts['next'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in button().
+		echo $this->button( $settings, 'back', 'back', $texts['back'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in button().
+		echo $this->button( $settings, 'next', 'next', '' !== $next ? $next : $texts['next'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in button().
 		echo '</div>';
 	}
 
@@ -787,7 +885,7 @@ final class KitBuilderWidget extends Widget_Base {
 		$this->head( $settings, 'welcome', $texts['welcome_title'], $texts['welcome_text'] );
 
 		$this->actions( $settings );
-		echo $this->button( $settings, 'primary', 'begin', $texts['welcome_button'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in button().
+		echo $this->button( $settings, 'start', 'begin', $texts['welcome_button'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in button().
 		$this->previous_button( $settings, $texts );
 		echo '</div>';
 	}
@@ -866,13 +964,13 @@ final class KitBuilderWidget extends Widget_Base {
 		$this->head( $settings, 'continue', $title, $text, true );
 
 		$this->actions( $settings );
-		echo $this->button( $settings, 'primary', 'continue', $texts['continue_button'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in button().
-		echo $this->button( $settings, 'secondary', 'summary', $texts['continue_view'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in button().
+		echo $this->button( $settings, 'choose', 'continue', $texts['continue_button'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in button().
+		echo $this->button( $settings, 'view', 'summary', $texts['continue_view'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in button().
 
 		// The kit already holds the candle the shopper came with, so it can go
 		// to the cart from here; the script keeps it off until it has one.
 		if ( 'yes' === ( $settings['continue_cart_show'] ?? 'yes' ) ) {
-			echo $this->button( $settings, 'secondary', 'to-cart', $texts['continue_cart'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in button().
+			echo $this->button( $settings, 'cart', 'to-cart', $texts['continue_cart'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in button().
 		}
 
 		echo '</div>';
@@ -952,15 +1050,15 @@ final class KitBuilderWidget extends Widget_Base {
 		$this->actions( $settings, 'galaxie-kit-summary-actions' );
 		// The add button changes look once the box is full: both are printed.
 		printf( '<span data-kit-when="full"%s>', $full ? '' : ' hidden' );
-		echo $this->button( $settings, 'primary', 'to-cart', $texts['action_cart'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in button().
+		echo $this->button( $settings, 'cart_full', 'to-cart', $texts['action_cart'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in button().
 		echo '</span>';
 		printf( '<span data-kit-when="room"%s>', $full ? ' hidden' : '' );
-		echo $this->button( $settings, 'secondary', 'to-cart', $texts['action_cart'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in button().
+		echo $this->button( $settings, 'cart', 'to-cart', $texts['action_cart'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in button().
 		echo '</span>';
 		// Only closes: the shopper is already where they want to keep choosing.
-		echo $this->button( $settings, 'secondary', 'close', $texts['action_continue'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in button().
-		echo $this->button( $settings, 'secondary', 'to-cart-new', $texts['action_new'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in button().
-		echo $this->button( $settings, 'danger', 'discard', $texts['action_discard'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in button().
+		echo $this->button( $settings, 'close', 'close', $texts['action_continue'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in button().
+		echo $this->button( $settings, 'cart_new', 'to-cart-new', $texts['action_new'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in button().
+		echo $this->button( $settings, 'discard', 'discard', $texts['action_discard'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in button().
 		$this->previous_button( $settings, $texts );
 		echo '</div>';
 	}
@@ -974,7 +1072,7 @@ final class KitBuilderWidget extends Widget_Base {
 	 */
 	private function previous_button( array $settings, array $texts ): void {
 		echo '<span data-kit-previous hidden>';
-		echo $this->button( $settings, 'secondary', 'restore-previous', GiftKit::fill( $texts['action_previous'], array( 'kit' => '' ) ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in button().
+		echo $this->button( $settings, 'previous', 'restore-previous', GiftKit::fill( $texts['action_previous'], array( 'kit' => '' ) ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in button().
 		echo '</span>';
 	}
 
