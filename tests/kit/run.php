@@ -567,8 +567,14 @@ $_SERVER['REQUEST_URI'] = '/wp-json/wc/store/v1/cart';
 $check( 'edit link', 'block cart: no "Editar kit" without a kit popup', isset( Groups::item_data( array(), $named )[0]['display'] ), false );
 \Galaxie\Woo\Modules\GiftWrap\Module::$popup = 4549;
 $check( 'edit link', 'block cart: "Editar kit" on the box line once the popup is set', Groups::item_data( array(), $named )[0]['display'] ?? '', 'Caixa · <a href="#galaxie-kit-edit-named" class="galaxie-kit-edit">Editar kit</a>' );
-\Galaxie\Woo\Modules\GiftWrap\Module::$popup = 0;
 unset( $_SERVER['REQUEST_URI'] );
+$box_line = array_values( array_filter( WC()->cart->get_cart_contents(), fn( $i ) => 'named' === ( Groups::group_of( $i )['id'] ?? '' ) && 'box' === Groups::group_of( $i )['role'] ) )[0];
+$check( 'edit link', 'the mini cart (outside the cart table): the name stays plain', Groups::name_with_edit( 'Caixa', $box_line, 'k' ), 'Caixa' );
+Groups::edit_on();
+$check( 'edit link', 'the cart table: the link follows the name', Groups::name_with_edit( '<a href="/caixa">Caixa</a>', $box_line, 'k' ), '<a href="/caixa">Caixa</a> <span class="galaxie-kit-edit-wrap"><a href="#galaxie-kit-edit-named" class="galaxie-kit-edit">Editar kit</a></span>' );
+Groups::edit_off();
+$check( 'edit link', 'and not after it', Groups::name_with_edit( 'Caixa', $box_line, 'k' ), 'Caixa' );
+\Galaxie\Woo\Modules\GiftWrap\Module::$popup = 0;
 $check( 'labels', 'an older gift keeps its number', Groups::label( 2 ), 'Presente 2' );
 
 // login merge

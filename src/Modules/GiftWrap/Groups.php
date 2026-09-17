@@ -60,6 +60,9 @@ final class Groups {
 	public const ITEM_MESSAGE = '_galaxie_gift_message';
 	public const ITEM_NAME    = '_galaxie_gift_name';
 
+	/** Set while the classic cart table or checkout review prints its lines. */
+	private static bool $edit_here = false;
+
 	/** "Editar kit" links point here, followed by the group id; kit-cart.ts answers them. */
 	public const EDIT_HASH = '#galaxie-kit-edit-';
 
@@ -70,6 +73,13 @@ final class Groups {
 		// "Editar kit": the classic cart and checkout templates print the name
 		// through this filter; the Galaxie Cart widget has its own place for it.
 		add_filter( 'woocommerce_cart_item_name', array( self::class, 'name_with_edit' ), 20, 3 );
+
+		// Only inside the cart table and the checkout review: the mini cart wraps
+		// the name in its own product link, and a link inside it breaks both.
+		add_action( 'woocommerce_before_cart_contents', array( self::class, 'edit_on' ) );
+		add_action( 'woocommerce_after_cart_contents', array( self::class, 'edit_off' ) );
+		add_action( 'woocommerce_review_order_before_cart_contents', array( self::class, 'edit_on' ) );
+		add_action( 'woocommerce_review_order_after_cart_contents', array( self::class, 'edit_off' ) );
 		add_action( 'galaxie_cart_item_after_meta', array( self::class, 'print_edit' ), 10, 2 );
 
 		add_action( 'woocommerce_cart_item_removed', array( self::class, 'after_removal' ), 20, 2 );
@@ -420,9 +430,10 @@ final class Groups {
 	}
 
 	/**
-	 * "Editar kit" after the box's name in the classic cart and checkout
-	 * templates, which print the name as markup. Only while such a page is being
-	 * drawn: the same filter feeds names to places that want plain text.
+	 * "Editar kit" after the box's name in the classic cart table and checkout
+	 * review, which print the name as markup (the cart table after its own
+	 * product link). Only while those print their lines: the same filter feeds
+	 * the mini cart (which wraps the name in a link) and places that want text.
 	 *
 	 * @param mixed $name
 	 * @param mixed $cart_item
@@ -430,19 +441,25 @@ final class Groups {
 	 * @return mixed
 	 */
 	public static function name_with_edit( $name, $cart_item = array(), $cart_item_key = '' ) {
-		if ( ! is_string( $name ) || self::is_store_api() || did_action( 'woocommerce_checkout_process' ) ) {
-			return $name;
-		}
-
-		$on_page = ( function_exists( 'is_cart' ) && is_cart() ) || ( function_exists( 'is_checkout' ) && is_checkout() );
-
-		if ( ! $on_page ) {
+		// Only between the cart table's (or checkout review's) own actions: not the
+		// mini cart, which nests the name in a link, nor any other caller.
+		if ( ! self::$edit_here || ! is_string( $name ) || self::is_store_api() || did_action( 'woocommerce_checkout_process' ) ) {
 			return $name;
 		}
 
 		$edit = self::edit_target( $cart_item );
 
 		return '' !== $edit ? $name . ' <span class="galaxie-kit-edit-wrap">' . self::edit_link( $edit ) . '</span>' : $name;
+	}
+
+	/** Starts the cart table or checkout review (see hooks()). */
+	public static function edit_on(): void {
+		self::$edit_here = true;
+	}
+
+	/** Ends them. */
+	public static function edit_off(): void {
+		self::$edit_here = false;
 	}
 
 	/**
