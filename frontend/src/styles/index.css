@@ -667,6 +667,19 @@ form.galaxie-buybox .galaxie-kit-button[aria-disabled="true"] {
   color: var(--pix-red, #b42318);
 }
 
+/* The hint as a badge: a pill the step's own text sits in. Empty, it goes
+   away, because the script clears it on the steps that have nothing to say. */
+.galaxie-kit-badge {
+  align-self: flex-start;
+  padding: 0.25rem 0.625rem;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.galaxie-kit-badge:empty {
+  display: none;
+}
+
 /* Step indicator: 1•2•3•4. */
 .galaxie-kit-steps {
   display: flex;

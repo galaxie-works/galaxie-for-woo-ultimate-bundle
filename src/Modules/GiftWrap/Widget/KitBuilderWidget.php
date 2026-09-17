@@ -116,10 +116,11 @@ final class KitBuilderWidget extends Widget_Base {
 			),
 			'continue' => array(
 				'continue_title'  => array( __( 'Title', 'galaxie-woo' ), __( 'Kit {kit} criado!', 'galaxie-woo' ) ),
-				'continue_text'   => array( __( 'Text ({combos})', 'galaxie-woo' ), __( 'Você ainda pode adicionar {combos}. Continue pesquisando nossos produtos e adicionando a este kit.', 'galaxie-woo' ) ),
+				'continue_text'   => array( __( 'Text ({n} candles so far, {combos}, {room}, {kit})', 'galaxie-woo' ), __( 'Você ainda pode adicionar {combos}. Continue pesquisando nossos produtos e adicionando a este kit.', 'galaxie-woo' ) ),
 				'continue_full'   => array( __( 'Text when the box is already full', 'galaxie-woo' ), __( 'A caixa já está completa. Veja o kit e adicione ao carrinho.', 'galaxie-woo' ) ),
 				'continue_button' => array( __( 'Keep choosing button (closes and goes to the shop)', 'galaxie-woo' ), __( 'Continuar escolhendo', 'galaxie-woo' ) ),
 				'continue_view'   => array( __( 'See the kit button', 'galaxie-woo' ), __( 'Ver kit', 'galaxie-woo' ) ),
+				'continue_cart'   => array( __( 'Add to cart button on this step', 'galaxie-woo' ), __( 'Adicionar kit ao carrinho', 'galaxie-woo' ) ),
 			),
 			'summary'  => array(
 				'summary_title'    => array( __( 'Title', 'galaxie-woo' ), __( 'Seu kit', 'galaxie-woo' ) ),
@@ -203,6 +204,19 @@ final class KitBuilderWidget extends Widget_Base {
 				PixfortControls::icon_select( $this, $screen . '_icon', __( 'Icon', 'galaxie-woo' ), self::ICONS[ $screen ] );
 			}
 
+			if ( 'continue' === $screen ) {
+				$this->add_control(
+					'continue_cart_show',
+					array(
+						'label'        => __( 'Offer "Adicionar kit ao carrinho" here', 'galaxie-woo' ),
+						'description'  => __( 'For a kit that is already good to go. It waits for the first candle.', 'galaxie-woo' ),
+						'type'         => Controls_Manager::SWITCHER,
+						'return_value' => 'yes',
+						'default'      => 'yes',
+					)
+				);
+			}
+
 			foreach ( $texts as $key => $text ) {
 				$this->add_control(
 					$key . '_text',
@@ -211,6 +225,7 @@ final class KitBuilderWidget extends Widget_Base {
 						'label_block' => true,
 						'type'        => in_array( $key, array( 'welcome_text', 'continue_text', 'box_none', 'name_text' ), true ) ? Controls_Manager::TEXTAREA : Controls_Manager::TEXT,
 						'default'     => $text[1],
+						'condition'   => 'continue_cart' === $key ? array( 'continue_cart_show' => 'yes' ) : array(),
 					)
 				);
 			}
@@ -278,11 +293,81 @@ final class KitBuilderWidget extends Widget_Base {
 		$this->heading( 'title_style_heading', __( 'Titles', 'galaxie-woo' ), false );
 		PixfortControls::text( $this, 'title', array( 'size' => 'h5', 'bold' => 'font-weight-bold', 'remove_pb_padding' => 'm-0' ), array(), '{{WRAPPER}} .galaxie-kit-title', 'heading' );
 		PixfortControls::icon_color( $this, 'title_icon_color', __( 'Icon color', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-kit-icon' );
+		$this->margin( 'title_margin', __( 'Space around the title', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-kit-head' );
 		$this->heading( 'body_style_heading', __( 'Text', 'galaxie-woo' ) );
 		PixfortControls::text( $this, 'body', array( 'bold' => '' ), array(), '{{WRAPPER}} .galaxie-kit-text', 'text', array( 'inline', 'position' ) );
+		$this->margin( 'body_margin', __( 'Space around the text', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-kit-text' );
 		$this->heading( 'small_style_heading', __( 'Labels, hints and the room-left line', 'galaxie-woo' ) );
 		PixfortControls::text( $this, 'small', array( 'size' => 'text-sm', 'bold' => '' ), array(), '{{WRAPPER}} .galaxie-kit-small', 'text', array( 'inline', 'position' ) );
+		$this->margin( 'starting_margin', __( 'Space around the "started from a product" line', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-kit-starting' );
 		PixfortControls::palette_control( $this, 'error_color', __( 'Error color', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-kit-error, {{WRAPPER}} .galaxie-kit-warning', 'color' );
+		$this->end_controls_section();
+
+		// The line under the title reads as a hint, not as body copy, so it can
+		// move down to the field it explains and wear a badge instead.
+		$this->start_controls_section( 'kit_hint_style', $style( __( 'Hint (the line under the title)', 'galaxie-woo' ) ) );
+		$this->add_control(
+			'hint_place',
+			array(
+				'label'       => __( 'Where it goes', 'galaxie-woo' ),
+				'description' => __( 'With the field: under "Nome do kit" and under "Mensagem do cartão", above the boxes and cards on the other steps.', 'galaxie-woo' ),
+				'type'        => Controls_Manager::SELECT,
+				'default'     => 'title',
+				'options'     => array(
+					'title'   => __( 'Under the title', 'galaxie-woo' ),
+					'field'   => __( 'With the field or the list', 'galaxie-woo' ),
+					'buttons' => __( 'Just above the buttons', 'galaxie-woo' ),
+				),
+			)
+		);
+		$this->add_control(
+			'hint_badge',
+			array(
+				'label'        => __( 'Show it as a badge', 'galaxie-woo' ),
+				'type'         => Controls_Manager::SWITCHER,
+				'return_value' => 'yes',
+				'default'      => '',
+			)
+		);
+		$badge = array( 'hint_badge' => 'yes' );
+		PixfortControls::palette_control( $this, 'hint_bg', __( 'Badge background', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-kit-text.galaxie-kit-badge', 'background-color', $badge );
+		$this->add_responsive_control(
+			'hint_padding',
+			array(
+				'label'      => __( 'Badge padding', 'galaxie-woo' ),
+				'type'       => Controls_Manager::DIMENSIONS,
+				'size_units' => array( 'px', 'rem', 'em' ),
+				'condition'  => $badge,
+				'selectors'  => array( '{{WRAPPER}} .galaxie-kit-text.galaxie-kit-badge' => 'padding: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};' ),
+			)
+		);
+		$this->add_responsive_control(
+			'hint_radius',
+			array(
+				'label'      => __( 'Badge corners', 'galaxie-woo' ),
+				'type'       => Controls_Manager::SLIDER,
+				'size_units' => array( 'px' ),
+				'range'      => array( 'px' => array( 'min' => 0, 'max' => 40 ) ),
+				'condition'  => $badge,
+				'selectors'  => array( '{{WRAPPER}} .galaxie-kit-text.galaxie-kit-badge' => 'border-radius: {{SIZE}}{{UNIT}};' ),
+			)
+		);
+		$this->add_responsive_control(
+			'hint_align',
+			array(
+				'label'     => __( 'Badge side', 'galaxie-woo' ),
+				'type'      => Controls_Manager::CHOOSE,
+				'condition' => $badge,
+				'options'   => array(
+					'flex-start' => array( 'title' => __( 'Left', 'galaxie-woo' ), 'icon' => 'eicon-text-align-left' ),
+					'center'     => array( 'title' => __( 'Center', 'galaxie-woo' ), 'icon' => 'eicon-text-align-center' ),
+					'flex-end'   => array( 'title' => __( 'Right', 'galaxie-woo' ), 'icon' => 'eicon-text-align-right' ),
+					'stretch'    => array( 'title' => __( 'Full width', 'galaxie-woo' ), 'icon' => 'eicon-text-align-justify' ),
+				),
+				'default'   => 'flex-start',
+				'selectors' => array( '{{WRAPPER}} .galaxie-kit-text.galaxie-kit-badge' => 'align-self: {{VALUE}};' ),
+			)
+		);
 		$this->end_controls_section();
 
 		$this->start_controls_section( 'kit_box_style', $style( __( 'Box cards', 'galaxie-woo' ) ) );
@@ -314,6 +399,18 @@ final class KitBuilderWidget extends Widget_Base {
 				'separator'  => 'before',
 			)
 		);
+		$this->add_responsive_control(
+			'choices_gap',
+			array(
+				'label'      => __( 'Space between the cards', 'galaxie-woo' ),
+				'type'       => Controls_Manager::SLIDER,
+				'size_units' => array( 'px', 'rem' ),
+				'range'      => array( 'px' => array( 'min' => 0, 'max' => 40 ) ),
+				'default'    => array( 'unit' => 'px', 'size' => 10 ),
+				'selectors'  => array( '{{WRAPPER}} .galaxie-kit-choices' => 'gap: {{SIZE}}{{UNIT}};' ),
+			)
+		);
+		$this->margin( 'choices_margin', __( 'Space around the list', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-kit-choices' );
 		$this->end_controls_section();
 
 		$this->start_controls_section( 'kit_field_style', $style( __( 'Name and message fields', 'galaxie-woo' ) ) );
@@ -330,6 +427,27 @@ final class KitBuilderWidget extends Widget_Base {
 				'selectors'  => array( '{{WRAPPER}} .galaxie-kit-input' => 'border-radius: {{SIZE}}{{UNIT}};' ),
 			)
 		);
+		$this->add_responsive_control(
+			'field_padding',
+			array(
+				'label'      => __( 'Field padding', 'galaxie-woo' ),
+				'type'       => Controls_Manager::DIMENSIONS,
+				'size_units' => array( 'px', 'rem', 'em' ),
+				'selectors'  => array( '{{WRAPPER}} .galaxie-kit-input' => 'padding: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};' ),
+			)
+		);
+		$this->add_responsive_control(
+			'field_gap',
+			array(
+				'label'      => __( 'Space between the label and the field', 'galaxie-woo' ),
+				'type'       => Controls_Manager::SLIDER,
+				'size_units' => array( 'px', 'rem' ),
+				'range'      => array( 'px' => array( 'min' => 0, 'max' => 40 ) ),
+				'default'    => array( 'unit' => 'px', 'size' => 4 ),
+				'selectors'  => array( '{{WRAPPER}} .galaxie-kit-field' => 'gap: {{SIZE}}{{UNIT}};' ),
+			)
+		);
+		$this->margin( 'field_margin', __( 'Space around the field', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-kit-field' );
 		$this->end_controls_section();
 
 		$this->start_controls_section( 'kit_fill_style', $style( __( 'Fill bar', 'galaxie-woo' ) ) );
@@ -425,7 +543,39 @@ final class KitBuilderWidget extends Widget_Base {
 				'selectors'   => array( '{{WRAPPER}} .galaxie-kit-scroll' => 'max-height: {{SIZE}}{{UNIT}}; overflow-y: auto;' ),
 			)
 		);
+		$this->heading( 'actions_heading', __( 'The row of buttons', 'galaxie-woo' ) );
+		$this->add_responsive_control(
+			'actions_gap',
+			array(
+				'label'      => __( 'Space between the buttons', 'galaxie-woo' ),
+				'type'       => Controls_Manager::SLIDER,
+				'size_units' => array( 'px', 'rem' ),
+				'range'      => array( 'px' => array( 'min' => 0, 'max' => 40 ) ),
+				'default'    => array( 'unit' => 'px', 'size' => 12 ),
+				'selectors'  => array( '{{WRAPPER}} .galaxie-kit-actions' => 'gap: {{SIZE}}{{UNIT}};' ),
+			)
+		);
+		$this->margin( 'actions_margin', __( 'Space around the row', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-kit-actions' );
 		$this->end_controls_section();
+	}
+
+	/**
+	 * Space around one part of a screen. Every block sits in a flex column, so
+	 * the gap sets them all apart and this moves one of them on its own.
+	 *
+	 * @param array<string,string> $condition
+	 */
+	private function margin( string $id, string $label, string $selector, array $condition = array() ): void {
+		$this->add_responsive_control(
+			$id,
+			array(
+				'label'      => $label,
+				'type'       => Controls_Manager::DIMENSIONS,
+				'size_units' => array( 'px', 'rem', 'em' ),
+				'condition'  => $condition,
+				'selectors'  => array( $selector => 'margin: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};' ),
+			)
+		);
 	}
 
 	private function heading( string $id, string $label, bool $separator = true ): void {
@@ -531,6 +681,17 @@ final class KitBuilderWidget extends Widget_Base {
 		echo '</ol>';
 	}
 
+	/**
+	 * The screen's hint, waiting for its place: "Where it goes" can hold it back
+	 * until the field it explains ({@see hint_anchor()}) or the buttons
+	 * ({@see actions()}). Only one of the three prints it, so each screen keeps
+	 * the single `data-slot="text"` the script fills.
+	 *
+	 * @var string|null The hint's text; an empty string still prints the slot
+	 *                   the script fills, null means this screen has none.
+	 */
+	private ?string $hint = null;
+
 	/** Title (with the screen's icon) and text. @param array<string,mixed> $settings */
 	private function head( array $settings, string $screen, string $title, string $text, bool $slot_text = false ): void {
 		$icon = PixfortControls::icon_value( $settings, $screen . '_icon' );
@@ -544,9 +705,40 @@ final class KitBuilderWidget extends Widget_Base {
 		printf( '<div class="galaxie-kit-title" data-slot="title">%s</div>', PixfortControls::render_text( $settings, 'title', esc_html( $title ) ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pixfort's element around escaped text.
 		echo '</div>';
 
-		if ( '' !== $text || $slot_text ) {
-			printf( '<p class="galaxie-kit-text %1$s" data-slot="text">%2$s</p>', esc_attr( PixfortControls::text_classes( $settings, 'body' ) ), esc_html( $text ) );
+		$this->hint = '' !== $text || $slot_text ? $text : null;
+
+		if ( 'title' === ( $settings['hint_place'] ?? 'title' ) ) {
+			$this->hint_print( $settings );
 		}
+	}
+
+	/**
+	 * The field or list the hint explains: it lands here with "With the field or
+	 * the list", and on a screen without one it falls through to the buttons.
+	 *
+	 * @param array<string,mixed> $settings
+	 */
+	private function hint_anchor( array $settings ): void {
+		if ( 'field' === ( $settings['hint_place'] ?? 'title' ) ) {
+			$this->hint_print( $settings );
+		}
+	}
+
+	/** @param array<string,mixed> $settings */
+	private function hint_print( array $settings ): void {
+		if ( null === $this->hint ) {
+			return;
+		}
+
+		$text       = $this->hint;
+		$this->hint = null;
+
+		printf(
+			'<p class="galaxie-kit-text %1$s%2$s" data-slot="text">%3$s</p>',
+			esc_attr( PixfortControls::text_classes( $settings, 'body' ) ),
+			'yes' === ( $settings['hint_badge'] ?? '' ) ? ' galaxie-kit-badge' : '',
+			esc_html( $text )
+		);
 	}
 
 	/**
@@ -571,13 +763,14 @@ final class KitBuilderWidget extends Widget_Base {
 	 * Every screen ends in one, so the panel opened in render() is always shut
 	 * here: the buttons belong to the wizard, not to the panel they follow.
 	 */
-	private function actions( string $extra = '' ): void {
+	private function actions( array $settings, string $extra = '' ): void {
+		$this->hint_print( $settings );
 		printf( '</div><div class="galaxie-kit-actions%s">', esc_attr( '' !== $extra ? ' ' . $extra : '' ) );
 	}
 
 	/** @param array<string,mixed> $settings */
 	private function nav( array $settings, array $texts, string $next = '' ): void {
-		$this->actions( 'galaxie-kit-nav' );
+		$this->actions( $settings, 'galaxie-kit-nav' );
 		echo $this->button( $settings, 'secondary', 'back', $texts['back'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in button().
 		echo $this->button( $settings, 'primary', 'next', '' !== $next ? $next : $texts['next'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in button().
 		echo '</div>';
@@ -593,7 +786,7 @@ final class KitBuilderWidget extends Widget_Base {
 
 		$this->head( $settings, 'welcome', $texts['welcome_title'], $texts['welcome_text'] );
 
-		$this->actions();
+		$this->actions( $settings );
 		echo $this->button( $settings, 'primary', 'begin', $texts['welcome_button'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in button().
 		$this->previous_button( $settings, $texts );
 		echo '</div>';
@@ -604,10 +797,10 @@ final class KitBuilderWidget extends Widget_Base {
 		// Live, the hint waits for the script: the default name depends on the visitor's cart.
 		$this->head( $settings, 'name', $texts['name_title'], $sample ? GiftKit::fill( $texts['name_text'], array( 'kit' => $sample['name'] ) ) : '', true );
 
+		printf( '<label class="galaxie-kit-field"><span class="galaxie-kit-small %1$s">%2$s</span>', esc_attr( PixfortControls::text_classes( $settings, 'small' ) ), esc_html( $texts['name_label'] ) );
+		$this->hint_anchor( $settings );
 		printf(
-			'<label class="galaxie-kit-field"><span class="galaxie-kit-small %1$s">%2$s</span><input type="text" class="galaxie-kit-input" data-kit-name maxlength="%3$d" placeholder="%4$s" autocomplete="off" /></label>',
-			esc_attr( PixfortControls::text_classes( $settings, 'small' ) ),
-			esc_html( $texts['name_label'] ),
+			'<input type="text" class="galaxie-kit-input" data-kit-name maxlength="%1$d" placeholder="%2$s" autocomplete="off" /></label>',
 			(int) GiftKit::NAME_MAX,
 			esc_attr( $texts['name_placeholder'] )
 		);
@@ -618,6 +811,7 @@ final class KitBuilderWidget extends Widget_Base {
 	/** @param array<string,mixed> $settings @param array<string,string> $texts */
 	private function render_box( array $settings, array $texts, ?array $sample ): void {
 		$this->head( $settings, 'box', $texts['box_title'], $texts['box_text'] );
+		$this->hint_anchor( $settings );
 
 		echo '<div class="galaxie-kit-choices galaxie-kit-scroll" data-kit-boxes>';
 
@@ -634,6 +828,7 @@ final class KitBuilderWidget extends Widget_Base {
 	/** @param array<string,mixed> $settings @param array<string,string> $texts */
 	private function render_card( array $settings, array $texts, ?array $sample ): void {
 		$this->head( $settings, 'card', $texts['card_title'], $texts['card_text'] );
+		$this->hint_anchor( $settings );
 
 		echo '<div class="galaxie-kit-choices" data-kit-cards>';
 
@@ -670,9 +865,16 @@ final class KitBuilderWidget extends Widget_Base {
 
 		$this->head( $settings, 'continue', $title, $text, true );
 
-		$this->actions();
+		$this->actions( $settings );
 		echo $this->button( $settings, 'primary', 'continue', $texts['continue_button'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in button().
 		echo $this->button( $settings, 'secondary', 'summary', $texts['continue_view'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in button().
+
+		// The kit already holds the candle the shopper came with, so it can go
+		// to the cart from here; the script keeps it off until it has one.
+		if ( 'yes' === ( $settings['continue_cart_show'] ?? 'yes' ) ) {
+			echo $this->button( $settings, 'secondary', 'to-cart', $texts['continue_cart'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in button().
+		}
+
 		echo '</div>';
 	}
 
@@ -747,7 +949,7 @@ final class KitBuilderWidget extends Widget_Base {
 			esc_html( $sample ? $sample['total'] : '' )
 		);
 
-		$this->actions( 'galaxie-kit-summary-actions' );
+		$this->actions( $settings, 'galaxie-kit-summary-actions' );
 		// The add button changes look once the box is full: both are printed.
 		printf( '<span data-kit-when="full"%s>', $full ? '' : ' hidden' );
 		echo $this->button( $settings, 'primary', 'to-cart', $texts['action_cart'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in button().
