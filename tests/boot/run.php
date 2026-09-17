@@ -231,6 +231,54 @@ function galaxie_boot_kit( array $booted, array $scenario, callable $hooked ): s
 			}
 		}
 
+		// "Style this screen apart": the welcome screen changes, the steps do not.
+		if ( 'editor_screen' === $key ) {
+			$part = static function ( string $html, string $screen ): string {
+				preg_match( '/galaxie-kit-screen--' . $screen . '\b.*?<\/section>/s', $html, $found );
+
+				if ( ! $found ) {
+					throw new RuntimeException( "Kit: no {$screen} screen in the render" );
+				}
+
+				return $found[0];
+			};
+
+			$widget->settings = array( $key => 'welcome', 'body_size' => 'text-sm', 'welcome_body_size' => 'text-xl' );
+			$shared           = $widget->render_for_test();
+			$widget->settings = $widget->settings + array( 'welcome_own' => 'yes' );
+			$apart            = $widget->render_for_test();
+
+			// Off, the welcome text wears the shared size; on, its own — and the
+			// steps keep the shared one either way.
+			if ( false === strpos( $part( $shared, 'welcome' ), 'text-sm' ) || false === strpos( $part( $apart, 'welcome' ), 'text-xl' )
+				|| false !== strpos( $part( $apart, 'welcome' ), 'text-sm' ) || false === strpos( $part( $apart, 'name' ), 'text-sm' ) ) {
+				throw new RuntimeException( 'Kit: the welcome screen should take its own title and text, and leave the steps alone' );
+			}
+		}
+
+		// Every button role has a section of its own and is used exactly where it
+		// belongs: a role nobody prints is a styling panel that moves nothing.
+		if ( 'editor_screen' === $key ) {
+			$roles = new ReflectionMethod( $class, 'buttons' );
+			$roles->setAccessible( true );
+			$roles = array_keys( $roles->invoke( null ) );
+			$seen  = array();
+
+			foreach ( $states as $state ) {
+				$widget->settings = array( $key => $state );
+				preg_match_all( '/data-kit-variant="([a-z_]+)"/', $widget->render_for_test(), $found );
+				$seen = array_merge( $seen, $found[1] );
+			}
+
+			$seen    = array_values( array_unique( $seen ) );
+			$unused  = array_diff( $roles, $seen );
+			$unknown = array_diff( $seen, $roles );
+
+			if ( $unused || $unknown ) {
+				throw new RuntimeException( 'Kit: button roles never printed: ' . implode( ', ', $unused ) . '; printed with no section: ' . implode( ', ', $unknown ) );
+			}
+		}
+
 		// The step indicator in the editor: visible on every screen with the
 		// switch on (hidden attribute never), absent with it off.
 		if ( 'editor_screen' === $key ) {
