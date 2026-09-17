@@ -154,6 +154,7 @@ foreach ( array(
 	'src/Modules/GiftWrap/Kit/Store.php',
 	'src/Modules/GiftWrap/Kit/CartKits.php',
 	'src/Modules/GiftWrap/Kit/Ajax.php',
+	'src/Support/GiftSummary.php',
 ) as $file ) {
 	require $root . '/' . $file;
 }
@@ -529,6 +530,9 @@ $check( 'edit', 'a gift with two boxes is not editable', Groups::editable( Group
 $check( 'labels', 'a kit is titled by its name', Groups::label( 1, 'Stella' ), 'Stella' );
 WC()->cart->add_to_cart( 9, 1, 10, array(), Groups::data( 'named', Groups::ROLE_BOX, '', '<a href="x">Mãe</a> & <3' ) );
 $named = array_values( array_filter( WC()->cart->get_cart_contents(), fn( $i ) => 'named' === ( Groups::group_of( $i )['id'] ?? '' ) ) )[0];
+$stored = esc_html( Groups::label( 1, "Presente da D'Ávila & Cia <3" ) );
+$check( 'labels', 'plain-text e-mails: the stored (escaped) key reads as typed after WooCommerce strips tags', strip_tags( \Galaxie\Woo\Support\GiftSummary::decode_plain( "\n- " . $stored . ': Caixa' ) ), "\n- Presente da D'Ávila & Cia &lt;3: Caixa" );
+$check( 'labels', 'plain-text e-mails: only while a gift line is printed as plain text', \Galaxie\Woo\Support\GiftSummary::plain_meta( $stored ), $stored );
 $check( 'labels', 'a kit name is escaped where WooCommerce prints item data keys as markup', Groups::item_data( array(), $named )[0]['key'], '&lt;a href=&quot;x&quot;&gt;Mãe&lt;/a&gt; &amp; &lt;3' );
 $check( 'labels', 'an older gift keeps its number', Groups::label( 2 ), 'Presente 2' );
 

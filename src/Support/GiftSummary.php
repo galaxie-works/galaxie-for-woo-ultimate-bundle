@@ -26,9 +26,63 @@ final class GiftSummary {
 	/** Order edit screens, both storages. */
 	private const SCREENS = array( 'shop_order', 'woocommerce_page_wc-orders' );
 
+	/** Set while a plain-text e-mail prints a gift line's meta. */
+	private static bool $plain = false;
+
 	public static function hooks(): void {
 		add_action( 'add_meta_boxes', array( self::class, 'meta_box' ), 30, 2 );
 		add_action( 'woocommerce_email_after_order_table', array( self::class, 'email' ), 20, 4 );
+
+		// Kit names in plain-text e-mails (see plain_meta()).
+		add_action( 'woocommerce_order_item_meta_start', array( self::class, 'plain_start' ), 10, 4 );
+		add_action( 'woocommerce_order_item_meta_end', array( self::class, 'plain_end' ), 10, 4 );
+		add_filter( 'woocommerce_display_item_meta', array( self::class, 'plain_meta' ), 10, 3 );
+	}
+
+	/**
+	 * @param mixed $item_id
+	 * @param mixed $item
+	 * @param mixed $order
+	 * @param mixed $plain_text
+	 */
+	public static function plain_start( $item_id = 0, $item = null, $order = null, $plain_text = false ): void {
+		self::$plain = (bool) $plain_text && $item instanceof \WC_Order_Item_Product && '' !== (string) $item->get_meta( Groups::ITEM_GROUP );
+	}
+
+	/** Ends plain_start(). */
+	public static function plain_end( ...$args ): void {
+		self::$plain = false;
+	}
+
+	/**
+	 * A gift line's meta in a plain-text e-mail.
+	 *
+	 * The visible key "{kit}: Caixa" is stored escaped, because wp-admin and the
+	 * HTML e-mails print keys as markup; WooCommerce's plain-text template then
+	 * strips tags without decoding, and "D'Ávila & Cia" came out as
+	 * "D&#039;Ávila &amp; Cia". Here, and only there, the harmless entities are
+	 * decoded back. `&lt;` / `&gt;` stay encoded: decoded, strip_tags() would cut
+	 * a name at "<3".
+	 *
+	 * @param mixed $html
+	 * @return mixed
+	 */
+	public static function plain_meta( $html, $item = null, $args = array() ) {
+		return self::$plain && is_string( $html ) ? self::decode_plain( $html ) : $html;
+	}
+
+	/** The decoding plain_meta() applies. */
+	public static function decode_plain( string $text ): string {
+		return strtr(
+			$text,
+			array(
+				'&amp;'  => '&',
+				'&#039;' => "'",
+				'&#39;'  => "'",
+				'&quot;' => '"',
+				'&#034;' => '"',
+			)
+		);
 	}
 
 	/**
