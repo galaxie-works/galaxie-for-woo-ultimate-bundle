@@ -229,3 +229,85 @@ function is_checkout() { return false; }
 function is_account_page() { return false; }
 function wc_get_product( $id ) { return false; }
 function get_woocommerce_currency_symbol( $currency = '' ) { return 'R$'; }
+
+// ------------------------------------------------ rendering (kit widgets)
+
+/** The published pixfort popup the kit scenarios name. */
+function get_post_type( $post = null ) { return 4549 === (int) $post ? 'pixpopup' : false; }
+function get_post_status( $post = null ) { return 4549 === (int) $post ? 'publish' : false; }
+function get_posts( $args = array() ) { return array(); }
+function get_term( $term, $taxonomy = '' ) { return null; }
+function get_term_by( ...$args ) { return false; }
+function wc_get_products( $args = array() ) { return array(); }
+function wc_price( $amount, $args = array() ) { return '<span class="amount">R$&nbsp;' . number_format( (float) $amount, 2, ',', '.' ) . '</span>'; }
+function wc_placeholder_img_src( $size = '' ) { return 'https://example.test/placeholder.png'; }
+function wp_get_attachment_image_url( ...$args ) { return false; }
+function wp_strip_all_tags( $text ) { return strip_tags( (string) $text ); }
+function wp_style_is( ...$args ) { return false; }
+function wp_script_is( ...$args ) { return false; }
+function selected( $a, $b, $echo = true ) { return (string) $a === (string) $b ? ' selected="selected"' : ''; }
+
+/**
+ * Enough of Elementor for a widget to register its controls and render:
+ * controls are recorded, and settings are their defaults plus what a scenario
+ * sets. `Plugin::$instance->editor->is_edit_mode()` answers the scenario's
+ * `editing` flag.
+ */
+if ( ! class_exists( 'Elementor\Widget_Base' ) ) {
+	eval(
+		'namespace Elementor;
+		class Controls_Manager {
+			const TAB_CONTENT = "content"; const TAB_STYLE = "style";
+			const TEXT = "text"; const TEXTAREA = "textarea"; const NUMBER = "number"; const SELECT = "select";
+			const SWITCHER = "switcher"; const SLIDER = "slider"; const COLOR = "color"; const HEADING = "heading";
+			const RAW_HTML = "raw_html"; const HIDDEN = "hidden"; const MEDIA = "media"; const CHOOSE = "choose";
+			const DIMENSIONS = "dimensions"; const REPEATER = "repeater"; const ICONS = "icons"; const URL = "url";
+		}
+		class Repeater {
+			public array $controls = array();
+			public function add_control( $id, $args = array() ) { $this->controls[ $id ] = $args; }
+			public function add_responsive_control( $id, $args = array() ) { $this->controls[ $id ] = $args; }
+			public function get_controls() { return $this->controls; }
+		}
+		class Editor { public function is_edit_mode() { return ! empty( $GLOBALS["galaxie_boot"]["editing"] ); } }
+		class Plugin { public static $instance; public $editor; }
+		Plugin::$instance = new Plugin();
+		Plugin::$instance->editor = new Editor();
+		abstract class Widget_Base {
+			public array $controls = array();
+			public array $sections = array();
+			private ?string $open = null;
+			public array $settings = array();
+			public function __construct( $data = array(), $args = null ) { $this->settings = (array) ( $data["settings"] ?? array() ); }
+			public function get_id() { return "abc1234"; }
+			public function start_controls_section( $id, $args = array() ) {
+				if ( null !== $this->open ) { throw new \RuntimeException( "section $id opened inside {$this->open}" ); }
+				if ( isset( $this->sections[ $id ] ) ) { throw new \RuntimeException( "section $id registered twice" ); }
+				$this->open = $id; $this->sections[ $id ] = $args;
+			}
+			public function end_controls_section() {
+				if ( null === $this->open ) { throw new \RuntimeException( "section closed twice" ); }
+				$this->open = null;
+			}
+			public function add_control( $id, $args = array() ) {
+				if ( null === $this->open ) { throw new \RuntimeException( "control $id outside a section" ); }
+				if ( isset( $this->controls[ $id ] ) ) { throw new \RuntimeException( "control $id registered twice" ); }
+				$this->controls[ $id ] = $args;
+			}
+			public function add_responsive_control( $id, $args = array() ) { $this->add_control( $id, $args ); }
+			public function add_group_control( $type, $args = array() ) { $this->add_control( $args["name"] ?? uniqid(), $args ); }
+			public function get_settings_for_display( $key = null ) {
+				$out = array();
+				foreach ( $this->controls as $id => $args ) { if ( array_key_exists( "default", $args ) ) { $out[ $id ] = $args["default"]; } }
+				$out = array_merge( $out, $this->settings );
+				return null === $key ? $out : ( $out[ $key ] ?? null );
+			}
+			public function register_for_test() { $this->register_controls(); }
+			public function render_for_test() { ob_start(); $this->render(); return (string) ob_get_clean(); }
+			abstract protected function register_controls();
+			abstract protected function render();
+		}'
+	);
+}
+
+function sanitize_html_class( $class, $fallback = '' ) { $clean = preg_replace( '|%[a-fA-F0-9][a-fA-F0-9]|', '', (string) $class ); $clean = preg_replace( '/[^A-Za-z0-9_-]/', '', $clean ); return '' === $clean ? $fallback : $clean; }

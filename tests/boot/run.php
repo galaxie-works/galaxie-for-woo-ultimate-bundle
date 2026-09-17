@@ -18,7 +18,10 @@
  *    defaults — then the static helpers read on boot. Two more boot as a REST
  *    request and under WP-CLI: `rest_api_init` fired, the settings routes and
  *    the `wp galaxie` commands registered, and the settings service they and the
- *    settings page share answering.
+ *    settings page share answering. With Gift Wrap on, the kit flow's hooks,
+ *    boot data and launcher are checked, and the Kit Builder and Kit Progress
+ *    widgets (and the Buy Box's controls) register and render on stubbed
+ *    Elementor, live and on every editor screen.
  *
  * `--root=<dir>` points at another copy of the plugin (to prove the runner
  * catches a bug, run it on a copy that has one).
@@ -44,6 +47,7 @@ function galaxie_boot_scenarios(): array {
 			'ribbon_categories'  => array(),
 			'card_categories'    => array( 125 ),
 			'card_message_max'   => 200,
+			'kit_popup'          => '#pix_popup_4549',
 		),
 		'shipping-cartons' => array(
 			'cartons'  => array(
@@ -68,6 +72,134 @@ function galaxie_boot_scenarios(): array {
 		'module defaults, REST + WP-CLI'       => array( 'all' => false, 'admin' => false, 'settings' => array(), 'rest' => true, 'cli' => true ),
 		'every module on, REST + WP-CLI, peso' => array( 'all' => true, 'admin' => false, 'settings' => $gift( 'peso' ), 'rest' => true, 'cli' => true ),
 	);
+}
+
+/**
+ * The kit flow's checks for one booted scenario; '' when Gift Wrap is off.
+ *
+ * @param string[] $booted
+ */
+function galaxie_boot_kit( array $booted, array $scenario, callable $hooked ): string {
+	if ( ! in_array( 'gift-wrap', $booted, true ) ) {
+		return '';
+	}
+
+	$ajax = \Galaxie\Woo\Modules\GiftWrap\Kit\Ajax::class;
+
+	foreach ( $ajax::ACTIONS as $action ) {
+		foreach ( array( 'wp_ajax_', 'wp_ajax_nopriv_' ) as $prefix ) {
+			if ( ! $hooked( $prefix . $ajax::PREFIX . $action, $ajax, 'dispatch' ) ) {
+				throw new RuntimeException( "Kit: {$prefix}galaxie_kit_{$action} not hooked" );
+			}
+		}
+	}
+
+	$groups   = \Galaxie\Woo\Modules\GiftWrap\Groups::class;
+	$launcher = \Galaxie\Woo\Modules\GiftWrap\Kit\Launcher::class;
+	$expected = array(
+		array( 'wp_loaded', $ajax, 'merge_on_load', true ),
+		array( 'woocommerce_cart_item_name', $groups, 'name_with_edit', true ),
+		array( 'galaxie_cart_item_after_meta', $groups, 'print_edit', true ),
+		array( 'wp_footer', $launcher, 'footer', ! $scenario['admin'] ),
+		array( 'wp_enqueue_scripts', $launcher, 'enqueue', ! $scenario['admin'] ),
+	);
+
+	foreach ( $expected as list( $hook, $class, $method, $wanted ) ) {
+		if ( $hooked( $hook, $class, $method ) !== $wanted ) {
+			throw new RuntimeException( "Kit: {$class}::{$method} on {$hook} should " . ( $wanted ? '' : 'not ' ) . 'be hooked here' );
+		}
+	}
+
+	// The old builder's requests are gone.
+	foreach ( array( 'galaxie_gift_builder_nonce', 'galaxie_gift_builder_data', 'galaxie_gift_builder_add' ) as $old ) {
+		if ( ! empty( $GLOBALS['galaxie_boot']['hooks'][ 'wp_ajax_nopriv_' . $old ] ) ) {
+			throw new RuntimeException( "Kit: the old {$old} request is still hooked" );
+		}
+	}
+
+	$module = new \Galaxie\Woo\Modules\GiftWrap\Module();
+	$data   = $module->boot_data()['giftWrap']['kit'] ?? null;
+
+	if ( ! is_array( $data ) || 4549 !== $data['popup'] || array( 'room_many', 'room_one', 'full', 'box_holds', 'added' ) !== array_keys( $data['texts'] ) ) {
+		throw new RuntimeException( 'Kit: boot data ' . json_encode( $data ) );
+	}
+
+	if ( 0 !== $module::parse_popup_link( 'https://shop.test/x/#pix_popup_abc' ) || 4549 !== $module::parse_popup_link( 'https://shop.test/x/#pix_popup_4549' ) ) {
+		throw new RuntimeException( 'Kit: popup link parser' );
+	}
+
+	$parts = array();
+
+	if ( ! $scenario['admin'] ) {
+		ob_start();
+		$launcher::footer();
+		$footer = (string) ob_get_clean();
+
+		if ( false === strpos( $footer, 'id="galaxie-kit-launcher-icon"' ) || false === strpos( $footer, '--galaxie-kit-badge-bg:var(--pix-primary)' ) ) {
+			throw new RuntimeException( 'Kit: launcher footer ' . substr( $footer, 0, 200 ) );
+		}
+
+		$parts[] = 'launcher';
+	}
+
+	// Widgets: controls, a live render and every editor screen.
+	$widgets = array(
+		\Galaxie\Woo\Modules\GiftWrap\Widget\KitBuilderWidget::class  => array( 'data-galaxie-kit-builder', array( 'welcome', 'name', 'box', 'card', 'continue', 'summary' ), 'editor_screen' ),
+		\Galaxie\Woo\Modules\GiftWrap\Widget\KitProgressWidget::class => array( 'data-galaxie-kit-progress', array( 'kit', 'full', 'invite' ), 'editor_state' ),
+	);
+
+	foreach ( $widgets as $class => list( $marker, $states, $key ) ) {
+		$widget = new $class();
+		$widget->register_for_test();
+
+		$GLOBALS['galaxie_boot']['editing'] = false;
+		$html = $widget->render_for_test();
+
+		if ( false === strpos( $html, $marker ) ) {
+			throw new RuntimeException( "Kit: {$class} rendered no {$marker}" );
+		}
+
+		// Cached pages: nothing of the visitor's kit, and no nonce.
+		if ( preg_match( '/nonce|Kit 1|data-sample/i', $html ) ) {
+			throw new RuntimeException( "Kit: {$class} printed visitor state or a sample on the live page" );
+		}
+
+		$GLOBALS['galaxie_boot']['editing'] = true;
+
+		foreach ( $states as $state ) {
+			$widget->settings = array( $key => $state );
+			$editor           = $widget->render_for_test();
+
+			if ( false === strpos( $editor, 'data-sample' ) ) {
+				throw new RuntimeException( "Kit: {$class} editor '{$state}' is not a sample" );
+			}
+		}
+
+		$GLOBALS['galaxie_boot']['editing'] = false;
+		$widget->settings                   = array();
+		$parts[]                            = ( new ReflectionClass( $class ) )->getShortName() . ' ' . count( $widget->controls ) . ' controls';
+	}
+
+	if ( in_array( 'variation-swatches', $booted, true ) ) {
+		$buybox = new \Galaxie\Woo\Modules\VariationSwatches\Widget\BuyBoxWidget();
+		$buybox->register_for_test();
+
+		foreach ( array( 'giftwrap_enable', 'giftkit_start_text', 'giftkit_add_text', 'giftkit_full_text', 'giftwrap_popup_link', 'giftkit_btn_style' ) as $control ) {
+			if ( ! isset( $buybox->controls[ $control ] ) ) {
+				throw new RuntimeException( "Kit: Buy Box has no {$control} control" );
+			}
+		}
+
+		foreach ( array( 'giftwrap_label_text', 'giftwrap_summary_confirm', 'giftwrap_btn_text', 'giftwrap_preview' ) as $control ) {
+			if ( isset( $buybox->controls[ $control ] ) ) {
+				throw new RuntimeException( "Kit: Buy Box still has the checkbox's {$control}" );
+			}
+		}
+
+		$parts[] = 'BuyBoxWidget ' . count( $buybox->controls ) . ' controls';
+	}
+
+	return implode( ', ', $parts );
 }
 
 // ------------------------------------------------------------------ child
@@ -187,6 +319,21 @@ if ( null !== $child ) {
 			}
 		}
 
+		$hooked = static function ( string $hook, string $class, string $method ): bool {
+			foreach ( $GLOBALS['galaxie_boot']['hooks'][ $hook ] ?? array() as $callback ) {
+				if ( is_array( $callback ) && $class === ( is_object( $callback[0] ) ? get_class( $callback[0] ) : $callback[0] ) && $method === $callback[1] ) {
+					return true;
+				}
+			}
+			return false;
+		};
+
+		// The kit flow (PR #21): its requests and hooks, the store config it
+		// prints, the launcher, and both kit widgets registering their controls
+		// and rendering, live (no kit state, no nonce in the HTML) and in the
+		// editor on every screen; plus the Buy Box's kit button controls.
+		$kit = galaxie_boot_kit( $booted, $scenario, $hooked );
+
 		// Shipping Cartons: booted whenever every module is on, its hooks where
 		// they belong, and what it reads on every HTTP request safe on boot.
 		$shipping = '';
@@ -196,15 +343,6 @@ if ( null !== $child ) {
 		}
 
 		if ( in_array( 'shipping-cartons', $booted, true ) ) {
-			$hooked = static function ( string $hook, string $class, string $method ): bool {
-				foreach ( $GLOBALS['galaxie_boot']['hooks'][ $hook ] ?? array() as $callback ) {
-					if ( is_array( $callback ) && $class === ( is_object( $callback[0] ) ? get_class( $callback[0] ) : $callback[0] ) && $method === $callback[1] ) {
-						return true;
-					}
-				}
-				return false;
-			};
-
 			$expected = array(
 				array( 'http_request_args', \Galaxie\Woo\Modules\ShippingCartons\Rewriter::class, 'filter', true ),
 				array( 'woocommerce_order_get_items', \Galaxie\Woo\Modules\ShippingCartons\Context::class, 'record', true ),
@@ -294,7 +432,7 @@ if ( null !== $child ) {
 			$api .= ( '' !== $api ? ', ' : '' ) . count( $commands ) . ' WP-CLI commands';
 		}
 
-		echo json_encode( array( 'booted' => $booted, 'attribute' => $attribute, 'fields' => $fields, 'shipping' => $shipping, 'api' => $api ) );
+		echo json_encode( array( 'booted' => $booted, 'attribute' => $attribute, 'fields' => $fields, 'shipping' => $shipping, 'api' => $api, 'kit' => $kit ) );
 		exit( 0 );
 	} catch ( \Throwable $e ) {
 		fwrite( STDERR, get_class( $e ) . ': ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine() . "\n" );
@@ -389,6 +527,7 @@ foreach ( array_keys( galaxie_boot_scenarios() ) as $name ) {
 			. ( ! empty( $result['fields'] ) ? ', fields ' . implode( ' ', array_map( static fn( $class, $value ): string => "{$class}={$value}", array_keys( $result['fields'] ), $result['fields'] ) ) : '' )
 			. ( ! empty( $result['shipping'] ) ? ", shipping cartons: {$result['shipping']}" : '' )
 			. ( ! empty( $result['api'] ) ? ", {$result['api']}" : '' )
+			. ( ! empty( $result['kit'] ) ? ", kit: {$result['kit']}" : '' )
 		: "exit {$code}\n" . trim( $err . "\n" . substr( (string) $out, 0, 500 ) );
 
 	$report( $ok, "boot: {$name}", $detail );
