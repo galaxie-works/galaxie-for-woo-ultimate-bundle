@@ -604,9 +604,16 @@ form.galaxie-buybox .galaxie-kit-button[aria-disabled="true"] {
   cursor: not-allowed;
 }
 
-/* The Galaxie Kit Builder, inside its pixfort popup. */
+/* The Galaxie Kit Builder, inside its pixfort popup. Three blocks stand in its
+   column — the steps, the step's content and its buttons — and the <section>
+   that groups a screen's two blocks is a pass-through, so the merchant can
+   spread all three against the popup's height. `hidden` still wins over
+   `display: contents`, so the screens that are not on stay off. */
+.galaxie-kit-screen {
+  display: contents;
+}
+
 .galaxie-kit-builder,
-.galaxie-kit-screen,
 .galaxie-kit-content,
 .galaxie-kit-summary,
 .galaxie-kit-choices,
@@ -621,7 +628,6 @@ form.galaxie-buybox .galaxie-kit-button[aria-disabled="true"] {
   gap: 16px;
 }
 
-.galaxie-kit-screen,
 .galaxie-kit-content {
   gap: 16px;
 }

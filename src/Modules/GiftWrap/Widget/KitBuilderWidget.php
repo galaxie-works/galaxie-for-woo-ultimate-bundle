@@ -337,6 +337,7 @@ final class KitBuilderWidget extends Widget_Base {
 		$this->heading( 'title_style_heading', __( 'Titles', 'galaxie-woo' ), false );
 		PixfortControls::text( $this, 'title', array( 'size' => 'h5', 'bold' => 'font-weight-bold', 'remove_pb_padding' => 'm-0' ), array(), '{{WRAPPER}} .galaxie-kit-title', 'heading' );
 		PixfortControls::icon_color( $this, 'title_icon_color', __( 'Icon color', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-kit-icon' );
+		$this->icon_size( 'title_icon_size', '{{WRAPPER}}' );
 		$this->margin( 'title_margin', __( 'Space around the title', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-kit-head' );
 		$this->heading( 'body_style_heading', __( 'Text', 'galaxie-woo' ) );
 		PixfortControls::text( $this, 'body', array( 'bold' => '' ), array(), '{{WRAPPER}} .galaxie-kit-text', 'text', array( 'inline', 'position' ) );
@@ -587,7 +588,7 @@ final class KitBuilderWidget extends Widget_Base {
 				'size_units' => array( 'px', 'rem' ),
 				'range'      => array( 'px' => array( 'min' => 0, 'max' => 60 ) ),
 				'default'    => array( 'unit' => 'px', 'size' => 16 ),
-				'selectors'  => array( '{{WRAPPER}} .galaxie-kit-builder, {{WRAPPER}} .galaxie-kit-screen, {{WRAPPER}} .galaxie-kit-content' => 'gap: {{SIZE}}{{UNIT}};' ),
+				'selectors'  => array( '{{WRAPPER}} .galaxie-kit-builder, {{WRAPPER}} .galaxie-kit-content' => 'gap: {{SIZE}}{{UNIT}};' ),
 			)
 		);
 		$this->add_responsive_control(
@@ -621,7 +622,8 @@ final class KitBuilderWidget extends Widget_Base {
 		$this->add_responsive_control(
 			'kit_distribute',
 			array(
-				'label'     => __( 'Distribute the blocks', 'galaxie-woo' ),
+				'label'       => __( 'Distribute the blocks', 'galaxie-woo' ),
+				'description' => __( 'The steps, the step\'s content and its buttons, spread down the popup.', 'galaxie-woo' ),
 				'type'      => Controls_Manager::SELECT,
 				'default'   => '',
 				'options'   => self::distribution(),
@@ -629,24 +631,14 @@ final class KitBuilderWidget extends Widget_Base {
 			)
 		);
 		$this->add_control(
-			'kit_screen_grow',
+			'content_grow',
 			array(
-				'label'        => __( 'The step takes the leftover height', 'galaxie-woo' ),
-				'description'  => __( 'Then the content and the buttons share what is left under the steps.', 'galaxie-woo' ),
+				'label'        => __( 'The content takes the leftover height', 'galaxie-woo' ),
+				'description'  => __( 'The buttons then sit at the bottom on every screen, however short the step is.', 'galaxie-woo' ),
 				'type'         => Controls_Manager::SWITCHER,
 				'return_value' => 'yes',
 				'default'      => '',
-				'selectors'    => array( '{{WRAPPER}} .galaxie-kit-screen' => 'flex: 1 1 auto;' ),
-			)
-		);
-		$this->add_responsive_control(
-			'kit_screen_distribute',
-			array(
-				'label'     => __( 'Content and buttons inside the step', 'galaxie-woo' ),
-				'type'      => Controls_Manager::SELECT,
-				'default'   => '',
-				'options'   => self::distribution(),
-				'selectors' => array( '{{WRAPPER}} .galaxie-kit-screen' => 'justify-content: {{VALUE}};' ),
+				'selectors'    => array( '{{WRAPPER}} .galaxie-kit-content' => 'flex: 1 1 auto;' ),
 			)
 		);
 
@@ -759,6 +751,8 @@ final class KitBuilderWidget extends Widget_Base {
 		PixfortControls::text( $this, $screen . '_title', $title_defaults + array( 'size' => 'h5', 'bold' => 'font-weight-bold', 'remove_pb_padding' => 'm-0' ), $own, $at . ' .galaxie-kit-title', 'heading' );
 		$this->margin( $screen . '_title_margin', __( 'Space around the title', 'galaxie-woo' ), $at . ' .galaxie-kit-head' );
 
+		$this->icon_size( $screen . '_icon_size', $at );
+
 		$this->heading( $screen . '_body_heading', __( 'Text', 'galaxie-woo' ) );
 		PixfortControls::text( $this, $screen . '_body', array( 'bold' => '' ), $own, $at . ' .galaxie-kit-text', 'text', array( 'inline', 'position' ) );
 		$this->margin( $screen . '_body_margin', __( 'Space around the text', 'galaxie-woo' ), $at . ' .galaxie-kit-text' );
@@ -793,7 +787,7 @@ final class KitBuilderWidget extends Widget_Base {
 				'type'       => Controls_Manager::SLIDER,
 				'size_units' => array( 'px', 'rem' ),
 				'range'      => array( 'px' => array( 'min' => 0, 'max' => 60 ) ),
-				'selectors'  => array( $at . ', ' . $body => 'gap: {{SIZE}}{{UNIT}};' ),
+				'selectors'  => array( $body => 'gap: {{SIZE}}{{UNIT}};' ),
 			)
 		);
 
@@ -801,6 +795,23 @@ final class KitBuilderWidget extends Widget_Base {
 		$this->margin( $screen . '_field_margin', __( 'Space around the fields', 'galaxie-woo' ), $at . ' .galaxie-kit-field' );
 		$this->margin( $screen . '_list_margin', __( 'Space around the lists', 'galaxie-woo' ), $at . ' .galaxie-kit-choices, ' . $at . ' .galaxie-kit-lines' );
 		$this->margin( $screen . '_actions_margin', __( 'Space around the buttons', 'galaxie-woo' ), $at . ' .galaxie-kit-actions' );
+	}
+
+	/**
+	 * The size of the icon beside a title. pixfort draws it at 20 px through the
+	 * SVG's own attributes, which a width and a height override.
+	 */
+	private function icon_size( string $id, string $scope ): void {
+		$this->add_responsive_control(
+			$id,
+			array(
+				'label'      => __( 'Icon size', 'galaxie-woo' ),
+				'type'       => Controls_Manager::SLIDER,
+				'size_units' => array( 'px', 'rem', 'em' ),
+				'range'      => array( 'px' => array( 'min' => 8, 'max' => 120 ) ),
+				'selectors'  => array( $scope . ' .galaxie-kit-icon svg' => 'width: {{SIZE}}{{UNIT}}; height: {{SIZE}}{{UNIT}};' ),
+			)
+		);
 	}
 
 	/**
