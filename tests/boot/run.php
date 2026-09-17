@@ -175,6 +175,22 @@ function galaxie_boot_kit( array $booted, array $scenario, callable $hooked ): s
 			}
 		}
 
+		// The step content panel is opened in render() and closed by the row of
+		// buttons each screen ends with, so an unbalanced screen is a real risk.
+		if ( 'editor_screen' === $key ) {
+			foreach ( $states as $state ) {
+				$widget->settings = array( $key => $state );
+				$screen           = $widget->render_for_test();
+				$panels           = substr_count( $screen, 'data-kit-content' );
+				$actions          = substr_count( $screen, 'class="galaxie-kit-actions' );
+				$divs             = substr_count( $screen, '<div' ) - substr_count( $screen, '</div>' );
+
+				if ( $panels < 1 || $panels !== $actions || 0 !== $divs ) {
+					throw new RuntimeException( "Kit: screen '{$state}' has {$panels} content panels, {$actions} button rows and {$divs} unclosed divs" );
+				}
+			}
+		}
+
 		// The step indicator in the editor: visible on every screen with the
 		// switch on (hidden attribute never), absent with it off.
 		if ( 'editor_screen' === $key ) {

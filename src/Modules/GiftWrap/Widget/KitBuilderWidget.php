@@ -243,6 +243,35 @@ final class KitBuilderWidget extends Widget_Base {
 		PixfortControls::palette_control( $this, 'steps_active_bg', __( 'Current and done dots', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-kit-step.is-current .galaxie-kit-step-dot, {{WRAPPER}} .galaxie-kit-step.is-done .galaxie-kit-step-dot', 'background-color', $shown );
 		PixfortControls::palette_control( $this, 'steps_active_color', __( 'Current and done numbers', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-kit-step.is-current .galaxie-kit-step-dot, {{WRAPPER}} .galaxie-kit-step.is-done .galaxie-kit-step-dot', 'color', $shown );
 		PixfortControls::text( $this, 'steps_label', array( 'size' => 'text-xs', 'bold' => '' ), $shown, '{{WRAPPER}} .galaxie-kit-step-label', 'text', array( 'inline', 'position' ) );
+		$this->add_responsive_control(
+			'steps_padding',
+			array(
+				'label'      => __( 'Padding', 'galaxie-woo' ),
+				'type'       => Controls_Manager::DIMENSIONS,
+				'size_units' => array( 'px', 'rem', 'em' ),
+				'condition'  => $shown,
+				'selectors'  => array( '{{WRAPPER}} .galaxie-kit-steps' => 'padding: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};' ),
+			)
+		);
+		$this->add_responsive_control(
+			'steps_space',
+			array(
+				'label'       => __( 'Space below the steps', 'galaxie-woo' ),
+				'description' => __( 'On top of the "Gap between parts" set under Layout.', 'galaxie-woo' ),
+				'type'        => Controls_Manager::SLIDER,
+				'size_units'  => array( 'px', 'rem', 'em' ),
+				'range'       => array( 'px' => array( 'min' => 0, 'max' => 80 ) ),
+				'condition'   => $shown,
+				'selectors'   => array( '{{WRAPPER}} .galaxie-kit-steps' => 'margin-bottom: {{SIZE}}{{UNIT}};' ),
+			)
+		);
+		$this->end_controls_section();
+
+		// The panel the wizard's step lives in: the step indicator above it and
+		// the step's buttons below it stay outside, so a background and rounded
+		// corners here box the content alone and not the whole widget.
+		$this->start_controls_section( 'kit_content_style', $style( __( 'Step content', 'galaxie-woo' ) ) );
+		PixfortControls::surface( $this, 'kit_content', '{{WRAPPER}} .galaxie-kit-content' );
 		$this->end_controls_section();
 
 		$this->start_controls_section( 'kit_text_style', $style( __( 'Titles and text', 'galaxie-woo' ) ) );
@@ -382,7 +411,7 @@ final class KitBuilderWidget extends Widget_Base {
 				'size_units' => array( 'px', 'rem' ),
 				'range'      => array( 'px' => array( 'min' => 0, 'max' => 60 ) ),
 				'default'    => array( 'unit' => 'px', 'size' => 16 ),
-				'selectors'  => array( '{{WRAPPER}} .galaxie-kit-screen' => 'gap: {{SIZE}}{{UNIT}};' ),
+				'selectors'  => array( '{{WRAPPER}} .galaxie-kit-builder, {{WRAPPER}} .galaxie-kit-screen, {{WRAPPER}} .galaxie-kit-content' => 'gap: {{SIZE}}{{UNIT}};' ),
 			)
 		);
 		$this->add_responsive_control(
@@ -453,6 +482,7 @@ final class KitBuilderWidget extends Widget_Base {
 
 		foreach ( self::SCREENS as $name ) {
 			printf( '<section class="galaxie-kit-screen galaxie-kit-screen--%1$s" data-kit-screen="%1$s"%2$s>', esc_attr( $name ), $screen === $name ? '' : ' hidden' );
+			printf( '<div class="galaxie-kit-content %s" data-kit-content>', esc_attr( PixfortControls::surface_classes( $settings, 'kit_content' ) ) );
 			$this->{'render_' . $name}( $settings, $texts, $screen === $name ? $sample : null );
 			echo '</section>';
 		}
@@ -535,9 +565,19 @@ final class KitBuilderWidget extends Widget_Base {
 		);
 	}
 
+	/**
+	 * Closes the step's content panel and opens its row of buttons.
+	 *
+	 * Every screen ends in one, so the panel opened in render() is always shut
+	 * here: the buttons belong to the wizard, not to the panel they follow.
+	 */
+	private function actions( string $extra = '' ): void {
+		printf( '</div><div class="galaxie-kit-actions%s">', esc_attr( '' !== $extra ? ' ' . $extra : '' ) );
+	}
+
 	/** @param array<string,mixed> $settings */
 	private function nav( array $settings, array $texts, string $next = '' ): void {
-		echo '<div class="galaxie-kit-actions galaxie-kit-nav">';
+		$this->actions( 'galaxie-kit-nav' );
 		echo $this->button( $settings, 'secondary', 'back', $texts['back'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in button().
 		echo $this->button( $settings, 'primary', 'next', '' !== $next ? $next : $texts['next'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in button().
 		echo '</div>';
@@ -553,7 +593,7 @@ final class KitBuilderWidget extends Widget_Base {
 
 		$this->head( $settings, 'welcome', $texts['welcome_title'], $texts['welcome_text'] );
 
-		echo '<div class="galaxie-kit-actions">';
+		$this->actions();
 		echo $this->button( $settings, 'primary', 'begin', $texts['welcome_button'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in button().
 		$this->previous_button( $settings, $texts );
 		echo '</div>';
@@ -630,7 +670,7 @@ final class KitBuilderWidget extends Widget_Base {
 
 		$this->head( $settings, 'continue', $title, $text, true );
 
-		echo '<div class="galaxie-kit-actions">';
+		$this->actions();
 		echo $this->button( $settings, 'primary', 'continue', $texts['continue_button'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in button().
 		echo $this->button( $settings, 'secondary', 'summary', $texts['continue_view'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in button().
 		echo '</div>';
@@ -707,7 +747,7 @@ final class KitBuilderWidget extends Widget_Base {
 			esc_html( $sample ? $sample['total'] : '' )
 		);
 
-		echo '<div class="galaxie-kit-actions galaxie-kit-summary-actions">';
+		$this->actions( 'galaxie-kit-summary-actions' );
 		// The add button changes look once the box is full: both are printed.
 		printf( '<span data-kit-when="full"%s>', $full ? '' : ' hidden' );
 		echo $this->button( $settings, 'primary', 'to-cart', $texts['action_cart'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in button().

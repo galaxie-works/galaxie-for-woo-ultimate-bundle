@@ -607,6 +607,7 @@ form.galaxie-buybox .galaxie-kit-button[aria-disabled="true"] {
 /* The Galaxie Kit Builder, inside its pixfort popup. */
 .galaxie-kit-builder,
 .galaxie-kit-screen,
+.galaxie-kit-content,
 .galaxie-kit-summary,
 .galaxie-kit-choices,
 .galaxie-kit-lines,
@@ -617,10 +618,11 @@ form.galaxie-buybox .galaxie-kit-button[aria-disabled="true"] {
 }
 
 .galaxie-kit-builder {
-  gap: 12px;
+  gap: 16px;
 }
 
-.galaxie-kit-screen {
+.galaxie-kit-screen,
+.galaxie-kit-content {
   gap: 16px;
 }
 
