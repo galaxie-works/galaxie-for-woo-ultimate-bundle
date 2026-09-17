@@ -718,6 +718,77 @@ final class GiftPacking {
 	}
 
 	/**
+	 * Why a store has no candle size, counted step by step: the taxonomy, its
+	 * terms, the variations each term matches, the ones whose product is
+	 * published, and the ones that come back with usable dimensions.
+	 *
+	 * Counts only — no names, no ids. It answers the one question the sizes
+	 * cannot: whether it is the attribute, the terms, the variations or the
+	 * dimensions that are missing.
+	 *
+	 * @return array<string,int|bool|string>
+	 */
+	public static function size_report( string $attribute = 'pa_peso' ): array {
+		$report = array(
+			'attribute' => $attribute,
+			'taxonomy'  => taxonomy_exists( $attribute ),
+			'terms'     => 0,
+			'matched'   => 0,
+			'published' => 0,
+			'measured'  => 0,
+			'sizes'     => count( self::store_sizes( $attribute ) ),
+		);
+
+		if ( ! $report['taxonomy'] ) {
+			return $report;
+		}
+
+		$terms = get_terms(
+			array(
+				'taxonomy'   => $attribute,
+				'hide_empty' => false,
+			)
+		);
+
+		foreach ( is_array( $terms ) ? $terms : array() as $term ) {
+			++$report['terms'];
+
+			$rows = get_posts(
+				array(
+					'post_type'      => 'product_variation',
+					'post_status'    => array( 'publish', 'private' ),
+					'posts_per_page' => 20,
+					'fields'         => 'id=>parent',
+					'no_found_rows'  => true,
+					'meta_query'     => array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query
+						array(
+							'key'   => 'attribute_' . $attribute,
+							'value' => $term->slug,
+						),
+					),
+				)
+			);
+
+			$report['matched'] += count( $rows );
+
+			foreach ( $rows as $row ) {
+				if ( 'publish' !== get_post_status( (int) $row->post_parent ) ) {
+					continue;
+				}
+
+				++$report['published'];
+				$product = wc_get_product( (int) $row->ID );
+
+				if ( $product && self::candle_from_product( $product, $attribute ) ) {
+					++$report['measured'];
+				}
+			}
+		}
+
+		return $report;
+	}
+
+	/**
 	 * A size term's gift dimensions, [ length, width, height ] in cm; zeros when
 	 * the term is missing or has none. The term is the one whose slug (a
 	 * variation's attribute value) or name (a simple product's) is `$size`.
