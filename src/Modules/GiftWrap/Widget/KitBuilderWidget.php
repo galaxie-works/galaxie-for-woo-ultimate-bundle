@@ -267,6 +267,13 @@ final class KitBuilderWidget extends Widget_Base {
 		);
 		$this->end_controls_section();
 
+		// The panel the wizard's step lives in: the step indicator above it and
+		// the step's buttons below it stay outside, so a background and rounded
+		// corners here box the content alone and not the whole widget.
+		$this->start_controls_section( 'kit_content_style', $style( __( 'Step content', 'galaxie-woo' ) ) );
+		PixfortControls::surface( $this, 'kit_content', '{{WRAPPER}} .galaxie-kit-content' );
+		$this->end_controls_section();
+
 		$this->start_controls_section( 'kit_text_style', $style( __( 'Titles and text', 'galaxie-woo' ) ) );
 		$this->heading( 'title_style_heading', __( 'Titles', 'galaxie-woo' ), false );
 		PixfortControls::text( $this, 'title', array( 'size' => 'h5', 'bold' => 'font-weight-bold', 'remove_pb_padding' => 'm-0' ), array(), '{{WRAPPER}} .galaxie-kit-title', 'heading' );
@@ -404,7 +411,7 @@ final class KitBuilderWidget extends Widget_Base {
 				'size_units' => array( 'px', 'rem' ),
 				'range'      => array( 'px' => array( 'min' => 0, 'max' => 60 ) ),
 				'default'    => array( 'unit' => 'px', 'size' => 16 ),
-				'selectors'  => array( '{{WRAPPER}} .galaxie-kit-builder, {{WRAPPER}} .galaxie-kit-screen' => 'gap: {{SIZE}}{{UNIT}};' ),
+				'selectors'  => array( '{{WRAPPER}} .galaxie-kit-builder, {{WRAPPER}} .galaxie-kit-screen, {{WRAPPER}} .galaxie-kit-content' => 'gap: {{SIZE}}{{UNIT}};' ),
 			)
 		);
 		$this->add_responsive_control(
@@ -475,6 +482,7 @@ final class KitBuilderWidget extends Widget_Base {
 
 		foreach ( self::SCREENS as $name ) {
 			printf( '<section class="galaxie-kit-screen galaxie-kit-screen--%1$s" data-kit-screen="%1$s"%2$s>', esc_attr( $name ), $screen === $name ? '' : ' hidden' );
+			printf( '<div class="galaxie-kit-content %s" data-kit-content>', esc_attr( PixfortControls::surface_classes( $settings, 'kit_content' ) ) );
 			$this->{'render_' . $name}( $settings, $texts, $screen === $name ? $sample : null );
 			echo '</section>';
 		}
@@ -557,9 +565,19 @@ final class KitBuilderWidget extends Widget_Base {
 		);
 	}
 
+	/**
+	 * Closes the step's content panel and opens its row of buttons.
+	 *
+	 * Every screen ends in one, so the panel opened in render() is always shut
+	 * here: the buttons belong to the wizard, not to the panel they follow.
+	 */
+	private function actions( string $extra = '' ): void {
+		printf( '</div><div class="galaxie-kit-actions%s">', esc_attr( '' !== $extra ? ' ' . $extra : '' ) );
+	}
+
 	/** @param array<string,mixed> $settings */
 	private function nav( array $settings, array $texts, string $next = '' ): void {
-		echo '<div class="galaxie-kit-actions galaxie-kit-nav">';
+		$this->actions( 'galaxie-kit-nav' );
 		echo $this->button( $settings, 'secondary', 'back', $texts['back'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in button().
 		echo $this->button( $settings, 'primary', 'next', '' !== $next ? $next : $texts['next'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in button().
 		echo '</div>';
@@ -575,7 +593,7 @@ final class KitBuilderWidget extends Widget_Base {
 
 		$this->head( $settings, 'welcome', $texts['welcome_title'], $texts['welcome_text'] );
 
-		echo '<div class="galaxie-kit-actions">';
+		$this->actions();
 		echo $this->button( $settings, 'primary', 'begin', $texts['welcome_button'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in button().
 		$this->previous_button( $settings, $texts );
 		echo '</div>';
@@ -652,7 +670,7 @@ final class KitBuilderWidget extends Widget_Base {
 
 		$this->head( $settings, 'continue', $title, $text, true );
 
-		echo '<div class="galaxie-kit-actions">';
+		$this->actions();
 		echo $this->button( $settings, 'primary', 'continue', $texts['continue_button'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in button().
 		echo $this->button( $settings, 'secondary', 'summary', $texts['continue_view'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in button().
 		echo '</div>';
@@ -729,7 +747,7 @@ final class KitBuilderWidget extends Widget_Base {
 			esc_html( $sample ? $sample['total'] : '' )
 		);
 
-		echo '<div class="galaxie-kit-actions galaxie-kit-summary-actions">';
+		$this->actions( 'galaxie-kit-summary-actions' );
 		// The add button changes look once the box is full: both are printed.
 		printf( '<span data-kit-when="full"%s>', $full ? '' : ' hidden' );
 		echo $this->button( $settings, 'primary', 'to-cart', $texts['action_cart'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in button().
