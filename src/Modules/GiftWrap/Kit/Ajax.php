@@ -7,6 +7,7 @@
 
 namespace Galaxie\Woo\Modules\GiftWrap\Kit;
 
+use Galaxie\Woo\Modules\GiftWrap\Module;
 use Galaxie\Woo\Support\GiftKit;
 
 defined( 'ABSPATH' ) || exit;
@@ -449,6 +450,9 @@ final class Ajax {
 			'boxes'      => $boxes,
 			'cards'      => $cards,
 			'sizes'      => array_values( $catalog->sizes() ),
+			// The taxonomy the sizes came from: with none found, this is the first
+			// thing to check, and it saves guessing from outside the site.
+			'sizeAttribute' => Module::size_attribute(),
 			'options'    => $catalog->options(),
 			'messageMax' => $catalog->message_max(),
 			'shopUrl'    => function_exists( 'wc_get_page_permalink' ) ? (string) wc_get_page_permalink( 'shop' ) : home_url( '/' ),
