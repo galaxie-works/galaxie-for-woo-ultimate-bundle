@@ -644,6 +644,24 @@ final class KitBuilderWidget extends Widget_Base {
 		// bottom. The height is what makes a distribution mean anything: without
 		// it the column is exactly as tall as its content.
 		$this->heading( 'kit_distribute_heading', __( 'The three blocks', 'galaxie-woo' ) );
+		// A popup that is as tall as its tallest screen jumps from step to step —
+		// the summary is twice the name step. Capped, the content scrolls inside
+		// and the steps and the buttons stay put.
+		$this->add_responsive_control(
+			'kit_frame_height',
+			array(
+				'label'       => __( 'Maximum height', 'galaxie-woo' ),
+				'description' => __( 'The content scrolls inside it; the steps and the buttons stay in view. Empty: the popup grows with the screen it shows.', 'galaxie-woo' ),
+				'type'        => Controls_Manager::SLIDER,
+				'size_units'  => array( 'px', 'vh' ),
+				'range'       => array( 'px' => array( 'min' => 200, 'max' => 1200 ), 'vh' => array( 'min' => 30, 'max' => 95 ) ),
+				'default'     => array( 'unit' => 'vh', 'size' => 70 ),
+				'selectors'   => array(
+					'{{WRAPPER}} .galaxie-kit-builder' => 'max-height: {{SIZE}}{{UNIT}};',
+					'{{WRAPPER}} .galaxie-kit-content' => 'flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain;',
+				),
+			)
+		);
 		$this->add_responsive_control(
 			'kit_min_height',
 			array(

@@ -699,7 +699,16 @@ final class GiftPacking {
 			}
 		}
 
-		$stored[ $attribute ] = $sizes;
+		// An empty answer is not cached for a day: no size at all means the
+		// store cannot fit a candle in any box — every "cabem …" sentence turns
+		// into "a caixa está completa" — and that is a state to re-check on the
+		// next request, not to keep. It stays in the per-request cache only.
+		if ( $sizes ) {
+			$stored[ $attribute ] = $sizes;
+		} else {
+			unset( $stored[ $attribute ] );
+		}
+
 		set_transient( self::SIZES_TRANSIENT, $stored, DAY_IN_SECONDS );
 
 		return self::$sizes[ $attribute ] = $sizes;
