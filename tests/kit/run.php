@@ -408,6 +408,24 @@ $draft = $kits->add_candle( $draft, 100, 1, array() );
 $view  = $kits->view( $draft );
 $check( 'full', 'the third 190g fills the box', array( $view['full'], $view['room']['state'], $view['fill'], $draft['candles'] ), array( true, 'full', 100, array( array( 'id' => 100, 'qty' => 3 ) ) ) );
 $check( 'full', 'nothing more fits: cap 0', $error( fn() => $kits->add_candle( $draft, 101, 1, array() ) ), array( 'no_room', 0 ) );
+// A box nothing fits in: the empty kit says so instead of claiming to be full.
+$catalog->boxes[12] = array(
+	'id'         => 12,
+	'parent'     => 9,
+	'variation'  => true,
+	'attributes' => array( 'attribute_x' => '12' ),
+	'name'       => 'Caixa - Mini',
+	'title'      => 'Caixa',
+	'image'      => '',
+	'price'      => 1.0,
+	'stock'      => null,
+) + array( 'shape' => array( 'id' => 12 ) + $fixtures['boxes']['tiny'], 'attrs' => array( 'tamanho' => 'mini' ), 'description' => '' );
+
+$mini = $kits->view( $start( array( 'box' => 12 ) ) );
+$check( 'nofit', 'an empty kit in a box that holds nothing is not full', array( $mini['full'], $mini['room']['state'], $mini['count'] ), array( false, 'nofit', 0 ) );
+$check( 'nofit', 'the same box with a candle in it could never happen: none fits', $kits->room_for( $start( array( 'box' => 12 ) ), $catalog->candle( 101 ) ), 0 );
+unset( $catalog->boxes[12] );
+
 $check( 'view', 'total: 3 × 60 + box 10 + card 2', array( $view['total'], $view['totalText'] ), array( 192.0, 'R$ 192,00' ) );
 $check( 'view', 'the card is the big one', $view['card']['id'], 21 );
 $check( 'quantity', 'quantity 13 is refused before anything else', $error( fn() => $kits->add_candle( $draft, 100, 13, array() ) ), array( 'bad_quantity', null ) );

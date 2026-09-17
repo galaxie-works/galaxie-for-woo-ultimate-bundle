@@ -333,7 +333,10 @@ function create(root: HTMLElement): Controller {
       const answer = packingFor(box, units)
       const holds = answer.holds
       const sold = (box.available === false || !box.inStock) && box.id !== current
-      const disabled = !holds || sold
+      // A box nothing fits in is not a choice, even with no candle picked yet:
+      // a kit started in it could never hold a candle.
+      const nofit = !units.length && answer.room.state === 'full'
+      const disabled = !holds || sold || nofit
       if (!disabled) usable++
 
       // What it takes empty (worked out on the server, once for everyone), or
@@ -347,7 +350,13 @@ function create(root: HTMLElement): Controller {
           ? ''
           : fillText(config?.texts.box_holds ?? '', { combos: room.combos })
 
-      const reason = sold ? (texts.box_sold ?? '') : holds ? '' : fillText(texts.box_reason ?? '', { candles: candlesText() })
+      const reason = sold
+        ? (texts.box_sold ?? '')
+        : !holds
+          ? fillText(texts.box_reason ?? '', { candles: candlesText() })
+          : nofit
+            ? (config?.texts.room_nofit ?? '')
+            : ''
 
       if (disabled && form.box === box.id) form.box = 0
 
@@ -450,7 +459,17 @@ function create(root: HTMLElement): Controller {
     setRich(textTarget(slot(el, 'title')), fillText(texts.continue_title ?? '', values))
     const state = kit?.room.state
     // Nothing settled in time: say nothing rather than a list with a hole in it.
-    setRich(slot(el, 'text'), kit?.full ? (texts.continue_full ?? '') : state === 'many' || state === 'one' ? fillText(texts.continue_text ?? '', values) : '')
+    setRich(
+      slot(el, 'text'),
+      kit?.full
+        ? (texts.continue_full ?? '')
+        : state === 'many' || state === 'one'
+          ? fillText(texts.continue_text ?? '', values)
+          : // A box that holds nothing says so, instead of the silence "unknown" earns.
+            state === 'nofit'
+            ? roomSentence(kit?.room, values)
+            : ''
+    )
 
     // This step can offer "Adicionar kit ao carrinho" too, and the cart takes
     // no kit without a candle in it.

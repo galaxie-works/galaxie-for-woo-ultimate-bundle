@@ -120,7 +120,7 @@ function galaxie_boot_kit( array $booted, array $scenario, callable $hooked ): s
 	$module = new \Galaxie\Woo\Modules\GiftWrap\Module();
 	$data   = $module->boot_data()['giftWrap']['kit'] ?? null;
 
-	if ( ! is_array( $data ) || 4549 !== $data['popup'] || array( 'room_many', 'room_one', 'full', 'box_holds', 'added' ) !== array_keys( $data['texts'] ) ) {
+	if ( ! is_array( $data ) || 4549 !== $data['popup'] || array( 'room_many', 'room_one', 'room_nofit', 'full', 'box_holds', 'added' ) !== array_keys( $data['texts'] ) ) {
 		throw new RuntimeException( 'Kit: boot data ' . json_encode( $data ) );
 	}
 
