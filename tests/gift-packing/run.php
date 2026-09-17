@@ -334,7 +334,10 @@ if ( ! function_exists( 'get_posts' ) ) {
 
 		foreach ( $store['products'] as $id => $product ) {
 			if ( ( $product->get_attributes()['pa_peso'] ?? '' ) === $value ) {
-				$rows[] = (object) array( 'ID' => $id, 'post_parent' => $store['parents'][ $id ] );
+				// WP_Query's own shape for fields => 'id=>parent': the id is the
+				// key and the parent the value. Rows of objects here once let a
+				// bug through that left a real store with no candle size at all.
+				$rows[ $id ] = $store['parents'][ $id ];
 			}
 		}
 
