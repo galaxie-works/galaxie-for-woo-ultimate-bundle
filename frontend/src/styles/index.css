@@ -1031,10 +1031,68 @@ form.galaxie-buybox .galaxie-buybox-row {
   display: inline-block;
 }
 
+/* Inline-block like the saved state, so a stretched row can widen it. */
+.galaxie-wishlist-btn .galaxie-wishlist-add {
+  display: inline-block;
+}
+
 /* Icon only: pixfort still spaces the icon for text that is not there. */
 .galaxie-wishlist-icon-only .pixfort-icon,
 .galaxie-wishlist-icon-only svg {
   margin: 0 !important;
+}
+
+/* The row that places the wishlist button; its Alignment control writes
+   justify-content here. The anchor holds the popover's template and, in the
+   editor, the preview placed against the button. */
+.galaxie-wishlist-buttons {
+  display: flex;
+  align-items: center;
+}
+
+.galaxie-wishlist-anchor {
+  position: relative;
+  display: inline-flex;
+  max-width: 100%;
+}
+
+/* Full width takes the whole row. pixfort's w-100 on the inner .btn alone fills
+   only its shrink-wrapped parents, so they widen too — for the state that is
+   showing. */
+.galaxie-wishlist-anchor:has(> .galaxie-wishlist-btn:not(.is-in-wishlist) > .galaxie-wishlist-add .w-100),
+.galaxie-wishlist-anchor:has(> .galaxie-wishlist-btn.is-in-wishlist > .galaxie-wishlist-saved .w-100) {
+  flex-grow: 1;
+}
+
+.galaxie-wishlist-anchor:has(.w-100) > .galaxie-wishlist-btn,
+.galaxie-wishlist-add:has(.w-100),
+.galaxie-wishlist-saved:has(.w-100) {
+  width: 100%;
+}
+
+/* Circle and rounded square: one size both ways, no padding, icon centred.
+   The widget's sliders only set the variables. */
+.galaxie-wishlist-shape-circle > span,
+.galaxie-wishlist-shape-square > span {
+  min-width: 0 !important;
+}
+
+.galaxie-wishlist-shape-circle .btn,
+.galaxie-wishlist-shape-square .btn {
+  width: var(--galaxie-wl-size, 44px);
+  min-width: 0 !important;
+  height: var(--galaxie-wl-size, 44px);
+  padding: 0 !important;
+  justify-content: center;
+  line-height: 1;
+}
+
+.galaxie-wishlist-shape-circle .btn {
+  border-radius: 50% !important;
+}
+
+.galaxie-wishlist-shape-square .btn {
+  border-radius: var(--galaxie-wl-radius, 12px) !important;
 }
 
 /* Only a heading that actually has an icon becomes a row. Without the
@@ -3217,26 +3275,64 @@ address.galaxie-order-body {
   font-weight: 600;
 }
 
-/* The "add to a list" popover beside a product's heart. */
+/* The second button of the old markup, still on a cached page. */
 .galaxie-wishlist-list-btn {
   margin-left: 8px;
 }
 
+/* The "Salvar em" popover. The script places it against the button: fixed to
+   the viewport at the end of <body>, where no card can clip it, and absolute
+   inside the anchor for the editor preview. The wrappers around it repeat the
+   widget's Elementor classes only for the Style tab's selectors. */
 .galaxie-wishlist-popover {
   position: absolute;
-  z-index: 9999;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 99999;
   display: flex;
   flex-direction: column;
   gap: 10px;
   width: min(300px, calc(100vw - 16px));
+  max-width: calc(100vw - 16px);
   padding: 14px;
   border-radius: 12px;
   background-color: var(--pix-body-bg-color, #fff);
+}
+
+.galaxie-wishlist-portal,
+.galaxie-wishlist-portal > div,
+.galaxie-wishlist-portal > div > div {
+  display: contents;
+}
+
+.galaxie-wishlist-portal .galaxie-wishlist-popover {
+  position: fixed;
+  top: 0;
+}
+
+/* Built by the script for a cached page with no template: no Style classes. */
+.galaxie-wishlist-popover.is-fallback {
   box-shadow: 0 16px 40px rgb(0 0 0 / 18%);
 }
 
+.galaxie-wishlist-popover-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* The default list's mark. Its Style controls override every line. */
+.galaxie-wishlist-popover-badge {
+  flex: 0 0 auto;
+  margin-left: auto;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background-color: rgb(0 0 0 / 6%);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
 .galaxie-wishlist-popover-title {
-  font-weight: 600;
+  margin: 0;
 }
 
 .galaxie-wishlist-popover-lists {
@@ -3263,9 +3359,14 @@ address.galaxie-order-body {
   gap: 8px;
 }
 
+/* `auto`, not a zero basis: stacked, a zero basis can collapse the field. */
 .galaxie-wishlist-popover-new input {
-  flex: 1;
+  flex: 1 1 auto;
   min-width: 0;
+}
+
+.galaxie-wishlist-popover-create {
+  flex: 0 0 auto;
 }
 
 .galaxie-wishlist-thumb {

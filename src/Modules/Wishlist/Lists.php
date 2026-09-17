@@ -68,6 +68,25 @@ final class Lists {
 		return $lists;
 	}
 
+	/**
+	 * The user's lists as stored, default first, without creating "Favoritos"
+	 * or migrating the old row. For the editor preview, which must not write to
+	 * the account of whoever is designing the page.
+	 *
+	 * @return array<int,array<string,mixed>>
+	 */
+	public static function peek( int $user_id ): array {
+		if ( $user_id <= 0 ) {
+			return array();
+		}
+
+		$lists = self::normalize_lists( get_user_meta( $user_id, self::META_KEY, true ) );
+
+		usort( $lists, static fn( array $a, array $b ): int => (int) $b['default'] <=> (int) $a['default'] );
+
+		return $lists;
+	}
+
 	/** @return array<string,mixed>|null */
 	public static function get( int $user_id, string $list_id ): ?array {
 		foreach ( self::all( $user_id ) as $list ) {
