@@ -427,6 +427,9 @@ $sold = $kits->set_box( $kits->remove_candle( $draft, 100 ), 10 );
 $catalog->boxes[11]['stock'] = 0;
 $check( 'swap', 'a sold-out box is refused', $error( fn() => $kits->set_box( $sold, 11 ) ), array( 'box_sold_out', null ) );
 $catalog->boxes[11]['stock'] = 3;
+$check( 'swap', 'the last square boxes are in the cart: refused', $error( fn() => $kits->set_box( $sold, 11, array( '11' => 3 ) ) ), array( 'box_sold_out', null ) );
+$check( 'swap', 'one square box left after the cart\'s two: allowed', $kits->set_box( $sold, 11, array( '11' => 2 ) )['box'], 11 );
+$check( 'swap', 'the kit\'s own box stays chosen whatever the cart holds', $kits->set_box( $small, 11, array( '11' => 3 ) )['box'], 11 );
 
 // plan
 $check( 'plan', 'an empty kit cannot go to the cart', $error( fn() => $kits->plan( $kits->remove_candle( $kits->remove_candle( $draft, 100 ), 101 ), array() ) ), array( 'empty', null ) );

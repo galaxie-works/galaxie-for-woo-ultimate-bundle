@@ -73,6 +73,8 @@ export interface KitBox {
   shape: Box
   /** Card product id => the card variation for this box. */
   cards?: Record<string, number>
+  /** Whether one more can be sold, counting the cart (catalog only). */
+  available?: boolean
   /** What the empty box takes (catalog only), worked out on the server. */
   holds?: { state: RoomState; combos: string }
 }

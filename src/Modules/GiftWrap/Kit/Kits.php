@@ -79,7 +79,7 @@ final class Kits {
 			throw new KitError( 'no_box', __( 'Escolha uma caixa para o kit.', 'galaxie-woo' ) );
 		}
 
-		$draft = $this->set_box( $draft, (int) $input['box'] );
+		$draft = $this->set_box( $draft, (int) $input['box'], $in_cart );
 		$draft = $this->set_card( $draft, (int) ( $input['card'] ?? 0 ) );
 		$draft = $this->set_message( $draft, (string) ( $input['message'] ?? '' ) );
 
@@ -102,7 +102,11 @@ final class Kits {
 		return self::touch( $draft );
 	}
 
-	public function set_box( array $draft, int $box ): array {
+	/**
+	 * @param array<string,int> $in_cart Units of each product already in the cart: a
+	 *                                   box another kit already takes is not free.
+	 */
+	public function set_box( array $draft, int $box, array $in_cart = array() ): array {
 		$boxes = $this->catalog->boxes();
 		$row   = $boxes[ $box ] ?? null;
 
@@ -110,7 +114,8 @@ final class Kits {
 			throw new KitError( 'box_gone', __( 'Essa caixa não está mais disponível.', 'galaxie-woo' ) );
 		}
 
-		if ( 0 === $row['stock'] && $box !== (int) $draft['box'] ) {
+		// The kit's own box stays chosen; to_cart checks its stock again.
+		if ( $box !== (int) $draft['box'] && ! self::box_available( $row, $in_cart ) ) {
 			throw new KitError( 'box_sold_out', __( 'Essa caixa está esgotada.', 'galaxie-woo' ) );
 		}
 
@@ -700,6 +705,19 @@ final class Kits {
 		}
 
 		return max( (int) $line['qty'], $this->room_within( $others, $candle ) );
+	}
+
+	/**
+	 * Whether one more of this box can be sold, counting those in the cart.
+	 *
+	 * @param array<string,int> $in_cart
+	 */
+	public static function box_available( array $box, array $in_cart ): bool {
+		if ( null === $box['stock'] ) {
+			return true;
+		}
+
+		return (int) $box['stock'] - (int) ( $in_cart[ (string) $box['id'] ] ?? 0 ) >= 1;
 	}
 
 	/** "Kit %d", translatable. */

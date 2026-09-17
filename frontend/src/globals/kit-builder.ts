@@ -332,7 +332,7 @@ function create(root: HTMLElement): Controller {
 
       const answer = packingFor(box, units)
       const holds = answer.holds
-      const sold = box.stock === 0 && box.id !== current
+      const sold = (box.available === false || box.stock === 0) && box.id !== current
       const disabled = !holds || sold
       if (!disabled) usable++
 

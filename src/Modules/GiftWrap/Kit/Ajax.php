@@ -217,7 +217,7 @@ final class Ajax {
 				$draft = $kits->rename( $draft, self::text( 'name' ), $carts->kit_names() );
 				break;
 			case 'set_box':
-				$draft = $kits->set_box( $draft, self::id( 'box' ) );
+				$draft = $kits->set_box( $draft, self::id( 'box' ), $carts->in_cart() );
 				break;
 			case 'set_card':
 				$draft = $kits->set_card( $draft, self::id( 'card' ) );
@@ -347,8 +347,12 @@ final class Ajax {
 		$boxes   = array();
 		$cards   = array();
 
+		$in_cart = self::carts()->in_cart();
+
 		foreach ( $catalog->boxes() as $id => $box ) {
 			$row      = Kits::box_json( $box );
+			// One more can be sold, counting the kits already in the cart.
+			$row['available'] = Kits::box_available( $box, $in_cart );
 			$row['priceText'] = $catalog->money( (float) $box['price'] );
 			// "Leva até …", worked out once for every shopper, not in each browser.
 			$row['holds'] = $kits->box_holds( $box );
