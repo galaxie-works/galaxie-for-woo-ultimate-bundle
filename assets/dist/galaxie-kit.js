@@ -1,1 +1,1 @@
-import{a as e,i as t,l as n,n as r,r as i,t as a}from"./chunks/kit-core-DXGRiw2q.js";function o(){let o=window.__GALAXIE_WOO__??{};n(o.giftWrap),e(),t(),i(),r(),a()}document.readyState===`loading`?document.addEventListener(`DOMContentLoaded`,o):o();
+import{a as e,i as t,l as n,n as r,r as i,t as a}from"./chunks/kit-core-C3GtIAVJ.js";function o(){let o=window.__GALAXIE_WOO__??{};n(o.giftWrap),e(),t(),i(),r(),a()}document.readyState===`loading`?document.addEventListener(`DOMContentLoaded`,o):o();

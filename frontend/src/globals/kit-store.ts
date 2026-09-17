@@ -67,7 +67,8 @@ export interface KitBox {
   image: string
   price: number
   priceText?: string
-  stock: number | null
+  /** In stock or not; the server never sends how many. */
+  inStock: boolean
   description: string
   attrs: Record<string, string>
   shape: Box
@@ -87,7 +88,7 @@ export interface KitCard {
   image: string
   price: number
   priceText?: string
-  stock?: number | null
+  inStock?: boolean
 }
 
 export interface KitSize extends Candle {
@@ -131,7 +132,6 @@ export interface KitPending {
   image: string
   price: number
   priceText: string
-  stock: number | null
   qty: number
   candle: Candle
 }

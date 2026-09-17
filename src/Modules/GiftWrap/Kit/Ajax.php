@@ -378,7 +378,7 @@ final class Ajax {
 				'image'     => $card['image'],
 				'price'     => $card['price'],
 				'priceText' => $catalog->money( (float) $card['price'] ),
-				'stock'     => $card['stock'],
+				'inStock'   => 0 !== $card['stock'],
 			);
 		}
 
@@ -405,7 +405,6 @@ final class Ajax {
 				'image'     => $candle['image'],
 				'price'     => $candle['price'],
 				'priceText' => $catalog->money( (float) $candle['price'] ),
-				'stock'     => $candle['stock'],
 				'qty'       => $qty,
 				'candle'    => $candle['candle'],
 			) : null;

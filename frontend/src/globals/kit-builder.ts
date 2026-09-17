@@ -229,7 +229,7 @@ function create(root: HTMLElement): Controller {
 
       const id = box.cards?.[String(card.parent)]
       const variation = id ? catalog.cards.find((row) => row.id === id) : undefined
-      if (variation && variation.stock !== 0) out.push(variation)
+      if (variation && variation.inStock !== false) out.push(variation)
     }
 
     return out
@@ -332,7 +332,7 @@ function create(root: HTMLElement): Controller {
 
       const answer = packingFor(box, units)
       const holds = answer.holds
-      const sold = (box.available === false || box.stock === 0) && box.id !== current
+      const sold = (box.available === false || !box.inStock) && box.id !== current
       const disabled = !holds || sold
       if (!disabled) usable++
 

@@ -237,6 +237,8 @@ final class KtCatalog implements Catalog {
 	public function message_max(): int { return 20; }
 	public function can_add( array $product, int $quantity ): string { return 101 === $product['id'] && $quantity > 3 ? 'A loja recusou.' : ''; }
 	public function money( float $amount ): string { return 'R$ ' . number_format( $amount, 2, ',', '.' ); }
+	public bool $shows = true;
+	public function shows_stock(): bool { return $this->shows; }
 	public array $kept = array();
 	public function remember( string $key, callable $compute ) { return $this->kept[ $key ] ??= $compute(); }
 }
@@ -409,7 +411,12 @@ $check( 'room', '1 × 190g + 2 × 50g: one 50g more', $kits->room( $draft ), arr
 
 // stock
 $check( 'stock', '50g: 5 left, 4 in the cart, 2 in the kit, 1 more asked', $error( fn() => $kits->add_candle( $draft, 101, 1, array( '101' => 4 ) ) ), array( 'out_of_stock', 1 ) );
-$check( 'stock', 'the view caps the line by stock', $kits->view( $draft, array( '101' => 4 ) )['candles'][1]['cap'], 1 );
+$check( 'stock', 'the view caps the line by stock (never below what it holds)', $kits->view( $draft, array( '101' => 4 ) )['candles'][1]['cap'], 2 );
+$check( 'stock', 'the view caps the line by stock when some is left', $kits->view( $draft, array( '101' => 2 ) )['candles'][1]['cap'], 3 );
+$catalog->shows = false;
+$check( 'stock', 'a store that hides stock amounts: the cap is room only', $kits->view( $draft, array( '101' => 4 ) )['candles'][1]['cap'], 3 );
+$check( 'stock', 'and the refusal carries no number', $error( fn() => $kits->add_candle( $draft, 101, 1, array( '101' => 4 ) ) ), array( 'out_of_stock', null ) );
+$catalog->shows = true;
 
 // swap box, card follows
 $check( 'swap', 'the square box cannot hold a 190g', $error( fn() => $kits->set_box( $draft, 11 ) ), array( 'box_too_small', null ) );
@@ -482,7 +489,10 @@ $check( 'cache', 'the draft\'s packing answer is kept in the session', array( is
 WC()->session->set( Store::PACKING_KEY, array( 'key' => $kept['key'], 'value' => array( 'room' => array( 'state' => 'many', 'combos' => 'cached' ), 'extras' => array(), 'complete' => true, 'fill' => 7 ) ) );
 $check( 'cache', 'and read back while the draft is unchanged', array( $call( 'get', array(), '' )->data['kit']['room']['combos'], $call( 'get', array(), '' )->data['kit']['fill'] ), array( 'cached', 7 ) );
 WC()->session->set( Store::PACKING_KEY, $kept );
-$response = $call( 'get', array( 'catalog' => '1' ), '' );
+$response = $call( 'get', array( 'catalog' => '1', 'pending_id' => '101', 'pending_qty' => '2' ), '' );
+$stock_keys = array();
+array_walk_recursive( $response->data, function ( $value, $key ) use ( &$stock_keys ) { if ( 'stock' === $key ) { $stock_keys[] = $value; } } );
+$check( 'stock', 'the public get sends no stock numbers (catalog, pending, kit)', array( $stock_keys, $response->data['catalog']['boxes'][1]['inStock'], $response->data['catalog']['cards'][0]['inStock'] ), array( array(), true, true ) );
 $check( 'cache', 'the catalog sends each box\'s "Leva até" answer', array_map( fn( $b ) => $b['holds'], $response->data['catalog']['boxes'] ), array( array( 'state' => 'many', 'combos' => '3 × 190g ou 4 × 50g ou 2 × 190g + 1 × 50g ou 1 × 190g + 3 × 50g' ), array( 'state' => 'many', 'combos' => '4 × 50g' ) ) );
 foreach ( array( array( 'big', array() ), array( 'big', array( array( '190g', 2 ) ) ), array( 'big', array( array( '190g', 1 ), array( '50g', 2 ) ) ), array( 'square', array( array( '50g', 3 ) ) ), array( 'big', array( array( '190g', 3 ) ) ) ) as list( $b, $pairs ) ) {
 	$inside = $expand( $pairs );

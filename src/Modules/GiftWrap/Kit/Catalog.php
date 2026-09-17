@@ -45,6 +45,13 @@ interface Catalog {
 	/** '' when the store (and its plugins) let this be added to the cart, else why not. */
 	public function can_add( array $product, int $quantity ): string;
 
+	/**
+	 * Whether the store shows stock amounts to shoppers (WooCommerce's "Stock
+	 * display format" is not "Never show quantity remaining"). Without it, the
+	 * kit never lets a number reveal the stock left.
+	 */
+	public function shows_stock(): bool;
+
 	/** A price as the store prints it, as plain text. */
 	public function money( float $amount ): string;
 

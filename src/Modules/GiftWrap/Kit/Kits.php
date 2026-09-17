@@ -578,8 +578,10 @@ final class Kits {
 				'label'   => $labels[ $size ] ?? $size,
 				'candle'  => $candle['candle'],
 				'missing' => false,
-				// The most this line may hold, for the popup's + button.
-				'cap'     => $box ? min( $this->line_cap( $packing, $shapes, $line, $candle, $others ), self::stock_left( $candle, $in_cart ) ) : (int) $line['qty'],
+				// The most this line may hold, for the popup's + button: by room,
+				// and by stock only when the store shows stock amounts (a cap would
+				// tell the number). The server checks stock on every add anyway.
+				'cap'     => $box ? ( $this->catalog->shows_stock() ? min( $this->line_cap( $packing, $shapes, $line, $candle, $others ), max( (int) $line['qty'], self::stock_left( $candle, $in_cart ) ) ) : $this->line_cap( $packing, $shapes, $line, $candle, $others ) ) : (int) $line['qty'],
 			);
 		}
 
@@ -666,7 +668,8 @@ final class Kits {
 			'title'       => $box['title'],
 			'image'       => $box['image'],
 			'price'       => $box['price'],
-			'stock'       => $box['stock'],
+			// In stock or not, never how many: `get` is public.
+			'inStock'     => 0 !== $box['stock'],
 			'description' => (string) ( $box['description'] ?? '' ),
 			'attrs'       => (object) ( $box['attrs'] ?? array() ),
 			'shape'       => self::shape( $box ),
@@ -741,10 +744,11 @@ final class Kits {
 	/**
 	 * @param array<string,int> $in_cart
 	 */
+	/** @param array<string,int> $in_cart */
 	private function check_stock( array $candle, int $wanted, array $in_cart ): void {
 		if ( $wanted > self::stock_left( $candle, $in_cart ) ) {
 			/* translators: %s: product name. */
-			throw new KitError( 'out_of_stock', sprintf( __( 'Não há estoque suficiente de %s.', 'galaxie-woo' ), $candle['name'] ), array( 'cap' => max( 0, self::stock_left( $candle, $in_cart ) ) ) );
+			throw new KitError( 'out_of_stock', sprintf( __( 'Não há estoque suficiente de %s.', 'galaxie-woo' ), $candle['name'] ), $this->catalog->shows_stock() ? array( 'cap' => max( 0, self::stock_left( $candle, $in_cart ) ) ) : array() );
 		}
 	}
 

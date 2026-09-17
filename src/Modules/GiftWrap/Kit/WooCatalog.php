@@ -146,6 +146,10 @@ final class WooCatalog implements Catalog {
 		return $errors ? wp_strip_all_tags( (string) $errors[0]['notice'] ) : __( 'Não foi possível adicionar o kit ao carrinho.', 'galaxie-woo' );
 	}
 
+	public function shows_stock(): bool {
+		return 'no_amount' !== get_option( 'woocommerce_stock_format', '' );
+	}
+
 	public function money( float $amount ): string {
 		return html_entity_decode( wp_strip_all_tags( wc_price( $amount ) ), ENT_QUOTES, get_bloginfo( 'charset' ) );
 	}
