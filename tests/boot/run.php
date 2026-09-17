@@ -231,28 +231,27 @@ function galaxie_boot_kit( array $booted, array $scenario, callable $hooked ): s
 			}
 		}
 
-		// "Style this screen apart": the welcome screen changes, the steps do not.
+		// "Style this screen apart": that screen's text takes the classes of its
+		// own section, and the other screens keep the shared ones.
 		if ( 'editor_screen' === $key ) {
-			$part = static function ( string $html, string $screen ): string {
-				preg_match( '/galaxie-kit-screen--' . $screen . '\b.*?<\/section>/s', $html, $found );
-
-				if ( ! $found ) {
-					throw new RuntimeException( "Kit: no {$screen} screen in the render" );
+			$hint = static function ( string $html, string $screen ): string {
+				if ( ! preg_match( '/galaxie-kit-screen--' . $screen . '\b.*?<p class="galaxie-kit-text ([^"]*)" data-slot="text"/s', $html, $found ) ) {
+					throw new RuntimeException( "Kit: no text slot on the {$screen} screen" );
 				}
 
-				return $found[0];
+				return $found[1];
 			};
 
-			$widget->settings = array( $key => 'welcome', 'body_size' => 'text-sm', 'welcome_body_size' => 'text-xl' );
-			$shared           = $widget->render_for_test();
-			$widget->settings = $widget->settings + array( 'welcome_own' => 'yes' );
-			$apart            = $widget->render_for_test();
+			foreach ( array( 'welcome', 'name', 'box', 'card', 'continue' ) as $apart_screen ) {
+				$other            = 'name' === $apart_screen ? 'box' : 'name';
+				$widget->settings = array( $key => $apart_screen, 'body_size' => 'text-sm', $apart_screen . '_body_size' => 'text-xl' );
+				$shared           = $widget->render_for_test();
+				$widget->settings = $widget->settings + array( $apart_screen . '_own' => 'yes' );
+				$apart            = $widget->render_for_test();
 
-			// Off, the welcome text wears the shared size; on, its own — and the
-			// steps keep the shared one either way.
-			if ( false === strpos( $part( $shared, 'welcome' ), 'text-sm' ) || false === strpos( $part( $apart, 'welcome' ), 'text-xl' )
-				|| false !== strpos( $part( $apart, 'welcome' ), 'text-sm' ) || false === strpos( $part( $apart, 'name' ), 'text-sm' ) ) {
-				throw new RuntimeException( 'Kit: the welcome screen should take its own title and text, and leave the steps alone' );
+				if ( 'text-sm' !== $hint( $shared, $apart_screen ) || 'text-xl' !== $hint( $apart, $apart_screen ) || 'text-sm' !== $hint( $apart, $other ) ) {
+					throw new RuntimeException( "Kit: the {$apart_screen} screen should take its own text and leave the others alone" );
+				}
 			}
 		}
 
