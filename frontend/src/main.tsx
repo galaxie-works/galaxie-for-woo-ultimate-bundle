@@ -9,8 +9,12 @@ import { bootVariationSwatches } from '@/globals/variation-swatches'
 import { bootVariationSpotlight } from '@/globals/variation-spotlight'
 import { bootVariationBadgesWidget } from '@/globals/variation-badges-widget'
 import { bootBuyBox } from '@/globals/buy-box'
-import { bootGiftWrap } from '@/globals/gift-wrap'
-import type { GiftConfig } from '@/globals/gift-builder'
+import { bootKitStore, type GiftWrapConfig } from '@/globals/kit-store'
+import { bootKitBuilder } from '@/globals/kit-builder'
+import { bootKitBuyBox } from '@/globals/kit-buy-box'
+import { bootKitLauncher } from '@/globals/kit-launcher'
+import { bootKitProgress } from '@/globals/kit-progress'
+import { bootKitCart } from '@/globals/kit-cart'
 import { bootWishlist } from '@/globals/wishlist'
 import { bootQuantityDiscounts } from '@/globals/quantity-discounts'
 import { bootProductData } from '@/globals/product-data'
@@ -43,7 +47,7 @@ interface GalaxieConfig {
   addressAutocomplete?: { country: string; placeholder: string }
   addressBook?: AddressBookConfig
   giftCheckout?: GiftCheckoutConfig
-  giftWrap?: GiftConfig
+  giftWrap?: GiftWrapConfig
 }
 
 function boot(): void {
@@ -53,7 +57,14 @@ function boot(): void {
     (window as unknown as { __GALAXIE_WOO__?: GalaxieConfig }).__GALAXIE_WOO__ ?? {}
 
   bootBuyBox(config.variationSwatches?.buyBox)
-  bootGiftWrap(config.giftWrap)
+
+  // The kit flow: the store first, so every part below reads the same kit.
+  bootKitStore(config.giftWrap)
+  bootKitBuilder()
+  bootKitBuyBox()
+  bootKitLauncher()
+  bootKitProgress()
+  bootKitCart()
   bootVariationBadgesWidget(config.variationSwatches?.buyBox)
   bootQuantityDiscounts()
   bootCartCountdown()

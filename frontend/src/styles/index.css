@@ -583,167 +583,141 @@ form.galaxie-buybox .galaxie-buybox-gift .alert {
   margin-bottom: 0;
 }
 
-/* "Presente" (Gift Wrap module): the checkbox, the summary line under it and
-   "Configurar presente". `[hidden]` is restated because the theme's own
-   display rules for buttons and labels outrank the browser's. */
-form.galaxie-buybox .galaxie-buybox-giftwrap {
+/* "Montar um kit ou presente" (Gift Wrap module, kit flow). Hidden, not
+   removed, until the kit is known: the label comes from the kit endpoint. */
+form.galaxie-buybox .galaxie-buybox-kit {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 0.375rem;
 }
 
-form.galaxie-buybox .galaxie-buybox-giftwrap [hidden] {
+form.galaxie-buybox .galaxie-buybox-kit.is-loading {
+  visibility: hidden;
+}
+
+form.galaxie-buybox .galaxie-buybox-kit[hidden] {
   display: none !important;
 }
 
-form.galaxie-buybox .galaxie-giftwrap-check {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin: 0;
-  cursor: pointer;
-}
-
-form.galaxie-buybox .galaxie-giftwrap-check input {
-  width: 1.1em;
-  height: 1.1em;
-  margin: 0;
-  flex: none;
-  cursor: pointer;
-}
-
-/* The Galaxie Gift Builder, inside its pixfort popup. */
-.galaxie-gift-builder {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.galaxie-gift-builder [hidden] {
-  display: none !important;
-}
-
-.galaxie-gift-builder-empty {
-  margin: 0;
-}
-
-.galaxie-gift-builder-item {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.galaxie-gift-builder-thumb {
-  width: 64px;
-  height: 64px;
-  flex: none;
-  object-fit: cover;
-  border-radius: 0.5rem;
-}
-
-.galaxie-gift-builder-text {
-  display: flex;
-  flex-direction: column;
-  gap: 0.125rem;
-  min-width: 0;
-}
-
-.galaxie-gift-builder-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-/* Confirm waits for a gift the rules accept; gift-wrap.ts says why on click. */
-.galaxie-gift-builder-confirm.is-disabled {
+form.galaxie-buybox .galaxie-kit-button:disabled,
+form.galaxie-buybox .galaxie-kit-button[aria-disabled="true"] {
   opacity: 0.55;
   cursor: not-allowed;
 }
 
-.galaxie-gift-scroll,
-.galaxie-gift-groups,
-.galaxie-gift-part,
-.galaxie-gift-list,
-.galaxie-gift-rows,
-.galaxie-gift-messages {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  min-width: 0;
-}
-
-.galaxie-gift-scroll,
-.galaxie-gift-groups {
-  gap: inherit;
-}
-
-.galaxie-gift-notice {
-  margin: 0;
-}
-
-.galaxie-gift-error {
-  color: var(--pix-danger, #b42318);
-}
-
-/* New gift or an existing one; loose candles to fold in. */
-.galaxie-gift-mode {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.5rem;
-  margin: 0;
-  cursor: pointer;
-}
-
-.galaxie-gift-mode input {
-  width: 1.1em;
-  height: 1.1em;
-  margin: 0.2em 0 0;
-  flex: none;
-}
-
-.galaxie-gift-mode-text {
+/* The Galaxie Kit Builder, inside its pixfort popup. */
+.galaxie-kit-builder,
+.galaxie-kit-screen,
+.galaxie-kit-summary,
+.galaxie-kit-choices,
+.galaxie-kit-lines,
+.galaxie-kit-field {
   display: flex;
   flex-direction: column;
   min-width: 0;
 }
 
-.galaxie-gift-arrange {
-  flex-direction: row;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem 0.75rem;
-}
-
-/* One gift. */
-.galaxie-gift-group {
-  display: flex;
-  flex-direction: column;
+.galaxie-kit-builder {
   gap: 12px;
 }
 
-.galaxie-gift-group-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.25rem 0.75rem;
+.galaxie-kit-screen {
+  gap: 16px;
 }
 
-.galaxie-gift-boxes {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
+.galaxie-kit-summary,
+.galaxie-kit-choices,
+.galaxie-kit-lines {
+  gap: 10px;
 }
 
-.galaxie-gift-box {
-  display: inline-flex;
+.galaxie-kit-field {
+  gap: 4px;
+  margin: 0;
+}
+
+.galaxie-kit-builder [hidden],
+.galaxie-kit-progress [hidden],
+.galaxie-kit-progress[hidden] {
+  display: none !important;
+}
+
+.galaxie-kit-head {
+  display: flex;
   align-items: center;
   gap: 0.5rem;
+}
+
+.galaxie-kit-icon {
+  display: inline-flex;
+  flex: none;
+}
+
+.galaxie-kit-text,
+.galaxie-kit-starting,
+.galaxie-kit-loading,
+.galaxie-kit-error,
+.galaxie-kit-warning {
   margin: 0;
-  padding: 0.375rem 0.625rem;
-  border: 2px solid transparent;
+}
+
+.galaxie-kit-error,
+.galaxie-kit-warning {
+  color: var(--pix-red, #b42318);
+}
+
+/* Step indicator: 1•2•3•4. */
+.galaxie-kit-steps {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.galaxie-kit-builder.no-steps .galaxie-kit-steps {
+  display: none !important;
+}
+
+.galaxie-kit-step {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  min-width: 0;
+  text-align: center;
+}
+
+.galaxie-kit-step-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.08);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.galaxie-kit-step.is-current .galaxie-kit-step-dot,
+.galaxie-kit-step.is-done .galaxie-kit-step-dot {
+  background: var(--pix-primary, #111);
+  color: #fff;
+}
+
+/* Box and card choices. */
+.galaxie-kit-choice {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  margin: 0;
+  padding: 0.625rem 0.75rem;
+  border: 2px solid rgba(0, 0, 0, 0.08);
+  border-radius: 0.75rem;
   background: transparent;
   color: inherit;
   font: inherit;
@@ -751,70 +725,81 @@ form.galaxie-buybox .galaxie-giftwrap-check input {
   cursor: pointer;
 }
 
-.galaxie-gift-box[aria-pressed="true"] {
+.galaxie-kit-choice[aria-pressed="true"] {
   border-color: var(--pix-primary, currentColor);
 }
 
-.galaxie-gift-box-text,
-.galaxie-gift-row-text {
+.galaxie-kit-choice[aria-disabled="true"] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.galaxie-kit-choice-body,
+.galaxie-kit-row-body {
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
+  gap: 0.125rem;
   min-width: 0;
 }
 
-.galaxie-gift-thumb {
-  width: 40px;
-  height: 40px;
+.galaxie-kit-thumb {
+  width: 64px;
+  height: 64px;
   flex: none;
   object-fit: cover;
-  border-radius: 0.375rem;
+  border-radius: 0.5rem;
 }
 
-.galaxie-gift-fill {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.galaxie-gift-fill-track {
-  height: 6px;
-  overflow: hidden;
-  border-radius: 999px;
-  background: rgba(0, 0, 0, 0.08);
-}
-
-.galaxie-gift-fill-bar {
-  height: 100%;
-  border-radius: inherit;
-  background: var(--pix-primary, currentColor);
-  transition: width 0.2s ease;
-}
-
-/* Ribbons and cards. */
-.galaxie-gift-row-main {
+.galaxie-kit-row {
   display: flex;
   align-items: center;
-  gap: 0.625rem;
+  gap: 0.75rem;
 }
 
-.galaxie-gift-row-text {
-  flex: 1 1 auto;
+.galaxie-kit-line .galaxie-kit-thumb {
+  width: 48px;
+  height: 48px;
 }
 
-.galaxie-gift-stepper-wrap {
+.galaxie-kit-link {
   flex: none;
+  text-decoration: underline;
+  cursor: pointer;
 }
 
-.galaxie-gift-stepper {
+/* Name and message. */
+.galaxie-kit-input {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-radius: 0.5rem;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+
+.galaxie-kit-count {
+  align-self: flex-end;
+}
+
+.is-over > .galaxie-kit-count {
+  color: var(--pix-red, #b42318);
+}
+
+/* Candle quantity. */
+.galaxie-kit-stepper {
   align-items: center;
+  flex: none;
+  gap: 0.5rem;
 }
 
-.galaxie-gift-step {
+button.galaxie-kit-qty-step {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   margin: 0;
-  padding: 0 0.25rem;
+  padding: 0.25rem;
   border: 0;
   background: transparent;
   color: inherit;
@@ -822,48 +807,156 @@ form.galaxie-buybox .galaxie-giftwrap-check input {
   cursor: pointer;
 }
 
-.galaxie-gift-step:disabled {
-  opacity: 0.4;
+button.galaxie-kit-qty-step:disabled {
+  opacity: 0.35;
   cursor: not-allowed;
 }
 
-.galaxie-gift-stepper .qty {
-  width: 28px;
+.galaxie-kit-qty {
+  min-width: 1.5ch;
   text-align: center;
-  -moz-appearance: textfield;
+  font-weight: 600;
 }
 
-.galaxie-gift-stepper .qty::-webkit-outer-spin-button,
-.galaxie-gift-stepper .qty::-webkit-inner-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
-
-.galaxie-gift-message {
+/* Fill bar, total, actions. */
+.galaxie-kit-fill {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.375rem;
 }
 
-.galaxie-gift-message-input {
-  width: 100%;
-  min-height: 3.5rem;
-  resize: vertical;
+.galaxie-kit-fill-track {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.08);
 }
 
-.galaxie-gift-message-count {
-  align-self: flex-end;
+.galaxie-kit-fill-bar {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--pix-primary, currentColor);
+  transition: width 0.25s ease;
 }
 
-.galaxie-gift-message.is-over .galaxie-gift-message-count {
-  color: var(--pix-danger, #b42318);
-}
-
-.galaxie-gift-total {
+.galaxie-kit-total {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   gap: 0.75rem;
+}
+
+.galaxie-kit-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+}
+
+.galaxie-kit-nav {
+  justify-content: space-between;
+}
+
+.galaxie-kit-btn.is-disabled,
+.galaxie-kit-btn[aria-disabled="true"] {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.galaxie-kit-welcome-image {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto;
+}
+
+/* "Editar kit" under a kit's box, in every cart. */
+.galaxie-kit-edit-wrap {
+  display: inline-block;
+  margin-left: 0.25rem;
+}
+
+.galaxie-kit-edit {
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* The kit popup's pixfort launcher: a candle count on its corner. The popup's
+   own Custom CSS may restyle `.galaxie-kit-launcher[data-count]::after`. */
+.pix-popup-launcher.galaxie-kit-launcher {
+  overflow: visible !important;
+}
+
+.pix-popup-launcher.galaxie-kit-launcher .pix-launcher-main svg {
+  --pf-icon-color: currentColor;
+  --pf-icon-stroke-width: 1.75px;
+}
+
+.pix-popup-launcher.galaxie-kit-launcher[data-count]::after {
+  content: attr(data-count);
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--galaxie-kit-badge-size, 20px);
+  height: var(--galaxie-kit-badge-size, 20px);
+  padding: 0 5px;
+  box-sizing: border-box;
+  border-radius: 999px;
+  background: var(--galaxie-kit-badge-bg, var(--pix-primary, #e11d48));
+  color: var(--galaxie-kit-badge-color, #fff);
+  font-size: calc(var(--galaxie-kit-badge-size, 20px) * 0.6);
+  font-weight: 700;
+  line-height: 1;
+  box-shadow: 0 0 0 2px #fff;
+  pointer-events: none;
+}
+
+/* Galaxie Kit Progress. */
+.galaxie-kit-progress,
+.galaxie-kit-progress-part {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.galaxie-kit-progress-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.galaxie-kit-progress-text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.galaxie-kit-progress-icon {
+  display: inline-flex;
+  flex: none;
+}
+
+.galaxie-kit-progress-track {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.galaxie-kit-progress-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--pix-primary, currentColor);
+  transition: width 0.25s ease;
+}
+
+.galaxie-kit-progress-invite {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
 }
 
 /* A gift's accessory in the cart: its quantity is the gift's. */
