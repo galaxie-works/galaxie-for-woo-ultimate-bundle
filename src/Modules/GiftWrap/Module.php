@@ -362,7 +362,7 @@ final class Module implements ModuleContract, ProvidesBootData, ProvidesElemento
 				key: 'kit_continue_url',
 				label: __( '"Continuar escolhendo" goes to', 'galaxie-woo' ),
 				type: Field::TYPE_TEXT,
-				description: __( 'Where the kit popup sends the shopper to keep choosing candles. Empty: the WooCommerce shop page.', 'galaxie-woo' ),
+				description: __( 'Where step 4 of a new kit sends the shopper to keep choosing candles. Empty: the WooCommerce shop page. (In the kit summary the same button only closes the popup.)', 'galaxie-woo' ),
 				default: self::DEFAULTS['kit_continue_url'],
 				placeholder: '/loja/'
 			),

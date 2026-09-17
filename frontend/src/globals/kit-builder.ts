@@ -14,7 +14,9 @@
  *   button, which sends everything at once (`start`), with the candle a product
  *   page started the kit with. Next waits for a valid step (a box chosen; a card
  *   choice made and its message within the limit).
- * - continue: the kit exists; what still fits, and "Continuar escolhendo".
+ * - continue: the kit exists; what still fits, and "Continuar escolhendo",
+ *   which closes the popup and goes to the shop (the only screen that leaves
+ *   the page; the summary's button of the same name only closes).
  * - summary: a kit is open. Name, box and card (each "trocar"), the message,
  *   the candles with −/+ and remove, the fill bar, the total and the actions.
  *   Every change goes to the server at once and the screen redraws from its
@@ -835,7 +837,12 @@ function create(root: HTMLElement): Controller {
           back()
           break
         case 'continue':
+          // Screen 4 of the stepper: close and go to the shop.
           keepChoosing()
+          break
+        case 'close':
+          // The summary's "Continuar escolhendo": close only.
+          closePopup(root)
           break
         case 'summary':
           mode = 'new'

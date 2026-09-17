@@ -189,6 +189,14 @@ function galaxie_boot_kit( array $booted, array $scenario, callable $hooked ): s
 				}
 			}
 
+			// "Continuar escolhendo": step 4 goes to the shop, the summary only closes.
+			$widget->settings = array( $key => 'summary' );
+			$summary          = $widget->render_for_test();
+
+			if ( ! preg_match( '/data-kit-action="close"/', $summary ) || ! preg_match( '/galaxie-kit-screen--continue[^>]*>.*?data-kit-action="continue"/s', $summary ) || preg_match( '/galaxie-kit-screen--summary[^>]*>((?!<\/section>).)*data-kit-action="continue"/s', $summary ) ) {
+				throw new RuntimeException( 'Kit: "Continuar escolhendo" should close in the summary and navigate only on step 4' );
+			}
+
 			// Live: printed, hidden until the script shows it on a step.
 			$GLOBALS['galaxie_boot']['editing'] = false;
 			$widget->settings                   = array();

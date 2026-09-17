@@ -118,7 +118,7 @@ final class KitBuilderWidget extends Widget_Base {
 				'continue_title'  => array( __( 'Title', 'galaxie-woo' ), __( 'Kit {kit} criado!', 'galaxie-woo' ) ),
 				'continue_text'   => array( __( 'Text ({combos})', 'galaxie-woo' ), __( 'Você ainda pode adicionar {combos}. Continue pesquisando nossos produtos e adicionando a este kit.', 'galaxie-woo' ) ),
 				'continue_full'   => array( __( 'Text when the box is already full', 'galaxie-woo' ), __( 'A caixa já está completa. Veja o kit e adicione ao carrinho.', 'galaxie-woo' ) ),
-				'continue_button' => array( __( 'Keep choosing button', 'galaxie-woo' ), __( 'Continuar escolhendo', 'galaxie-woo' ) ),
+				'continue_button' => array( __( 'Keep choosing button (closes and goes to the shop)', 'galaxie-woo' ), __( 'Continuar escolhendo', 'galaxie-woo' ) ),
 				'continue_view'   => array( __( 'See the kit button', 'galaxie-woo' ), __( 'Ver kit', 'galaxie-woo' ) ),
 			),
 			'summary'  => array(
@@ -135,7 +135,7 @@ final class KitBuilderWidget extends Widget_Base {
 				'summary_remove'   => array( __( 'Remove a candle', 'galaxie-woo' ), __( 'Remover', 'galaxie-woo' ) ),
 				'summary_total'    => array( __( 'Total label', 'galaxie-woo' ), __( 'Total do kit', 'galaxie-woo' ) ),
 				'action_cart'      => array( __( 'Add to cart button', 'galaxie-woo' ), __( 'Adicionar kit ao carrinho', 'galaxie-woo' ) ),
-				'action_continue'  => array( __( 'Keep choosing button', 'galaxie-woo' ), __( 'Continuar escolhendo', 'galaxie-woo' ) ),
+				'action_continue'  => array( __( 'Keep choosing button (closes the popup)', 'galaxie-woo' ), __( 'Continuar escolhendo', 'galaxie-woo' ) ),
 				'action_new'       => array( __( 'Add and start another button', 'galaxie-woo' ), __( 'Adicionar ao carrinho e começar um novo', 'galaxie-woo' ) ),
 				'action_discard'   => array( __( 'Discard button', 'galaxie-woo' ), __( 'Descartar kit', 'galaxie-woo' ) ),
 				'action_previous'  => array( __( 'Kit kept at login ({kit})', 'galaxie-woo' ), __( 'Recuperar kit anterior ({kit})', 'galaxie-woo' ) ),
@@ -715,7 +715,8 @@ final class KitBuilderWidget extends Widget_Base {
 		printf( '<span data-kit-when="room"%s>', $full ? ' hidden' : '' );
 		echo $this->button( $settings, 'secondary', 'to-cart', $texts['action_cart'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in button().
 		echo '</span>';
-		echo $this->button( $settings, 'secondary', 'continue', $texts['action_continue'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in button().
+		// Only closes: the shopper is already where they want to keep choosing.
+		echo $this->button( $settings, 'secondary', 'close', $texts['action_continue'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in button().
 		echo $this->button( $settings, 'secondary', 'to-cart-new', $texts['action_new'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in button().
 		echo $this->button( $settings, 'danger', 'discard', $texts['action_discard'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in button().
 		$this->previous_button( $settings, $texts );
