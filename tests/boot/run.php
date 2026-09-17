@@ -135,7 +135,7 @@ function galaxie_boot_kit( array $booted, array $scenario, callable $hooked ): s
 		$launcher::footer();
 		$footer = (string) ob_get_clean();
 
-		if ( false === strpos( $footer, 'id="galaxie-kit-launcher-icon"' ) || false === strpos( $footer, '--galaxie-kit-badge-bg:var(--pix-primary)' ) ) {
+		if ( false === strpos( $footer, 'id="galaxie-kit-launcher-icon"' ) || false === strpos( $footer, '--galaxie-kit-badge-bg:var(--pix-primary)' ) || false === strpos( $footer, '.galaxie-kit-launcher[data-count]::after' ) ) {
 			throw new RuntimeException( 'Kit: launcher footer ' . substr( $footer, 0, 200 ) );
 		}
 

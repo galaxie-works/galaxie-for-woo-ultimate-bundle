@@ -303,6 +303,7 @@ final class KitProgressWidget extends Widget_Base {
 
 	protected function render(): void {
 		Assets::enqueue();
+		Assets::enqueue_kit();
 
 		$settings = $this->get_settings_for_display();
 		$editing  = class_exists( '\\Elementor\\Plugin' ) && isset( \Elementor\Plugin::$instance->editor ) && \Elementor\Plugin::$instance->editor->is_edit_mode();

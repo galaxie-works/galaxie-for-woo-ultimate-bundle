@@ -39,10 +39,20 @@ final class Launcher {
 		add_action( 'wp_footer', array( self::class, 'footer' ), 5 );
 	}
 
-	/** The launcher is on every page, so the bundle that drives it is too. */
+	/**
+	 * The badge, printed here rather than in `galaxie.css`: the pages that only
+	 * have the launcher load the kit entry alone, with no stylesheet. The popup's
+	 * own Custom CSS may still restyle `.galaxie-kit-launcher[data-count]::after`.
+	 */
+	private const BADGE_CSS = '.pix-popup-launcher.galaxie-kit-launcher{overflow:visible!important}.pix-popup-launcher.galaxie-kit-launcher .pix-launcher-main svg{--pf-icon-color:currentColor;--pf-icon-stroke-width:1.75px}.pix-popup-launcher.galaxie-kit-launcher[data-count]::after{content:attr(data-count);position:absolute;top:-4px;right:-4px;display:flex;align-items:center;justify-content:center;min-width:var(--galaxie-kit-badge-size,20px);height:var(--galaxie-kit-badge-size,20px);padding:0 5px;box-sizing:border-box;border-radius:999px;background:var(--galaxie-kit-badge-bg,var(--pix-primary,#e11d48));color:var(--galaxie-kit-badge-color,#fff);font-size:calc(var(--galaxie-kit-badge-size,20px) * .6);font-weight:700;line-height:1;box-shadow:0 0 0 2px #fff;pointer-events:none}';
+
+	/**
+	 * The launcher is on every page, so the kit entry that drives it is too
+	 * (small; the builder is a chunk it loads when the popup opens).
+	 */
 	public static function enqueue(): void {
 		if ( Module::kit_popup_id() ) {
-			Assets::enqueue();
+			Assets::enqueue_kit();
 		}
 	}
 
@@ -65,9 +75,7 @@ final class Launcher {
 			}
 		}
 
-		if ( '' !== $css ) {
-			echo '<style id="galaxie-kit-launcher-vars">:root{' . esc_html( $css ) . '}</style>' . "\n";
-		}
+		echo '<style id="galaxie-kit-launcher">' . ( '' !== $css ? ':root{' . esc_html( $css ) . '}' : '' ) . self::BADGE_CSS . '</style>' . "\n"; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- a constant; the variables are escaped.
 
 		if ( Module::setting( 'kit_launcher_icon' ) ) {
 			echo '<template id="galaxie-kit-launcher-icon">' . self::icon() . '</template>' . "\n"; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pixfort's SVG or our own constant.

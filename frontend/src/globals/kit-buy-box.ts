@@ -25,10 +25,9 @@ import { maxQuantity } from '@/lib/gift-groups'
 import { BUDGET_MS, fillText } from '@/lib/gift-kit'
 import { tell } from '@/lib/dialog'
 import { blockedByChoice, findAlert, missingChoice, wooChoiceNotice } from '@/globals/buy-box-alert'
-import { celebrate, openKit } from '@/globals/kit-builder'
-import { currentKit, kitCall, kitConfig, kitLoaded, kitUnits, kitValues, onKit } from '@/globals/kit-store'
+import { celebrate, openKit } from '@/globals/kit-open'
+import { currentKit, kitCall, kitConfig, kitLoaded, kitUnits, kitValues, onKit, showKitToast } from '@/globals/kit-store'
 import type { KitView } from '@/globals/kit-store'
-import { showToast } from '@/globals/toast-notices'
 
 interface ButtonState {
   /** What fits of the chosen candle, as last painted; null: not limited here. */
@@ -156,7 +155,7 @@ async function add(state: ButtonState, kit: KitView): Promise<void> {
   const texts = kitConfig()?.texts ?? {}
 
   const note = limited ? `${fillText(holder.dataset.textCap ?? '', { n: String(qty) })} ` : ''
-  showToast(note + fillText(texts.added ?? '', kitValues(next)), limited ? 'info' : 'success')
+  showKitToast(note + fillText(texts.added ?? '', kitValues(next)), limited ? 'info' : 'success')
 
   if (next?.full && !wasFull) celebrate(holder)
 }

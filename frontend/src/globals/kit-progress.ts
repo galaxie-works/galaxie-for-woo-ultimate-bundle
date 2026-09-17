@@ -9,7 +9,7 @@
  */
 
 import { fillText } from '@/lib/gift-kit'
-import { celebrate, openKit } from '@/globals/kit-builder'
+import { celebrate, openKit } from '@/globals/kit-open'
 import { kitCall, kitConfig, kitValues, onKit } from '@/globals/kit-store'
 import type { KitView } from '@/globals/kit-store'
 

@@ -21,7 +21,15 @@ import type { Box, Candle, PackingOptions } from '@/lib/gift-packing'
 import { fillText } from '@/lib/gift-kit'
 import type { RoomState } from '@/lib/gift-kit'
 import type { AjaxResult } from '@/lib/wp'
-import { showToast } from '@/globals/toast-notices'
+
+/**
+ * A toast, with the toast code (React) loaded only when there is one to show:
+ * kit.js runs on pages that have no other use for React.
+ */
+export function showKitToast(message: string, variant: 'success' | 'error' | 'info' = 'success'): void {
+  if (!message) return
+  void import('@/globals/toast-notices').then((module) => module.showToast(message, variant))
+}
 
 export interface KitConfig {
   popup: number
@@ -200,7 +208,7 @@ function apply(data: KitAnswer | null | undefined, broadcast = true): void {
   kit = data.kit ?? null
   loaded = true
 
-  for (const notice of data.notices ?? []) showToast(notice, 'info')
+  for (const notice of data.notices ?? []) showKitToast(notice, 'info')
 
   emit(previous)
 

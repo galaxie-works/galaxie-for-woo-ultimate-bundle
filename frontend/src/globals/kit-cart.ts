@@ -15,7 +15,7 @@ import { ask, tell } from '@/lib/dialog'
 import { refreshFragments, jq } from '@/globals/cart-fragments'
 import { kitCall, kitConfig } from '@/globals/kit-store'
 import type { KitAnswer } from '@/globals/kit-store'
-import { openKit } from '@/globals/kit-builder'
+import { openKit } from '@/globals/kit-open'
 
 const HASH = '#galaxie-kit-edit-'
 

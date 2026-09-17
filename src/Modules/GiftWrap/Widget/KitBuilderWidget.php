@@ -413,6 +413,7 @@ final class KitBuilderWidget extends Widget_Base {
 
 	protected function render(): void {
 		Assets::enqueue();
+		Assets::enqueue_kit();
 
 		$settings = $this->get_settings_for_display();
 		$editing  = self::is_editing();

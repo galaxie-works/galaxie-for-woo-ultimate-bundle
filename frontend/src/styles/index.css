@@ -881,39 +881,6 @@ button.galaxie-kit-qty-step:disabled {
   cursor: pointer;
 }
 
-/* The kit popup's pixfort launcher: a candle count on its corner. The popup's
-   own Custom CSS may restyle `.galaxie-kit-launcher[data-count]::after`. */
-.pix-popup-launcher.galaxie-kit-launcher {
-  overflow: visible !important;
-}
-
-.pix-popup-launcher.galaxie-kit-launcher .pix-launcher-main svg {
-  --pf-icon-color: currentColor;
-  --pf-icon-stroke-width: 1.75px;
-}
-
-.pix-popup-launcher.galaxie-kit-launcher[data-count]::after {
-  content: attr(data-count);
-  position: absolute;
-  top: -4px;
-  right: -4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: var(--galaxie-kit-badge-size, 20px);
-  height: var(--galaxie-kit-badge-size, 20px);
-  padding: 0 5px;
-  box-sizing: border-box;
-  border-radius: 999px;
-  background: var(--galaxie-kit-badge-bg, var(--pix-primary, #e11d48));
-  color: var(--galaxie-kit-badge-color, #fff);
-  font-size: calc(var(--galaxie-kit-badge-size, 20px) * 0.6);
-  font-weight: 700;
-  line-height: 1;
-  box-shadow: 0 0 0 2px #fff;
-  pointer-events: none;
-}
-
 /* Galaxie Kit Progress. */
 .galaxie-kit-progress,
 .galaxie-kit-progress-part {

@@ -1,6 +1,8 @@
 /**
  * The Galaxie Kit Builder, inside its pixfort popup (Modules/GiftWrap).
  *
+ * Loaded on demand: kit-open.ts imports this the first time the popup opens.
+ *
  * The widget prints every screen, hidden, and nothing about the visitor's kit.
  * This file decides which screen to show when the popup opens — however it was
  * opened: the Buy Box, the launcher, the Kit Progress widget, "Editar kit" —
@@ -27,18 +29,14 @@ import { fits, MAX_ITEMS } from '@/lib/gift-packing'
 import type { Candle } from '@/lib/gift-packing'
 import { cleanMessage, messageLength } from '@/lib/gift-groups'
 import { cleanName, combos, defaultName, fillText, wording } from '@/lib/gift-kit'
-import { closePopup, isPopupOpen, openPopup, popupElement, watchPopup } from '@/lib/pix-popup'
+import { closePopup, isPopupOpen } from '@/lib/pix-popup'
 import { ask } from '@/lib/dialog'
-import { burst } from '@/globals/confetti'
+import { celebrate } from '@/globals/kit-open'
+import type { KitIntent } from '@/globals/kit-open'
 import { currentKit, kitCall, kitConfig, kitUnits, kitValues, onKit, refreshKit, roomSentence } from '@/globals/kit-store'
 import type { KitAnswer, KitBox, KitCard, KitCatalog, KitPending, KitView } from '@/globals/kit-store'
 import type { Wording } from '@/lib/gift-kit'
 
-export interface KitIntent {
-  screen?: 'welcome' | 'summary'
-  /** The candle a product page starts a kit with. */
-  pending?: { id: number; qty: number }
-}
 
 type Screen = 'welcome' | 'name' | 'box' | 'card' | 'continue' | 'summary'
 type Mode = 'new' | 'change-box' | 'change-card'
@@ -51,44 +49,14 @@ interface Controller {
 }
 
 const controllers = new WeakMap<HTMLElement, Controller>()
-let intent: KitIntent | null = null
-let lastBurst = 0
-
-/**
- * Opens the kit popup on the screen that fits the intent. False when there is
- * no kit popup or no pixfort on the page.
- */
-export function openKit(next: KitIntent = {}): boolean {
-  const config = kitConfig()
-  if (!config) return false
-
-  intent = next
-
-  if (isPopupOpen(popupElement(config.popup))) {
-    showBuilders()
-    return true
-  }
-
-  return openPopup(config.popup)
-}
-
-/** One burst per filling, however many widgets see it. */
-export function celebrate(origin: Element | null, colors: string[] = [], count = 150): void {
-  const now = Date.now()
-  if (now - lastBurst < 2000) return
-  lastBurst = now
-
-  const visible = origin instanceof HTMLElement && origin.offsetParent !== null
-  burst({ origin: visible ? origin.getBoundingClientRect() : null, count, colors })
-}
+let booted = false
 
 function builders(): HTMLElement[] {
   return Array.from(document.querySelectorAll<HTMLElement>('[data-galaxie-kit-builder]')).filter((root) => !root.dataset.sample)
 }
 
-function showBuilders(): void {
-  const next = intent ?? {}
-  intent = null
+/** Draws every Kit Builder on the page for this opening (called by kit-open.ts). */
+export function showBuilders(next: KitIntent): void {
   builders().forEach((root) => controller(root).show(next))
 }
 
@@ -852,11 +820,10 @@ function create(root: HTMLElement): Controller {
   }
 }
 
+/** Called by kit-open.ts when this chunk first loads; binds once. */
 export function bootKitBuilder(): void {
-  const config = kitConfig()
-  if (!config) return
-
-  watchPopup(config.popup, () => showBuilders())
+  if (booted || !kitConfig()) return
+  booted = true
 
   document.addEventListener('click', (event) => {
     const trigger = (event.target as Element | null)?.closest<HTMLElement>('[data-kit-action]')

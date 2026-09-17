@@ -1247,6 +1247,10 @@ final class BuyBoxWidget extends Widget_Base {
 		}
 
 		$popup   = $enabled ? GiftWrapModule::kit_popup_id() : 0;
+
+		if ( $popup ) {
+			\Galaxie\Woo\Support\Assets::enqueue_kit();
+		}
 		$candles = $enabled ? self::kit_candles( $product ) : array();
 
 		// No popup to open, or not a candle: no button.
