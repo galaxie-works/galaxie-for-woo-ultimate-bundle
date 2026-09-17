@@ -72,6 +72,12 @@ final class Ajax {
 		return self::$kits ??= new Kits( new WooCatalog() );
 	}
 
+	/** Another catalog for every later request in this process (tests/kit/run.php). */
+	public static function use_catalog( Catalog $catalog ): void {
+		self::$kits  = new Kits( $catalog );
+		self::$carts = null;
+	}
+
 	public static function carts(): CartKits {
 		return self::$carts ??= new CartKits( self::kits() );
 	}

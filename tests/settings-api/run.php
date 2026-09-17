@@ -513,7 +513,11 @@ $check( 'term meta', 'a size term gift dimension changed (form or REST): sizes c
 
 // GET /settings/gift-wrap: categories live only in the module settings now.
 $gift_schema = $service->schema( new \Galaxie\Woo\Modules\GiftWrap\Module() );
-$check( 'gift wrap', 'schema mentions no Gift Builder widget overrides', (bool) preg_match( '/widget|override/i', implode( ' ', array_column( $gift_schema, 'description' ) ) ), false );
+$check( 'gift wrap', 'schema mentions no Gift Builder widget overrides', (bool) preg_match( '/override|widget[^.]*categor/i', implode( ' ', array_column( $gift_schema, 'description' ) ) ), false );
+
+// The kit flow's settings (PR #21) come through the same schema, with no route of their own.
+$kit_keys = array( 'kit_popup', 'kit_continue_url', 'kit_launcher_icon', 'kit_launcher_icon_name', 'kit_badge', 'kit_badge_bg', 'kit_badge_color', 'kit_badge_size', 'kit_text_room_many', 'kit_text_room_one', 'kit_text_full', 'kit_text_box_holds', 'kit_text_added' );
+$check( 'gift wrap', 'kit settings are in the REST schema', array_values( array_intersect( $kit_keys, array_keys( $gift_schema ) ) ), $kit_keys );
 $check( 'gift wrap', 'category settings are module fields (multiselect)', array( $gift_schema['box_categories']['type'] ?? null, $gift_schema['ribbon_categories']['type'] ?? null, $gift_schema['card_categories']['type'] ?? null ), array( 'multiselect', 'multiselect', 'multiselect' ) );
 
 echo "\n  {$passed} passed, {$failed} failed\n";
