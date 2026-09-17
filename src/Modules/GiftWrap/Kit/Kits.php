@@ -608,6 +608,13 @@ final class Kits {
 		$room = $packing['room'];
 		$fill = $packing['fill'];
 
+		// An empty kit is never "full": a box that holds nothing with no candle
+		// in it is a box too small for what the store sells, and saying "a caixa
+		// já está completa" there is a lie the shopper cannot act on.
+		if ( 'full' === $room['state'] && $count < 1 ) {
+			$room['state'] = 'nofit';
+		}
+
 		if ( $box ) {
 			$total += $box['price'];
 		}
@@ -633,7 +640,7 @@ final class Kits {
 			'messageMax' => $this->catalog->message_max(),
 			'candles'    => $candles,
 			'count'      => $count,
-			'full'       => 'full' === $room['state'],
+			'full'       => 'full' === $room['state'] && $count > 0,
 			'room'       => $room,
 			'fill'       => $fill,
 			'total'      => round( $total, 2 ),

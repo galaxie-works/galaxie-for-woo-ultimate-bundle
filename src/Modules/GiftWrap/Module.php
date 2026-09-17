@@ -65,6 +65,7 @@ final class Module implements ModuleContract, ProvidesBootData, ProvidesElemento
 		'kit_badge_size'         => 20,
 		'kit_text_room_many'     => 'Ainda cabem {combos}',
 		'kit_text_room_one'      => 'Ainda cabe {combos}',
+		'kit_text_room_nofit'    => 'Esta caixa não comporta nenhuma vela da loja. Escolha outra caixa.',
 		'kit_text_full'          => 'Caixa completa! 🎉',
 		'kit_text_box_holds'     => 'Leva até {combos}',
 		'kit_text_added'         => 'Adicionada ao kit {kit}. {room}',
@@ -141,7 +142,7 @@ final class Module implements ModuleContract, ProvidesBootData, ProvidesElemento
 	public function boot_data(): array {
 		$texts = array();
 
-		foreach ( array( 'room_many', 'room_one', 'full', 'box_holds', 'added' ) as $key ) {
+		foreach ( array( 'room_many', 'room_one', 'room_nofit', 'full', 'box_holds', 'added' ) as $key ) {
 			$texts[ $key ] = (string) self::setting( 'kit_text_' . $key );
 		}
 
@@ -429,6 +430,13 @@ final class Module implements ModuleContract, ProvidesBootData, ProvidesElemento
 				default: self::DEFAULTS['kit_text_room_one']
 			),
 			new Field(
+				key: 'kit_text_room_nofit',
+				label: __( 'Box that holds nothing', 'galaxie-woo' ),
+				type: Field::TYPE_TEXT,
+				description: __( 'Shown for an empty kit whose box fits no candle the store sells.', 'galaxie-woo' ),
+				default: self::DEFAULTS['kit_text_room_nofit']
+			),
+			new Field(
 				key: 'kit_text_full',
 				label: __( 'Box full', 'galaxie-woo' ),
 				type: Field::TYPE_TEXT,
@@ -507,7 +515,7 @@ final class Module implements ModuleContract, ProvidesBootData, ProvidesElemento
 			}
 		}
 
-		foreach ( array( 'kit_text_room_many', 'kit_text_room_one', 'kit_text_full', 'kit_text_box_holds', 'kit_text_added' ) as $key ) {
+		foreach ( array( 'kit_text_room_many', 'kit_text_room_one', 'kit_text_room_nofit', 'kit_text_full', 'kit_text_box_holds', 'kit_text_added' ) as $key ) {
 			if ( '' === trim( (string) $values[ $key ] ) ) {
 				$values[ $key ] = self::DEFAULTS[ $key ];
 			}

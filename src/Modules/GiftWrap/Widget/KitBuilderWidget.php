@@ -190,6 +190,20 @@ final class KitBuilderWidget extends Widget_Base {
 		);
 	}
 
+	/**
+	 * The summary's own actions: a link to swap the box or the card, one to drop
+	 * a candle, and the two steps of its quantity box. None of them is a button,
+	 * so none is covered by a button section's icon.
+	 *
+	 * @var array<string, array{0:string, 1:string}>
+	 */
+	private const ROW_ICONS = array(
+		'summary_change' => array( 'Icon on "trocar"', '' ),
+		'summary_remove' => array( 'Icon on "Remover"', '' ),
+		'summary_minus'  => array( 'Icon on "−"', 'Line/pixfort-icon-minus-1' ),
+		'summary_plus'   => array( 'Icon on "+"', 'Line/pixfort-icon-plus-1' ),
+	);
+
 	/** Icons by screen, shown before the title. */
 	private const ICONS = array(
 		'welcome'  => 'Line/pixfort-icon-gift-1',
@@ -245,7 +259,15 @@ final class KitBuilderWidget extends Widget_Base {
 			$this->start_controls_section( 'kit_' . $screen . '_section', array( 'label' => $labels[ $screen ] ) );
 
 			if ( isset( self::ICONS[ $screen ] ) ) {
-				PixfortControls::icon_select( $this, $screen . '_icon', __( 'Icon', 'galaxie-woo' ), self::ICONS[ $screen ] );
+				PixfortControls::icon_select( $this, $screen . '_icon', __( 'Title icon', 'galaxie-woo' ), self::ICONS[ $screen ] );
+			}
+
+			// The summary's own actions are links and steppers, not buttons, so
+			// each one names its icon here.
+			if ( 'summary' === $screen ) {
+				foreach ( self::ROW_ICONS as $key => $icon ) {
+					PixfortControls::icon_select( $this, $key . '_icon', $icon[0], $icon[1] );
+				}
 			}
 
 			if ( 'continue' === $screen ) {
@@ -1223,7 +1245,7 @@ final class KitBuilderWidget extends Widget_Base {
 			);
 
 			printf(
-				'<div class="galaxie-kit-row galaxie-kit-row--%1$s" data-kit-summary-%1$s><img class="galaxie-kit-thumb" alt="" data-slot="image"%2$s /><span class="galaxie-kit-row-body"><span class="galaxie-kit-small %3$s">%4$s</span><span class="galaxie-kit-choice-name %5$s" data-slot="name">%6$s</span><span class="galaxie-kit-choice-meta %7$s" data-slot="price">%8$s</span></span><a href="#" class="galaxie-kit-link galaxie-kit-small %3$s" data-kit-action="%9$s">%10$s</a></div>',
+				'<div class="galaxie-kit-row galaxie-kit-row--%1$s" data-kit-summary-%1$s><img class="galaxie-kit-thumb" alt="" data-slot="image"%2$s /><span class="galaxie-kit-row-body"><span class="galaxie-kit-small %3$s">%4$s</span><span class="galaxie-kit-choice-name %5$s" data-slot="name">%6$s</span><span class="galaxie-kit-choice-meta %7$s" data-slot="price">%8$s</span></span><a href="#" class="galaxie-kit-link galaxie-kit-small %3$s" data-kit-action="%9$s">%11$s%10$s</a></div>',
 				esc_attr( $part ),
 				'' !== $row['image'] ? ' src="' . esc_url( $row['image'] ) . '"' : ' hidden',
 				$small, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped above.
@@ -1233,7 +1255,8 @@ final class KitBuilderWidget extends Widget_Base {
 				$meta, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped above.
 				esc_html( $row['price'] ),
 				esc_attr( $action ),
-				esc_html( $texts['summary_change'] )
+				esc_html( $texts['summary_change'] ),
+				self::row_icon( $settings, 'summary_change' ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pixfort's own SVG.
 			);
 		}
 
@@ -1337,7 +1360,7 @@ final class KitBuilderWidget extends Widget_Base {
 		$image = (string) ( $data['image'] ?? '' );
 
 		return sprintf(
-			'<div class="galaxie-kit-row galaxie-kit-line" data-kit-line><img class="galaxie-kit-thumb" alt="" data-slot="image"%1$s /><span class="galaxie-kit-row-body"><span class="galaxie-kit-choice-name %2$s" data-slot="name">%3$s</span><span class="galaxie-kit-choice-meta %4$s" data-slot="price">%5$s</span><a href="#" class="galaxie-kit-link galaxie-kit-small %6$s" data-kit-remove>%7$s</a></span><span class="galaxie-kit-stepper quantity pix-px-10 pix-base-background rounded-lg shadow-sm d-inline-flex justify-content-between"><button type="button" class="galaxie-kit-qty-step text-body-default" data-step="-1" aria-label="%8$s">%9$s</button><span class="galaxie-kit-qty" data-slot="qty">%10$d</span><button type="button" class="galaxie-kit-qty-step text-body-default" data-step="1" aria-label="%11$s">%12$s</button></span></div>',
+			'<div class="galaxie-kit-row galaxie-kit-line" data-kit-line><img class="galaxie-kit-thumb" alt="" data-slot="image"%1$s /><span class="galaxie-kit-row-body"><span class="galaxie-kit-choice-name %2$s" data-slot="name">%3$s</span><span class="galaxie-kit-choice-meta %4$s" data-slot="price">%5$s</span><a href="#" class="galaxie-kit-link galaxie-kit-small %6$s" data-kit-remove>%13$s%7$s</a></span><span class="galaxie-kit-stepper quantity pix-px-10 pix-base-background rounded-lg shadow-sm d-inline-flex justify-content-between"><button type="button" class="galaxie-kit-qty-step text-body-default" data-step="-1" aria-label="%8$s">%9$s</button><span class="galaxie-kit-qty" data-slot="qty">%10$d</span><button type="button" class="galaxie-kit-qty-step text-body-default" data-step="1" aria-label="%11$s">%12$s</button></span></div>',
 			'' !== $image ? ' src="' . esc_url( $image ) . '"' : ' hidden',
 			esc_attr( PixfortControls::text_classes( $settings, 'box_name' ) ),
 			esc_html( (string) ( $data['name'] ?? '' ) ),
@@ -1346,10 +1369,11 @@ final class KitBuilderWidget extends Widget_Base {
 			esc_attr( PixfortControls::text_classes( $settings, 'small' ) ),
 			esc_html( $texts['summary_remove'] ),
 			esc_attr__( 'Menos', 'galaxie-woo' ),
-			self::icon( 'Line/pixfort-icon-minus-1', '−' ),
+			self::row_icon( $settings, 'summary_minus', '−' ),
 			(int) ( $data['qty'] ?? 1 ),
 			esc_attr__( 'Mais', 'galaxie-woo' ),
-			self::icon( 'Line/pixfort-icon-plus-1', '+' )
+			self::row_icon( $settings, 'summary_plus', '+' ),
+			self::row_icon( $settings, 'summary_remove' ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pixfort's own SVG.
 		);
 	}
 
@@ -1515,6 +1539,18 @@ final class KitBuilderWidget extends Widget_Base {
 	}
 
 	/** pixfort's icon when the theme has it, the character otherwise. */
+	/**
+	 * A summary action's icon, as the merchant chose it. Empty by default for
+	 * the links: a word is enough there until someone says otherwise.
+	 *
+	 * @param array<string,mixed> $settings
+	 */
+	private static function row_icon( array $settings, string $key, string $fallback = '' ): string {
+		$icon = PixfortControls::icon_value( $settings, $key . '_icon' );
+
+		return '' !== $icon ? self::icon( $icon, $fallback ) : ( '' !== $fallback ? esc_html( $fallback ) : '' );
+	}
+
 	private static function icon( string $name, string $fallback = '' ): string {
 		if ( PixfortControls::available() && isset( \PixfortCore::instance()->icons ) && method_exists( \PixfortCore::instance()->icons, 'getIcon' ) ) {
 			return (string) \PixfortCore::instance()->icons->getIcon( $name, 20, 'align-self-center qty-icon' );

@@ -107,7 +107,7 @@ export interface KitView {
   candles: KitCandle[]
   count: number
   full: boolean
-  room: { state: RoomState | 'none'; combos: string }
+  room: { state: RoomState | 'none' | 'nofit'; combos: string }
   fill: number
   total: number
   totalText: string
@@ -338,7 +338,8 @@ export function roomSentence(room: { state: string; combos: string } | null | un
   const texts = kitConfig()?.texts ?? {}
   if (!room || room.state === 'none' || room.state === 'unknown') return ''
 
-  const template = room.state === 'full' ? texts.full : room.state === 'one' ? texts.room_one : texts.room_many
+  const template =
+    room.state === 'nofit' ? texts.room_nofit : room.state === 'full' ? texts.full : room.state === 'one' ? texts.room_one : texts.room_many
   return fillText(template ?? '', { combos: room.combos, ...values })
 }
 
