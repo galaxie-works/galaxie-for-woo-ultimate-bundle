@@ -451,6 +451,10 @@ function create(root: HTMLElement): Controller {
     const state = kit?.room.state
     // Nothing settled in time: say nothing rather than a list with a hole in it.
     setText(slot(el, 'text'), kit?.full ? (texts.continue_full ?? '') : state === 'many' || state === 'one' ? fillText(texts.continue_text ?? '', values) : '')
+
+    // This step can offer "Adicionar kit ao carrinho" too, and the cart takes
+    // no kit without a candle in it.
+    el.querySelectorAll<HTMLElement>('[data-kit-action="to-cart"]').forEach((button) => setDisabled(button, busy || (kit?.count ?? 0) < 1))
   }
 
   function drawSummary(): void {

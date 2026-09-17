@@ -191,6 +191,46 @@ function galaxie_boot_kit( array $booted, array $scenario, callable $hooked ): s
 			}
 		}
 
+		// The hint prints once wherever it is sent: head(), the field or the
+		// buttons all read the same stash, so a miss would either duplicate the
+		// script's text slot or drop a screen's text.
+		if ( 'editor_screen' === $key ) {
+			foreach ( array( 'title', 'field', 'buttons' ) as $place ) {
+				$widget->settings = array( $key => 'name', 'hint_place' => $place );
+				$html             = $widget->render_for_test();
+				$slots            = substr_count( $html, 'data-slot="text"' );
+
+				if ( 5 !== $slots ) {
+					throw new RuntimeException( "Kit: hint place '{$place}' printed {$slots} text slots, expected 5" );
+				}
+			}
+
+			$widget->settings = array( $key => 'name', 'hint_place' => 'field' );
+			$field            = $widget->render_for_test();
+
+			if ( ! preg_match( '/<label class="galaxie-kit-field">((?!<\/label>).)*data-slot="text"((?!<\/label>).)*data-kit-name/s', $field ) ) {
+				throw new RuntimeException( 'Kit: the hint should sit between the field label and the field' );
+			}
+
+			$widget->settings = array( $key => 'name', 'hint_place' => 'buttons' );
+			$buttons          = $widget->render_for_test();
+
+			if ( ! preg_match( '/data-slot="text"[^<]*<\/p><\/div><div class="galaxie-kit-actions/', $buttons ) ) {
+				throw new RuntimeException( 'Kit: the hint should close the content panel, just above the buttons' );
+			}
+
+			// Step 4 can add to the cart; with the switch off it must not.
+			$step4            = '/galaxie-kit-screen--continue((?!<\/section>).)*data-kit-action="to-cart"/s';
+			$widget->settings = array( $key => 'continue' );
+			$on               = $widget->render_for_test();
+			$widget->settings = array( $key => 'continue', 'continue_cart_show' => '' );
+			$off              = $widget->render_for_test();
+
+			if ( ! preg_match( $step4, $on ) || preg_match( $step4, $off ) ) {
+				throw new RuntimeException( 'Kit: "Adicionar kit ao carrinho" on step 4 does not follow its switch' );
+			}
+		}
+
 		// The step indicator in the editor: visible on every screen with the
 		// switch on (hidden attribute never), absent with it off.
 		if ( 'editor_screen' === $key ) {
