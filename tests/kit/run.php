@@ -595,7 +595,16 @@ $catalog->boxes[11]['stock'] = 0;
 $GLOBALS['kt']['user'] = 7;
 ( new CartKits( $kits ) )->merge_login();
 $catalog->boxes[11]['stock'] = 3;
-$check( 'login', 'an old draft the cart refuses: a notice says why', array( WC()->cart->get_cart_contents(), Store::take_notices() ), array( array(), array( 'Encontramos o kit Velho que você começou antes, mas não foi possível colocá-lo no carrinho: Não há estoque suficiente de Caixa - Quadrada.' ) ) );
+$check( 'login', 'an old draft the cart refuses: a notice says why and that it was kept', array( WC()->cart->get_cart_contents(), Store::take_notices() ), array( array(), array( 'Encontramos o kit Velho que você começou antes, mas não foi possível colocá-lo no carrinho: Não há estoque suficiente de Caixa - Quadrada. Ele foi guardado: use "Recuperar kit anterior" no kit.' ) ) );
+$check( 'previous', 'the refused draft is kept aside, the guest one is the draft', array( Store::previous()['id'] ?? null, Store::get()['id'] ), array( 'soldout', 'guestkit' ) );
+$response = $call( 'get', array(), '' );
+$check( 'previous', 'every answer offers it back', $response->data['previous'], array( 'name' => 'Velho', 'count' => 1 ) );
+$response = $call( 'restore_previous' );
+$check( 'previous', 'with a kit open: asked first', array( $response->ok, $response->data['reason'], $response->data['current'] ), array( false, 'needs_confirm', 'Kit 1' ) );
+$response = $call( 'restore_previous', array( 'confirm' => '1' ) );
+$check( 'previous', 'confirmed: the empty open kit is dropped, the kept one is the draft, and it is no longer offered', array( $response->ok, $response->data['kit']['id'], $response->data['kit']['name'], $response->data['previous'], Store::previous(), WC()->cart->get_cart_contents() ), array( true, 'soldout', 'Velho', null, null, array() ) );
+$response = $call( 'restore_previous' );
+$check( 'previous', 'nothing left to restore', array( $response->ok, $response->data['reason'] ), array( false, 'no_previous' ) );
 
 echo "\n  {$passed} passed, {$failed} failed\n";
 exit( $failed > 0 ? 1 : 0 );

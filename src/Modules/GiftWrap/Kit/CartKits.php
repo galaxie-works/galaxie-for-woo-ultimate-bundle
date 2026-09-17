@@ -23,7 +23,8 @@ defined( 'ABSPATH' ) || exit;
  * - extract(): "Editar kit" — a kit's lines leave the cart and come back as
  *   the draft, with its name, box, card and message.
  * - merge_login(): the guest's draft wins; the account's older one goes to the
- *   cart when it has a candle, with a notice (decision 15).
+ *   cart when it has a candle, with a notice (decision 15). One the cart
+ *   refuses is kept aside (Store::keep_previous()) for "Recuperar kit anterior".
  */
 final class CartKits {
 
@@ -263,9 +264,11 @@ final class CartKits {
 					sprintf( __( 'Encontramos o kit %s que você começou antes e colocamos no carrinho. Você pode editar ou remover.', 'galaxie-woo' ), $old['name'] )
 				);
 			} catch ( KitError $e ) {
+				// Not lost: kept aside, and the kit popup offers it back.
+				Store::keep_previous( (int) get_current_user_id(), $old );
 				Store::notice(
 					/* translators: 1: kit name, 2: why. */
-					sprintf( __( 'Encontramos o kit %1$s que você começou antes, mas não foi possível colocá-lo no carrinho: %2$s', 'galaxie-woo' ), $old['name'], $e->getMessage() )
+					sprintf( __( 'Encontramos o kit %1$s que você começou antes, mas não foi possível colocá-lo no carrinho: %2$s Ele foi guardado: use "Recuperar kit anterior" no kit.', 'galaxie-woo' ), $old['name'], $e->getMessage() )
 				);
 			}
 		}

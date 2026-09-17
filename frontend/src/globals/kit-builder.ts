@@ -33,7 +33,7 @@ import { closePopup, isPopupOpen } from '@/lib/pix-popup'
 import { ask } from '@/lib/dialog'
 import { celebrate } from '@/globals/kit-open'
 import type { KitIntent } from '@/globals/kit-open'
-import { currentKit, kitCall, kitConfig, kitUnits, kitValues, onKit, refreshKit, roomSentence } from '@/globals/kit-store'
+import { currentKit, kitCall, kitConfig, kitPrevious, kitUnits, kitValues, onKit, refreshKit, roomSentence } from '@/globals/kit-store'
 import type { KitAnswer, KitBox, KitCard, KitCatalog, KitPending, KitView } from '@/globals/kit-store'
 import type { Wording } from '@/lib/gift-kit'
 
@@ -88,6 +88,17 @@ function setText(el: Element | null | undefined, text: string): void {
 function textTarget(el: Element | null): Element | null {
   let node = el
   while (node && node.children.length === 1) node = node.children[0]
+  return node
+}
+
+/** The text node inside pixfort's button markup whose words are the label. */
+function labelTarget(button: Element): Element | null {
+  let node: Element | null = button
+  while (node && node.children.length > 0) {
+    const next: Element | undefined = Array.from(node.children).find((child) => (child.textContent ?? '').trim() !== '')
+    if (!next) break
+    node = next
+  }
   return node
 }
 
@@ -253,7 +264,24 @@ function create(root: HTMLElement): Controller {
     draw()
   }
 
+  /** "Recuperar kit anterior" wherever the screen has it. */
+  function drawPrevious(): void {
+    const previous = kitPrevious()
+
+    root.querySelectorAll<HTMLElement>('[data-kit-previous]').forEach((holder) => {
+      holder.hidden = !previous
+      const label = holder.querySelector('[data-kit-action="restore-previous"]')
+      if (previous && label) {
+        const text = fillText(texts.action_previous ?? '', { kit: previous.name })
+        const target = labelTarget(label)
+        if (target && target.textContent !== text) target.textContent = text
+      }
+    })
+  }
+
   function draw(): void {
+    drawPrevious()
+
     switch (screen) {
       case 'name':
         drawName()
@@ -691,6 +719,24 @@ function create(root: HTMLElement): Controller {
     }
   }
 
+  async function restorePrevious(trigger: HTMLElement): Promise<void> {
+    let result = await kitCall('restore_previous')
+
+    if (!result.ok && result.data?.reason === 'needs_confirm') {
+      const yes = await ask(trigger, 'kit_restore', result.data.message ?? '')
+      if (!yes) return
+      result = await kitCall('restore_previous', { confirm: 1 })
+    }
+
+    if (!result.ok) {
+      error(result.data?.message ?? texts.error ?? '')
+      return
+    }
+
+    mode = 'new'
+    go('summary')
+  }
+
   async function discard(trigger: HTMLElement): Promise<void> {
     const kit = currentKit()
     if (!kit) return
@@ -753,6 +799,8 @@ function create(root: HTMLElement): Controller {
     redraw(kit, previous) {
       if (!catalog) return
 
+      drawPrevious()
+
       // A kit that went away elsewhere (another tab, the cart) leaves the summary.
       if (!kit && screen === 'summary') {
         go('welcome')
@@ -814,6 +862,9 @@ function create(root: HTMLElement): Controller {
           break
         case 'discard':
           void discard(trigger)
+          break
+        case 'restore-previous':
+          void restorePrevious(trigger)
           break
       }
     },

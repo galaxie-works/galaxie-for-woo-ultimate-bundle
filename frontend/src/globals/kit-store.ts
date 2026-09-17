@@ -151,6 +151,8 @@ export interface KitAnswer {
   reason?: string
   cap?: number
   current?: string
+  previous?: { name: string; count: number } | null
+  restored?: string
 }
 
 export interface KitResult {
@@ -164,6 +166,7 @@ let config: GiftWrapConfig | null = null
 let kit: KitView | null = null
 let loaded = false
 let nonce = ''
+let previousKit: { name: string; count: number } | null = null
 let channel: BroadcastChannel | null = null
 const listeners = new Set<Listener>()
 
@@ -177,6 +180,11 @@ export function kitAjaxUrl(): string {
 
 export function currentKit(): KitView | null {
   return kit
+}
+
+/** An account kit kept aside at login, offered back in the popup. */
+export function kitPrevious(): { name: string; count: number } | null {
+  return previousKit
 }
 
 export function kitLoaded(): boolean {
@@ -206,6 +214,7 @@ function apply(data: KitAnswer | null | undefined, broadcast = true): void {
   const previous = kit
   if (data.nonce) nonce = data.nonce
   kit = data.kit ?? null
+  previousKit = data.previous ?? null
   loaded = true
 
   for (const notice of data.notices ?? []) showKitToast(notice, 'info')

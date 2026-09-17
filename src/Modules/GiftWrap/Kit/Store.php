@@ -32,6 +32,9 @@ final class Store {
 	/** Sentences for the next kit request to show (a login merge's notice). */
 	public const NOTICE_KEY = 'galaxie_kit_notices';
 
+	/** An account draft the login merge could not put in the cart. */
+	public const PREVIOUS_META = '_galaxie_kit_draft_previous';
+
 	/** The draft's last packing answer ({@see self::remember()}). */
 	public const PACKING_KEY = 'galaxie_kit_packing';
 
@@ -160,6 +163,29 @@ final class Store {
 		}
 
 		return $value;
+	}
+
+	/** Keeps an account's refused draft aside (one at a time, the newest). */
+	public static function keep_previous( int $user, array $draft ): void {
+		if ( $user ) {
+			update_user_meta( $user, self::PREVIOUS_META, $draft );
+		}
+	}
+
+	/** The signed-in shopper's kept-aside draft, or null. */
+	public static function previous(): ?array {
+		$user = self::user();
+
+		return $user ? GiftKit::normalize( get_user_meta( $user, self::PREVIOUS_META, true ) ) : null;
+	}
+
+	/** Forgets the kept-aside draft. */
+	public static function forget_previous(): void {
+		$user = self::user();
+
+		if ( $user ) {
+			delete_user_meta( $user, self::PREVIOUS_META );
+		}
 	}
 
 	/** A fresh draft id, lowercase letters and digits. */

@@ -138,6 +138,7 @@ final class KitBuilderWidget extends Widget_Base {
 				'action_continue'  => array( __( 'Keep choosing button', 'galaxie-woo' ), __( 'Continuar escolhendo', 'galaxie-woo' ) ),
 				'action_new'       => array( __( 'Add and start another button', 'galaxie-woo' ), __( 'Adicionar ao carrinho e começar um novo', 'galaxie-woo' ) ),
 				'action_discard'   => array( __( 'Discard button', 'galaxie-woo' ), __( 'Descartar kit', 'galaxie-woo' ) ),
+				'action_previous'  => array( __( 'Kit kept at login ({kit})', 'galaxie-woo' ), __( 'Recuperar kit anterior ({kit})', 'galaxie-woo' ) ),
 				'discard_confirm'  => array( __( 'Discard question ({kit})', 'galaxie-woo' ), __( 'Descartar o kit {kit}? Isso não pode ser desfeito.', 'galaxie-woo' ) ),
 				'need_candle'      => array( __( 'Adding with no candle', 'galaxie-woo' ), __( 'Adicione pelo menos uma vela ao kit.', 'galaxie-woo' ) ),
 			),
@@ -554,6 +555,7 @@ final class KitBuilderWidget extends Widget_Base {
 
 		echo '<div class="galaxie-kit-actions">';
 		echo $this->button( $settings, 'primary', 'begin', $texts['welcome_button'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in button().
+		$this->previous_button( $settings, $texts );
 		echo '</div>';
 	}
 
@@ -716,7 +718,21 @@ final class KitBuilderWidget extends Widget_Base {
 		echo $this->button( $settings, 'secondary', 'continue', $texts['action_continue'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in button().
 		echo $this->button( $settings, 'secondary', 'to-cart-new', $texts['action_new'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in button().
 		echo $this->button( $settings, 'danger', 'discard', $texts['action_discard'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in button().
+		$this->previous_button( $settings, $texts );
 		echo '</div>';
+	}
+
+	/**
+	 * "Recuperar kit anterior", hidden until the kit endpoint says an account
+	 * kit was kept aside at login. Its label is filled by the script ({kit}).
+	 *
+	 * @param array<string,mixed>  $settings
+	 * @param array<string,string> $texts
+	 */
+	private function previous_button( array $settings, array $texts ): void {
+		echo '<span data-kit-previous hidden>';
+		echo $this->button( $settings, 'secondary', 'restore-previous', GiftKit::fill( $texts['action_previous'], array( 'kit' => '' ) ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in button().
+		echo '</span>';
 	}
 
 	/**

@@ -7,6 +7,8 @@
 
 namespace Galaxie\Woo\Modules\GiftWrap\Kit;
 
+use Galaxie\Woo\Support\GiftKit;
+
 defined( 'ABSPATH' ) || exit;
 
 /**
@@ -49,6 +51,7 @@ final class Ajax {
 		'to_cart',
 		'to_cart_and_new',
 		'edit_from_cart',
+		'restore_previous',
 	);
 
 	/** Longest text field accepted, in bytes, before it is even cleaned. */
@@ -191,6 +194,9 @@ final class Ajax {
 				Store::clear();
 				return array();
 
+			case 'restore_previous':
+				return self::restore( $draft );
+
 			case 'to_cart':
 			case 'to_cart_and_new':
 				$group = $carts->add( self::need( $draft ) );
@@ -277,6 +283,54 @@ final class Ajax {
 		Store::put( $carts->extract( $group ) );
 
 		return self::cart_fields() + array( 'edited' => $group );
+	}
+
+	/**
+	 * "Recuperar kit anterior": the kit kept aside at login becomes the draft.
+	 * An open draft is handled as "Editar kit" does: asked first, then sent to
+	 * the cart (or dropped, with no candle).
+	 *
+	 * @return array<string,mixed>
+	 */
+	private static function restore( ?array $draft ): array {
+		$previous = Store::previous();
+
+		if ( ! $previous ) {
+			throw new KitError( 'no_previous', __( 'Não há kit anterior para recuperar.', 'galaxie-woo' ) );
+		}
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- checked in dispatch().
+		$yes = ! empty( $_POST['confirm'] );
+
+		if ( $draft && ! $yes ) {
+			throw new KitError(
+				'needs_confirm',
+				$draft['candles']
+					/* translators: %s: the open kit's name. */
+					? sprintf( __( 'Adicionar o kit %s ao carrinho e recuperar o anterior?', 'galaxie-woo' ), $draft['name'] )
+					/* translators: %s: the open kit's name. */
+					: sprintf( __( 'O kit %s ainda não tem velas. Descartá-lo e recuperar o anterior?', 'galaxie-woo' ), $draft['name'] ),
+				array( 'current' => $draft['name'] )
+			);
+		}
+
+		$carts = self::carts();
+
+		if ( $draft && $draft['candles'] ) {
+			$carts->add( $draft );
+		}
+
+		Store::clear();
+
+		// Its name may clash with a kit now in the cart; a store-given one makes way.
+		if ( ! $previous['named'] ) {
+			$previous = self::kits()->rename( $previous, '', $carts->kit_names() );
+		}
+
+		Store::put( $previous );
+		Store::forget_previous();
+
+		return self::cart_fields() + array( 'restored' => $previous['id'] );
 	}
 
 	/** @return array<string,mixed> */
@@ -402,10 +456,17 @@ final class Ajax {
 		// The hint cookie follows every answer, whatever else went wrong.
 		Store::sync_hint();
 
+		$previous = Store::previous();
+
 		return array(
-			'kit'     => $draft ? self::kits()->view( $draft, self::carts()->in_cart() ) : null,
-			'nonce'   => wp_create_nonce( self::nonce_action() ),
-			'notices' => Store::take_notices(),
+			'kit'      => $draft ? self::kits()->view( $draft, self::carts()->in_cart() ) : null,
+			'nonce'    => wp_create_nonce( self::nonce_action() ),
+			'notices'  => Store::take_notices(),
+			// A kit kept aside at login, offered back ("Recuperar kit anterior").
+			'previous' => $previous ? array(
+				'name'  => $previous['name'],
+				'count' => GiftKit::count( $previous['candles'] ),
+			) : null,
 		);
 	}
 
