@@ -243,6 +243,28 @@ final class KitBuilderWidget extends Widget_Base {
 		PixfortControls::palette_control( $this, 'steps_active_bg', __( 'Current and done dots', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-kit-step.is-current .galaxie-kit-step-dot, {{WRAPPER}} .galaxie-kit-step.is-done .galaxie-kit-step-dot', 'background-color', $shown );
 		PixfortControls::palette_control( $this, 'steps_active_color', __( 'Current and done numbers', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-kit-step.is-current .galaxie-kit-step-dot, {{WRAPPER}} .galaxie-kit-step.is-done .galaxie-kit-step-dot', 'color', $shown );
 		PixfortControls::text( $this, 'steps_label', array( 'size' => 'text-xs', 'bold' => '' ), $shown, '{{WRAPPER}} .galaxie-kit-step-label', 'text', array( 'inline', 'position' ) );
+		$this->add_responsive_control(
+			'steps_padding',
+			array(
+				'label'      => __( 'Padding', 'galaxie-woo' ),
+				'type'       => Controls_Manager::DIMENSIONS,
+				'size_units' => array( 'px', 'rem', 'em' ),
+				'condition'  => $shown,
+				'selectors'  => array( '{{WRAPPER}} .galaxie-kit-steps' => 'padding: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};' ),
+			)
+		);
+		$this->add_responsive_control(
+			'steps_space',
+			array(
+				'label'       => __( 'Space below the steps', 'galaxie-woo' ),
+				'description' => __( 'On top of the "Gap between parts" set under Layout.', 'galaxie-woo' ),
+				'type'        => Controls_Manager::SLIDER,
+				'size_units'  => array( 'px', 'rem', 'em' ),
+				'range'       => array( 'px' => array( 'min' => 0, 'max' => 80 ) ),
+				'condition'   => $shown,
+				'selectors'   => array( '{{WRAPPER}} .galaxie-kit-steps' => 'margin-bottom: {{SIZE}}{{UNIT}};' ),
+			)
+		);
 		$this->end_controls_section();
 
 		$this->start_controls_section( 'kit_text_style', $style( __( 'Titles and text', 'galaxie-woo' ) ) );
@@ -382,7 +404,7 @@ final class KitBuilderWidget extends Widget_Base {
 				'size_units' => array( 'px', 'rem' ),
 				'range'      => array( 'px' => array( 'min' => 0, 'max' => 60 ) ),
 				'default'    => array( 'unit' => 'px', 'size' => 16 ),
-				'selectors'  => array( '{{WRAPPER}} .galaxie-kit-screen' => 'gap: {{SIZE}}{{UNIT}};' ),
+				'selectors'  => array( '{{WRAPPER}} .galaxie-kit-builder, {{WRAPPER}} .galaxie-kit-screen' => 'gap: {{SIZE}}{{UNIT}};' ),
 			)
 		);
 		$this->add_responsive_control(
