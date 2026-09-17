@@ -13,8 +13,10 @@ use Galaxie\Woo\Support\GiftOrders;
 defined( 'ABSPATH' ) || exit;
 
 /**
- * "Estou comprando um presente para alguém", carried through every step
- * WooCommerce can take a cart through.
+ * The gift flag on cart lines, carried through every step WooCommerce can take
+ * a cart through. Kits set it on their candles (Kit\CartKits); the Buy Box
+ * checkbox that used to set it is gone (PR #21), and a plain "this order is a
+ * gift" is planned for the checkout.
  *
  * The flag rides on the cart item, not on the session. A gift and the same
  * candle bought for oneself are then two lines — WooCommerce hashes item data
@@ -22,8 +24,8 @@ defined( 'ABSPATH' ) || exit;
  * (the block cart and checkout) already know how to show and copy to an order,
  * so nothing here is specific to either checkout:
  *
- * - Adding: `woocommerce_add_cart_item_data` reads the posted field, which the
- *   Buy Box's AJAX add and its native submit (Buy Now) both send.
+ * - Adding: the kit flow writes `galaxie_gift_wrap => [ gift => true ]` into the
+ *   candles' item data itself.
  * - Showing: `woocommerce_get_item_data` is what the classic templates print
  *   and what the Store API serialises as a cart item's `item_data`.
  * - Ordering: `woocommerce_checkout_create_order_line_item` runs for both
@@ -38,37 +40,16 @@ final class Flag {
 	/** Cart item data key. Phase 2 puts the gift group beside the flag. */
 	public const CART_KEY = 'galaxie_gift_wrap';
 
-	/** The Buy Box checkbox's name, and the field the AJAX add copies it into. */
-	public const REQUEST_FIELD = 'galaxie_gift_wrap';
-
 	/** On the line item, hidden: which lines were bought as a gift. */
 	public const ITEM_META = '_galaxie_gift_wrap';
 
 	public static function hooks(): void {
-		add_filter( 'woocommerce_add_cart_item_data', array( self::class, 'attach' ), 10, 3 );
 		add_filter( 'woocommerce_get_item_data', array( self::class, 'item_data' ), 10, 2 );
 		add_action( 'woocommerce_checkout_create_order_line_item', array( self::class, 'line_item' ), 10, 3 );
 
 		// After Wishlist\Gifts::address_order (priority 10), which tags its own gift orders.
 		add_action( 'woocommerce_checkout_create_order', array( self::class, 'tag_order' ), 20, 1 );
 		add_action( 'woocommerce_store_api_checkout_update_order_from_request', array( self::class, 'tag_order' ), 20, 1 );
-	}
-
-	/**
-	 * @param mixed $data
-	 * @param mixed $product_id
-	 * @param mixed $variation_id
-	 * @return mixed
-	 */
-	public static function attach( $data, $product_id, $variation_id = 0 ) {
-		// phpcs:ignore WordPress.Security.NonceVerification -- a display flag on WooCommerce's own add-to-cart request, which carries no nonce; the Buy Box AJAX add checks its nonce before adding.
-		if ( ! is_array( $data ) || empty( $_REQUEST[ self::REQUEST_FIELD ] ) ) {
-			return $data;
-		}
-
-		$data[ self::CART_KEY ] = array( 'gift' => true );
-
-		return $data;
 	}
 
 	/**
