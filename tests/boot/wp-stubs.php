@@ -263,6 +263,7 @@ if ( ! class_exists( 'Elementor\Widget_Base' ) ) {
 			const SWITCHER = "switcher"; const SLIDER = "slider"; const COLOR = "color"; const HEADING = "heading";
 			const RAW_HTML = "raw_html"; const HIDDEN = "hidden"; const MEDIA = "media"; const CHOOSE = "choose";
 			const DIMENSIONS = "dimensions"; const REPEATER = "repeater"; const ICONS = "icons"; const URL = "url";
+			const SELECT2 = "select2";
 		}
 		class Repeater {
 			public array $controls = array();
