@@ -237,7 +237,13 @@ function create(root: HTMLElement): Controller {
 
   // ------------------------------------------------------------------ screens
 
+  /** Where a screen sits in the stepper; the summary and the welcome are off it. */
+  const order: Screen[] = ['welcome', 'name', 'box', 'card', 'continue', 'summary']
+
   function go(next: Screen): void {
+    const back = order.indexOf(next) < order.indexOf(screen)
+    const moved = next !== screen
+
     screen = next
     error('')
 
@@ -245,8 +251,21 @@ function create(root: HTMLElement): Controller {
       el.hidden = name !== next
     })
 
-    const order: Screen[] = ['name', 'box', 'card', 'continue']
-    const index = order.indexOf(next)
+    // Only the arriving panel moves: the frame, the step indicator and the
+    // buttons are the furniture, and furniture that slides is what made the
+    // popup feel like it was jumping. The class is ours because pixfort's own
+    // animation fires once per element and never replays.
+    const panel = screens.get(next)?.querySelector<HTMLElement>('[data-kit-content]')
+
+    if (panel && moved) {
+      panel.classList.remove('is-arriving', 'is-back')
+      // Reading the layout between the two makes the browser start over.
+      void panel.offsetWidth
+      panel.classList.toggle('is-back', back)
+      panel.classList.add('is-arriving')
+    }
+
+    const index = ['name', 'box', 'card', 'continue'].indexOf(next)
     const stepped = mode === 'new' && index >= 0
 
     if (steps) {

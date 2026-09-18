@@ -278,6 +278,17 @@ function galaxie_boot_kit( array $booted, array $scenario, callable $hooked ): s
 			}
 		}
 
+		// The summary's fill bar, total and buttons sit after the content panel:
+		// only the panel scrolls, and those three must stay in view.
+		if ( 'editor_screen' === $key ) {
+			$widget->settings = array( $key => 'summary' );
+			$summary          = $widget->render_for_test();
+
+			if ( ! preg_match( '/data-kit-content.*?<\/div><div class="galaxie-kit-fill/s', $summary ) ) {
+				throw new RuntimeException( 'Kit: the fill bar should follow the content panel, not scroll inside it' );
+			}
+		}
+
 		// Every button role has a section of its own and is used exactly where it
 		// belongs: a role nobody prints is a styling panel that moves nothing.
 		if ( 'editor_screen' === $key ) {

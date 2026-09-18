@@ -645,6 +645,88 @@ form.galaxie-buybox .galaxie-kit-button[aria-disabled="true"] {
   margin: 0;
 }
 
+/* A step arrives; the frame, the indicator and the buttons do not move. The
+   animation is ours rather than pixfort's: theirs fires once per element and
+   never replays, which is no use to a stepper, and it ignores reduced motion. */
+@keyframes galaxie-kit-step-forward {
+  from {
+    opacity: 0;
+    transform: translateX(10px);
+  }
+}
+
+@keyframes galaxie-kit-step-back {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+}
+
+@keyframes galaxie-kit-step-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+.galaxie-kit-motion--slide .galaxie-kit-content.is-arriving {
+  animation: galaxie-kit-step-forward var(--galaxie-kit-step-ms, 240ms) cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.galaxie-kit-motion--slide .galaxie-kit-content.is-arriving.is-back {
+  animation-name: galaxie-kit-step-back;
+}
+
+.galaxie-kit-motion--fade .galaxie-kit-content.is-arriving,
+.galaxie-kit-motion--fade .galaxie-kit-content.is-arriving.is-back {
+  animation: galaxie-kit-step-fade var(--galaxie-kit-step-ms, 240ms) ease both;
+}
+
+.galaxie-kit-step-dot {
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .galaxie-kit-content.is-arriving,
+  .galaxie-kit-content.is-arriving.is-back {
+    animation: none;
+  }
+
+  .galaxie-kit-step-dot {
+    transition: none;
+  }
+}
+
+/* The frame never outgrows what the visitor can see, whatever unit the maximum
+   height was set in — a phone with its keyboard open would otherwise push the
+   buttons off-screen, and only the content panel scrolls. */
+.galaxie-kit-builder {
+  max-height: 100dvh;
+}
+
+/* A minimum height keeps the popup from resizing between steps, but on a short
+   screen — a phone with its keyboard open — it would push the buttons out of
+   reach, and only the content panel scrolls. */
+@media (max-height: 560px) {
+  .galaxie-kit-builder {
+    min-height: 0 !important;
+  }
+}
+
+/* Five buttons in a row become five ragged lines on a phone. */
+@media (max-width: 480px) {
+  .galaxie-kit-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .galaxie-kit-actions > *,
+  .galaxie-kit-actions .galaxie-kit-btn {
+    width: 100%;
+  }
+}
+
 .galaxie-kit-builder [hidden],
 .galaxie-kit-progress [hidden],
 .galaxie-kit-progress[hidden] {

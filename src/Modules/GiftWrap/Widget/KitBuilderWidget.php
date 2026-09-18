@@ -694,10 +694,11 @@ final class KitBuilderWidget extends Widget_Base {
 			'kit_min_height',
 			array(
 				'label'       => __( 'Minimum height', 'galaxie-woo' ),
-				'description' => __( 'Empty: as tall as the content. A height is what gives the distribution below something to share.', 'galaxie-woo' ),
+				'description' => __( 'Keeps the popup the same size from step to step. A short screen (a phone with its keyboard open) ignores it.', 'galaxie-woo' ),
 				'type'        => Controls_Manager::SLIDER,
 				'size_units'  => array( 'px', 'vh' ),
 				'range'       => array( 'px' => array( 'min' => 100, 'max' => 900 ), 'vh' => array( 'min' => 10, 'max' => 90 ) ),
+				'default'     => array( 'unit' => 'vh', 'size' => 55 ),
 				'selectors'   => array( '{{WRAPPER}} .galaxie-kit-builder' => 'min-height: {{SIZE}}{{UNIT}};' ),
 			)
 		);
@@ -776,7 +777,52 @@ final class KitBuilderWidget extends Widget_Base {
 			)
 		);
 
+		$this->heading( 'motion_heading', __( 'Moving between steps', 'galaxie-woo' ) );
+		$this->add_control(
+			'step_motion',
+			array(
+				'label'       => __( 'How a step arrives', 'galaxie-woo' ),
+				'description' => __( 'Only the step\'s content moves; the steps and the buttons stay where they are. A visitor who asks for less motion gets none.', 'galaxie-woo' ),
+				'type'        => Controls_Manager::SELECT,
+				'default'     => 'slide',
+				'options'     => array(
+					'slide' => __( 'Slide and fade', 'galaxie-woo' ),
+					'fade'  => __( 'Fade', 'galaxie-woo' ),
+					''      => __( 'No movement', 'galaxie-woo' ),
+				),
+			)
+		);
+		$this->add_responsive_control(
+			'step_motion_ms',
+			array(
+				'label'      => __( 'How long', 'galaxie-woo' ),
+				'type'       => Controls_Manager::SLIDER,
+				'size_units' => array( 'ms' ),
+				'range'      => array( 'ms' => array( 'min' => 80, 'max' => 600, 'step' => 10 ) ),
+				'default'    => array( 'unit' => 'ms', 'size' => 240 ),
+				'condition'  => array( 'step_motion!' => '' ),
+				'selectors'  => array( '{{WRAPPER}} .galaxie-kit-builder' => '--galaxie-kit-step-ms: {{SIZE}}ms;' ),
+			)
+		);
+
 		$this->heading( 'actions_heading', __( 'The row of buttons', 'galaxie-woo' ) );
+		$this->add_responsive_control(
+			'actions_stack',
+			array(
+				'label'       => __( 'Stack the buttons', 'galaxie-woo' ),
+				'description' => __( 'Below 480 px they stack on their own; this stacks them at this size too.', 'galaxie-woo' ),
+				'type'        => Controls_Manager::SELECT,
+				'default'     => '',
+				'options'     => array(
+					''     => __( 'Side by side', 'galaxie-woo' ),
+					'wrap' => __( 'One per line', 'galaxie-woo' ),
+				),
+				'selectors'   => array(
+					'{{WRAPPER}} .galaxie-kit-actions' => 'flex-direction: column; align-items: stretch;',
+					'{{WRAPPER}} .galaxie-kit-actions > *, {{WRAPPER}} .galaxie-kit-actions .galaxie-kit-btn' => 'width: 100%;',
+				),
+			)
+		);
 		$this->add_responsive_control(
 			'actions_justify',
 			array(
@@ -912,6 +958,17 @@ final class KitBuilderWidget extends Widget_Base {
 	}
 
 	/**
+	 * How a step arrives: the class the stylesheet keys its animation off.
+	 *
+	 * @param array<string,mixed> $settings
+	 */
+	private function motion_class( array $settings ): string {
+		$motion = (string) ( $settings['step_motion'] ?? 'slide' );
+
+		return in_array( $motion, array( 'slide', 'fade' ), true ) ? ' galaxie-kit-motion--' . $motion : '';
+	}
+
+	/**
 	 * Space around one part of a screen. Every block sits in a flex column, so
 	 * the gap sets them all apart and this moves one of them on its own.
 	 *
@@ -963,7 +1020,7 @@ final class KitBuilderWidget extends Widget_Base {
 
 		printf(
 			'<div class="galaxie-kit-builder%1$s" data-galaxie-kit-builder data-texts="%2$s" data-confetti="%3$s"%4$s>',
-			'yes' === ( $settings['steps_show'] ?? 'yes' ) ? '' : ' no-steps', // Nothing to hide then: the indicator is not printed.
+			( 'yes' === ( $settings['steps_show'] ?? 'yes' ) ? '' : ' no-steps' ) . $this->motion_class( $settings ), // Nothing to hide then: the indicator is not printed.
 			esc_attr( (string) wp_json_encode( $texts ) ),
 			'yes' === ( $settings['confetti'] ?? 'yes' ) ? '1' : '0',
 			$editing ? ' data-sample="' . esc_attr( $screen ) . '"' : ''
@@ -984,6 +1041,7 @@ final class KitBuilderWidget extends Widget_Base {
 
 		foreach ( self::SCREENS as $name ) {
 			printf( '<section class="galaxie-kit-screen galaxie-kit-screen--%1$s" data-kit-screen="%1$s"%2$s>', esc_attr( $name ), $screen === $name ? '' : ' hidden' );
+			$this->in_foot = false;
 			printf( '<div class="galaxie-kit-content %s" data-kit-content>', esc_attr( PixfortControls::surface_classes( $settings, 'kit_content' ) ) );
 			$this->{'render_' . $name}( $settings, $texts, $screen === $name ? $sample : null );
 			echo '</section>';
@@ -1154,8 +1212,28 @@ final class KitBuilderWidget extends Widget_Base {
 	 */
 	private function actions( array $settings, string $extra = '' ): void {
 		$this->hint_print( $settings );
-		printf( '</div><div class="galaxie-kit-actions%s">', esc_attr( '' !== $extra ? ' ' . $extra : '' ) );
+		$this->foot_close();
+		printf( '<div class="galaxie-kit-actions%s">', esc_attr( '' !== $extra ? ' ' . $extra : '' ) );
 	}
+
+	/**
+	 * Closes the step's content panel and, with it, the only part that scrolls.
+	 * What comes after — the fill bar, the total, the buttons — stays in view
+	 * however long the candle list grows.
+	 */
+	private function foot_open(): void {
+		if ( ! $this->in_foot ) {
+			echo '</div>';
+			$this->in_foot = true;
+		}
+	}
+
+	private function foot_close(): void {
+		$this->foot_open();
+	}
+
+	/** Whether the content panel has already been closed for this screen. */
+	private bool $in_foot = false;
 
 	/** @param array<string,mixed> $settings */
 	private function nav( array $settings, array $texts, string $next = '' ): void {
@@ -1327,6 +1405,7 @@ final class KitBuilderWidget extends Widget_Base {
 		$fill = $sample ? (int) $sample['fill'] : 0;
 		$full = $sample && $sample['full'];
 
+		$this->foot_open();
 		printf( '<div class="galaxie-kit-fill%1$s" data-kit-fill>', $full ? ' is-full' : '' );
 		printf( '<div class="galaxie-kit-fill-track"><div class="galaxie-kit-fill-bar" data-slot="bar" style="width:%d%%"></div></div>', (int) $fill );
 		printf( '<span class="galaxie-kit-small %1$s" data-slot="room">%2$s</span>', $small, esc_html( $sample ? $sample['room'] : '' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped above.
