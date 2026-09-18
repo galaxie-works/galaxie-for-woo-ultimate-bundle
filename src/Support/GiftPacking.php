@@ -20,7 +20,7 @@ defined( 'ABSPATH' ) || exit;
  *   candle  { size, length, width, height, price? }        cm, as WooCommerce stores them
  *   box     { id, length, width, height, max?, overflow?, price }
  *           internal cm; max 0 = no limit; overflow = extra height the lid still closes over (0–2)
- *   options { gap, stacking, orientation }                 gap in cm, default 0 (tissue paper fills); orientation default 'lying'
+ *   options { gap, orientation }                           gap in cm, default 0 (tissue paper fills); orientation default 'lying'
  *
  * The model:
  * - `orientation` says how a candle sits. 'upright': floor length × width,
@@ -30,8 +30,9 @@ defined( 'ABSPATH' ) || exit;
  *   Unknown values count as 'lying'.
  * - The gap is added to both floor sides and to the height used, which must be
  *   ≤ the box height. Neighbours are a full gap apart and every candle keeps
- *   half a gap from the walls. Footprints may turn 90° on the floor.
- *   `stacking` is accepted and ignored: one layer only, always.
+ *   half a gap from the walls. Footprints may turn 90° on the floor. One layer
+ *   only, always: a gift box the merchant sells is shallower than two jars, and
+ *   a candle resting on another is not how one is packed.
  * - The floor search is exact: it tries every "normal pattern" placement (x and
  *   y are sums of other footprints, which any packing can be pushed into), in
  *   bottom-left order so each layout is visited once. Failed states are
@@ -286,7 +287,7 @@ final class GiftPacking {
 	 *
 	 * @param array $candles List of candle arrays.
 	 * @param array $boxes   List of box arrays.
-	 * @param array $options { gap, stacking }.
+	 * @param array $options { gap, orientation }.
 	 */
 	public static function arrange( array $candles, array $boxes, array $options = array() ): array {
 		if ( ! $candles || ! $boxes ) {
@@ -419,7 +420,7 @@ final class GiftPacking {
 	 * @param array $box     Box array.
 	 * @param array $candles Candles already in the box.
 	 * @param array $sizes   One candle per size to try; defaults to the sizes already in the box.
-	 * @param array $options { gap, stacking }.
+	 * @param array $options { gap, orientation }.
 	 * @return string[] Size keys, in the order given.
 	 */
 	public static function room( array $box, array $candles, array $sizes = array(), array $options = array() ): array {
@@ -452,7 +453,7 @@ final class GiftPacking {
 	 *
 	 * @param array $box     Box array.
 	 * @param array $sizes   One candle per size.
-	 * @param array $options { gap, stacking }.
+	 * @param array $options { gap, orientation }.
 	 * @return array<int, array{counts: array<string, int>, capped: bool}> Sizes in the order given.
 	 */
 	public static function summary( array $box, array $sizes, array $options = array() ): array {

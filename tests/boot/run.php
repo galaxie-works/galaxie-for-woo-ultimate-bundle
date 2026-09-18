@@ -41,7 +41,6 @@ function galaxie_boot_scenarios(): array {
 		'gift-wrap' => array(
 			'size_attribute'     => $attribute,
 			'packing_gap'        => 0,
-			'allow_stacking'     => false,
 			'candle_orientation' => 'lying',
 			'box_categories'     => array( 125 ),
 			'ribbon_categories'  => array(),

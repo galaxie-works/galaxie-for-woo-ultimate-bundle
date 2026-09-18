@@ -11,7 +11,7 @@
  *   height; 'lying' puts the jar on its side, H × max(L, W) of floor and
  *   max(L, W) of height; 'any' lets each candle take whichever lets the set fit.
  *   The gap is added to both floor sides and to the height used, which must be
- *   ≤ the box height. `stacking` is accepted and ignored: one layer only.
+ *   ≤ the box height. One layer only, always — see GiftPacking.php.
  * - Footprints turn 90° on the floor if that helps.
  * - The floor search is exact over "normal pattern" corners in bottom-left
  *   order, with remembered failures and a conservative-scale bound. Past
@@ -51,8 +51,6 @@ export type Orientation = 'upright' | 'lying' | 'any'
 export interface PackingOptions {
   /** Paper filling around each candle, cm. Default 0 (tissue paper fills the gaps). */
   gap?: number
-  /** Accepted for the settings' sake; not implemented — always one layer. */
-  stacking?: boolean
   /** Default 'lying' (the jar on its side). Anything else unknown counts as 'lying'. */
   orientation?: Orientation
 }

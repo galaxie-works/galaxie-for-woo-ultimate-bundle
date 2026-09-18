@@ -19,7 +19,7 @@ defined( 'ABSPATH' ) || exit;
  * should never have sent. Change one, change the other, run both tests.
  *
  * Every question about space goes to {@see GiftPacking::fits()} with the
- * options it was given (gap, stacking, orientation), so a box is never judged
+ * options it was given (gap, orientation), so a box is never judged
  * by two models.
  *
  *   plan  { groups: [ { candles: [candle + id + added?], box: box + added? | null,
@@ -51,7 +51,7 @@ final class GiftGroups {
 	 * @param array $box     Box array.
 	 * @param array $candles Candles in the box.
 	 * @param array $sizes   One candle per size the store sells; defaults to the ones in the box.
-	 * @param array $options { gap, stacking, orientation }.
+	 * @param array $options { gap, orientation }.
 	 */
 	public static function fill( array $box, array $candles, array $sizes = array(), array $options = array() ): int {
 		$n = count( $candles );
@@ -96,7 +96,7 @@ final class GiftGroups {
 	 *
 	 * @param array $candles Candle arrays.
 	 * @param array $boxes   Box arrays.
-	 * @param array $options { gap, stacking, orientation }.
+	 * @param array $options { gap, orientation }.
 	 * @return array{gifts: array<int, array{box: array, candles: array}>, loose: array}
 	 */
 	public static function arrange_all( array $candles, array $boxes, array $options = array() ): array {
@@ -195,7 +195,7 @@ final class GiftGroups {
 	 * @param array $others  Every other candle in the gift.
 	 * @param array $candle  The line's candle.
 	 * @param int   $current The line's quantity now.
-	 * @param array $options { gap, stacking, orientation }.
+	 * @param array $options { gap, orientation }.
 	 */
 	public static function max_quantity( array $box, array $others, array $candle, int $current, array $options = array() ): int {
 		$n = max( 0, $current );
@@ -221,7 +221,7 @@ final class GiftGroups {
 	 * problems, group by group, then stock by product in the order first asked.
 	 *
 	 * @param array $plan    See the class comment.
-	 * @param array $options { gap, stacking, orientation }.
+	 * @param array $options { gap, orientation }.
 	 * @return array<int, array{code:string, group:int, id:?string}>
 	 */
 	public static function validate( array $plan, array $options = array() ): array {
@@ -512,7 +512,7 @@ final class GiftGroups {
 	 * @param array $box     Box array.
 	 * @param array $candles Candles in the box.
 	 * @param array $sizes   One candle per size to try; defaults to the sizes in the box.
-	 * @param array $options { gap, stacking, orientation }.
+	 * @param array $options { gap, orientation }.
 	 * @return array<int, array{size:string, count:int}> Sizes with room, in the order given.
 	 */
 	public static function room_counts( array $box, array $candles, array $sizes = array(), array $options = array() ): array {

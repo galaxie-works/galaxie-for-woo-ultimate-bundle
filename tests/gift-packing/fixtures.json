@@ -1,5 +1,5 @@
 {
-  "_readme": "Shared by run.php (GiftPacking.php) and run.ts (gift-packing.ts). Candle lists are [size, count] pairs expanded in order. Engine defaults: gap 0 (tissue paper fills), orientation 'lying', stacking off. The original cases pin orientation 'upright' and gap 0.5. 50g/190g are the registered shipping dimensions (jar in its cardboard box); 50g-gift/190g-gift are the merchant's measured jars (no cardboard box), which the gift packing uses.",
+  "_readme": "Shared by run.php (GiftPacking.php) and run.ts (gift-packing.ts). Candle lists are [size, count] pairs expanded in order. Engine defaults: gap 0 (tissue paper fills), orientation 'lying'; one layer always. The original cases pin orientation 'upright' and gap 0.5. 50g/190g are the registered shipping dimensions (jar in its cardboard box); 50g-gift/190g-gift are the merchant's measured jars (no cardboard box), which the gift packing uses.",
   "sizes": {
     "50g": { "size": "50g", "length": 5, "width": 5, "height": 6.5 },
     "190g": { "size": "190g", "length": 8, "width": 8, "height": 8.5 },
@@ -78,7 +78,7 @@
     { "name": "rotation: two bars do not fit a one-bar box", "box": "rot", "candles": [["bar", 2]], "options": { "orientation": "upright", "gap": 0.5 }, "expect": false },
     { "name": "gap 0: 4 x 50g in exactly 10 x 10", "box": "ten", "candles": [["50g", 4]], "options": { "gap": 0, "orientation": "upright" }, "expect": true },
     { "name": "gap 0.5: 4 x 50g no longer fit 10 x 10", "box": "ten", "candles": [["50g", 4]], "options": { "orientation": "upright", "gap": 0.5 }, "expect": false },
-    { "name": "stacking is accepted and ignored", "box": "p11", "candles": [["50g", 8]], "options": { "gap": 0.5, "stacking": true, "orientation": "upright" }, "expect": false },
+    { "name": "eight 50g never stack into an 11 x 11 x 7 box, whatever the options say", "box": "p11", "candles": [["50g", 8]], "options": { "gap": 0.5, "orientation": "upright" }, "expect": false },
     { "name": "square 14: 1 x 190g + 3 x 50g", "box": "sq14", "candles": [["190g", 1], ["50g", 3]], "options": { "orientation": "upright", "gap": 0.5 }, "expect": true },
     { "name": "square 14: 1 x 190g + 4 x 50g refused (area allows)", "box": "sq14", "candles": [["190g", 1], ["50g", 4]], "options": { "orientation": "upright", "gap": 0.5 }, "expect": false },
     { "name": "12 x 50g fill a 22 x 16.5 tray exactly", "box": "tray", "candles": [["50g", 12]], "options": { "orientation": "upright", "gap": 0.5 }, "expect": true },

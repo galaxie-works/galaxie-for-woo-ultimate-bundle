@@ -36,7 +36,7 @@ interface Catalog {
 	/** @return array<int, array> One candle per size the store sells, with a `label`. */
 	public function sizes(): array;
 
-	/** @return array{gap:float, stacking:bool, orientation:string} */
+	/** @return array{gap:float, orientation:string} */
 	public function options(): array;
 
 	/** Longest card message, in characters. */

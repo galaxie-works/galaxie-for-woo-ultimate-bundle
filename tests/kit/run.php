@@ -243,7 +243,7 @@ final class KtCatalog implements Catalog {
 	}
 
 	public function sizes(): array { return $this->sizes; }
-	public function options(): array { return array( 'gap' => 0, 'stacking' => false, 'orientation' => 'lying' ); }
+	public function options(): array { return array( 'gap' => 0, 'orientation' => 'lying' ); }
 	public function message_max(): int { return 20; }
 	public function can_add( array $product, int $quantity ): string { return 101 === $product['id'] && $quantity > 3 ? 'A loja recusou.' : ''; }
 	public function money( float $amount ): string { return 'R$ ' . number_format( $amount, 2, ',', '.' ); }
