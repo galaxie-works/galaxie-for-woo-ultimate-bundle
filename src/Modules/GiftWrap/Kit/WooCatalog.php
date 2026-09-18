@@ -28,8 +28,14 @@ final class WooCatalog implements Catalog {
 	 * How long an answer the search could not finish is kept before it is asked
 	 * again. A settled answer keeps for a day; this one is a guess that stops
 	 * the endpoint recomputing it on every request, and nothing more.
+	 *
+	 * A quarter of an hour, from measuring the boxes the store sells: two of ten
+	 * "Leva até …" answers do not settle, and each costs the combinations'
+	 * 250 ms budget to ask. Long enough that one request in a quarter of an hour
+	 * pays it, short enough that a store whose slow moment has passed is not
+	 * stuck with the answer it gave during it.
 	 */
-	private const UNSETTLED_SECONDS = 300;
+	private const UNSETTLED_SECONDS = 900;
 
 	/** @var array<int, array|null> */
 	private array $candles = array();
