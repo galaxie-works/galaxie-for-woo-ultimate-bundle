@@ -748,7 +748,7 @@ function create(root: HTMLElement): Controller {
     let result = await kitCall('restore_previous')
 
     if (!result.ok && result.data?.reason === 'needs_confirm') {
-      const yes = await ask(trigger, 'kit_restore', result.data.message ?? '')
+      const yes = await ask(trigger, 'kit_restore', { text: result.data.message ?? '', fallback: result.data.message ?? '' })
       if (!yes) return
       result = await kitCall('restore_previous', { confirm: 1 })
     }
@@ -766,7 +766,8 @@ function create(root: HTMLElement): Controller {
     const kit = currentKit()
     if (!kit) return
 
-    const yes = await ask(trigger, 'kit_discard', fillText(texts.discard_confirm ?? '', { kit: kit.name }))
+    // The dialog carries the merchant's own sentence; {kit} is filled there.
+    const yes = await ask(trigger, 'kit_discard', { fallback: `Descartar o kit ${kit.name}? Isso não pode ser desfeito.`, fill: { kit: kit.name } })
     if (!yes) return
 
     if (await change('discard')) go('welcome')

@@ -14,6 +14,7 @@ use Galaxie\Woo\Modules\GiftWrap\Kit\Kits;
 use Galaxie\Woo\Modules\GiftWrap\Kit\WooCatalog;
 use Galaxie\Woo\Modules\GiftWrap\Module;
 use Galaxie\Woo\Support\Assets;
+use Galaxie\Woo\Support\Dialog;
 use Galaxie\Woo\Support\GiftGroups;
 use Galaxie\Woo\Support\GiftKit;
 use Galaxie\Woo\Support\GiftPacking;
@@ -141,7 +142,6 @@ final class KitBuilderWidget extends Widget_Base {
 				'action_new'       => array( __( 'Add and start another button', 'galaxie-woo' ), __( 'Adicionar ao carrinho e começar um novo', 'galaxie-woo' ) ),
 				'action_discard'   => array( __( 'Discard button', 'galaxie-woo' ), __( 'Descartar kit', 'galaxie-woo' ) ),
 				'action_previous'  => array( __( 'Kit kept at login ({kit})', 'galaxie-woo' ), __( 'Recuperar kit anterior ({kit})', 'galaxie-woo' ) ),
-				'discard_confirm'  => array( __( 'Discard question ({kit})', 'galaxie-woo' ), __( 'Descartar o kit {kit}? Isso não pode ser desfeito.', 'galaxie-woo' ) ),
 				'need_candle'      => array( __( 'Adding with no candle', 'galaxie-woo' ), __( 'Adicione pelo menos uma vela ao kit.', 'galaxie-woo' ) ),
 			),
 		);
@@ -298,6 +298,34 @@ final class KitBuilderWidget extends Widget_Base {
 
 			$this->end_controls_section();
 		}
+
+		// Confirmations belong to the widget that asks them, so they carry its
+		// pixfort buttons and its typography instead of the script's plain
+		// fallback. The script fills {kit} in whichever sentence wins.
+		Dialog::controls(
+			$this,
+			'kit_discard',
+			array(
+				'label' => __( 'Discard kit dialog', 'galaxie-woo' ),
+				'title' => __( 'Descartar kit', 'galaxie-woo' ),
+				'text'  => __( 'Descartar o kit {kit}? Isso não pode ser desfeito.', 'galaxie-woo' ),
+				'yes'   => __( 'Sim, descartar', 'galaxie-woo' ),
+				'no'    => __( 'Cancelar', 'galaxie-woo' ),
+			)
+		);
+
+		Dialog::controls(
+			$this,
+			'kit_restore',
+			array(
+				'label'        => __( 'Recover previous kit dialog', 'galaxie-woo' ),
+				'title'        => __( 'Recuperar kit', 'galaxie-woo' ),
+				'text'         => __( 'Isso troca o kit que você está montando pelo kit anterior. Tudo bem?', 'galaxie-woo' ),
+				'yes'          => __( 'Sim, recuperar', 'galaxie-woo' ),
+				'no'           => __( 'Cancelar', 'galaxie-woo' ),
+				'yes_defaults' => array( 'color' => 'primary', 'size' => 'sm' ),
+			)
+		);
 
 		$this->register_style_controls();
 	}
@@ -966,6 +994,9 @@ final class KitBuilderWidget extends Widget_Base {
 		if ( ! $editing ) {
 			$this->render_templates( $settings, $texts );
 		}
+
+		echo Dialog::render( $settings, 'kit_discard' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built from escaped parts.
+		echo Dialog::render( $settings, 'kit_restore' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built from escaped parts.
 
 		echo '</div>';
 	}
