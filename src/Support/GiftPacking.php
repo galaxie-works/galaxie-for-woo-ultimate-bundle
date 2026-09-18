@@ -36,19 +36,23 @@ defined( 'ABSPATH' ) || exit;
  *   y are sums of other footprints, which any packing can be pushed into), in
  *   bottom-left order so each layout is visited once. Failed states are
  *   remembered, and a conservative-scale bound proves most hopeless cases
- *   early. Past STEP_LIMIT units of work it gives up and answers "does not fit"
- *   (never a box that will not close), counted the same way in both languages.
- *   Square footprints (the Eir jars): over 13,770 checks of 1–12 candles
- *   (50g/190g) in floors from 10 × 10 to 35 × 35 cm, every fit took at most
- *   176,883 steps. Non-square footprints make a much finer grid of corners: in
- *   big boxes with 9+ of them a real fit can come back "does not fit".
+ *   early. Past STEP_LIMIT units of work the first pass gives up; the footprints
+ *   are then turned the other way round and the search runs again for
+ *   RETRY_LIMIT more, because a shelf layout of elongated footprints is found at
+ *   once that way and never the first. A search that still has not finished is
+ *   `null` from `fits_known()` — "not known", never "does not fit": the caller
+ *   must not refuse a shopper on it. Work is counted the same way in both
+ *   languages, so both give up on the same case.
  * - Everything is compared in hundredths of a centimetre and prices in cents,
  *   so PHP floats and JS numbers cannot disagree.
  */
 final class GiftPacking {
 
-	/** Search work (states entered + corners tried) before `fits()` gives up and says no. */
-	public const STEP_LIMIT = 250000;
+	/** Search work (states entered + corners tried) the first pass gets. */
+	public const STEP_LIMIT = 300000;
+
+	/** Work the second pass gets, with every footprint turned the other way round. */
+	public const RETRY_LIMIT = 75000;
 
 	/** Failed search states remembered per `fits()` call. */
 	public const MEMO_LIMIT = 50000;
@@ -113,13 +117,32 @@ final class GiftPacking {
 	}
 
 	/**
-	 * Whether all these candles go in the box together.
+	 * Whether all these candles go in the box together; an unfinished search
+	 * reads as "no". Only for the places where "not known" and "no" may be
+	 * answered alike — never where a shopper is refused; those ask
+	 * {@see self::fits_known()}.
 	 *
 	 * @param array $box     Box array.
 	 * @param array $candles List of candle arrays.
-	 * @param array $options { gap, stacking }.
+	 * @param array $options { gap }.
 	 */
 	public static function fits( array $box, array $candles, array $options = array() ): bool {
+		return true === self::fits_known( $box, $candles, $options );
+	}
+
+	/**
+	 * Whether all these candles go in the box together: true, false, or null
+	 * when the search ran out of work or of clock before it could tell.
+	 *
+	 * Null is not a refusal. A box is only too small when the search said so
+	 * with a layout ruled out or a bound proved, so a shopper is never turned
+	 * away by a slow request.
+	 *
+	 * @param array $box     Box array.
+	 * @param array $candles List of candle arrays.
+	 * @param array $options { gap }.
+	 */
+	public static function fits_known( array $box, array $candles, array $options = array() ): ?bool {
 		// Round against the fit: candles and gap up, the box down, so a converted
 		// 5.004 cm candle never slips into a 5.00 cm box.
 		$gap = self::up( $options['gap'] ?? 0 );
@@ -138,7 +161,7 @@ final class GiftPacking {
 		}
 
 		if ( self::late() ) {
-			return false;
+			return null;
 		}
 
 		// Candles may stand a little proud of the base when the lid still closes
@@ -213,9 +236,42 @@ final class GiftPacking {
 			'stop'   => false,
 			'proved' => false,
 			'clock'  => 0,
+			'cap'    => self::STEP_LIMIT,
+			'wide'   => false,
 		);
 
-		return self::place( $search, -1, $n, $area );
+		if ( self::place( $search, -1, $n, $area ) ) {
+			return true;
+		}
+
+		if ( ! $search['stop'] || $search['proved'] ) {
+			return false;
+		}
+
+		// The first pass lays every footprint short side along the box's length;
+		// a shelf of elongated footprints wants the long side there instead, and
+		// the search walks past it for hundreds of thousands of steps. Turning
+		// them round costs nothing when the first pass answered, and answers the
+		// cases it could not: of 1,285 measured queries it settles eight the
+		// first pass gave up on, in 85 steps for the worst of them.
+		if ( self::late() ) {
+			return null;
+		}
+
+		$search['placed'] = array();
+		$search['dead']   = array();
+		$search['nodes']  = 0;
+		$search['steps']  = 0;
+		$search['clock']  = 0;
+		$search['stop']   = false;
+		$search['cap']    = self::RETRY_LIMIT;
+		$search['wide']   = true;
+
+		if ( self::place( $search, -1, $n, $area ) ) {
+			return true;
+		}
+
+		return ( $search['stop'] && ! $search['proved'] ) ? null : false;
 	}
 
 	/**
@@ -920,7 +976,7 @@ final class GiftPacking {
 
 		++$s['nodes'];
 
-		if ( ++$s['steps'] > self::STEP_LIMIT ) {
+		if ( ++$s['steps'] > $s['cap'] ) {
 			$s['stop'] = true;
 			return false;
 		}
@@ -966,34 +1022,81 @@ final class GiftPacking {
 			return false;
 		}
 
+		// The state's own copies: the corner loop reads them thousands of times
+		// and `$s` is a reference, which PHP cannot keep in a register.
+		$placed = $s['placed'];
+		$xs     = $s['xs'];
+		$ys     = $s['ys'];
+		$bx     = $s['bx'];
+		$by     = $s['by'];
+		$cap    = $s['cap'];
+		$steps  = $s['steps'];
+		$clock  = $s['clock'];
+
+		// Set once per row of corners (see the free-floor bound below).
+		$at    = -1;
+		$y     = 0;
+		$top   = 0;
+		$deep  = 0;
+		$above = 0;
+		$band  = array();
+
 		for ( $idx = $first; $idx < $cells; $idx++ ) {
 			// Work, not just states, is what the limit counts: a fine grid of
 			// corners makes each state expensive.
-			if ( ++$s['steps'] > self::STEP_LIMIT ) {
-				$s['stop'] = true;
+			if ( ++$steps > $cap ) {
+				$s['steps'] = $steps;
+				$s['clock'] = $clock;
+				$s['stop']  = true;
 				return false;
 			}
 
 			// The clock, every 1024 corners, when with_deadline() set one.
-			if ( null !== self::$deadline && 0 === ( ++$s['clock'] & 1023 ) && self::late() ) {
-				$s['stop'] = true;
+			if ( null !== self::$deadline && 0 === ( ++$clock & 1023 ) && self::late() ) {
+				$s['steps'] = $steps;
+				$s['clock'] = $clock;
+				$s['stop']  = true;
 				return false;
 			}
 
 			$row = intdiv( $idx, $cols );
-			$x   = $s['xs'][ $idx % $cols ];
-			$y   = $s['ys'][ $row ];
-			$top = $s['ys'][ $row + 1 ] ?? $s['by'];
 
 			// Everything left sits at or above this row, and not left of this
 			// corner within it. If that much floor, less what is taken, is smaller
-			// than the candles left, no later corner helps either.
-			$free = $s['bx'] * ( $s['by'] - $y ) - $x * ( $top - $y );
+			// than the candles left, no later corner helps either. Only the part
+			// left of the corner moves along a row, so the rest is worked out once
+			// when the row changes.
+			if ( $row !== $at ) {
+				$at    = $row;
+				$y     = $ys[ $row ];
+				$top   = $ys[ $row + 1 ] ?? $by;
+				$deep  = $top - $y;
+				$above = $bx * ( $by - $y );
+				$band  = array();
 
-			foreach ( $s['placed'] as $r ) {
-				$high  = max( 0, $r[1] + $r[3] - max( $r[1], $y ) );
-				$wide  = max( 0, min( $r[0] + $r[2], $x ) - $r[0] );
-				$free -= $r[2] * $high - $wide * max( 0, min( $r[1] + $r[3], $top ) - max( $r[1], $y ) );
+				foreach ( $placed as $r ) {
+					$base = $r[1] > $y ? $r[1] : $y;
+					$rise = $r[1] + $r[3];
+
+					if ( $rise > $base ) {
+						$above -= $r[2] * ( $rise - $base );
+					}
+
+					$cut = $rise < $top ? $rise : $top;
+
+					if ( $cut > $base ) {
+						$band[] = array( $r[0], $r[0] + $r[2], $cut - $base );
+					}
+				}
+			}
+
+			$x    = $xs[ $idx % $cols ];
+			$free = $above - $x * $deep;
+
+			foreach ( $band as $r ) {
+				if ( $r[0] < $x ) {
+					$free += ( ( $r[1] < $x ? $r[1] : $x ) - $r[0] ) * $r[2];
+				}
 			}
 
 			if ( $area > $free ) {
@@ -1006,7 +1109,13 @@ final class GiftPacking {
 				}
 
 				foreach ( $type['shapes'] as $shape ) {
-					$turns = $shape[0] === $shape[1] ? array( array( $shape[0], $shape[1] ) ) : array( array( $shape[0], $shape[1] ), array( $shape[1], $shape[0] ) );
+					if ( $shape[0] === $shape[1] ) {
+						$turns = array( array( $shape[0], $shape[1] ) );
+					} elseif ( $s['wide'] ) {
+						$turns = array( array( $shape[1], $shape[0] ), array( $shape[0], $shape[1] ) );
+					} else {
+						$turns = array( array( $shape[0], $shape[1] ), array( $shape[1], $shape[0] ) );
+					}
 
 					foreach ( $turns as $turn ) {
 						list( $w, $d ) = $turn;
@@ -1016,7 +1125,7 @@ final class GiftPacking {
 						}
 
 						$clear = true;
-						foreach ( $s['placed'] as $r ) {
+						foreach ( $placed as $r ) {
 							if ( $x < $r[0] + $r[2] && $r[0] < $x + $w && $y < $r[1] + $r[3] && $r[1] < $y + $d ) {
 								$clear = false;
 								break;
@@ -1027,6 +1136,8 @@ final class GiftPacking {
 							continue;
 						}
 
+						$s['steps']    = $steps;
+						$s['clock']    = $clock;
 						$s['placed'][] = array( $x, $y, $w, $d );
 						--$s['types'][ $t ]['count'];
 
@@ -1043,10 +1154,16 @@ final class GiftPacking {
 						if ( $s['stop'] ) {
 							return false;
 						}
+
+						$steps = $s['steps'];
+						$clock = $s['clock'];
 					}
 				}
 			}
 		}
+
+		$s['steps'] = $steps;
+		$s['clock'] = $clock;
 
 		if ( ! $s['stop'] && count( $s['dead'] ) < self::MEMO_LIMIT ) {
 			$s['dead'][ $key ] = true;

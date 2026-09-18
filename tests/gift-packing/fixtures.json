@@ -12,7 +12,10 @@
     "over": { "size": "over", "length": 5.004, "width": 5, "height": 3 },
     "odd-mm": { "size": "odd-mm", "length": 8.15, "width": 8.15, "height": 6.55 },
     "s-5000": { "size": "s", "length": 5, "width": 5, "height": 3 },
-    "s-5004": { "size": "s", "length": 5.004, "width": 5, "height": 3 }
+    "s-5004": { "size": "s", "length": 5.004, "width": 5, "height": 3 },
+    "slab": { "size": "slab", "length": 4.89, "width": 3.07, "height": 4.68 },
+    "plank": { "size": "plank", "length": 5.55, "width": 7.44, "height": 3.26 },
+    "100g-gift": { "size": "100g", "length": 6.5, "width": 6.5, "height": 7.5 }
   },
   "boxes": {
     "b14": { "id": "b14", "length": 14, "width": 11, "height": 9.5, "price": 12 },
@@ -42,8 +45,18 @@
     "ten5": { "id": "ten5", "length": 10, "width": 5, "height": 5, "price": 1 },
     "real-long": { "id": "real-long", "length": 24.44, "width": 8.94, "height": 7.94, "price": 25 },
     "real-square": { "id": "real-square", "length": 14.2, "width": 14.2, "height": 4.8, "price": 20 },
-    "real-square-lid": { "id": "real-square-lid", "length": 14.2, "width": 14.2, "height": 4.8, "overflow": 0.5, "price": 20 }
+    "real-square-lid": { "id": "real-square-lid", "length": 14.2, "width": 14.2, "height": 4.8, "overflow": 0.5, "price": 20 },
+    "shelf": { "id": "shelf", "length": 23.41, "width": 8.27, "height": 9.45, "price": 9 },
+    "wide-30": { "id": "wide-30", "length": 30, "width": 22, "height": 12, "price": 15 }
   },
+  "_known_readme": "fits_known(): true, false, or null when neither could be shown inside STEP_LIMIT + RETRY_LIMIT units of work. Work is counted the same way in both languages, so a null here is a null in both. Never turn a null into a refusal.",
+  "fits_known": [
+    { "name": "shelf: four slabs and three planks lie in two rows — only the second pass, with the footprints turned round, finds it", "box": "shelf", "candles": [["slab", 4], ["plank", 3]], "options": { "orientation": "lying" }, "expect": true },
+    { "name": "shelf: a fourth plank leaves no floor — proved, not guessed", "box": "shelf", "candles": [["slab", 4], ["plank", 4]], "options": { "orientation": "lying" }, "expect": false },
+    { "name": "30 x 22 x 12 with 7 x 190g + 1 x 50g: neither pass settles it, and it must not read as a refusal", "box": "wide-30", "candles": [["190g-gift", 7], ["50g-gift", 1]], "options": { "orientation": "lying" }, "expect": null },
+    { "name": "nothing to pack is a yes with nothing to search", "box": "shelf", "candles": [], "options": { "orientation": "lying" }, "expect": true },
+    { "name": "a candle taller than the box is a proved no, however long the search could run", "box": "b7", "candles": [["190g", 1]], "options": { "orientation": "upright" }, "expect": false }
+  ],
   "fits": [
     { "name": "box b14 takes 4 x 50g", "box": "b14", "candles": [["50g", 4]], "options": { "orientation": "upright", "gap": 0.5 }, "expect": true },
     { "name": "box b14 refuses 5 x 50g although the area would allow it", "box": "b14", "candles": [["50g", 5]], "options": { "orientation": "upright", "gap": 0.5 }, "expect": false },

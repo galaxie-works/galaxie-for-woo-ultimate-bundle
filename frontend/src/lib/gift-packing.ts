@@ -14,9 +14,11 @@
  *   ≤ the box height. `stacking` is accepted and ignored: one layer only.
  * - Footprints turn 90° on the floor if that helps.
  * - The floor search is exact over "normal pattern" corners in bottom-left
- *   order, with remembered failures and a conservative-scale bound, and gives
- *   up (says "does not fit") after STEP_LIMIT units of work — see GiftPacking.php for
- *   how often that happens.
+ *   order, with remembered failures and a conservative-scale bound. Past
+ *   STEP_LIMIT units of work the first pass gives up and a second runs with every
+ *   footprint turned the other way round for RETRY_LIMIT more; a search that
+ *   still has not finished is `null` from `fitsKnown()` — "not known", never
+ *   "does not fit". See GiftPacking.php.
  * - Sizes are compared in hundredths of a cm and prices in cents.
  *
  * Plain functions over plain data: no DOM, no imports, erasable TypeScript only
@@ -60,8 +62,11 @@ export interface Gift<C extends Candle = Candle, B extends Box = Box> {
   candles: C[]
 }
 
-/** Search work (states entered + corners tried) before `fits()` gives up and says no. */
-export const STEP_LIMIT = 250000
+/** Search work (states entered + corners tried) the first pass gets. */
+export const STEP_LIMIT = 300000
+
+/** Work the second pass gets, with every footprint turned the other way round. */
+export const RETRY_LIMIT = 75000
 
 /** Failed search states remembered per `fits()` call. */
 export const MEMO_LIMIT = 50000
@@ -94,12 +99,16 @@ interface Search {
   nodes: number
   steps: number
   dead: Set<string>
-  /** Past NODE_LIMIT, or `proved`: unwind without searching further. */
+  /** Past the pass's cap, or `proved`: unwind without searching further. */
   stop: boolean
   /** The conservative-scale bound showed the candles cannot fit. */
   proved: boolean
   /** Corners tried, for the clock. */
   clock: number
+  /** Work this pass may do. */
+  cap: number
+  /** Second pass: footprints laid long side along the box's length first. */
+  wide: boolean
 }
 
 /** performance.now() past which fits() gives up; null for no clock (the default). */
@@ -144,8 +153,21 @@ export function withDeadline<T>(ms: number, run: () => T): { value: T; expired: 
   }
 }
 
-/** Whether all these candles go in the box together. */
+/**
+ * Whether all these candles go in the box together; an unfinished search reads
+ * as "no". Only for the places where "not known" and "no" may be answered
+ * alike — never where a shopper is refused; those ask `fitsKnown()`.
+ */
 export function fits(box: Box, candles: Candle[], options: PackingOptions = {}): boolean {
+  return fitsKnown(box, candles, options) === true
+}
+
+/**
+ * Whether all these candles go in the box together: true, false, or null when
+ * the search ran out of work or of clock before it could tell. Null is not a
+ * refusal. See GiftPacking::fits_known().
+ */
+export function fitsKnown(box: Box, candles: Candle[], options: PackingOptions = {}): boolean | null {
   // Round against the fit: candles and gap up, the box down, so a converted
   // 5.004 cm candle never slips into a 5.00 cm box.
   const gap = up(options.gap ?? 0)
@@ -159,7 +181,7 @@ export function fits(box: Box, candles: Candle[], options: PackingOptions = {}):
 
   if ((max > 0 && n > max) || bx <= 0 || by <= 0 || bz <= 0) return false
 
-  if (late()) return false
+  if (late()) return null
 
   // Candles may stand a little proud of the base when the lid still closes over
   // them: usable height = height + overflow (the gap still applies).
@@ -217,9 +239,32 @@ export function fits(box: Box, candles: Candle[], options: PackingOptions = {}):
     stop: false,
     proved: false,
     clock: 0,
+    cap: STEP_LIMIT,
+    wide: false,
   }
 
-  return place(search, -1, n, area)
+  if (place(search, -1, n, area)) return true
+
+  if (!search.stop || search.proved) return false
+
+  // The first pass lays every footprint short side along the box's length; a
+  // shelf of elongated footprints wants the long side there instead, and the
+  // search walks past it for hundreds of thousands of steps. See
+  // GiftPacking::fits_known() for the measurement.
+  if (late()) return null
+
+  search.placed = []
+  search.dead = new Set<string>()
+  search.nodes = 0
+  search.steps = 0
+  search.clock = 0
+  search.stop = false
+  search.cap = RETRY_LIMIT
+  search.wide = true
+
+  if (place(search, -1, n, area)) return true
+
+  return search.stop && !search.proved ? null : false
 }
 
 /**
@@ -466,7 +511,7 @@ function place(s: Search, last: number, left: number, area: number): boolean {
 
   s.nodes++
 
-  if (++s.steps > STEP_LIMIT) {
+  if (++s.steps > s.cap) {
     s.stop = true
     return false
   }
@@ -505,10 +550,26 @@ function place(s: Search, last: number, left: number, area: number): boolean {
 
   if (s.dead.has(key)) return false
 
+  // The state's own copies: the corner loop reads them thousands of times.
+  const placed = s.placed
+  const xs = s.xs
+  const ys = s.ys
+  const bx = s.bx
+  const by = s.by
+  const cap = s.cap
+
+  // Set once per row of corners (see the free-floor bound below).
+  let at = -1
+  let y = 0
+  let top = 0
+  let deep = 0
+  let above = 0
+  let band: [number, number, number][] = []
+
   for (let idx = first; idx < cells; idx++) {
     // Work, not just states, is what the limit counts: a fine grid of corners
     // makes each state expensive.
-    if (++s.steps > STEP_LIMIT) {
+    if (++s.steps > cap) {
       s.stop = true
       return false
     }
@@ -520,19 +581,37 @@ function place(s: Search, last: number, left: number, area: number): boolean {
     }
 
     const row = Math.floor(idx / cols)
-    const x = s.xs[idx % cols]
-    const y = s.ys[row]
-    const top = row + 1 < s.ys.length ? s.ys[row + 1] : s.by
 
     // Everything left sits at or above this row, and not left of this corner
     // within it. If that much floor, less what is taken, is smaller than the
-    // candles left, no later corner helps either.
-    let free = s.bx * (s.by - y) - x * (top - y)
+    // candles left, no later corner helps either. Only the part left of the
+    // corner moves along a row, so the rest is worked out once when the row
+    // changes.
+    if (row !== at) {
+      at = row
+      y = ys[row]
+      top = row + 1 < ys.length ? ys[row + 1] : by
+      deep = top - y
+      above = bx * (by - y)
+      band = []
 
-    for (const r of s.placed) {
-      const high = Math.max(0, r[1] + r[3] - Math.max(r[1], y))
-      const wide = Math.max(0, Math.min(r[0] + r[2], x) - r[0])
-      free -= r[2] * high - wide * Math.max(0, Math.min(r[1] + r[3], top) - Math.max(r[1], y))
+      for (const r of placed) {
+        const base = r[1] > y ? r[1] : y
+        const rise = r[1] + r[3]
+
+        if (rise > base) above -= r[2] * (rise - base)
+
+        const cut = rise < top ? rise : top
+
+        if (cut > base) band.push([r[0], r[0] + r[2], cut - base])
+      }
+    }
+
+    const x = xs[idx % cols]
+    let free = above - x * deep
+
+    for (const r of band) {
+      if (r[0] < x) free += ((r[1] < x ? r[1] : x) - r[0]) * r[2]
     }
 
     if (area > free) break
@@ -541,13 +620,14 @@ function place(s: Search, last: number, left: number, area: number): boolean {
       if (type.count === 0) continue
 
       for (const shape of type.shapes) {
-        const turns: [number, number][] = shape[0] === shape[1] ? [[shape[0], shape[1]]] : [[shape[0], shape[1]], [shape[1], shape[0]]]
+        const turns: [number, number][] =
+          shape[0] === shape[1] ? [[shape[0], shape[1]]] : s.wide ? [[shape[1], shape[0]], [shape[0], shape[1]]] : [[shape[0], shape[1]], [shape[1], shape[0]]]
 
         for (const [w, d] of turns) {
           if (x + w > s.bx || y + d > s.by) continue
 
           let clear = true
-          for (const r of s.placed) {
+          for (const r of placed) {
             if (x < r[0] + r[2] && r[0] < x + w && y < r[1] + r[3] && r[1] < y + d) {
               clear = false
               break

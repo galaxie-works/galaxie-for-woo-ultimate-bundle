@@ -8,7 +8,7 @@
 import { readFileSync } from 'node:fs'
 import { isDeepStrictEqual } from 'node:util'
 
-import { arrange, cover, fits, room, summary } from '../../frontend/src/lib/gift-packing.ts'
+import { arrange, cover, fits, fitsKnown, room, summary } from '../../frontend/src/lib/gift-packing.ts'
 import type { Box, Candle, Gift, PackingOptions, SummaryRow } from '../../frontend/src/lib/gift-packing.ts'
 import { arrangeAll, cardFor, cleanMessage, fill, maxQuantity, messageLength, roomCounts, total, validate } from '../../frontend/src/lib/gift-groups.ts'
 import type { CardRow } from '../../frontend/src/lib/gift-groups.ts'
@@ -18,6 +18,7 @@ interface Fixtures {
   sizes: Record<string, Candle>
   boxes: Record<string, Box>
   fits: { name: string; box: string; candles: [string, number][]; options?: PackingOptions; expect: boolean }[]
+  fits_known: { name: string; box: string; candles: [string, number][]; options?: PackingOptions; expect: boolean | null }[]
   arrange: { name: string; candles: [string, number][]; boxes: string[]; options?: PackingOptions; expect: { box: string; candles: string[] }[] }[]
   room: { name: string; box: string; candles: [string, number][]; sizes: string[]; options?: PackingOptions; expect: string[] }[]
   summary: { name: string; box: string; sizes: string[]; options?: PackingOptions; expect: SummaryRow[] }[]
@@ -65,6 +66,14 @@ function check(group: string, name: string, actual: unknown, expect: unknown): v
 
 for (const c of fixtures.fits) {
   check('fits', c.name, fits(boxes[c.box], expand(c.candles), c.options ?? {}), c.expect)
+}
+
+// A search that ran out of work says so; fits() folds that into "no", and
+// nothing that refuses a shopper may use it.
+for (const c of fixtures.fits_known) {
+  const known = fitsKnown(boxes[c.box], expand(c.candles), c.options ?? {})
+  check('fits_known', c.name, known, c.expect)
+  check('fits_known', `${c.name} (fits() folds "not known" into "no")`, fits(boxes[c.box], expand(c.candles), c.options ?? {}), known === true)
 }
 
 const shape = (gifts: Gift[]) => gifts.map((gift) => ({ box: gift.box.id, candles: gift.candles.map((candle) => candle.size) }))
