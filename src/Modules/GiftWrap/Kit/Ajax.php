@@ -236,23 +236,27 @@ final class Ajax {
 				}
 
 				Store::ensure_session();
-				Store::put(
-					$kits->start(
-						Store::new_id(),
-						$user,
-						array(
-							'name'    => self::text( 'name' ),
-							'box'     => self::id( 'box' ),
-							'card'    => self::id( 'card' ),
-							'message' => self::text( 'message' ),
-							'candle'  => self::id( 'candle' ),
-							'qty'     => self::quantity( 'qty', 1 ),
-						),
-						$carts->kit_names(),
-						$carts->in_cart()
-					)
+
+				list( $started, $refused ) = $kits->start(
+					Store::new_id(),
+					$user,
+					array(
+						'name'    => self::text( 'name' ),
+						'box'     => self::id( 'box' ),
+						'card'    => self::id( 'card' ),
+						'message' => self::text( 'message' ),
+						'candle'  => self::id( 'candle' ),
+						'qty'     => self::quantity( 'qty', 1 ),
+					),
+					$carts->kit_names(),
+					$carts->in_cart()
 				);
-				return array();
+
+				Store::put( $started );
+
+				// The kit exists; the candle that could not join it is said out
+				// loud rather than taking the whole kit down with it.
+				return '' !== $refused ? array( 'notice' => $refused ) : array();
 
 			case 'discard':
 				Store::clear();

@@ -410,7 +410,11 @@ $call = static function ( string $action, array $fields = array(), ?string $nonc
 };
 
 $reset();
-$start = static fn( array $input, array $used = array() ): array => $kits->start( 'kit' . count( $used ), 0, $input, $used, array() );
+// start() answers with the draft and why its starting candle was refused, if it
+// was: the kit is made either way.
+$started = static fn( array $input, array $used = array() ): array => $kits->start( 'kit' . count( $used ), 0, $input, $used, array() );
+$start   = static fn( array $input, array $used = array() ): array => $started( $input, $used )[0];
+$refused = static fn( array $input ): string => $started( $input )[1];
 
 // start, names
 $draft = $start( array( 'name' => '', 'box' => 10 ) );
@@ -419,9 +423,12 @@ $check( 'start', 'no name with "Kit 1" in the cart: "Kit 2"', $start( array( 'bo
 $check( 'start', 'a typed name is kept, cut at 40', $start( array( 'name' => str_repeat( 'Stella ', 10 ), 'box' => 10 ) )['name'], 'Stella Stella Stella Stella Stella Stell' );
 $check( 'start', 'a box is required', $error( fn() => $start( array( 'name' => 'A' ) ) ), array( 'no_box', null ) );
 $check( 'start', 'an unknown box is refused', $error( fn() => $start( array( 'box' => 99 ) ) ), array( 'box_gone', null ) );
-$check( 'start', 'the starting candle must fit: 4 × 190g in the big box, 3 fit', $error( fn() => $start( array( 'box' => 10, 'candle' => 100, 'qty' => 4 ) ) ), array( 'no_room', 3 ) );
-$check( 'start', 'no 190g in the square box', $error( fn() => $start( array( 'box' => 11, 'candle' => 100, 'qty' => 1 ) ) ), array( 'no_room', 0 ) );
-$check( 'start', 'a product that is not a candle', $error( fn() => $start( array( 'box' => 10, 'candle' => 20, 'qty' => 1 ) ) ), array( 'not_candle', null ) );
+// A candle that cannot join is said out loud; the kit is still made, because
+// the name, the box, the card and the message are not the candle's to lose.
+$check( 'start', 'the starting candle must fit: 4 × 190g in the big box, 3 fit', array( '' !== $refused( array( 'box' => 10, 'candle' => 100, 'qty' => 4 ) ), $start( array( 'box' => 10, 'candle' => 100, 'qty' => 4 ) )['candles'] ), array( true, array() ) );
+$check( 'start', 'no 190g in the square box', array( '' !== $refused( array( 'box' => 11, 'candle' => 100, 'qty' => 1 ) ), $start( array( 'box' => 11, 'candle' => 100, 'qty' => 1 ) )['box'] ), array( true, 11 ) );
+$check( 'start', 'a product that is not a candle', array( '' !== $refused( array( 'box' => 10, 'candle' => 20, 'qty' => 1 ) ), $start( array( 'box' => 10, 'candle' => 20, 'qty' => 1 ) )['candles'] ), array( true, array() ) );
+$check( 'start', 'a candle that fits is not refused', array( $refused( array( 'box' => 10, 'candle' => 100, 'qty' => 2 ) ), $start( array( 'box' => 10, 'candle' => 100, 'qty' => 2 ) )['candles'] ), array( '', array( array( 'id' => 100, 'qty' => 2 ) ) ) );
 $draft = $start( array( 'name' => 'Stella', 'box' => 10, 'card' => 30, 'message' => 'Parabéns!', 'candle' => 100, 'qty' => 2 ) );
 $check( 'start', 'with box, card, message and 2 × 190g', array( $draft['box'], $draft['card'], $draft['message'], $draft['candles'] ), array( 10, 30, 'Parabéns!', array( array( 'id' => 100, 'qty' => 2 ) ) ) );
 
@@ -684,8 +691,8 @@ $check( 'labels', 'an older gift keeps its number', Groups::label( 2 ), 'Present
 
 // login merge
 $reset();
-Store::put( $kits->start( 'guestkit', 0, array( 'box' => 10, 'candle' => 101, 'qty' => 1 ), array(), array() ) );
-$GLOBALS['kt']['meta'][7][ Store::USER_META ] = $kits->start( 'oldkit', 7, array( 'name' => 'Antigo', 'box' => 10, 'candle' => 100, 'qty' => 2 ), array(), array() );
+Store::put( $kits->start( 'guestkit', 0, array( 'box' => 10, 'candle' => 101, 'qty' => 1 ), array(), array() )[0] );
+$GLOBALS['kt']['meta'][7][ Store::USER_META ] = $kits->start( 'oldkit', 7, array( 'name' => 'Antigo', 'box' => 10, 'candle' => 100, 'qty' => 2 ), array(), array() )[0];
 $GLOBALS['kt']['user'] = 7;
 ( new CartKits( $kits ) )->merge_login();
 $groups = Groups::groups( WC()->cart->get_cart_contents() );
@@ -700,21 +707,21 @@ $check( 'hint', 'logout clears it', kt_cookie( Store::HINT_COOKIE ), null );
 $check( 'login', 'nothing happens twice', count( Groups::groups( WC()->cart->get_cart_contents() ) ), 1 );
 
 $reset();
-Store::put( $kits->start( 'guestkit', 0, array( 'box' => 10 ), array(), array() ) );
-$GLOBALS['kt']['meta'][7][ Store::USER_META ] = $kits->start( 'emptyold', 7, array( 'box' => 10 ), array(), array() );
+Store::put( $kits->start( 'guestkit', 0, array( 'box' => 10 ), array(), array() )[0] );
+$GLOBALS['kt']['meta'][7][ Store::USER_META ] = $kits->start( 'emptyold', 7, array( 'box' => 10 ), array(), array() )[0];
 $GLOBALS['kt']['user'] = 7;
 ( new CartKits( $kits ) )->merge_login();
 $check( 'login', 'an empty old draft is dropped silently', array( Store::get()['id'], WC()->cart->get_cart_contents(), Store::take_notices() ), array( 'guestkit', array(), array() ) );
 
 $reset();
-$GLOBALS['kt']['meta'][7][ Store::USER_META ] = $kits->start( 'acct', 7, array( 'box' => 10 ), array(), array() );
+$GLOBALS['kt']['meta'][7][ Store::USER_META ] = $kits->start( 'acct', 7, array( 'box' => 10 ), array(), array() )[0];
 $GLOBALS['kt']['user'] = 7;
 ( new CartKits( $kits ) )->merge_login();
 $check( 'login', 'no guest draft: the account\'s is the draft', Store::get()['id'], 'acct' );
 
 $reset();
-Store::put( $kits->start( 'guestkit', 0, array( 'box' => 10 ), array(), array() ) );
-$GLOBALS['kt']['meta'][7][ Store::USER_META ] = $kits->start( 'soldout', 7, array( 'name' => 'Velho', 'box' => 11, 'candle' => 101, 'qty' => 1 ), array(), array() );
+Store::put( $kits->start( 'guestkit', 0, array( 'box' => 10 ), array(), array() )[0] );
+$GLOBALS['kt']['meta'][7][ Store::USER_META ] = $kits->start( 'soldout', 7, array( 'name' => 'Velho', 'box' => 11, 'candle' => 101, 'qty' => 1 ), array(), array() )[0];
 $catalog->boxes[11]['stock'] = 0;
 $GLOBALS['kt']['user'] = 7;
 ( new CartKits( $kits ) )->merge_login();

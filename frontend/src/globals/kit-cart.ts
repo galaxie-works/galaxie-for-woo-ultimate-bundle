@@ -13,7 +13,7 @@
 
 import { ask, tell } from '@/lib/dialog'
 import { refreshFragments, jq } from '@/globals/cart-fragments'
-import { kitCall, kitConfig } from '@/globals/kit-store'
+import { kitCall, kitConfig, kitText } from '@/globals/kit-store'
 import type { KitAnswer } from '@/globals/kit-store'
 import { canOpenKit, openKit } from '@/globals/kit-open'
 
@@ -57,7 +57,7 @@ export function refreshCart(answer?: KitAnswer | null): void {
 async function edit(group: string, from: Element): Promise<void> {
   // Taking the kit out of the cart only makes sense if its popup can open.
   if (!canOpenKit()) {
-    await tell(from, 'kit_edit', { fallback: 'Não foi possível abrir o kit agora. Tente de novo em instantes.' })
+    await tell(from, 'kit_edit', { text: kitText('edit_closed'), fallback: kitText('edit_closed') })
     return
   }
 
@@ -71,13 +71,13 @@ async function edit(group: string, from: Element): Promise<void> {
   }
 
   if (!result.ok) {
-    await tell(from, 'kit_edit', { text: result.data?.message, fallback: 'Não foi possível editar o kit.' })
+    await tell(from, 'kit_edit', { text: result.data?.message || kitText('edit_failed'), fallback: kitText('edit_failed') })
     return
   }
 
   refreshCart(result.data)
   if (!openKit({ screen: 'summary' })) {
-    await tell(from, 'kit_edit', { fallback: 'O kit saiu do carrinho para edição. Abra-o pelo botão do kit.' })
+    await tell(from, 'kit_edit', { text: kitText('edit_done'), fallback: kitText('edit_done') })
   }
 }
 

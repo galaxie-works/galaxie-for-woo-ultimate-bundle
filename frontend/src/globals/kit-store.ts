@@ -141,6 +141,8 @@ export interface KitAnswer {
   kit: KitView | null
   nonce: string
   notices?: string[]
+  /** Something worth saying on the screen the answer opens, not in a toast. */
+  notice?: string
   catalog?: KitCatalog
   pending?: KitPending | null
   pendingError?: string
@@ -274,14 +276,19 @@ export async function refreshKit(extra: { catalog?: boolean; pendingId?: number;
   }
 }
 
-const offline: KitResult = { ok: false, data: { kit: null, nonce: '', message: 'Não foi possível falar com a loja. Tente de novo.' } }
+/** A sentence the merchant wrote, wherever the kit speaks outside the builder. */
+export function kitText(key: string, fallback = ''): string {
+  return kitConfig()?.texts?.[key] ?? fallback
+}
+
+const offline = (): KitResult => ({ ok: false, data: { kit: null, nonce: '', message: kitText('offline', 'Não foi possível falar com a loja. Tente de novo.') } })
 
 /**
  * One change to the kit. A refusal for the nonce itself (403, or WordPress's
  * bare "-1") gets one retry with a nonce asked for again.
  */
 export async function kitCall(action: string, data: Record<string, string | number> = {}): Promise<KitResult> {
-  if (!config) return offline
+  if (!config) return offline()
 
   let busyTries = 0
 
@@ -294,7 +301,7 @@ export async function kitCall(action: string, data: Record<string, string | numb
       if ((status === 403 || text.trim() === '-1') && attempt === 0) continue
 
       const json = parse(text)
-      if (!json) return offline
+      if (!json) return offline()
 
       const answer = (json.data ?? null) as KitAnswer | null
 
@@ -315,11 +322,11 @@ export async function kitCall(action: string, data: Record<string, string | numb
 
       return { ok: !!json.success, data: answer }
     } catch {
-      return offline
+      return offline()
     }
   }
 
-  return offline
+  return offline()
 }
 
 /** The candles of a kit, one per unit (those still sold). */

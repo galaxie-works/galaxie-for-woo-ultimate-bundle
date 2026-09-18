@@ -83,11 +83,21 @@ final class Kits {
 		$draft = $this->set_card( $draft, (int) ( $input['card'] ?? 0 ) );
 		$draft = $this->set_message( $draft, (string) ( $input['message'] ?? '' ) );
 
+		// The candle the shopper came with is the one thing here that can go away
+		// between the product page and this request. Losing it must not lose the
+		// name, the box, the card and the message with it: the kit is kept and
+		// the candle is reported on its own.
+		$refused = '';
+
 		if ( ! empty( $input['candle'] ) ) {
-			$draft = $this->add_candle( $draft, (int) $input['candle'], (int) ( $input['qty'] ?? 1 ), $in_cart );
+			try {
+				$draft = $this->add_candle( $draft, (int) $input['candle'], (int) ( $input['qty'] ?? 1 ), $in_cart );
+			} catch ( KitError $error ) {
+				$refused = $error->getMessage();
+			}
 		}
 
-		return $draft;
+		return array( $draft, $refused );
 	}
 
 	/**
@@ -129,7 +139,9 @@ final class Kits {
 		}
 
 		if ( $draft['card'] && ! $this->catalog->card_for( (int) $draft['card'], $box ) ) {
-			throw new KitError( 'card_size', __( 'O cartão deste kit não existe para essa caixa.', 'galaxie-woo' ) );
+			// A refusal with no way out is a dead end: the shopper cannot guess that
+			// the card is what stands between them and the box they want.
+			throw new KitError( 'card_size', __( 'O cartão deste kit não existe para essa caixa. Troque o cartão (ou siga sem cartão) e escolha a caixa de novo.', 'galaxie-woo' ) );
 		}
 
 		$draft['box'] = $box;

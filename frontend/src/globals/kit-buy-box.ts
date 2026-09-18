@@ -26,7 +26,7 @@ import { BUDGET_MS, fillText } from '@/lib/gift-kit'
 import { tell } from '@/lib/dialog'
 import { blockedByChoice, findAlert, missingChoice, wooChoiceNotice } from '@/globals/buy-box-alert'
 import { celebrate, openKit } from '@/globals/kit-open'
-import { currentKit, kitCall, kitConfig, kitLoaded, kitUnits, kitValues, onKit, showKitToast } from '@/globals/kit-store'
+import { currentKit, kitCall, kitConfig, kitLoaded, kitText, kitUnits, kitValues, onKit, showKitToast } from '@/globals/kit-store'
 import type { KitView } from '@/globals/kit-store'
 
 interface ButtonState {
@@ -151,7 +151,7 @@ async function add(state: ButtonState, kit: KitView): Promise<void> {
   paint(state)
 
   if (!result.ok) {
-    say(form, result.data?.message || 'Não foi possível adicionar ao kit.')
+    say(form, result.data?.message || kitText('add_failed'))
     return
   }
 
@@ -212,7 +212,7 @@ function init(holder: HTMLElement): void {
 
     // A variation that is not a candle (no size or no packing size): say so.
     if (!id || !candles[String(id)]) {
-      say(form, 'Este produto não entra em kits.')
+      say(form, kitText('not_candle'))
       return
     }
 
