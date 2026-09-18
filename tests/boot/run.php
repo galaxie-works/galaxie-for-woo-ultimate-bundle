@@ -319,6 +319,26 @@ function galaxie_boot_kit( array $booted, array $scenario, callable $hooked ): s
 			}
 		}
 
+		// The fill bar is drawn once, wherever it was sent — three call sites, one
+		// bar, or the script would fill whichever it found first.
+		if ( 'editor_screen' === $key ) {
+			foreach ( array( 'foot' => 1, 'above' => 1, 'below' => 1, '' => 0 ) as $place => $wanted ) {
+				$widget->settings = array( $key => 'summary', 'fill_place' => $place );
+				$bars             = substr_count( $widget->render_for_test(), 'data-kit-fill' );
+
+				if ( $wanted !== $bars ) {
+					throw new RuntimeException( "Kit: fill bar in '{$place}' drawn {$bars} times, expected {$wanted}" );
+				}
+			}
+
+			$widget->settings = array( $key => 'summary', 'fill_place' => 'above' );
+			$above            = $widget->render_for_test();
+
+			if ( ! preg_match( '/galaxie-kit-summary">.*?data-kit-fill.*?data-kit-summary-name/s', $above ) ) {
+				throw new RuntimeException( 'Kit: "above the kit name" should put the bar before the name field' );
+			}
+		}
+
 		// The summary's fill bar, total and buttons sit after the content panel:
 		// only the panel scrolls, and those three must stay in view.
 		if ( 'editor_screen' === $key ) {
