@@ -705,6 +705,15 @@ form.galaxie-buybox .galaxie-kit-button[aria-disabled="true"] {
   animation: galaxie-kit-step-fade var(--galaxie-kit-step-ms, 240ms) ease both;
 }
 
+/* A label that wraps changes the indicator's height, which changes the content's
+   height — the jumping the frame height was fixed to stop. */
+.galaxie-kit-step-label {
+  overflow: hidden;
+  max-width: 100%;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .galaxie-kit-step-dot {
   transition:
     background-color 0.2s ease,

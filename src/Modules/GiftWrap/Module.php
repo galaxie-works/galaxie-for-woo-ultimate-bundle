@@ -65,6 +65,12 @@ final class Module implements ModuleContract, ProvidesBootData, ProvidesElemento
 		'kit_text_room_many'     => 'Ainda cabem {combos}',
 		'kit_text_room_one'      => 'Ainda cabe {combos}',
 		'kit_text_room_nofit'    => 'Esta caixa não comporta nenhuma vela da loja. Escolha outra caixa.',
+		'kit_text_offline'       => 'Não foi possível falar com a loja. Tente de novo.',
+		'kit_text_add_failed'    => 'Não foi possível adicionar ao kit.',
+		'kit_text_not_candle'    => 'Este produto não entra em kits.',
+		'kit_text_edit_closed'   => 'Não foi possível abrir o kit agora. Tente de novo em instantes.',
+		'kit_text_edit_failed'   => 'Não foi possível editar o kit.',
+		'kit_text_edit_done'     => 'O kit saiu do carrinho para edição. Abra-o pelo botão do kit.',
 		'kit_text_full'          => 'Caixa completa! 🎉',
 		'kit_text_box_holds'     => 'Leva até {combos}',
 		'kit_text_added'         => 'Adicionada ao kit {kit}. {room}',
@@ -140,7 +146,7 @@ final class Module implements ModuleContract, ProvidesBootData, ProvidesElemento
 	public function boot_data(): array {
 		$texts = array();
 
-		foreach ( array( 'room_many', 'room_one', 'room_nofit', 'full', 'box_holds', 'added' ) as $key ) {
+		foreach ( array( 'room_many', 'room_one', 'room_nofit', 'full', 'box_holds', 'added', 'offline', 'add_failed', 'not_candle', 'edit_closed', 'edit_failed', 'edit_done' ) as $key ) {
 			$texts[ $key ] = (string) self::setting( 'kit_text_' . $key );
 		}
 
@@ -471,6 +477,43 @@ final class Module implements ModuleContract, ProvidesBootData, ProvidesElemento
 				default: self::DEFAULTS['kit_text_room_nofit']
 			),
 			new Field(
+				key: 'kit_text_offline',
+				label: __( 'The shop did not answer', 'galaxie-woo' ),
+				type: Field::TYPE_TEXT,
+				description: __( 'Said wherever the kit is changed: the popup, a product page, the cart.', 'galaxie-woo' ),
+				default: self::DEFAULTS['kit_text_offline']
+			),
+			new Field(
+				key: 'kit_text_add_failed',
+				label: __( 'Adding to the kit failed', 'galaxie-woo' ),
+				type: Field::TYPE_TEXT,
+				default: self::DEFAULTS['kit_text_add_failed']
+			),
+			new Field(
+				key: 'kit_text_not_candle',
+				label: __( 'A product that cannot go in a kit', 'galaxie-woo' ),
+				type: Field::TYPE_TEXT,
+				default: self::DEFAULTS['kit_text_not_candle']
+			),
+			new Field(
+				key: 'kit_text_edit_closed',
+				label: __( 'Editing a kit with no popup to open', 'galaxie-woo' ),
+				type: Field::TYPE_TEXT,
+				default: self::DEFAULTS['kit_text_edit_closed']
+			),
+			new Field(
+				key: 'kit_text_edit_failed',
+				label: __( 'Editing a kit failed', 'galaxie-woo' ),
+				type: Field::TYPE_TEXT,
+				default: self::DEFAULTS['kit_text_edit_failed']
+			),
+			new Field(
+				key: 'kit_text_edit_done',
+				label: __( 'The kit left the cart but the popup did not open', 'galaxie-woo' ),
+				type: Field::TYPE_TEXT,
+				default: self::DEFAULTS['kit_text_edit_done']
+			),
+			new Field(
 				key: 'kit_text_full',
 				label: __( 'Box full', 'galaxie-woo' ),
 				type: Field::TYPE_TEXT,
@@ -549,7 +592,7 @@ final class Module implements ModuleContract, ProvidesBootData, ProvidesElemento
 			}
 		}
 
-		foreach ( array( 'kit_text_room_many', 'kit_text_room_one', 'kit_text_room_nofit', 'kit_text_full', 'kit_text_box_holds', 'kit_text_added' ) as $key ) {
+		foreach ( array( 'kit_text_room_many', 'kit_text_room_one', 'kit_text_room_nofit', 'kit_text_full', 'kit_text_box_holds', 'kit_text_added', 'kit_text_offline', 'kit_text_add_failed', 'kit_text_not_candle', 'kit_text_edit_closed', 'kit_text_edit_failed', 'kit_text_edit_done' ) as $key ) {
 			if ( '' === trim( (string) $values[ $key ] ) ) {
 				$values[ $key ] = self::DEFAULTS[ $key ];
 			}

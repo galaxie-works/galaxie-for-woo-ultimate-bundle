@@ -158,6 +158,8 @@ function create(root: HTMLElement): Controller {
   let catalog: KitCatalog | null = null
   let pending: KitPending | null = null
   let busy = false
+  /** True between "add and start another" and the empty stepper it opens. */
+  let starting_new = false
   let form = { name: '', box: 0, card: -1, message: '' }
   let messageTimer = 0
 
@@ -274,6 +276,19 @@ function create(root: HTMLElement): Controller {
       void panel.offsetWidth
       panel.classList.toggle('is-back', back)
       panel.classList.add('is-arriving')
+    }
+
+    // Focus was left on a button that is now display:none, which drops it to the
+    // top of the document: a keyboard or a screen reader lost the wizard at
+    // every step. It moves to the arriving screen's title instead, and only
+    // when the shopper was inside the popup to begin with.
+    if (moved && panel && root.contains(document.activeElement)) {
+      const heading = panel.querySelector<HTMLElement>('[data-slot="title"]')
+
+      if (heading) {
+        heading.tabIndex = -1
+        heading.focus({ preventScroll: true })
+      }
     }
 
     const index = ['name', 'box', 'card', 'continue'].indexOf(next)
@@ -784,15 +799,26 @@ function create(root: HTMLElement): Controller {
       return
     }
 
+    // The kit leaves the draft the moment the server answers, and redraw() would
+    // send the popup to the welcome screen on the way to the next one — a flash
+    // of a screen nobody asked for, at a different height.
+    starting_new = again
+
     const answer = await change(again ? 'to_cart_and_new' : 'to_cart')
-    if (!answer) return
+
+    if (!answer) {
+      starting_new = false
+      return
+    }
 
     if (again) {
       catalog = (await refreshKit({ catalog: true }))?.catalog ?? catalog
       form = { name: '', box: 0, card: -1, message: '' }
       pending = null
+      starting_new = false
       go('name')
     } else {
+      starting_new = false
       closePopup(root)
     }
   }
@@ -879,6 +905,8 @@ function create(root: HTMLElement): Controller {
       if (!catalog) return
 
       drawPrevious()
+
+      if (starting_new) return
 
       // A kit that went away elsewhere (another tab, the cart) leaves the summary.
       if (!kit && screen === 'summary') {
