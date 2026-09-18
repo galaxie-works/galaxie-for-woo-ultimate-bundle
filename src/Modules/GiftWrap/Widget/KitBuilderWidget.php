@@ -679,6 +679,48 @@ final class KitBuilderWidget extends Widget_Base {
 		PixfortControls::text( $this, 'count', array( 'size' => 'text-xs', 'bold' => '' ), array(), '{{WRAPPER}} .galaxie-kit-count', 'text', array( 'inline', 'position' ) );
 		PixfortControls::palette_control( $this, 'count_over', __( 'Colour past the limit', 'galaxie-woo' ), '{{WRAPPER}} .is-over .galaxie-kit-count', 'color' );
 
+		// The two the shopper types in, on the screen they spend time on. The box
+		// around them is the shared one under "Name and message fields"; what
+		// they write, and how tall the message is, belong here.
+		$this->heading( 'summary_name_heading', __( 'The kit\'s name field', 'galaxie-woo' ) );
+		PixfortControls::text( $this, 'summary_name', array( 'bold' => '' ), array(), '{{WRAPPER}} [data-kit-summary-name]', 'text', array( 'inline', 'position' ) );
+		$this->add_responsive_control(
+			'summary_name_height',
+			array(
+				'label'      => __( 'Height', 'galaxie-woo' ),
+				'type'       => Controls_Manager::SLIDER,
+				'size_units' => array( 'px', 'rem' ),
+				'range'      => array( 'px' => array( 'min' => 28, 'max' => 90 ) ),
+				'selectors'  => array( '{{WRAPPER}} [data-kit-summary-name]' => 'min-height: {{SIZE}}{{UNIT}};' ),
+			)
+		);
+
+		$this->heading( 'summary_msg_heading', __( 'The message box', 'galaxie-woo' ) );
+		PixfortControls::text( $this, 'summary_msg', array( 'bold' => '' ), array(), '{{WRAPPER}} [data-kit-summary-message]', 'text', array( 'inline', 'position' ) );
+		$this->add_responsive_control(
+			'summary_msg_height',
+			array(
+				'label'      => __( 'Height', 'galaxie-woo' ),
+				'type'       => Controls_Manager::SLIDER,
+				'size_units' => array( 'px', 'rem' ),
+				'range'      => array( 'px' => array( 'min' => 40, 'max' => 320 ) ),
+				'selectors'  => array( '{{WRAPPER}} [data-kit-summary-message]' => 'min-height: {{SIZE}}{{UNIT}};' ),
+			)
+		);
+		$this->add_control(
+			'summary_msg_resize',
+			array(
+				'label'     => __( 'Let it be dragged taller', 'galaxie-woo' ),
+				'type'      => Controls_Manager::SELECT,
+				'default'   => 'vertical',
+				'options'   => array(
+					'vertical' => __( 'Yes', 'galaxie-woo' ),
+					'none'     => __( 'No', 'galaxie-woo' ),
+				),
+				'selectors' => array( '{{WRAPPER}} [data-kit-summary-message]' => 'resize: {{VALUE}};' ),
+			)
+		);
+
 		$this->heading( 'line_thumb_heading', __( 'Picture', 'galaxie-woo' ) );
 		PixfortControls::thumb( $this, 'line_thumb', '{{WRAPPER}} .galaxie-kit-row .galaxie-kit-thumb', array( 'rounded' => 'custom', 'size' => 48, 'radius' => 8 ) );
 
@@ -713,6 +755,51 @@ final class KitBuilderWidget extends Widget_Base {
 			'',
 			array( 'style', 'max' )
 		);
+		// What the shared set does not carry, because in the cart and on the
+		// product page the theme's own spinner supplies it: the box's corners and
+		// shadow, the space inside it, and how big the two buttons are.
+		$this->add_control(
+			'kit_qty_shadow',
+			array(
+				'label'                => __( 'Shadow', 'galaxie-woo' ),
+				'type'                 => Controls_Manager::SELECT,
+				'default'              => '',
+				'options'              => array(
+					''       => __( 'As it is', 'galaxie-woo' ),
+					'none'   => __( 'None', 'galaxie-woo' ),
+					'small'  => __( 'Small', 'galaxie-woo' ),
+					'normal' => __( 'Medium', 'galaxie-woo' ),
+					'large'  => __( 'Large', 'galaxie-woo' ),
+				),
+				'selectors_dictionary' => array(
+					'none'   => 'none',
+					'small'  => 'var(--pix-box-shadow-sm, 0 1px 5px 0 rgba(0,0,0,.15))',
+					'normal' => 'var(--pix-box-shadow, 0 5px 20px 0 rgba(0,0,0,.1))',
+					'large'  => 'var(--pix-box-shadow-lg, 0 10px 40px 0 rgba(0,0,0,.15))',
+				),
+				'selectors'            => array( '{{WRAPPER}} .galaxie-kit-stepper' => 'box-shadow: {{VALUE}};' ),
+			)
+		);
+		$this->add_responsive_control(
+			'kit_qty_gap',
+			array(
+				'label'      => __( 'Space inside', 'galaxie-woo' ),
+				'type'       => Controls_Manager::SLIDER,
+				'size_units' => array( 'px', 'rem' ),
+				'range'      => array( 'px' => array( 'min' => 0, 'max' => 30 ) ),
+				'selectors'  => array( '{{WRAPPER}} .galaxie-kit-stepper' => 'gap: {{SIZE}}{{UNIT}}; padding-left: {{SIZE}}{{UNIT}}; padding-right: {{SIZE}}{{UNIT}};' ),
+			)
+		);
+		$this->add_responsive_control(
+			'kit_qty_step_size',
+			array(
+				'label'      => __( 'Size of the two buttons', 'galaxie-woo' ),
+				'type'       => Controls_Manager::SLIDER,
+				'size_units' => array( 'px' ),
+				'range'      => array( 'px' => array( 'min' => 16, 'max' => 64 ) ),
+				'selectors'  => array( '{{WRAPPER}} .galaxie-kit-qty-step' => 'width: {{SIZE}}{{UNIT}}; height: {{SIZE}}{{UNIT}};' ),
+			)
+		);
 		PixfortControls::icon_color( $this, 'qty_icon_color', __( 'Icon color', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-kit-qty-step' );
 		$this->add_responsive_control(
 			'qty_icon_size',
@@ -734,6 +821,7 @@ final class KitBuilderWidget extends Widget_Base {
 		PixfortControls::surface( $this, 'field', '{{WRAPPER}} .galaxie-kit-input', array( 'rounded' => 'custom' ) );
 		$this->heading( 'field_text_heading', __( 'Typed text', 'galaxie-woo' ) );
 		PixfortControls::palette_control( $this, 'field_text', __( 'Text color', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-kit-input', 'color' );
+		PixfortControls::palette_control( $this, 'field_placeholder', __( 'Placeholder color', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-kit-input::placeholder', 'color' );
 		// The two states the field had no way to show: the one the shopper is in,
 		// and the one the message counter already marks on the label around it.
 		$this->heading( 'field_state_heading', __( 'States', 'galaxie-woo' ) );
@@ -1477,7 +1565,7 @@ final class KitBuilderWidget extends Widget_Base {
 		$max = (int) Module::setting( 'card_message_max' );
 
 		printf(
-			'<label class="galaxie-kit-field" data-kit-%1$s-wrap%2$s><span class="galaxie-kit-small galaxie-kit-label %3$s">%4$s</span><textarea class="galaxie-kit-input %8$s" rows="3" data-kit-%1$s placeholder="%5$s">%6$s</textarea><span class="galaxie-kit-count %9$s" data-kit-%1$s-count>%7$s</span></label>',
+			'<label class="galaxie-kit-field" data-kit-%1$s-wrap%2$s><span class="galaxie-kit-small galaxie-kit-label %3$s">%4$s</span><textarea class="galaxie-kit-input %8$s %10$s" rows="3" data-kit-%1$s placeholder="%5$s">%6$s</textarea><span class="galaxie-kit-count %9$s" data-kit-%1$s-count>%7$s</span></label>',
 			esc_attr( $slot ),
 			$hidden ? ' hidden' : '',
 			esc_attr( PixfortControls::text_classes( $settings, 'summary' === $slot || 'summary-message' === $slot ? 'summary_label' : 'small' ) ),
@@ -1486,7 +1574,8 @@ final class KitBuilderWidget extends Widget_Base {
 			esc_textarea( $message ),
 			esc_html( GiftGroups::message_length( $message ) . '/' . $max ),
 			esc_attr( PixfortControls::surface_classes( $settings, 'field' ) ),
-			esc_attr( PixfortControls::text_classes( $settings, 'count' ) )
+			esc_attr( PixfortControls::text_classes( $settings, 'count' ) ),
+			esc_attr( 'summary-message' === $slot ? PixfortControls::text_classes( $settings, 'summary_msg' ) : '' )
 		);
 	}
 
@@ -1525,13 +1614,14 @@ final class KitBuilderWidget extends Widget_Base {
 		$this->fill_bar( $settings, $sample, 'above' );
 
 		printf(
-			'<label class="galaxie-kit-field"><span class="galaxie-kit-small galaxie-kit-label %1$s">%2$s</span><input type="text" class="galaxie-kit-input %6$s" data-kit-summary-name maxlength="%3$d" placeholder="%4$s" value="%5$s" autocomplete="off" /></label>',
+			'<label class="galaxie-kit-field"><span class="galaxie-kit-small galaxie-kit-label %1$s">%2$s</span><input type="text" class="galaxie-kit-input %6$s %7$s" data-kit-summary-name maxlength="%3$d" placeholder="%4$s" value="%5$s" autocomplete="off" /></label>',
 			$small, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped above.
 			esc_html( $texts['summary_name'] ),
 			(int) GiftKit::NAME_MAX,
 			esc_attr( $texts['name_placeholder'] ),
 			esc_attr( $sample ? $sample['name'] : '' ),
-			esc_attr( PixfortControls::surface_classes( $settings, 'field' ) )
+			esc_attr( PixfortControls::surface_classes( $settings, 'field' ) ),
+			esc_attr( PixfortControls::text_classes( $settings, 'summary_name' ) )
 		);
 
 		$this->fill_bar( $settings, $sample, 'below' );

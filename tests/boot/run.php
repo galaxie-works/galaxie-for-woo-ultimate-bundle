@@ -332,6 +332,8 @@ function galaxie_boot_kit( array $booted, array $scenario, callable $hooked ): s
 				'total_value_size'    => 'h3',
 				'count_size'          => 'text-xs',
 				'room_size'           => 'h5',
+				'summary_name_size'   => 'text-lg',
+				'summary_msg_size'    => 'text-sm',
 			);
 			$dressed          = $widget->render_for_test();
 
@@ -343,6 +345,8 @@ function galaxie_boot_kit( array $booted, array $scenario, callable $hooked ): s
 				'galaxie-kit-total-value h3'       => 'the total',
 				'galaxie-kit-count text-xs'        => 'the message counter',
 				'h5" data-slot="room'              => 'the room sentence',
+				'text-lg" data-kit-summary-name'   => 'the kit name field',
+				'text-sm" rows="3" data-kit-summary-message' => 'the message box',
 			);
 
 			foreach ( $wanted as $needle => $what ) {
