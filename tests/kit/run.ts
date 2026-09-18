@@ -8,16 +8,16 @@
 import { readFileSync } from 'node:fs'
 import { isDeepStrictEqual } from 'node:util'
 
-import { cleanName, combos, defaultName, fillText, wording } from '../../frontend/src/lib/gift-kit.ts'
+import { BUDGET_MS, cleanName, combos, defaultName, fillText, wording } from '../../frontend/src/lib/gift-kit.ts'
 import type { Combos, Wording } from '../../frontend/src/lib/gift-kit.ts'
-import { fits } from '../../frontend/src/lib/gift-packing.ts'
+import { fits, MAX_ITEMS } from '../../frontend/src/lib/gift-packing.ts'
 import type { Box, Candle } from '../../frontend/src/lib/gift-packing.ts'
 
 interface Fixtures {
   sizes: Record<string, Candle>
   boxes: Record<string, Box>
   labels: Record<string, string>
-  combos: { name: string; box: string; candles: [string, number][]; sizes: string[]; expect: Combos; wording: Wording }[]
+  combos: { name: string; box: string; candles: [string, number][]; sizes: string[]; budget_ms?: number; expect: Combos; wording: Wording }[]
   wording: { name: string; combos: Combos; labels: Record<string, string>; expect: Wording }[]
   fill: { name: string; text: string; values: Record<string, string>; expect: string }[]
   clean_name: { name: string; name_in: string; expect: string }[]
@@ -44,7 +44,9 @@ function check(group: string, name: string, actual: unknown, expect: unknown): v
 }
 
 for (const c of fixtures.combos) {
-  const found = combos(boxes[c.box], expand(c.candles), c.sizes.map((s) => sizes[s]))
+  // A case may pin the budget: 0 is "the clock was already out", the branch a
+  // wall-clock fixture could never reach the same way on every machine.
+  const found = combos(boxes[c.box], expand(c.candles), c.sizes.map((s) => sizes[s]), {}, c.budget_ms ?? BUDGET_MS)
   check('combos', c.name, found, c.expect)
   check('combos wording', c.name, wording(found, fixtures.labels), c.wording)
 }
@@ -64,13 +66,16 @@ for (const c of fixtures.timing) {
   let truth = true
 
   for (const row of found.singles) {
-    const size = sizes[row[0].size]
+    const entry = row.entries[0]
+    const size = sizes[entry.size]
     const withN = (n: number): Candle[] => [...inside, ...Array.from({ length: n }, () => size)]
-    truth = truth && row.length === 1 && fits(box, withN(row[0].count)) && (row[0].count + 1 > room || !fits(box, withN(row[0].count + 1)))
+    truth = truth && row.entries.length === 1 && fits(box, withN(entry.count)) && (entry.count + 1 > room || !fits(box, withN(entry.count + 1)))
+    // A capped row is where the search stops, and only there.
+    truth = truth && row.capped === (inside.length + entry.count >= MAX_ITEMS)
   }
 
   for (const row of found.mixes) {
-    truth = truth && fits(box, [...inside, ...row.flatMap((entry) => Array.from({ length: entry.count }, () => sizes[entry.size]))])
+    truth = truth && fits(box, [...inside, ...row.entries.flatMap((entry) => Array.from({ length: entry.count }, () => sizes[entry.size]))])
   }
 
   check('timing', `${c.name}: every size listed is its exact most, every mix fits`, truth, true)

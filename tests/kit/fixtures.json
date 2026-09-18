@@ -9,6 +9,7 @@
     "big": { "id": "big", "length": 24.44, "width": 8.94, "height": 7.94, "price": 10 },
     "square": { "id": "square", "length": 14.2, "width": 14.2, "height": 4.8, "overflow": 0.5, "price": 10 },
     "big-max2": { "id": "big-max2", "length": 24.44, "width": 8.94, "height": 7.94, "max": 2, "price": 10 },
+    "big-max1": { "id": "big-max1", "length": 24.44, "width": 8.94, "height": 7.94, "max": 1, "price": 10 },
     "tiny": { "id": "tiny", "length": 5, "width": 5, "height": 5, "price": 1 },
     "wide-24": { "id": "wide-24", "length": 24, "width": 16, "height": 8, "price": 12 },
     "wide-30": { "id": "wide-30", "length": 30, "width": 22, "height": 12, "price": 15 }
@@ -19,118 +20,136 @@
       "name": "big box, empty: both sizes alone, then the two fullest mixes",
       "box": "big", "candles": [], "sizes": ["50g", "190g"],
       "expect": {
-        "singles": [[{ "size": "190g", "count": 3 }], [{ "size": "50g", "count": 4 }]],
-        "mixes": [[{ "size": "190g", "count": 2 }, { "size": "50g", "count": 1 }], [{ "size": "190g", "count": 1 }, { "size": "50g", "count": 3 }]], "complete": true
+        "singles": [{ "entries": [{ "size": "190g", "count": 3 }], "capped": false }, { "entries": [{ "size": "50g", "count": 4 }], "capped": false }],
+        "mixes": [{ "entries": [{ "size": "190g", "count": 2 }, { "size": "50g", "count": 1 }], "capped": false }, { "entries": [{ "size": "190g", "count": 1 }, { "size": "50g", "count": 3 }], "capped": false }], "complete": true, "settled": true
       },
       "wording": { "state": "many", "combos": "3 × 190g ou 4 × 50g ou 2 × 190g + 1 × 50g ou 1 × 190g + 3 × 50g" }
     },
     {
       "name": "big box with 2 × 190g: one more of either, no mix",
       "box": "big", "candles": [["190g", 2]], "sizes": ["190g", "50g"],
-      "expect": { "singles": [[{ "size": "190g", "count": 1 }], [{ "size": "50g", "count": 1 }]], "mixes": [], "complete": true },
+      "expect": { "singles": [{ "entries": [{ "size": "190g", "count": 1 }], "capped": false }, { "entries": [{ "size": "50g", "count": 1 }], "capped": false }], "mixes": [], "complete": true, "settled": true },
       "wording": { "state": "many", "combos": "1 × 190g ou 1 × 50g" }
     },
     {
       "name": "big box with 3 × 190g: full",
       "box": "big", "candles": [["190g", 3]], "sizes": ["190g", "50g"],
-      "expect": { "singles": [], "mixes": [], "complete": true },
+      "expect": { "singles": [], "mixes": [], "complete": true, "settled": true },
       "wording": { "state": "full", "combos": "" }
     },
     {
       "name": "big box with 1 × 190g + 2 × 50g: only one 50g fits",
       "box": "big", "candles": [["190g", 1], ["50g", 2]], "sizes": ["190g", "50g"],
-      "expect": { "singles": [[{ "size": "50g", "count": 1 }]], "mixes": [], "complete": true },
+      "expect": { "singles": [{ "entries": [{ "size": "50g", "count": 1 }], "capped": false }], "mixes": [], "complete": true, "settled": true },
       "wording": { "state": "one", "combos": "1 × 50g" }
     },
     {
       "name": "big box with 1 × 50g: sizes alone and mixes around it",
       "box": "big", "candles": [["50g", 1]], "sizes": ["190g", "50g"],
       "expect": {
-        "singles": [[{ "size": "190g", "count": 2 }], [{ "size": "50g", "count": 3 }]],
-        "mixes": [[{ "size": "190g", "count": 1 }, { "size": "50g", "count": 2 }]], "complete": true
+        "singles": [{ "entries": [{ "size": "190g", "count": 2 }], "capped": false }, { "entries": [{ "size": "50g", "count": 3 }], "capped": false }],
+        "mixes": [{ "entries": [{ "size": "190g", "count": 1 }, { "size": "50g", "count": 2 }], "capped": false }], "complete": true, "settled": true
       },
       "wording": { "state": "many", "combos": "2 × 190g ou 3 × 50g ou 1 × 190g + 2 × 50g" }
     },
     {
       "name": "square box (overflow 0.5), empty: 50g only",
       "box": "square", "candles": [], "sizes": ["190g", "50g"],
-      "expect": { "singles": [[{ "size": "50g", "count": 4 }]], "mixes": [], "complete": true },
+      "expect": { "singles": [{ "entries": [{ "size": "50g", "count": 4 }], "capped": false }], "mixes": [], "complete": true, "settled": true },
       "wording": { "state": "many", "combos": "4 × 50g" }
     },
     {
       "name": "square box with 3 × 50g: one more",
       "box": "square", "candles": [["50g", 3]], "sizes": ["190g", "50g"],
-      "expect": { "singles": [[{ "size": "50g", "count": 1 }]], "mixes": [], "complete": true },
+      "expect": { "singles": [{ "entries": [{ "size": "50g", "count": 1 }], "capped": false }], "mixes": [], "complete": true, "settled": true },
       "wording": { "state": "one", "combos": "1 × 50g" }
     },
     {
       "name": "square box with 2 × 50g: two more is not 'cabe'",
       "box": "square", "candles": [["50g", 2]], "sizes": ["190g", "50g"],
-      "expect": { "singles": [[{ "size": "50g", "count": 2 }]], "mixes": [], "complete": true },
+      "expect": { "singles": [{ "entries": [{ "size": "50g", "count": 2 }], "capped": false }], "mixes": [], "complete": true, "settled": true },
       "wording": { "state": "many", "combos": "2 × 50g" }
     },
     {
       "name": "box limited to 2 candles: the limit is the mix",
       "box": "big-max2", "candles": [], "sizes": ["190g", "50g"],
       "expect": {
-        "singles": [[{ "size": "190g", "count": 2 }], [{ "size": "50g", "count": 2 }]],
-        "mixes": [[{ "size": "190g", "count": 1 }, { "size": "50g", "count": 1 }]], "complete": true
+        "singles": [{ "entries": [{ "size": "190g", "count": 2 }], "capped": false }, { "entries": [{ "size": "50g", "count": 2 }], "capped": false }],
+        "mixes": [{ "entries": [{ "size": "190g", "count": 1 }, { "size": "50g", "count": 1 }], "capped": false }], "complete": true, "settled": true
       },
       "wording": { "state": "many", "combos": "2 × 190g ou 2 × 50g ou 1 × 190g + 1 × 50g" }
     },
     {
       "name": "box limited to 2 candles, holding 2: full whatever the space",
       "box": "big-max2", "candles": [["50g", 2]], "sizes": ["190g", "50g"],
-      "expect": { "singles": [], "mixes": [], "complete": true },
+      "expect": { "singles": [], "mixes": [], "complete": true, "settled": true },
       "wording": { "state": "full", "combos": "" }
     },
     {
       "name": "a box nothing fits in",
       "box": "tiny", "candles": [], "sizes": ["190g", "50g"],
-      "expect": { "singles": [], "mixes": [], "complete": true },
+      "expect": { "singles": [], "mixes": [], "complete": true, "settled": true },
       "wording": { "state": "full", "combos": "" }
     },
     {
-      "name": "no sizes known",
+      "name": "no sizes known: nothing was searched, so nothing is known",
       "box": "big", "candles": [], "sizes": [],
-      "expect": { "singles": [], "mixes": [], "complete": true },
+      "expect": { "singles": [], "mixes": [], "complete": false, "settled": false },
+      "wording": { "state": "unknown", "combos": "" }
+    },
+    {
+      "name": "a box that takes more than the search counts: twelve is where it stopped, not where the box did",
+      "box": "wide-30", "candles": [], "sizes": ["50g"],
+      "expect": { "singles": [{ "entries": [{ "size": "50g", "count": 12 }], "capped": true }], "mixes": [], "complete": true, "settled": true },
+      "wording": { "state": "many", "combos": "12 × 50g ou mais" }
+    },
+    {
+      "name": "no budget at all: every check comes back unknown, and an unknown box is never a full one",
+      "box": "big", "candles": [], "sizes": ["190g", "50g"], "budget_ms": 0,
+      "expect": { "singles": [], "mixes": [], "complete": false, "settled": false },
+      "wording": { "state": "unknown", "combos": "" }
+    },
+    {
+      "name": "a box limited to one candle holding it: full, and a real limit never reads 'ou mais'",
+      "box": "big-max1", "candles": [["50g", 1]], "sizes": ["190g", "50g"],
+      "expect": { "singles": [], "mixes": [], "complete": true, "settled": true },
       "wording": { "state": "full", "combos": "" }
     }
   ],
   "wording": [
     {
       "name": "labels replace size keys",
-      "combos": { "singles": [[{ "size": "pa-190", "count": 2 }]], "mixes": [[{ "size": "pa-190", "count": 1 }, { "size": "pa-50", "count": 1 }]] },
+      "combos": { "singles": [{ "entries": [{ "size": "pa-190", "count": 2 }], "capped": false }], "mixes": [{ "entries": [{ "size": "pa-190", "count": 1 }, { "size": "pa-50", "count": 1 }], "capped": false }] },
       "labels": { "pa-190": "190 g", "pa-50": "50 g" },
       "expect": { "state": "many", "combos": "2 × 190 g ou 1 × 190 g + 1 × 50 g" }
     },
     {
       "name": "a size without a label keeps its key",
-      "combos": { "singles": [[{ "size": "x", "count": 1 }]], "mixes": [] },
+      "combos": { "singles": [{ "entries": [{ "size": "x", "count": 1 }], "capped": false }], "mixes": [] },
       "labels": {},
       "expect": { "state": "one", "combos": "1 × x" }
     },
     {
       "name": "one row of two is 'many'",
-      "combos": { "singles": [], "mixes": [[{ "size": "a", "count": 1 }, { "size": "b", "count": 1 }]] },
+      "combos": { "singles": [], "mixes": [{ "entries": [{ "size": "a", "count": 1 }, { "size": "b", "count": 1 }], "capped": false }] },
       "labels": {},
       "expect": { "state": "many", "combos": "1 × a + 1 × b" }
     },
     {
       "name": "two rows of one each is 'many'",
-      "combos": { "singles": [[{ "size": "a", "count": 1 }], [{ "size": "b", "count": 1 }]], "mixes": [] },
+      "combos": { "singles": [{ "entries": [{ "size": "a", "count": 1 }], "capped": false }, { "entries": [{ "size": "b", "count": 1 }], "capped": false }], "mixes": [] },
       "labels": {},
       "expect": { "state": "many", "combos": "1 × a ou 1 × b" }
     },
     {
       "name": "nothing settled in time: unknown, never full",
-      "combos": { "singles": [], "mixes": [], "complete": false },
+      "combos": { "singles": [], "mixes": [], "complete": false, "settled": false },
       "labels": {},
       "expect": { "state": "unknown", "combos": "" }
     },
     {
       "name": "one candle of a settled size, another size unknown: not 'cabe'",
-      "combos": { "singles": [[{ "size": "a", "count": 1 }]], "mixes": [], "complete": false },
+      "combos": { "singles": [{ "entries": [{ "size": "a", "count": 1 }], "capped": false }], "mixes": [], "complete": false, "settled": false },
       "labels": {},
       "expect": { "state": "many", "combos": "1 × a" }
     },
@@ -139,6 +158,36 @@
       "combos": { "singles": [], "mixes": [] },
       "labels": {},
       "expect": { "state": "full", "combos": "" }
+    },
+    {
+      "name": "every size settled but the mixes not searched: nothing listed is not 'completa'",
+      "combos": { "singles": [], "mixes": [], "complete": true, "settled": false },
+      "labels": {},
+      "expect": { "state": "unknown", "combos": "" }
+    },
+    {
+      "name": "one size settled, the mixes not searched: 'cabe' would promise there is nothing else",
+      "combos": { "singles": [{ "entries": [{ "size": "a", "count": 1 }], "capped": false }], "mixes": [], "complete": true, "settled": false },
+      "labels": {},
+      "expect": { "state": "many", "combos": "1 × a" }
+    },
+    {
+      "name": "a capped row reads 'ou mais', never a number the search never reached",
+      "combos": { "singles": [{ "entries": [{ "size": "a", "count": 12 }], "capped": true }], "mixes": [], "complete": true, "settled": true },
+      "labels": {},
+      "expect": { "state": "many", "combos": "12 × a ou mais" }
+    },
+    {
+      "name": "a capped row of one is still not 'cabe'",
+      "combos": { "singles": [{ "entries": [{ "size": "a", "count": 1 }], "capped": true }], "mixes": [], "complete": true, "settled": true },
+      "labels": {},
+      "expect": { "state": "many", "combos": "1 × a ou mais" }
+    },
+    {
+      "name": "a capped mix names every size in it",
+      "combos": { "singles": [], "mixes": [{ "entries": [{ "size": "a", "count": 8 }, { "size": "b", "count": 4 }], "capped": true }], "labels": {}, "complete": true, "settled": true },
+      "labels": {},
+      "expect": { "state": "many", "combos": "8 × a + 4 × b ou mais" }
     }
   ],
   "_timing_readme": "combos() must answer within max_ms (budget 250 ms plus overhead) on boxes where an unbudgeted search took seconds (review of PR #21: 6.7 s / 28.8 s / 3.8 s in PHP). Whatever it lists is checked without a budget: each single size fits at its count and not at one more.",

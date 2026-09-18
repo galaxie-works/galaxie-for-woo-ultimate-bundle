@@ -93,6 +93,17 @@ function textTarget(el: Element | null): Element | null {
   return node
 }
 
+/**
+ * The words of a message line. The element the widget marks (`data-kit-error`,
+ * `data-kit-box-none`) is the wrapper, because it is what gets hidden; pixfort's
+ * Alert lives inside it and keeps its words in a `.pix-alert-title`. Writing to
+ * the wrapper would replace the alert with a bare string the first time
+ * something went wrong.
+ */
+function setMessage(el: Element | null, text: string): void {
+  setText(el?.querySelector('.pix-alert-title') ?? el, text)
+}
+
 /** The text node inside pixfort's button markup whose words are the label. */
 function labelTarget(button: Element): Element | null {
   let node: Element | null = button
@@ -155,7 +166,7 @@ function create(root: HTMLElement): Controller {
   // ------------------------------------------------------------------ helpers
 
   function error(text: string): void {
-    setText(errorBox, text)
+    setMessage(errorBox, text)
     if (errorBox) errorBox.hidden = !text
   }
 
@@ -237,7 +248,13 @@ function create(root: HTMLElement): Controller {
 
   // ------------------------------------------------------------------ screens
 
+  /** Where a screen sits in the stepper; the summary and the welcome are off it. */
+  const order: Screen[] = ['welcome', 'name', 'box', 'card', 'continue', 'summary']
+
   function go(next: Screen): void {
+    const back = order.indexOf(next) < order.indexOf(screen)
+    const moved = next !== screen
+
     screen = next
     error('')
 
@@ -245,8 +262,21 @@ function create(root: HTMLElement): Controller {
       el.hidden = name !== next
     })
 
-    const order: Screen[] = ['name', 'box', 'card', 'continue']
-    const index = order.indexOf(next)
+    // Only the arriving panel moves: the frame, the step indicator and the
+    // buttons are the furniture, and furniture that slides is what made the
+    // popup feel like it was jumping. The class is ours because pixfort's own
+    // animation fires once per element and never replays.
+    const panel = screens.get(next)?.querySelector<HTMLElement>('[data-kit-content]')
+
+    if (panel && moved) {
+      panel.classList.remove('is-arriving', 'is-back')
+      // Reading the layout between the two makes the browser start over.
+      void panel.offsetWidth
+      panel.classList.toggle('is-back', back)
+      panel.classList.add('is-arriving')
+    }
+
+    const index = ['name', 'box', 'card', 'continue'].indexOf(next)
     const stepped = mode === 'new' && index >= 0
 
     if (steps) {
@@ -389,8 +419,16 @@ function create(root: HTMLElement): Controller {
     list.replaceChildren(...nodes.filter((node): node is HTMLElement => !!node))
 
     if (none) {
-      const text = !catalog.boxes.length ? (texts.box_empty ?? '') : usable ? '' : fillText(texts.box_none ?? '', { candles: candlesText() })
-      setText(none, text)
+      // With no candle chosen there is nothing to name in "Nenhuma caixa comporta
+      // {candles}", and the sentence came out broken.
+      const text = !catalog.boxes.length
+        ? (texts.box_empty ?? '')
+        : usable
+          ? ''
+          : units.length
+            ? fillText(texts.box_none ?? '', { candles: candlesText() })
+            : (texts.box_none_any ?? '')
+      setMessage(none, text)
       none.hidden = !text
     }
 
@@ -512,6 +550,11 @@ function create(root: HTMLElement): Controller {
     const warning = el.querySelector<HTMLElement>('[data-kit-warning]')
     if (warning) warning.hidden = !kit.warnings.includes('card_without_message')
 
+    // The card that no longer exists for this box: the summary used to say
+    // "Sem cartão", hide the message and let the cart do the refusing.
+    const cardWarning = el.querySelector<HTMLElement>('[data-kit-card-warning]')
+    if (cardWarning) cardWarning.hidden = !kit.warnings.includes('card_missing')
+
     const list = el.querySelector<HTMLElement>('[data-kit-candles]')
     const empty = el.querySelector<HTMLElement>('[data-kit-candles-empty]')
     if (list) {
@@ -526,10 +569,16 @@ function create(root: HTMLElement): Controller {
             setText(slot(node, 'qty'), String(line.qty))
             setImage(slot<HTMLImageElement>(node, 'image'), line.image)
 
+            // A candle the shop no longer sells cannot be counted up or down —
+            // only removed — and the line says so instead of looking ordinary.
+            const gone = node.querySelector<HTMLElement>('[data-kit-gone]')
+            if (gone) gone.hidden = !line.missing
+            node.classList.toggle('is-gone', line.missing)
+
             node.querySelectorAll<HTMLButtonElement>('[data-step]').forEach((button) => {
               const step = Number(button.dataset.step)
               const next = line.qty + step
-              button.disabled = busy || (step > 0 && next > line.cap) || next < 0
+              button.disabled = busy || line.missing || (step > 0 && next > line.cap) || next < 0
 
               button.addEventListener('click', (event) => {
                 event.preventDefault()
@@ -748,7 +797,7 @@ function create(root: HTMLElement): Controller {
     let result = await kitCall('restore_previous')
 
     if (!result.ok && result.data?.reason === 'needs_confirm') {
-      const yes = await ask(trigger, 'kit_restore', result.data.message ?? '')
+      const yes = await ask(trigger, 'kit_restore', { text: result.data.message ?? '', fallback: result.data.message ?? '' })
       if (!yes) return
       result = await kitCall('restore_previous', { confirm: 1 })
     }
@@ -766,7 +815,8 @@ function create(root: HTMLElement): Controller {
     const kit = currentKit()
     if (!kit) return
 
-    const yes = await ask(trigger, 'kit_discard', fillText(texts.discard_confirm ?? '', { kit: kit.name }))
+    // The dialog carries the merchant's own sentence; {kit} is filled there.
+    const yes = await ask(trigger, 'kit_discard', { fallback: `Descartar o kit ${kit.name}? Isso não pode ser desfeito.`, fill: { kit: kit.name } })
     if (!yes) return
 
     if (await change('discard')) go('welcome')
@@ -833,6 +883,13 @@ function create(root: HTMLElement): Controller {
       }
 
       if (kit && !previous && screen === 'welcome') {
+        go('summary')
+        return
+      }
+
+      // A kit created in another tab used to leave this one stuck on step 3,
+      // repeating the same refusal for ever: there is a kit now, so show it.
+      if (kit && !previous && mode === 'new' && ['name', 'box', 'card'].includes(screen)) {
         go('summary')
         return
       }

@@ -283,7 +283,9 @@ $expand = static function ( array $pairs ) use ( $fixtures ): array {
 
 foreach ( $fixtures['combos'] as $case ) {
 	$sizes = array_map( static fn( string $s ): array => $fixtures['sizes'][ $s ], $case['sizes'] );
-	$found = GiftKit::combos( $fixtures['boxes'][ $case['box'] ], $expand( $case['candles'] ), $sizes );
+	// A case may pin the budget: 0 is "the clock was already out", the branch a
+	// wall-clock fixture could never reach the same way on every machine.
+	$found = GiftKit::combos( $fixtures['boxes'][ $case['box'] ], $expand( $case['candles'] ), $sizes, array(), (float) ( $case['budget_ms'] ?? GiftKit::BUDGET_MS ) );
 	$check( 'combos', $case['name'], $found, $case['expect'] );
 	$check( 'combos wording', $case['name'], GiftKit::wording( $found, $fixtures['labels'] ), $case['wording'] );
 }
@@ -304,14 +306,17 @@ foreach ( $fixtures['timing'] as $case ) {
 	$true = true;
 
 	foreach ( $found['singles'] as $row ) {
-		$size = $fixtures['sizes'][ $row[0]['size'] ] ?? null;
-		$with = static fn( int $n ): array => array_merge( $inside, array_fill( 0, $n, $size ) );
-		$true = $true && 1 === count( $row ) && GiftPacking::fits( $box, $with( $row[0]['count'] ) ) && ( $row[0]['count'] + 1 > $room || ! GiftPacking::fits( $box, $with( $row[0]['count'] + 1 ) ) );
+		$entry = $row['entries'][0];
+		$size  = $fixtures['sizes'][ $entry['size'] ] ?? null;
+		$with  = static fn( int $n ): array => array_merge( $inside, array_fill( 0, $n, $size ) );
+		$true  = $true && 1 === count( $row['entries'] ) && GiftPacking::fits( $box, $with( $entry['count'] ) ) && ( $entry['count'] + 1 > $room || ! GiftPacking::fits( $box, $with( $entry['count'] + 1 ) ) );
+		// A capped row is where the search stops, and only there.
+		$true = $true && $row['capped'] === ( count( $inside ) + $entry['count'] >= GiftPacking::MAX_ITEMS );
 	}
 
 	foreach ( $found['mixes'] as $row ) {
 		$group = $inside;
-		foreach ( $row as $entry ) {
+		foreach ( $row['entries'] as $entry ) {
 			$group = array_merge( $group, array_fill( 0, $entry['count'], $fixtures['sizes'][ $entry['size'] ] ) );
 		}
 		$true = $true && GiftPacking::fits( $box, $group );

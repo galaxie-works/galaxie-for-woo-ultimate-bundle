@@ -254,28 +254,15 @@ final class KitProgressWidget extends Widget_Base {
 		$this->end_controls_section();
 
 		$this->start_controls_section( 'kit_progress_bar_style', $style( __( 'Bar', 'galaxie-woo' ), array( 'show_bar' => 'yes' ) ) );
-		PixfortControls::palette_control( $this, 'progress_track', __( 'Track', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-kit-progress-track', 'background-color' );
-		PixfortControls::palette_control( $this, 'progress_fill', __( 'Fill', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-kit-progress-fill', 'background-color' );
-		PixfortControls::palette_control( $this, 'progress_fill_done', __( 'Fill when full', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-kit-progress.is-full .galaxie-kit-progress-fill', 'background-color' );
-		$this->add_responsive_control(
-			'progress_bar_height',
-			array(
-				'label'      => __( 'Height', 'galaxie-woo' ),
-				'type'       => Controls_Manager::SLIDER,
-				'size_units' => array( 'px' ),
-				'range'      => array( 'px' => array( 'min' => 2, 'max' => 32 ) ),
-				'selectors'  => array( '{{WRAPPER}} .galaxie-kit-progress-track' => 'height: {{SIZE}}{{UNIT}};' ),
-			)
-		);
-		$this->add_responsive_control(
-			'progress_bar_radius',
-			array(
-				'label'      => __( 'Border radius', 'galaxie-woo' ),
-				'type'       => Controls_Manager::SLIDER,
-				'size_units' => array( 'px' ),
-				'range'      => array( 'px' => array( 'min' => 0, 'max' => 20 ) ),
-				'selectors'  => array( '{{WRAPPER}} .galaxie-kit-progress-track, {{WRAPPER}} .galaxie-kit-progress-fill' => 'border-radius: {{SIZE}}{{UNIT}};' ),
-			)
+		// Same ids as before, now from the shared set: "full" and "reached" are
+		// one state under two widgets' words, so only the label is this widget's.
+		PixfortControls::progress(
+			$this,
+			'progress',
+			'{{WRAPPER}} .galaxie-kit-progress-track',
+			'{{WRAPPER}} .galaxie-kit-progress-fill',
+			'{{WRAPPER}} .galaxie-kit-progress.is-full .galaxie-kit-progress-fill',
+			array( 'done_label' => __( 'Fill when full', 'galaxie-woo' ) )
 		);
 		$this->end_controls_section();
 

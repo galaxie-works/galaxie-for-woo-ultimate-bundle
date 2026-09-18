@@ -388,7 +388,11 @@ final class Kits {
 			$extras = array();
 
 			foreach ( $combos['singles'] as $row ) {
-				$extras[ (string) $row[0]['size'] ] = (int) $row[0]['count'];
+				$entry = $row['entries'][0] ?? null;
+
+				if ( $entry ) {
+					$extras[ (string) $entry['size'] ] = (int) $entry['count'];
+				}
 			}
 
 			return array(
