@@ -60,12 +60,41 @@ function scopeUtilities(): Plugin {
 // Builds the React island bundle to the plugin's committed asset dir
 // (../assets/dist). Fixed filenames (no hash) so PHP can enqueue them by a
 // stable path; cache-busting is done PHP-side with filemtime().
+/**
+ * Fails the build when a chunk imports an entry file.
+ *
+ * WordPress loads the entries with `?ver=…` on their URL. A chunk importing
+ * `../galaxie-kit.js` would load a second copy of that module (another URL),
+ * with its own kit store and a second boot. Entries must stay boot-only; what
+ * chunks share lives in chunks (see manualChunks).
+ */
+function entriesStayLeaves(): Plugin {
+  return {
+    name: 'galaxie-entries-stay-leaves',
+    enforce: 'post',
+    generateBundle(_options, bundle) {
+      const entries = new Set(
+        Object.values(bundle)
+          .filter((file) => file.type === 'chunk' && file.isEntry)
+          .map((file) => file.fileName)
+      )
+
+      for (const file of Object.values(bundle)) {
+        if (file.type !== 'chunk') continue
+
+        const bad = [...file.imports, ...file.dynamicImports].filter((name) => entries.has(name))
+        if (bad.length) this.error(`${file.fileName} imports the entry ${bad.join(', ')}: move the shared code into a chunk (manualChunks).`)
+      }
+    },
+  }
+}
+
 export default defineConfig({
   // Relative, so the lazy chunks (the phone field's library, see lib/phone.ts)
   // load from beside galaxie.js and the flag sprites resolve from beside
   // galaxie.css, wherever WordPress serves the plugin from.
   base: './',
-  plugins: [react(), tailwindcss(), scopeUtilities()],
+  plugins: [react(), tailwindcss(), scopeUtilities(), entriesStayLeaves()],
   resolve: {
     alias: {
       '@': path.resolve(import.meta.dirname, 'src'),
@@ -76,7 +105,14 @@ export default defineConfig({
     emptyOutDir: true,
     manifest: false,
     rollupOptions: {
-      input: path.resolve(import.meta.dirname, 'src/main.tsx'),
+      // Two entries: everything (galaxie.js), and the kit flow alone
+      // (galaxie-kit.js) for pages whose only Galaxie part is the kit launcher.
+      // Code both use goes into shared chunks, one module per URL, so a page
+      // with both still has one kit store.
+      input: {
+        galaxie: path.resolve(import.meta.dirname, 'src/main.tsx'),
+        'galaxie-kit': path.resolve(import.meta.dirname, 'src/kit.ts'),
+      },
       output: {
         // ES-module output so CSS is emitted as a separate, cacheable
         // `galaxie.css` (an IIFE build inlines the CSS into the JS). The entry
@@ -84,7 +120,15 @@ export default defineConfig({
         // Support\Assets). Its only code-split chunks are dynamic imports that
         // it loads itself, relative to its own URL; none of them may import
         // CSS, which all goes into the one `galaxie.css`.
-        entryFileNames: 'galaxie.js',
+        entryFileNames: '[name].js',
+        // The kit's modules (all but the lazily loaded builder) and the pure
+        // gift libraries in one hashed chunk, so the builder chunk imports
+        // them from there and never from an entry file.
+        manualChunks(id) {
+          if (/[\/]src[\/]globals[\/]kit-(?!builder)[a-z-]+\.ts$/.test(id)) return 'kit-core'
+          if (/[\/]src[\/]lib[\/](gift-[a-z-]+|pix-popup)\.ts$/.test(id)) return 'kit-core'
+          return undefined
+        },
         chunkFileNames: 'chunks/[name]-[hash].js',
         assetFileNames: (info) =>
           info.name?.endsWith('.css') ? 'galaxie.css' : 'assets/[name]-[hash][extname]',

@@ -28,6 +28,13 @@ function ensureToaster(): void {
   toasterMounted = true
 }
 
+/** A toast from module code (the kit's "Adicionada ao kit…"), with the same look. */
+export function showToast(message: string, variant: ToastVariant = 'success'): void {
+  if (!message) return
+  ensureToaster()
+  toast(message, { variant })
+}
+
 function convert(el: Element): void {
   const cls = Object.keys(VARIANT_BY_CLASS).find((c) => el.classList.contains(c))
   if (!cls) return

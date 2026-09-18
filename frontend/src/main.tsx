@@ -50,6 +50,9 @@ function boot(): void {
     (window as unknown as { __GALAXIE_WOO__?: GalaxieConfig }).__GALAXIE_WOO__ ?? {}
 
   bootBuyBox(config.variationSwatches?.buyBox)
+
+  // The kit flow is its own entry (kit.ts, `galaxie-kit.js`), loaded wherever
+  // the kit popup is set up.
   bootVariationBadgesWidget(config.variationSwatches?.buyBox)
   bootQuantityDiscounts()
   bootCartCountdown()

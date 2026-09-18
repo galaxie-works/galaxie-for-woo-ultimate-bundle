@@ -476,6 +476,30 @@ form.galaxie-buybox .single_add_to_cart_button:hover {
   transform: translateY(calc(-1 * var(--galaxie-hover-lift, 0px))) !important;
 }
 
+/* The same control, on the buttons we print ourselves. The variable is set on
+   pixfort's own button element by the Hover lift control; without a rule to
+   consume it the control moved nothing in the kit, the kit progress bar or any
+   dialog — fourteen sliders that did nothing. */
+.galaxie-kit-btn .btn,
+.galaxie-kit-progress-btn .btn,
+.galaxie-dialog-button .btn {
+  transition: transform 0.2s ease;
+}
+
+.galaxie-kit-btn:hover .btn,
+.galaxie-kit-progress-btn:hover .btn,
+.galaxie-dialog-button:hover .btn {
+  transform: translateY(calc(-1 * var(--galaxie-hover-lift, 0px)));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .galaxie-kit-btn .btn,
+  .galaxie-kit-progress-btn .btn,
+  .galaxie-dialog-button .btn {
+    transition: none;
+  }
+}
+
 /* The Add button on a quantity-discount row.
 
    Same split as the Buy Box: our element is only the click target and pixfort's
@@ -581,6 +605,531 @@ form.galaxie-buybox .galaxie-buybox-row a.added_to_cart {
 form.galaxie-buybox .galaxie-buybox-alert .alert,
 form.galaxie-buybox .galaxie-buybox-gift .alert {
   margin-bottom: 0;
+}
+
+/* "Montar um kit ou presente" (Gift Wrap module, kit flow). Hidden, not
+   removed, until the kit is known: the label comes from the kit endpoint. */
+form.galaxie-buybox .galaxie-buybox-kit {
+  display: flex;
+  flex-direction: column;
+}
+
+form.galaxie-buybox .galaxie-buybox-kit.is-loading {
+  visibility: hidden;
+}
+
+form.galaxie-buybox .galaxie-buybox-kit[hidden] {
+  display: none !important;
+}
+
+form.galaxie-buybox .galaxie-kit-button:disabled,
+form.galaxie-buybox .galaxie-kit-button[aria-disabled="true"] {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* The Galaxie Kit Builder, inside its pixfort popup. Three blocks stand in its
+   column — the steps, the step's content and its buttons — and the <section>
+   that groups a screen's two blocks is a pass-through, so the merchant can
+   spread all three against the popup's height. `hidden` still wins over
+   `display: contents`, so the screens that are not on stay off. */
+.galaxie-kit-screen {
+  display: contents;
+}
+
+.galaxie-kit-builder,
+.galaxie-kit-content,
+.galaxie-kit-summary,
+.galaxie-kit-choices,
+.galaxie-kit-lines,
+.galaxie-kit-field {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.galaxie-kit-builder {
+  gap: 16px;
+}
+
+.galaxie-kit-content {
+  gap: 16px;
+  /* So a capped builder can shrink it instead of overflowing the popup. */
+  min-height: 0;
+}
+
+.galaxie-kit-summary,
+.galaxie-kit-choices,
+.galaxie-kit-lines {
+  gap: 10px;
+}
+
+.galaxie-kit-field {
+  gap: 4px;
+  margin: 0;
+}
+
+/* A step arrives; the frame, the indicator and the buttons do not move. The
+   animation is ours rather than pixfort's: theirs fires once per element and
+   never replays, which is no use to a stepper, and it ignores reduced motion. */
+@keyframes galaxie-kit-step-forward {
+  from {
+    opacity: 0;
+    transform: translateX(10px);
+  }
+}
+
+@keyframes galaxie-kit-step-back {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+}
+
+@keyframes galaxie-kit-step-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+.galaxie-kit-motion--slide .galaxie-kit-content.is-arriving {
+  animation: galaxie-kit-step-forward var(--galaxie-kit-step-ms, 240ms) cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.galaxie-kit-motion--slide .galaxie-kit-content.is-arriving.is-back {
+  animation-name: galaxie-kit-step-back;
+}
+
+.galaxie-kit-motion--fade .galaxie-kit-content.is-arriving,
+.galaxie-kit-motion--fade .galaxie-kit-content.is-arriving.is-back {
+  animation: galaxie-kit-step-fade var(--galaxie-kit-step-ms, 240ms) ease both;
+}
+
+/* A label that wraps changes the indicator's height, which changes the content's
+   height — the jumping the frame height was fixed to stop. */
+.galaxie-kit-step-label {
+  overflow: hidden;
+  max-width: 100%;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.galaxie-kit-step-dot {
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .galaxie-kit-content.is-arriving,
+  .galaxie-kit-content.is-arriving.is-back {
+    animation: none;
+  }
+
+  .galaxie-kit-step-dot {
+    transition: none;
+  }
+}
+
+/* The frame never outgrows what the visitor can see, whatever unit the maximum
+   height was set in — a phone with its keyboard open would otherwise push the
+   buttons off-screen, and only the content panel scrolls. */
+.galaxie-kit-builder {
+  max-height: 100dvh;
+}
+
+/* A minimum height keeps the popup from resizing between steps, but on a short
+   screen — a phone with its keyboard open — it would push the buttons out of
+   reach, and only the content panel scrolls. */
+@media (max-height: 560px) {
+  .galaxie-kit-builder {
+    min-height: 0 !important;
+  }
+}
+
+/* Five buttons in a row become five ragged lines on a phone. */
+@media (max-width: 480px) {
+  .galaxie-kit-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .galaxie-kit-actions > *,
+  .galaxie-kit-actions .galaxie-kit-btn {
+    width: 100%;
+  }
+}
+
+.galaxie-kit-builder [hidden],
+.galaxie-kit-progress [hidden],
+.galaxie-kit-progress[hidden] {
+  display: none !important;
+}
+
+.galaxie-kit-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.galaxie-kit-icon {
+  display: inline-flex;
+  flex: none;
+}
+
+/* Where the icon sits beside the title. Above and below stack the two and keep
+   them against the text's own side, so a left-aligned step does not end up
+   with a centred icon. */
+.galaxie-kit-head--right {
+  flex-direction: row-reverse;
+  justify-content: flex-end;
+}
+
+.galaxie-kit-head--top {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.galaxie-kit-head--bottom {
+  flex-direction: column-reverse;
+  align-items: flex-start;
+}
+
+.galaxie-kit-text,
+.galaxie-kit-starting,
+.galaxie-kit-loading,
+.galaxie-kit-alert,
+.galaxie-kit-warning {
+  margin: 0;
+}
+
+/* The reason on a box card and the "no longer sold" line on a candle: words
+   inside someone else's markup, where an alert cannot go. The messages that
+   stand on their own are pixfort Alerts and paint themselves. */
+.galaxie-kit-warning {
+  color: var(--pix-red, #b42318);
+}
+
+.galaxie-kit-alert .alert {
+  margin: 0;
+}
+
+/* The hint as a badge: a pill the step's own text sits in. Empty, it goes
+   away, because the script clears it on the steps that have nothing to say.
+   Its radius and background are the badge controls' (pixfort's own
+   `badge-pill` by default), and that class brings the padding on the sides. */
+.galaxie-kit-badge {
+  align-self: flex-start;
+  padding-top: 0.25rem;
+  padding-bottom: 0.25rem;
+}
+
+.galaxie-kit-badge:empty {
+  display: none;
+}
+
+/* Beside the kit's name, the bar scrolls with it — pinned, it rides the top of
+   the panel instead, which is the only way to have it both in place and in
+   view. The background is the panel's own, so the list passes under it. */
+.galaxie-kit-fill.is-pinned {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+/* A background it can be read against, written with no specificity at all so
+   the widget's own box — background, corners, padding, shadow — always wins. */
+:where(.galaxie-kit-fill.is-pinned) {
+  padding-block: 4px;
+  background-color: var(--pix-base, #fff);
+}
+
+/* Nothing settled behind the bar: striped rather than empty, because a bar at
+   zero reads as "plenty of room" and that is exactly what is not known. */
+.galaxie-kit-fill.is-unknown .galaxie-kit-fill-bar,
+.galaxie-kit-progress.is-unknown .galaxie-kit-progress-fill {
+  background-image: repeating-linear-gradient(
+    45deg,
+    rgba(255, 255, 255, 0.35) 0,
+    rgba(255, 255, 255, 0.35) 6px,
+    transparent 6px,
+    transparent 12px
+  );
+  opacity: 0.55;
+}
+
+/* Step indicator: 1•2•3•4. */
+.galaxie-kit-steps {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.galaxie-kit-builder.no-steps .galaxie-kit-steps {
+  display: none !important;
+}
+
+.galaxie-kit-step {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  min-width: 0;
+  text-align: center;
+}
+
+/* The dot's radius and background are its own controls'; `badge-pill` pads
+   the sides, so the width has to be counted from the border in. */
+.galaxie-kit-step-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 1.75rem;
+  height: 1.75rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.galaxie-kit-step.is-current .galaxie-kit-step-dot,
+.galaxie-kit-step.is-done .galaxie-kit-step-dot {
+  background: var(--pix-primary, #111);
+  color: #fff;
+}
+
+/* Box and card choices. */
+.galaxie-kit-choice {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  margin: 0;
+  padding: 0.625rem 0.75rem;
+  border: 2px solid rgba(0, 0, 0, 0.08);
+  border-radius: 0.75rem;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.galaxie-kit-choice[aria-pressed="true"] {
+  border-color: var(--pix-primary, currentColor);
+}
+
+.galaxie-kit-choice[aria-disabled="true"] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.galaxie-kit-choice-body,
+.galaxie-kit-row-body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-width: 0;
+}
+
+/* Size and radius belong to the two thumbnail controls — the choice cards'
+   and the rows' — which is what ended the tie between this rule and the panel:
+   one property, one owner. */
+.galaxie-kit-thumb {
+  flex: none;
+  object-fit: cover;
+}
+
+.galaxie-kit-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.galaxie-kit-link {
+  flex: none;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* Name and message. */
+.galaxie-kit-input {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-radius: 0.5rem;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+
+.galaxie-kit-count {
+  align-self: flex-end;
+}
+
+.is-over > .galaxie-kit-count {
+  color: var(--pix-red, #b42318);
+}
+
+/* Candle quantity. pixfort's `pix-px-10 pix-base-background rounded-lg
+   shadow-sm d-inline-flex justify-content-between` used to be typed into the
+   markup, where no control could reach it. These are the same declarations,
+   as the starting point the shared quantity set writes over. */
+.galaxie-kit-stepper {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  flex: none;
+  gap: 0.5rem;
+  padding-right: 10px;
+  padding-left: 10px;
+  border-radius: var(--pix-border-radius-normal, 0.3rem);
+  background-color: var(--pix-base-background, #fff);
+  box-shadow: var(--pix-box-shadow-sm, 0 1px 5px 0 rgba(0, 0, 0, 0.15));
+}
+
+button.galaxie-kit-qty-step {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0.25rem;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  line-height: 1;
+  cursor: pointer;
+}
+
+button.galaxie-kit-qty-step:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.galaxie-kit-qty {
+  min-width: 1.5ch;
+  text-align: center;
+  font-weight: 600;
+}
+
+/* Fill bar, total, actions. */
+.galaxie-kit-fill {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.galaxie-kit-fill-track {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.galaxie-kit-fill-bar {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--pix-primary, currentColor);
+  transition: width 0.25s ease;
+}
+
+.galaxie-kit-total {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.galaxie-kit-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+}
+
+.galaxie-kit-nav {
+  justify-content: space-between;
+}
+
+.galaxie-kit-btn.is-disabled,
+.galaxie-kit-btn[aria-disabled="true"] {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.galaxie-kit-welcome-image {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto;
+}
+
+/* "Editar kit" under a kit's box, in every cart. */
+.galaxie-kit-edit-wrap {
+  display: inline-block;
+  margin-left: 0.25rem;
+}
+
+.galaxie-kit-edit {
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* Galaxie Kit Progress. */
+.galaxie-kit-progress,
+.galaxie-kit-progress-part {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.galaxie-kit-progress-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.galaxie-kit-progress-text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.galaxie-kit-progress-icon {
+  display: inline-flex;
+  flex: none;
+}
+
+.galaxie-kit-progress-track {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.galaxie-kit-progress-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--pix-primary, currentColor);
+  transition: width 0.25s ease;
+}
+
+.galaxie-kit-progress-invite {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* A gift's accessory in the cart: its quantity is the gift's. */
+.galaxie-gift-qty-fixed {
+  display: inline-block;
+  min-width: 2ch;
+  text-align: center;
 }
 
 /* Quantity and the buttons share a row when the layout asks for it. */

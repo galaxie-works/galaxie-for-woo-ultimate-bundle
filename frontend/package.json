@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:gift-packing": "node ../tests/gift-packing/run.ts",
+    "test:kit": "node ../tests/kit/run.ts"
   },
   "dependencies": {
     "class-variance-authority": "^0.7.1",
