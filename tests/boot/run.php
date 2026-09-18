@@ -289,6 +289,29 @@ function galaxie_boot_kit( array $booted, array $scenario, callable $hooked ): s
 			}
 		}
 
+		// The seventeen sections a merchant scrolls past are gated: each screen and
+		// each button section opens only when its picker names it.
+		if ( 'editor_screen' === $key ) {
+			$sections = new ReflectionProperty( $widget, 'sections' );
+			$sections->setAccessible( true );
+			$open     = $sections->getValue( $widget );
+			$gated    = 0;
+
+			foreach ( $open as $id => $args ) {
+				if ( preg_match( '/^kit_(screen|btn)_/', (string) $id ) ) {
+					++$gated;
+
+					if ( empty( $args['condition'] ) ) {
+						throw new RuntimeException( "Kit: section {$id} is always open" );
+					}
+				}
+			}
+
+			if ( 17 !== $gated ) {
+				throw new RuntimeException( "Kit: expected 17 gated sections, found {$gated}" );
+			}
+		}
+
 		// Every button role has a section of its own and is used exactly where it
 		// belongs: a role nobody prints is a styling panel that moves nothing.
 		if ( 'editor_screen' === $key ) {

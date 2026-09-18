@@ -204,6 +204,23 @@ final class KitBuilderWidget extends Widget_Base {
 		'summary_plus'   => array( 'Icon on "+"', 'Line/pixfort-icon-plus-1' ),
 	);
 
+	/**
+	 * The screens, as the panel names them. One list: the picker above and the
+	 * sections below must never drift apart.
+	 *
+	 * @return array<string,string>
+	 */
+	private static function screen_labels(): array {
+		return array(
+			'welcome'  => __( 'Screen · Welcome', 'galaxie-woo' ),
+			'name'     => __( 'Screen · 1 · Name', 'galaxie-woo' ),
+			'box'      => __( 'Screen · 2 · Box', 'galaxie-woo' ),
+			'card'     => __( 'Screen · 3 · Card', 'galaxie-woo' ),
+			'continue' => __( 'Screen · 4 · Keep choosing', 'galaxie-woo' ),
+			'summary'  => __( 'Screen · Kit summary', 'galaxie-woo' ),
+		);
+	}
+
 	/** Icons by screen, shown before the title. */
 	private const ICONS = array(
 		'welcome'  => 'Line/pixfort-icon-gift-1',
@@ -336,6 +353,41 @@ final class KitBuilderWidget extends Widget_Base {
 			'tab'   => Controls_Manager::TAB_STYLE,
 		);
 
+		// Six screens and eleven buttons are seventeen sections a merchant scrolls
+		// past to reach the two they came for. Naming the ones worth opening keeps
+		// the rest out of the way; every control stays registered, so a screen or a
+		// button that is not named still draws exactly as it did.
+		$this->start_controls_section( 'kit_sections_style', $style( __( 'Sections', 'galaxie-woo' ) ) );
+		$this->add_control(
+			'kit_sections_note',
+			array(
+				'type'            => Controls_Manager::RAW_HTML,
+				'raw'             => esc_html__( 'Pick what you want to style apart. Nothing changes on the page until you change it.', 'galaxie-woo' ),
+				'content_classes' => 'elementor-descriptor',
+			)
+		);
+		$this->add_control(
+			'screens_apart',
+			array(
+				'label'       => __( 'Screens to style', 'galaxie-woo' ),
+				'type'        => Controls_Manager::SELECT2,
+				'multiple'    => true,
+				'label_block' => true,
+				'options'     => self::screen_labels(),
+			)
+		);
+		$this->add_control(
+			'buttons_apart',
+			array(
+				'label'       => __( 'Buttons to style', 'galaxie-woo' ),
+				'type'        => Controls_Manager::SELECT2,
+				'multiple'    => true,
+				'label_block' => true,
+				'options'     => array_map( static fn( array $button ): string => $button[0], self::buttons() ),
+			)
+		);
+		$this->end_controls_section();
+
 		$this->start_controls_section( 'kit_steps_style', $style( __( 'Step indicator', 'galaxie-woo' ) ) );
 		$this->add_control(
 			'steps_show',
@@ -385,7 +437,7 @@ final class KitBuilderWidget extends Widget_Base {
 
 		$this->start_controls_section( 'kit_text_style', $style( __( 'Titles and text', 'galaxie-woo' ) ) );
 		$this->heading( 'title_style_heading', __( 'Titles', 'galaxie-woo' ), false );
-		PixfortControls::text( $this, 'title', array( 'size' => 'h5', 'bold' => 'font-weight-bold', 'remove_pb_padding' => 'm-0' ), array(), '{{WRAPPER}} .galaxie-kit-title', 'heading' );
+		PixfortControls::text( $this, 'title', array( 'size' => 'h5', 'bold' => 'font-weight-bold', 'remove_pb_padding' => 'm-0', 'position' => '' ), array(), '{{WRAPPER}} .galaxie-kit-title', 'heading' );
 		PixfortControls::icon_color( $this, 'title_icon_color', __( 'Icon color', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-kit-icon' );
 		$this->icon_size( 'title_icon_size', '{{WRAPPER}}' );
 		$this->add_control(
@@ -482,17 +534,8 @@ final class KitBuilderWidget extends Widget_Base {
 		// One section per screen, in the order the shopper sees them. Repetitive
 		// on purpose: a cover, a form step and a summary share the markup and
 		// nothing else, and no single set of controls can dress all six.
-		$screens = array(
-			'welcome'  => __( 'Screen · Welcome', 'galaxie-woo' ),
-			'name'     => __( 'Screen · 1 · Name', 'galaxie-woo' ),
-			'box'      => __( 'Screen · 2 · Box', 'galaxie-woo' ),
-			'card'     => __( 'Screen · 3 · Card', 'galaxie-woo' ),
-			'continue' => __( 'Screen · 4 · Keep choosing', 'galaxie-woo' ),
-			'summary'  => __( 'Screen · Kit summary', 'galaxie-woo' ),
-		);
-
-		foreach ( $screens as $screen => $label ) {
-			$this->start_controls_section( 'kit_screen_' . $screen . '_style', $style( $label ) );
+		foreach ( self::screen_labels() as $screen => $label ) {
+			$this->start_controls_section( 'kit_screen_' . $screen . '_style', $style( $label ) + array( 'condition' => array( 'screens_apart' => $screen ) ) );
 			$this->screen_style( $screen, 'welcome' === $screen ? array( 'size' => 'h4' ) : array() );
 
 			if ( 'welcome' === $screen ) {
@@ -638,7 +681,7 @@ final class KitBuilderWidget extends Widget_Base {
 		$this->end_controls_section();
 
 		foreach ( self::buttons() as $role => $button ) {
-			$this->start_controls_section( 'kit_btn_' . $role . '_style', $style( $button[0] ) );
+			$this->start_controls_section( 'kit_btn_' . $role . '_style', $style( $button[0] ) + array( 'condition' => array( 'buttons_apart' => $role ) ) );
 			PixfortControls::button( $this, 'kit_' . $role, $button[1] + array( 'size' => 'md' ), array(), '{{WRAPPER}}', array( 'text' ) );
 			$this->end_controls_section();
 		}
@@ -653,17 +696,6 @@ final class KitBuilderWidget extends Widget_Base {
 				'range'      => array( 'px' => array( 'min' => 0, 'max' => 60 ) ),
 				'default'    => array( 'unit' => 'px', 'size' => 16 ),
 				'selectors'  => array( '{{WRAPPER}} .galaxie-kit-builder, {{WRAPPER}} .galaxie-kit-content' => 'gap: {{SIZE}}{{UNIT}};' ),
-			)
-		);
-		$this->add_responsive_control(
-			'kit_max_height',
-			array(
-				'label'       => __( 'Scroll the lists after', 'galaxie-woo' ),
-				'description' => __( 'Keeps the buttons in view in a tall popup. Empty: no scrolling.', 'galaxie-woo' ),
-				'type'        => Controls_Manager::SLIDER,
-				'size_units'  => array( 'px', 'vh' ),
-				'range'       => array( 'px' => array( 'min' => 150, 'max' => 1000 ), 'vh' => array( 'min' => 20, 'max' => 90 ) ),
-				'selectors'   => array( '{{WRAPPER}} .galaxie-kit-scroll' => 'max-height: {{SIZE}}{{UNIT}}; overflow-y: auto;' ),
 			)
 		);
 		// The popup holds three blocks in a column — the steps, the step's content
@@ -702,50 +734,7 @@ final class KitBuilderWidget extends Widget_Base {
 				'selectors'   => array( '{{WRAPPER}} .galaxie-kit-builder' => 'min-height: {{SIZE}}{{UNIT}};' ),
 			)
 		);
-		$this->add_responsive_control(
-			'kit_distribute',
-			array(
-				'label'       => __( 'Distribute the blocks', 'galaxie-woo' ),
-				'description' => __( 'The steps, the step\'s content and its buttons, spread down the popup.', 'galaxie-woo' ),
-				'type'      => Controls_Manager::SELECT,
-				'default'   => '',
-				'options'   => self::distribution(),
-				'selectors' => array( '{{WRAPPER}} .galaxie-kit-builder' => 'justify-content: {{VALUE}};' ),
-			)
-		);
-		$this->add_control(
-			'content_grow',
-			array(
-				'label'        => __( 'The content takes the leftover height', 'galaxie-woo' ),
-				'description'  => __( 'The buttons then sit at the bottom on every screen, however short the step is.', 'galaxie-woo' ),
-				'type'         => Controls_Manager::SWITCHER,
-				'return_value' => 'yes',
-				'default'      => '',
-				'selectors'    => array( '{{WRAPPER}} .galaxie-kit-content' => 'flex: 1 1 auto;' ),
-			)
-		);
 
-		$this->heading( 'steps_align_heading', __( 'The steps block', 'galaxie-woo' ) );
-		$this->add_responsive_control(
-			'steps_justify',
-			array(
-				'label'     => __( 'Spread the steps', 'galaxie-woo' ),
-				'type'      => Controls_Manager::SELECT,
-				'default'   => 'space-between',
-				'options'   => self::distribution(),
-				'selectors' => array( '{{WRAPPER}} .galaxie-kit-steps' => 'justify-content: {{VALUE}};' ),
-			)
-		);
-		$this->add_responsive_control(
-			'steps_grow',
-			array(
-				'label'        => __( 'Each step takes the same width', 'galaxie-woo' ),
-				'type'         => Controls_Manager::SWITCHER,
-				'return_value' => 'yes',
-				'default'      => 'yes',
-				'selectors'    => array( '{{WRAPPER}} .galaxie-kit-step' => 'flex: 1 1 0;' ),
-			)
-		);
 
 		$this->heading( 'content_align_heading', __( 'The content block', 'galaxie-woo' ) );
 		$this->add_responsive_control(
@@ -863,8 +852,8 @@ final class KitBuilderWidget extends Widget_Base {
 		$this->add_control(
 			$screen . '_own',
 			array(
-				'label'        => __( 'Style this screen apart', 'galaxie-woo' ),
-				'description'  => __( 'Otherwise this screen follows "Titles and text" and "Step content".', 'galaxie-woo' ),
+				'label'        => __( 'Title and text apart on this screen', 'galaxie-woo' ),
+				'description'  => __( 'Its title, its text and its panel only. Labels, counters and the room line keep following "Titles and text".', 'galaxie-woo' ),
 				'type'         => Controls_Manager::SWITCHER,
 				'return_value' => 'yes',
 				'default'      => '',
@@ -876,7 +865,7 @@ final class KitBuilderWidget extends Widget_Base {
 		$body = $at . ' .galaxie-kit-content';
 
 		$this->heading( $screen . '_title_heading', __( 'Title', 'galaxie-woo' ) );
-		PixfortControls::text( $this, $screen . '_title', $title_defaults + array( 'size' => 'h5', 'bold' => 'font-weight-bold', 'remove_pb_padding' => 'm-0' ), $own, $at . ' .galaxie-kit-title', 'heading' );
+		PixfortControls::text( $this, $screen . '_title', $title_defaults + array( 'size' => 'h5', 'bold' => 'font-weight-bold', 'remove_pb_padding' => 'm-0', 'position' => '' ), $own, $at . ' .galaxie-kit-title', 'heading' );
 		$this->margin( $screen . '_title_margin', __( 'Space around the title', 'galaxie-woo' ), $at . ' .galaxie-kit-head' );
 
 		$this->icon_size( $screen . '_icon_size', $at );
@@ -1116,10 +1105,17 @@ final class KitBuilderWidget extends Widget_Base {
 	 * @param array<string,mixed> $settings
 	 */
 	private function text_prefix( array $settings, string $screen, string $part ): string {
-		return 'yes' === ( $settings[ $screen . '_own' ] ?? '' )
+		return 'yes' === ( $settings[ $screen . '_own' ] ?? '' ) && in_array( $part, self::OWN_PARTS, true )
 			? $screen . '_' . $part
-			: ( 'title' === $part ? 'title' : 'body' );
+			: $part;
 	}
+
+	/**
+	 * The text sets a screen can take over. Labels, counters and the room line
+	 * stay shared on purpose: six more typography sets for text nobody restyles
+	 * per screen would cost more panel than it is worth, and the switch says so.
+	 */
+	private const OWN_PARTS = array( 'title', 'body' );
 
 	/** Title (with the screen's icon) and text. @param array<string,mixed> $settings */
 	private function head( array $settings, string $screen, string $title, string $text, bool $slot_text = false ): void {
@@ -1280,7 +1276,7 @@ final class KitBuilderWidget extends Widget_Base {
 		$this->head( $settings, 'box', $texts['box_title'], $texts['box_text'] );
 		$this->hint_anchor( $settings );
 
-		echo '<div class="galaxie-kit-choices galaxie-kit-scroll" data-kit-boxes>';
+		echo '<div class="galaxie-kit-choices" data-kit-boxes>';
 
 		foreach ( $sample ? $sample['boxes'] : array() as $box ) {
 			echo $this->choice( $settings, $box ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in choice().
@@ -1353,7 +1349,7 @@ final class KitBuilderWidget extends Widget_Base {
 
 		$this->head( $settings, 'summary', $texts['summary_title'], $texts['summary_text'] );
 
-		echo '<div class="galaxie-kit-scroll galaxie-kit-summary">';
+		echo '<div class="galaxie-kit-summary">';
 
 		printf(
 			'<label class="galaxie-kit-field"><span class="galaxie-kit-small %1$s">%2$s</span><input type="text" class="galaxie-kit-input" data-kit-summary-name maxlength="%3$d" placeholder="%4$s" value="%5$s" autocomplete="off" /></label>',

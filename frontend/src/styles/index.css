@@ -476,6 +476,30 @@ form.galaxie-buybox .single_add_to_cart_button:hover {
   transform: translateY(calc(-1 * var(--galaxie-hover-lift, 0px))) !important;
 }
 
+/* The same control, on the buttons we print ourselves. The variable is set on
+   pixfort's own button element by the Hover lift control; without a rule to
+   consume it the control moved nothing in the kit, the kit progress bar or any
+   dialog — fourteen sliders that did nothing. */
+.galaxie-kit-btn .btn,
+.galaxie-kit-progress-btn .btn,
+.galaxie-dialog-button .btn {
+  transition: transform 0.2s ease;
+}
+
+.galaxie-kit-btn:hover .btn,
+.galaxie-kit-progress-btn:hover .btn,
+.galaxie-dialog-button:hover .btn {
+  transform: translateY(calc(-1 * var(--galaxie-hover-lift, 0px)));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .galaxie-kit-btn .btn,
+  .galaxie-kit-progress-btn .btn,
+  .galaxie-dialog-button .btn {
+    transition: none;
+  }
+}
+
 /* The Add button on a quantity-discount row.
 
    Same split as the Buy Box: our element is only the click target and pixfort's
