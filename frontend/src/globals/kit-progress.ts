@@ -35,7 +35,9 @@ function paint(root: HTMLElement, kit: KitView | null, previous: KitView | null,
   setRich(line, fillText(root.dataset.message ?? '', kitValues(kit)))
 
   const bar = state.querySelector<HTMLElement>('[data-slot="bar"]')
-  if (bar) bar.style.width = `${Math.max(0, Math.min(100, kit.fill))}%`
+  const known = typeof kit.fill === 'number'
+  root.classList.toggle('is-unknown', !known)
+  if (bar) bar.style.width = known ? `${Math.max(0, Math.min(100, kit.fill as number))}%` : '100%'
 
   state.querySelectorAll<HTMLElement>('[data-kit-when="full"]').forEach((part) => {
     part.hidden = !kit.full

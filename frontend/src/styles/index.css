@@ -789,27 +789,48 @@ form.galaxie-buybox .galaxie-kit-button[aria-disabled="true"] {
 .galaxie-kit-text,
 .galaxie-kit-starting,
 .galaxie-kit-loading,
-.galaxie-kit-error,
+.galaxie-kit-alert,
 .galaxie-kit-warning {
   margin: 0;
 }
 
-.galaxie-kit-error,
+/* The reason on a box card and the "no longer sold" line on a candle: words
+   inside someone else's markup, where an alert cannot go. The messages that
+   stand on their own are pixfort Alerts and paint themselves. */
 .galaxie-kit-warning {
   color: var(--pix-red, #b42318);
 }
 
+.galaxie-kit-alert .alert {
+  margin: 0;
+}
+
 /* The hint as a badge: a pill the step's own text sits in. Empty, it goes
-   away, because the script clears it on the steps that have nothing to say. */
+   away, because the script clears it on the steps that have nothing to say.
+   Its radius and background are the badge controls' (pixfort's own
+   `badge-pill` by default), and that class brings the padding on the sides. */
 .galaxie-kit-badge {
   align-self: flex-start;
-  padding: 0.25rem 0.625rem;
-  border-radius: 999px;
-  background: rgba(0, 0, 0, 0.06);
+  padding-top: 0.25rem;
+  padding-bottom: 0.25rem;
 }
 
 .galaxie-kit-badge:empty {
   display: none;
+}
+
+/* Nothing settled behind the bar: striped rather than empty, because a bar at
+   zero reads as "plenty of room" and that is exactly what is not known. */
+.galaxie-kit-fill.is-unknown .galaxie-kit-fill-bar,
+.galaxie-kit-progress.is-unknown .galaxie-kit-progress-fill {
+  background-image: repeating-linear-gradient(
+    45deg,
+    rgba(255, 255, 255, 0.35) 0,
+    rgba(255, 255, 255, 0.35) 6px,
+    transparent 6px,
+    transparent 12px
+  );
+  opacity: 0.55;
 }
 
 /* Step indicator: 1•2•3•4. */
@@ -836,14 +857,15 @@ form.galaxie-buybox .galaxie-kit-button[aria-disabled="true"] {
   text-align: center;
 }
 
+/* The dot's radius and background are its own controls'; `badge-pill` pads
+   the sides, so the width has to be counted from the border in. */
 .galaxie-kit-step-dot {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  box-sizing: border-box;
   width: 1.75rem;
   height: 1.75rem;
-  border-radius: 999px;
-  background: rgba(0, 0, 0, 0.08);
   font-size: 0.8125rem;
   font-weight: 600;
   line-height: 1;
@@ -890,23 +912,18 @@ form.galaxie-buybox .galaxie-kit-button[aria-disabled="true"] {
   min-width: 0;
 }
 
+/* Size and radius belong to the two thumbnail controls — the choice cards'
+   and the rows' — which is what ended the tie between this rule and the panel:
+   one property, one owner. */
 .galaxie-kit-thumb {
-  width: 64px;
-  height: 64px;
   flex: none;
   object-fit: cover;
-  border-radius: 0.5rem;
 }
 
 .galaxie-kit-row {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-}
-
-.galaxie-kit-line .galaxie-kit-thumb {
-  width: 48px;
-  height: 48px;
 }
 
 .galaxie-kit-link {
@@ -934,11 +951,21 @@ form.galaxie-buybox .galaxie-kit-button[aria-disabled="true"] {
   color: var(--pix-red, #b42318);
 }
 
-/* Candle quantity. */
+/* Candle quantity. pixfort's `pix-px-10 pix-base-background rounded-lg
+   shadow-sm d-inline-flex justify-content-between` used to be typed into the
+   markup, where no control could reach it. These are the same declarations,
+   as the starting point the shared quantity set writes over. */
 .galaxie-kit-stepper {
+  display: inline-flex;
   align-items: center;
+  justify-content: space-between;
   flex: none;
   gap: 0.5rem;
+  padding-right: 10px;
+  padding-left: 10px;
+  border-radius: var(--pix-border-radius-normal, 0.3rem);
+  background-color: var(--pix-base-background, #fff);
+  box-shadow: var(--pix-box-shadow-sm, 0 1px 5px 0 rgba(0, 0, 0, 0.15));
 }
 
 button.galaxie-kit-qty-step {

@@ -41,7 +41,6 @@ function galaxie_boot_scenarios(): array {
 		'gift-wrap' => array(
 			'size_attribute'     => $attribute,
 			'packing_gap'        => 0,
-			'allow_stacking'     => false,
 			'candle_orientation' => 'lying',
 			'box_categories'     => array( 125 ),
 			'ribbon_categories'  => array(),
@@ -286,6 +285,76 @@ function galaxie_boot_kit( array $booted, array $scenario, callable $hooked ): s
 
 			if ( ! preg_match( '/data-kit-content.*?<\/div><div class="galaxie-kit-fill/s', $summary ) ) {
 				throw new RuntimeException( 'Kit: the fill bar should follow the content panel, not scroll inside it' );
+			}
+		}
+
+		// The shared pixfort sets have to REACH the markup. A helper whose classes
+		// never land in a class attribute registers a full panel of controls that
+		// move nothing, and the panel looks right while the page does not — so
+		// each one is asked for a class no default would produce and looked for
+		// in the rendered html, not in the control list.
+		if ( 'editor_screen' === $key ) {
+			$widget->settings = array(
+				$key                   => 'summary',
+				'line_thumb_rounded'   => 'rounded-lg',
+				'field_rounded'        => 'rounded-lg',
+				'hint_badge'           => 'yes',
+				'hint_rounded'         => 'badge-pill',
+				'link_size'            => 'text-20',
+				'small_size'           => 'text-xs',
+			);
+			$summary = $widget->render_for_test();
+
+			$carried = array(
+				'the row thumbnails' => 'galaxie-kit-thumb rounded-lg',
+				'the fields'         => 'galaxie-kit-input rounded-lg',
+				'the hint badge'     => 'galaxie-kit-badge badge-pill',
+				'the step dots'      => 'galaxie-kit-step-dot badge-pill',
+			);
+
+			foreach ( $carried as $what => $wanted ) {
+				if ( false === strpos( $summary, $wanted ) ) {
+					throw new RuntimeException( "Kit: {$what} do not carry their control's classes ({$wanted})" );
+				}
+			}
+
+			// "trocar" and "Remover" have a text set of their own, so restyling
+			// the labels beside them leaves them alone.
+			if ( ! preg_match( '/class="galaxie-kit-link ([^"]*)"/', $summary, $found ) || false === strpos( $found[1], 'text-20' ) || false !== strpos( $found[1], 'text-xs' ) ) {
+				throw new RuntimeException( 'Kit: the links should wear their own text set, not the small one' );
+			}
+
+			// The stepper's look is the quantity set's and the stylesheet's; the
+			// pixfort classes it used to type into the markup are gone.
+			foreach ( array( 'pix-base-background', 'pix-px-10', 'shadow-sm' ) as $typed ) {
+				if ( false !== strpos( $summary, $typed ) ) {
+					throw new RuntimeException( "Kit: the stepper still types {$typed} into its markup" );
+				}
+			}
+
+			$widget->settings = array( $key => 'box', 'choice_thumb_rounded' => 'rounded-lg' );
+			$boxes            = $widget->render_for_test();
+
+			if ( false === strpos( $boxes, 'galaxie-kit-thumb rounded-lg' ) ) {
+				throw new RuntimeException( 'Kit: the choice thumbnails do not carry their own control' );
+			}
+
+			// Every message that stands on its own is an alert, and the script
+			// writes into the alert's title rather than over the alert.
+			$messages = array(
+				'data-kit-error'        => 'summary',
+				'data-kit-box-none'     => 'box',
+				'data-kit-warning'      => 'summary',
+				'data-kit-card-warning' => 'summary',
+			);
+
+			foreach ( $messages as $marker => $state ) {
+				$widget->settings = array( $key => $state );
+				$html             = $widget->render_for_test();
+
+				if ( ! preg_match( '/class="galaxie-kit-alert" ' . $marker . '[^>]*>.*?pix-alert-title/s', $html ) ) {
+					throw new RuntimeException( "Kit: {$marker} is not an alert the script can write into" );
+				}
 			}
 		}
 

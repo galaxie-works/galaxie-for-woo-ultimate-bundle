@@ -1,5 +1,5 @@
 {
-  "_readme": "Shared by run.php (GiftPacking.php) and run.ts (gift-packing.ts). Candle lists are [size, count] pairs expanded in order. Engine defaults: gap 0 (tissue paper fills), orientation 'lying', stacking off. The original cases pin orientation 'upright' and gap 0.5. 50g/190g are the registered shipping dimensions (jar in its cardboard box); 50g-gift/190g-gift are the merchant's measured jars (no cardboard box), which the gift packing uses.",
+  "_readme": "Shared by run.php (GiftPacking.php) and run.ts (gift-packing.ts). Candle lists are [size, count] pairs expanded in order. Engine defaults: gap 0 (tissue paper fills), orientation 'lying'; one layer always. The original cases pin orientation 'upright' and gap 0.5. 50g/190g are the registered shipping dimensions (jar in its cardboard box); 50g-gift/190g-gift are the merchant's measured jars (no cardboard box), which the gift packing uses.",
   "sizes": {
     "50g": { "size": "50g", "length": 5, "width": 5, "height": 6.5 },
     "190g": { "size": "190g", "length": 8, "width": 8, "height": 8.5 },
@@ -12,7 +12,12 @@
     "over": { "size": "over", "length": 5.004, "width": 5, "height": 3 },
     "odd-mm": { "size": "odd-mm", "length": 8.15, "width": 8.15, "height": 6.55 },
     "s-5000": { "size": "s", "length": 5, "width": 5, "height": 3 },
-    "s-5004": { "size": "s", "length": 5.004, "width": 5, "height": 3 }
+    "s-5004": { "size": "s", "length": 5.004, "width": 5, "height": 3 },
+    "slab": { "size": "slab", "length": 4.89, "width": 3.07, "height": 4.68 },
+    "plank": { "size": "plank", "length": 5.55, "width": 7.44, "height": 3.26 },
+    "100g-gift": { "size": "100g", "length": 6.5, "width": 6.5, "height": 7.5 },
+    "t-flat": { "size": "t", "length": 6, "width": 4, "height": 2 },
+    "t-narrow": { "size": "t", "length": 8, "width": 3, "height": 2 }
   },
   "boxes": {
     "b14": { "id": "b14", "length": 14, "width": 11, "height": 9.5, "price": 12 },
@@ -42,8 +47,18 @@
     "ten5": { "id": "ten5", "length": 10, "width": 5, "height": 5, "price": 1 },
     "real-long": { "id": "real-long", "length": 24.44, "width": 8.94, "height": 7.94, "price": 25 },
     "real-square": { "id": "real-square", "length": 14.2, "width": 14.2, "height": 4.8, "price": 20 },
-    "real-square-lid": { "id": "real-square-lid", "length": 14.2, "width": 14.2, "height": 4.8, "overflow": 0.5, "price": 20 }
+    "real-square-lid": { "id": "real-square-lid", "length": 14.2, "width": 14.2, "height": 4.8, "overflow": 0.5, "price": 20 },
+    "shelf": { "id": "shelf", "length": 23.41, "width": 8.27, "height": 9.45, "price": 9 },
+    "wide-30": { "id": "wide-30", "length": 30, "width": 22, "height": 12, "price": 15 }
   },
+  "_known_readme": "fits_known(): true, false, or null when neither could be shown inside STEP_LIMIT + RETRY_LIMIT units of work. Work is counted the same way in both languages, so a null here is a null in both. Never turn a null into a refusal.",
+  "fits_known": [
+    { "name": "shelf: four slabs and three planks lie in two rows — only the second pass, with the footprints turned round, finds it", "box": "shelf", "candles": [["slab", 4], ["plank", 3]], "options": { "orientation": "lying" }, "expect": true },
+    { "name": "shelf: a fourth plank leaves no floor — proved, not guessed", "box": "shelf", "candles": [["slab", 4], ["plank", 4]], "options": { "orientation": "lying" }, "expect": false },
+    { "name": "30 x 22 x 12 with 7 x 190g + 1 x 50g: neither pass settles it, and it must not read as a refusal", "box": "wide-30", "candles": [["190g-gift", 7], ["50g-gift", 1]], "options": { "orientation": "lying" }, "expect": null },
+    { "name": "nothing to pack is a yes with nothing to search", "box": "shelf", "candles": [], "options": { "orientation": "lying" }, "expect": true },
+    { "name": "a candle taller than the box is a proved no, however long the search could run", "box": "b7", "candles": [["190g", 1]], "options": { "orientation": "upright" }, "expect": false }
+  ],
   "fits": [
     { "name": "box b14 takes 4 x 50g", "box": "b14", "candles": [["50g", 4]], "options": { "orientation": "upright", "gap": 0.5 }, "expect": true },
     { "name": "box b14 refuses 5 x 50g although the area would allow it", "box": "b14", "candles": [["50g", 5]], "options": { "orientation": "upright", "gap": 0.5 }, "expect": false },
@@ -63,7 +78,7 @@
     { "name": "rotation: two bars do not fit a one-bar box", "box": "rot", "candles": [["bar", 2]], "options": { "orientation": "upright", "gap": 0.5 }, "expect": false },
     { "name": "gap 0: 4 x 50g in exactly 10 x 10", "box": "ten", "candles": [["50g", 4]], "options": { "gap": 0, "orientation": "upright" }, "expect": true },
     { "name": "gap 0.5: 4 x 50g no longer fit 10 x 10", "box": "ten", "candles": [["50g", 4]], "options": { "orientation": "upright", "gap": 0.5 }, "expect": false },
-    { "name": "stacking is accepted and ignored", "box": "p11", "candles": [["50g", 8]], "options": { "gap": 0.5, "stacking": true, "orientation": "upright" }, "expect": false },
+    { "name": "eight 50g never stack into an 11 x 11 x 7 box, whatever the options say", "box": "p11", "candles": [["50g", 8]], "options": { "gap": 0.5, "orientation": "upright" }, "expect": false },
     { "name": "square 14: 1 x 190g + 3 x 50g", "box": "sq14", "candles": [["190g", 1], ["50g", 3]], "options": { "orientation": "upright", "gap": 0.5 }, "expect": true },
     { "name": "square 14: 1 x 190g + 4 x 50g refused (area allows)", "box": "sq14", "candles": [["190g", 1], ["50g", 4]], "options": { "orientation": "upright", "gap": 0.5 }, "expect": false },
     { "name": "12 x 50g fill a 22 x 16.5 tray exactly", "box": "tray", "candles": [["50g", 12]], "options": { "orientation": "upright", "gap": 0.5 }, "expect": true },
@@ -231,10 +246,33 @@
     { "name": "shipping dims, lying, gap 0.5, 14.2 x 14.2 x 4.8: nothing", "box": "mdf142", "sizes": ["50g", "190g"], "options": { "orientation": "lying", "gap": 0.5 }, "expect": [] },
     { "name": "gift dims, square box with 0.5 overflow (the Cabe: line the merchant sees)", "box": "real-square-lid", "sizes": ["50g-gift", "190g-gift"], "options": { "orientation": "lying", "gap": 0 }, "expect": [{ "counts": { "50g": 4 }, "capped": false }] }
   ],
-  "cover": [
-    { "name": "6 x 6 and 10 x 2 of one size cover as 10 x 6", "candles": ["x-wide", "x-long"], "expect": [{ "size": "x", "length": 10, "width": 6, "height": 2 }], "box": "b7", "options": { "orientation": "upright", "gap": 0.5 }, "fits": false },
-    { "name": "the 6 x 6 alone fits that box", "candles": ["x-wide"], "expect": [{ "size": "x", "length": 6, "width": 6, "height": 2 }], "box": "b7", "options": { "orientation": "upright", "gap": 0.5 }, "fits": true },
-    { "name": "per size, first-seen order, tallest and widest win", "candles": ["50g", "190g", "50g-tall"], "expect": [{ "size": "50g", "length": 5.2, "width": 5, "height": 7 }, { "size": "190g", "length": 8, "width": 8, "height": 8.5 }] }
+  "_offered_readme": "offered(): one candle per size, the smallest the store sells of it. A shape covering every variation is a jar nobody sells, and the add packs the exact variation the shopper picked — see GiftPacking::offered().",
+  "offered": [
+    {
+      "name": "6 x 6 and 10 x 2 of one size: the 10 x 2 is the smaller jar, and it is a real one",
+      "candles": ["x-wide", "x-long"],
+      "expect": [{ "size": "x", "length": 10, "width": 2, "height": 2 }],
+      "box": "ten5", "options": { "orientation": "upright", "gap": 0 }, "fits": true
+    },
+    {
+      "name": "the shape covering both would be 10 x 6, which fits that box no better than it exists",
+      "candles": ["x-wide"],
+      "expect": [{ "size": "x", "length": 6, "width": 6, "height": 2 }],
+      "box": "ten5", "options": { "orientation": "upright", "gap": 0 }, "fits": false
+    },
+    {
+      "name": "per size, first-seen order, the smallest of each",
+      "candles": ["50g", "190g", "50g-tall"],
+      "expect": [
+        { "size": "50g", "length": 5, "width": 5, "height": 6.5 },
+        { "size": "190g", "length": 8, "width": 8, "height": 8.5 }
+      ]
+    },
+    {
+      "name": "two variations of one volume: the first seen wins, as GiftGroups::smallest() has it",
+      "candles": ["t-narrow", "t-flat"],
+      "expect": [{ "size": "t", "length": 8, "width": 3, "height": 2 }]
+    }
   ],
   "_groups_readme": "GiftGroups.php / gift-groups.ts. Every case pins orientation 'upright' so the answers do not move when the packing default changes. Validate candles are [size, count, id, added?].",
   "fill": [
@@ -358,6 +396,18 @@
       "message_max": 200, "stock": {}, "in_cart": {},
       "groups": [{ "candles": [["190g", 1, "v190"]], "box": { "id": "mdf136" }, "items": [] }],
       "options": { "orientation": "lying", "gap": 0 }, "expect": [{"code":"box_too_small","group":0,"id":"mdf136"}]
+    }
+  ,
+    {
+      "name": "a box the search could not settle is never 'box_too_small'",
+      "message_max": 200,
+      "stock": {},
+      "in_cart": {},
+      "groups": [
+        { "candles": [["190g-gift", 7, "v190"], ["50g-gift", 1, "v50"]], "box": { "id": "wide-30" }, "items": [] }
+      ],
+      "options": { "orientation": "lying", "gap": 0 },
+      "expect": []
     }
   ],
   "arrange_all": [

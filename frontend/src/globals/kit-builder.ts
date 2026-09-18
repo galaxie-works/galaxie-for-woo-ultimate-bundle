@@ -93,6 +93,17 @@ function textTarget(el: Element | null): Element | null {
   return node
 }
 
+/**
+ * The words of a message line. The element the widget marks (`data-kit-error`,
+ * `data-kit-box-none`) is the wrapper, because it is what gets hidden; pixfort's
+ * Alert lives inside it and keeps its words in a `.pix-alert-title`. Writing to
+ * the wrapper would replace the alert with a bare string the first time
+ * something went wrong.
+ */
+function setMessage(el: Element | null, text: string): void {
+  setText(el?.querySelector('.pix-alert-title') ?? el, text)
+}
+
 /** The text node inside pixfort's button markup whose words are the label. */
 function labelTarget(button: Element): Element | null {
   let node: Element | null = button
@@ -155,7 +166,7 @@ function create(root: HTMLElement): Controller {
   // ------------------------------------------------------------------ helpers
 
   function error(text: string): void {
-    setText(errorBox, text)
+    setMessage(errorBox, text)
     if (errorBox) errorBox.hidden = !text
   }
 
@@ -417,7 +428,7 @@ function create(root: HTMLElement): Controller {
           : units.length
             ? fillText(texts.box_none ?? '', { candles: candlesText() })
             : (texts.box_none_any ?? '')
-      setText(none, text)
+      setMessage(none, text)
       none.hidden = !text
     }
 
@@ -592,7 +603,11 @@ function create(root: HTMLElement): Controller {
     if (fill) {
       fill.classList.toggle('is-full', kit.full)
       const bar = slot(fill, 'bar')
-      if (bar) bar.style.width = `${Math.max(0, Math.min(100, kit.fill))}%`
+      // A bar with nothing settled behind it is not an empty box: it says so
+      // rather than drawing a zero the shopper would read as "there is room".
+      const known = typeof kit.fill === 'number'
+      fill.classList.toggle('is-unknown', !known)
+      if (bar) bar.style.width = known ? `${Math.max(0, Math.min(100, kit.fill as number))}%` : '100%'
       setText(slot(fill, 'room'), roomSentence(kit.room, kitValues(kit)))
     }
 

@@ -8,7 +8,7 @@
 import { readFileSync } from 'node:fs'
 import { isDeepStrictEqual } from 'node:util'
 
-import { arrange, cover, fits, room, summary } from '../../frontend/src/lib/gift-packing.ts'
+import { arrange, fits, fitsKnown, offered, room, summary } from '../../frontend/src/lib/gift-packing.ts'
 import type { Box, Candle, Gift, PackingOptions, SummaryRow } from '../../frontend/src/lib/gift-packing.ts'
 import { arrangeAll, cardFor, cleanMessage, fill, maxQuantity, messageLength, roomCounts, total, validate } from '../../frontend/src/lib/gift-groups.ts'
 import type { CardRow } from '../../frontend/src/lib/gift-groups.ts'
@@ -18,10 +18,11 @@ interface Fixtures {
   sizes: Record<string, Candle>
   boxes: Record<string, Box>
   fits: { name: string; box: string; candles: [string, number][]; options?: PackingOptions; expect: boolean }[]
+  fits_known: { name: string; box: string; candles: [string, number][]; options?: PackingOptions; expect: boolean | null }[]
   arrange: { name: string; candles: [string, number][]; boxes: string[]; options?: PackingOptions; expect: { box: string; candles: string[] }[] }[]
   room: { name: string; box: string; candles: [string, number][]; sizes: string[]; options?: PackingOptions; expect: string[] }[]
   summary: { name: string; box: string; sizes: string[]; options?: PackingOptions; expect: SummaryRow[] }[]
-  cover: { name: string; candles: string[]; expect: Candle[]; box?: string; options?: PackingOptions; fits?: boolean }[]
+  offered: { name: string; candles: string[]; expect: Candle[]; box?: string; options?: PackingOptions; fits?: boolean }[]
   fill: { name: string; box: string; candles: [string, number][]; sizes: string[]; options?: PackingOptions; expect: number }[]
   max_quantity: { name: string; box: string; others: [string, number][]; candle: string; current: number; options?: PackingOptions; expect: number }[]
   validate: {
@@ -67,6 +68,14 @@ for (const c of fixtures.fits) {
   check('fits', c.name, fits(boxes[c.box], expand(c.candles), c.options ?? {}), c.expect)
 }
 
+// A search that ran out of work says so; fits() folds that into "no", and
+// nothing that refuses a shopper may use it.
+for (const c of fixtures.fits_known) {
+  const known = fitsKnown(boxes[c.box], expand(c.candles), c.options ?? {})
+  check('fits_known', c.name, known, c.expect)
+  check('fits_known', `${c.name} (fits() folds "not known" into "no")`, fits(boxes[c.box], expand(c.candles), c.options ?? {}), known === true)
+}
+
 const shape = (gifts: Gift[]) => gifts.map((gift) => ({ box: gift.box.id, candles: gift.candles.map((candle) => candle.size) }))
 
 for (const c of fixtures.arrange) {
@@ -84,11 +93,11 @@ for (const c of fixtures.summary) {
   check('summary', c.name, summary(boxes[c.box], c.sizes.map((s) => sizes[s]), c.options ?? {}), c.expect)
 }
 
-for (const c of fixtures.cover) {
-  const covered = cover(c.candles.map((s) => sizes[s]))
-  check('cover', c.name, covered, c.expect)
+for (const c of fixtures.offered) {
+  const each = offered(c.candles.map((s) => sizes[s]))
+  check('offered', c.name, each, c.expect)
 
-  if (c.box !== undefined) check('cover', `${c.name} (fits ${c.box})`, fits(boxes[c.box], covered, c.options ?? {}), c.fits)
+  if (c.box !== undefined) check('offered', `${c.name} (fits ${c.box})`, fits(boxes[c.box], each, c.options ?? {}), c.fits)
 }
 
 // gift-groups.ts: fill bars, stepper limits, plan validation, totals.

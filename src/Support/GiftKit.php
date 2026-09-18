@@ -18,12 +18,19 @@ defined( 'ABSPATH' ) || exit;
  *
  * COMBINATIONS. "Ainda cabem 2 × 190g ou 4 × 50g ou 1 × 190g + 2 × 50g": what
  * can still go in a box that already holds some candles, by the packing engine
- * ({@see GiftPacking::fits()} with the store's options), never by area:
+ * ({@see GiftPacking::fits_known()} with the store's options), never by area:
  * - first the most of each size on its own, largest size first;
  * - then at most two mixes of sizes that leave no room for one more candle of
  *   any size, the fullest (by volume) first;
  * - one row of one candle is "cabe", anything else "cabem", nothing "completa".
  * An empty box gives the same rows, for "Leva até …".
+ *
+ * Two flags carry what the search could not do, because a shorter sentence and
+ * a wrong sentence look the same otherwise: `complete` (every size's most was
+ * settled) and `settled` (the mixes were searched to the end, so no mixes means
+ * there are none). A row that reaches GiftPacking::MAX_ITEMS is `capped` — the
+ * box may hold more, twelve is where the search stops — and the sentence says
+ * "ou mais" rather than a number nobody proved.
  *
  * NAMES. Optional to type, always set: cleaned like a card message, on one
  * line, at most NAME_MAX characters; empty becomes "Kit N", the first number no
@@ -70,21 +77,29 @@ final class GiftKit {
 	public const BUDGET_MS = 250;
 
 	/**
-	 * What still fits, as rows of { size, count } in size order.
+	 * What still fits, as rows of { entries: [ { size, count } ], capped } in
+	 * size order.
 	 *
 	 * Never less room than there is: a check that ran out of budget (or of
-	 * CHECK_LIMIT) is "unknown", not "no".
+	 * CHECK_LIMIT), and one the packing search could not settle, is "unknown",
+	 * not "no".
 	 * - A size whose most is unknown is left out of `singles`, and `complete`
 	 *   is false.
-	 * - Mixes are only listed when every one of them was settled; otherwise
-	 *   there are none (fewer combinations, never wrong ones).
+	 * - A mix is listed once it is shown to leave no room for one more of any
+	 *   size, so the search stopping does not delete the ones already found;
+	 *   `settled` then says the list may be short and the fullest may be
+	 *   missing. Throwing them all away read as a shorter sentence, which looks
+	 *   exactly like "there are no mixes".
+	 * - With no size at all nothing is known: `complete` and `settled` are both
+	 *   false. A store whose sizes went missing must not read "a caixa está
+	 *   completa".
 	 *
 	 * @param array $box       Box array.
 	 * @param array $candles   Candles already in it.
 	 * @param array $sizes     One candle per size the store sells.
-	 * @param array $options   { gap, stacking, orientation }.
+	 * @param array $options   { gap, orientation }.
 	 * @param float $budget_ms Wall-clock budget; see BUDGET_MS.
-	 * @return array{singles: array<int, array<int, array{size:string, count:int}>>, mixes: array<int, array<int, array{size:string, count:int}>>, complete: bool}
+	 * @return array{singles: array<int, array{entries: array<int, array{size:string, count:int}>, capped: bool}>, mixes: array<int, array{entries: array<int, array{size:string, count:int}>, capped: bool}>, complete: bool, settled: bool}
 	 */
 	public static function combos( array $box, array $candles, array $sizes, array $options = array(), float $budget_ms = self::BUDGET_MS ): array {
 		$sizes = self::ordered( $sizes );
@@ -96,13 +111,25 @@ final class GiftKit {
 			$limit = min( $limit, $max );
 		}
 
-		$room = $limit - count( $candles );
+		$inside = count( $candles );
+		$room   = $limit - $inside;
 
-		if ( 0 === $k || $room < 1 ) {
+		// No room left is an answer; no size to try is not one.
+		if ( $room < 1 ) {
 			return array(
 				'singles'  => array(),
 				'mixes'    => array(),
 				'complete' => true,
+				'settled'  => true,
+			);
+		}
+
+		if ( 0 === $k ) {
+			return array(
+				'singles'  => array(),
+				'mixes'    => array(),
+				'complete' => false,
+				'settled'  => false,
 			);
 		}
 
@@ -139,10 +166,9 @@ final class GiftKit {
 						}
 					}
 
-					list( $fits, $expired ) = GiftPacking::with_deadline( 3600000.0, static fn(): bool => GiftPacking::fits( $box, $group, $options ) );
-
-					// A "no" the clock gave is not an answer.
-					return $memo[ $key ] = ( $expired && ! $fits ) ? null : $fits;
+					// null is the engine's own "not known" — the clock, the work
+					// limit, either way nothing was shown against the group.
+					return $memo[ $key ] = GiftPacking::fits_known( $box, $group, $options );
 				};
 
 				// The most of each size alone: one size, so each check is quick.
@@ -213,11 +239,14 @@ final class GiftKit {
 					}
 				}
 
-				return array( $singles, $settled ? $mixes : array(), $complete );
+				// Every mix collected was shown maximal before the search stopped,
+				// so it is listed; `settled` says whether the ones listed are all
+				// there are.
+				return array( $singles, $mixes, $complete, $settled );
 			}
 		);
 
-		list( $singles, $mixes, $complete ) = $found;
+		list( $singles, $mixes, $complete, $settled ) = $found;
 
 		ksort( $singles );
 
@@ -239,7 +268,11 @@ final class GiftKit {
 			}
 		);
 
-		$row = static function ( array $v ) use ( $sizes ): array {
+		// A row that fills the box to MAX_ITEMS is where the search stops, not
+		// where the box does — unless the box's own `max` is the smaller limit.
+		$capping = 0 === $max || $max > GiftPacking::MAX_ITEMS;
+
+		$row = static function ( array $v ) use ( $sizes, $inside, $capping ): array {
 			$out = array();
 
 			foreach ( $v as $i => $c ) {
@@ -251,47 +284,86 @@ final class GiftKit {
 				}
 			}
 
-			return $out;
+			return array(
+				'entries' => $out,
+				'capped'  => $capping && $inside + array_sum( $v ) >= GiftPacking::MAX_ITEMS,
+			);
 		};
 
 		return array(
 			'singles'  => array_values( array_map( $row, $singles ) ),
 			'mixes'    => array_map( $row, array_slice( $mixes, 0, self::MIXES ) ),
 			'complete' => $complete,
+			'settled'  => $settled,
 		);
 	}
 
 	/**
-	 * How full a box is, 0–100, from combos() of what is in it: the candles
-	 * against the candles it could hold, filling what is left with the smallest
-	 * size (as GiftGroups::fill()). 0 when that is not known: a bar never
-	 * shows fuller than the box is.
+	 * How full a box is, 0–100, or null when nothing about it is settled.
+	 *
+	 * Space, not candles: the volume in the box against the fullest the box was
+	 * shown to take — what is in it plus the fullest row combos() listed. So a
+	 * bar moves by what a candle takes up, and it only reaches the end when the
+	 * search found nothing more that goes in.
+	 *
+	 * Counting candles instead read 100 % whenever the smallest size happened to
+	 * fit nowhere while a larger one still did, 0 % with a box full of candles
+	 * whenever nothing had been settled, and stepped one candle 25 → 67 → 100.
+	 *
+	 * With rows listed the box is not full, so the bar stops at 99: the last
+	 * hundredth belongs to a box with nothing more to add. When the rows are all
+	 * that was searched (`settled` false) a mix nobody looked for may go in too,
+	 * and the bar is then the fullest the box can honestly be said to be.
 	 *
 	 * @param array $combos From combos() of the box with these candles.
 	 * @param array $sizes  The sizes combos() was given.
+	 * @param array $inside The candles in the box, one per unit.
 	 */
-	public static function fill_percent( array $combos, array $sizes, int $count ): int {
-		if ( $count < 1 ) {
-			return 0;
+	public static function fill_percent( array $combos, array $sizes, array $inside ): ?int {
+		$volumes = array();
+
+		foreach ( self::ordered( $sizes ) as $size ) {
+			$volumes[ (string) $size['size'] ] = self::volume( $size );
 		}
 
-		$ordered  = self::ordered( $sizes );
-		$smallest = $ordered ? (string) end( $ordered )['size'] : '';
-		$extra    = 0;
-		$known    = ! empty( $combos['complete'] );
+		$used = 0;
 
-		foreach ( (array) ( $combos['singles'] ?? array() ) as $row ) {
-			if ( 1 === count( $row ) && (string) $row[0]['size'] === $smallest ) {
-				$extra = (int) $row[0]['count'];
-				$known = true;
+		foreach ( $inside as $candle ) {
+			$used += self::volume( $candle );
+		}
+
+		$rows = array_merge( (array) ( $combos['singles'] ?? array() ), (array) ( $combos['mixes'] ?? array() ) );
+
+		// Nothing listed and everything searched: the box is full. Nothing
+		// listed because nothing was searched: say nothing at all.
+		if ( ! $rows ) {
+			$known = ( ! array_key_exists( 'complete', $combos ) || ! empty( $combos['complete'] ) )
+				&& ( ! array_key_exists( 'settled', $combos ) || ! empty( $combos['settled'] ) );
+
+			if ( ! $known ) {
+				return null;
 			}
+
+			return $used > 0 ? 100 : 0;
 		}
 
-		if ( ! $known ) {
+		if ( $used < 1 ) {
 			return 0;
 		}
 
-		return intdiv( $count * 100 + intdiv( $count + $extra, 2 ), $count + $extra );
+		$most = $used;
+
+		foreach ( $rows as $row ) {
+			$more = 0;
+
+			foreach ( (array) ( $row['entries'] ?? array() ) as $entry ) {
+				$more += (int) $entry['count'] * (int) ( $volumes[ (string) $entry['size'] ] ?? 0 );
+			}
+
+			$most = max( $most, $used + $more );
+		}
+
+		return min( 99, intdiv( $used * 100 + intdiv( $most, 2 ), $most ) );
 	}
 
 	/**
@@ -305,16 +377,22 @@ final class GiftKit {
 	 * @param array<string,string> $labels Size => label ("190g"); the size itself otherwise.
 	 * @param string               $or     Between rows.
 	 * @param string               $plus   Between sizes of one row.
+	 * @param string               $more   After a row the search stopped counting at.
 	 * @return array{state:string, combos:string}
 	 */
-	public static function wording( array $combos, array $labels = array(), string $or = ' ou ', string $plus = ' + ' ): array {
+	public static function wording( array $combos, array $labels = array(), string $or = ' ou ', string $plus = ' + ', string $more = ' ou mais' ): array {
 		$rows = array_merge( (array) ( $combos['singles'] ?? array() ), (array) ( $combos['mixes'] ?? array() ) );
 
 		$complete = ! array_key_exists( 'complete', $combos ) || ! empty( $combos['complete'] );
+		// Missing means an older or hand-written answer: read as searched out.
+		$settled = ! array_key_exists( 'settled', $combos ) || ! empty( $combos['settled'] );
 
+		// "Nothing fits" is only "a caixa está completa" when every size and
+		// every mix was settled; otherwise the box may well have room nobody
+		// looked for, and the honest sentence is none at all.
 		if ( ! $rows ) {
 			return array(
-				'state'  => $complete ? 'full' : 'unknown',
+				'state'  => $complete && $settled ? 'full' : 'unknown',
 				'combos' => '',
 			);
 		}
@@ -322,17 +400,21 @@ final class GiftKit {
 		$parts = array();
 
 		foreach ( $rows as $row ) {
-			$parts[] = implode(
+			$text = implode(
 				$plus,
 				array_map(
 					static fn( array $entry ): string => (int) $entry['count'] . ' × ' . ( $labels[ (string) $entry['size'] ] ?? (string) $entry['size'] ),
-					$row
+					(array) ( $row['entries'] ?? array() )
 				)
 			);
+
+			$parts[] = empty( $row['capped'] ) ? $text : $text . $more;
 		}
 
-		// "Only one fits" is only said when every size was settled.
-		$one = $complete && 1 === count( $rows ) && 1 === array_sum( array_map( static fn( array $entry ): int => (int) $entry['count'], $rows[0] ) );
+		// "Only one fits" is only said when every size and every mix was settled,
+		// and when that one is a real most rather than where the search stopped.
+		$one = $complete && $settled && 1 === count( $rows ) && empty( $rows[0]['capped'] )
+			&& 1 === array_sum( array_map( static fn( array $entry ): int => (int) $entry['count'], (array) $rows[0]['entries'] ) );
 
 		return array(
 			'state'  => $one ? 'one' : 'many',
@@ -472,7 +554,13 @@ final class GiftKit {
 	}
 
 	/**
-	 * Distinct sizes, largest first (first seen on a tie), each with a volume.
+	 * Distinct sizes, largest first, each with a volume.
+	 *
+	 * Sizes of the same volume come out in reverse order of appearance, so that
+	 * the last of the list is the size {@see GiftGroups::smallest()} picks —
+	 * which keeps the first one seen. The two used to break that tie opposite
+	 * ways, and "the smallest size" then meant two different candles depending
+	 * on which one was asked.
 	 *
 	 * @return array<int, array>
 	 */
@@ -492,7 +580,7 @@ final class GiftKit {
 
 		usort(
 			$order,
-			static fn( int $a, int $b ): int => ( self::volume( $list[ $b ] ) <=> self::volume( $list[ $a ] ) ) ?: ( $a <=> $b )
+			static fn( int $a, int $b ): int => ( self::volume( $list[ $b ] ) <=> self::volume( $list[ $a ] ) ) ?: ( $b <=> $a )
 		);
 
 		return array_map( static fn( int $i ): array => $list[ $i ], $order );

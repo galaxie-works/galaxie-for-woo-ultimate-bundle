@@ -44,14 +44,12 @@ final class BoxFields {
 	/**
 	 * @param string    $attribute   Candle size attribute, e.g. `pa_peso`.
 	 * @param float     $gap         Packing gap in cm (default 0: tissue paper fills).
-	 * @param bool      $stacking    Stacking setting (accepted; the engine packs one layer).
 	 * @param int[]     $categories  Product categories that are gift boxes; empty = every variable product.
 	 * @param string    $orientation 'lying' (default, the jar on its side), 'upright' or 'any'.
 	 */
 	public function __construct(
 		private string $attribute = 'pa_peso',
 		private float $gap = 0.0,
-		private bool $stacking = false,
 		private array $categories = array(),
 		private string $orientation = 'lying'
 	) {
@@ -243,7 +241,6 @@ final class BoxFields {
 
 		$options = array(
 			'gap'         => $this->gap,
-			'stacking'    => $this->stacking,
 			'orientation' => $this->orientation,
 		);
 		$rows    = array();

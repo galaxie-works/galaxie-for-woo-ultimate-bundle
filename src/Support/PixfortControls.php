@@ -1683,8 +1683,10 @@ final class PixfortControls {
 	 *
 	 * @param array<string,mixed> $defaults
 	 * @param array<string,mixed> $condition
+	 * @param string[]            $skip      Unprefixed ids not to register, as
+	 *                                       {@see button()} and {@see text()} take.
 	 */
-	public static function quantity( object $target, string $prefix, string $field, string $input, array $defaults = array(), array $condition = array(), string $wrapper = '' ): void {
+	public static function quantity( object $target, string $prefix, string $field, string $input, array $defaults = array(), array $condition = array(), string $wrapper = '', array $skip = array() ): void {
 		$d   = static fn( string $key, $fallback ) => $defaults[ $key ] ?? $fallback;
 		$box = '' !== $wrapper ? $wrapper : $field;
 
@@ -1692,24 +1694,34 @@ final class PixfortControls {
 		// rather than here, which is exactly why the cart's Quantity panel was
 		// not the buy box's Quantity panel however often the rest was shared.
 		// The ids are unchanged, so a buy box already set to Dropdown stays one.
-		self::add( $target, $condition, $prefix . '_style', array(
-			'label'   => __( 'Style', 'galaxie-woo' ),
-			'type'    => Controls_Manager::SELECT,
-			'options' => array(
-				'input'  => __( 'Number input (+/-)', 'galaxie-woo' ),
-				'select' => __( 'Dropdown', 'galaxie-woo' ),
-			),
-			'default' => $d( 'style', 'input' ),
-		) );
+		//
+		// `style` and `max` are skippable together: they are the two controls a
+		// spinner whose number is not a native input cannot honour — the kit's
+		// quantity is a <span> the script writes, so there is no field to turn
+		// into a dropdown and no list to cap. Registering them there would be
+		// two controls that move nothing.
+		if ( ! in_array( 'style', $skip, true ) ) {
+			self::add( $target, $condition, $prefix . '_style', array(
+				'label'   => __( 'Style', 'galaxie-woo' ),
+				'type'    => Controls_Manager::SELECT,
+				'options' => array(
+					'input'  => __( 'Number input (+/-)', 'galaxie-woo' ),
+					'select' => __( 'Dropdown', 'galaxie-woo' ),
+				),
+				'default' => $d( 'style', 'input' ),
+			) );
+		}
 
-		self::add( $target, $condition, $prefix . '_max', array(
-			'label'     => __( 'Dropdown goes up to', 'galaxie-woo' ),
-			'type'      => Controls_Manager::NUMBER,
-			'min'       => 1,
-			'max'       => 50,
-			'default'   => $d( 'max', 5 ),
-			'condition' => array( $prefix . '_style' => 'select' ),
-		) );
+		if ( ! in_array( 'max', $skip, true ) ) {
+			self::add( $target, $condition, $prefix . '_max', array(
+				'label'     => __( 'Dropdown goes up to', 'galaxie-woo' ),
+				'type'      => Controls_Manager::NUMBER,
+				'min'       => 1,
+				'max'       => 50,
+				'default'   => $d( 'max', 5 ),
+				'condition' => array( $prefix . '_style' => 'select' ),
+			) );
+		}
 
 		// On the wrapper, which is made a flex row here rather than in the
 		// stylesheet so the control works wherever the set is used without
@@ -1808,6 +1820,52 @@ final class PixfortControls {
 			'size_units' => array( 'px' ),
 			'range'      => array( 'px' => array( 'min' => 0, 'max' => 60 ) ),
 			'selectors'  => array( $field => 'border-radius: {{SIZE}}{{UNIT}}; overflow: hidden;' ),
+		) );
+	}
+
+	/**
+	 * A progress bar: a track, the part that is filled, and the colour it turns
+	 * once the thing being counted is reached.
+	 *
+	 * Three widgets drew the same bar with three vocabularies — `fill_track` /
+	 * `fill_bar` in one, `progress_track` / `progress_fill` in the other two —
+	 * and only one of them could be rounded. A merchant restyling "the bar"
+	 * therefore found a different panel depending on which widget they had
+	 * clicked. The Free Shipping ids are the ones kept, because two of the three
+	 * already used them.
+	 *
+	 * No height default: the stylesheet gives every bar its 8px, and a default
+	 * here would be a second answer to the same question.
+	 *
+	 * @param string              $track    Selector for the track.
+	 * @param string              $fill     Selector for the filled part.
+	 * @param string              $done     Selector for the filled part once reached.
+	 * @param array<string,mixed> $defaults `done_label` names the last control:
+	 *                                      "reached" and "full" are the same
+	 *                                      state under two widgets' words.
+	 * @param array<string,mixed> $condition
+	 */
+	public static function progress( object $target, string $prefix, string $track, string $fill, string $done, array $defaults = array(), array $condition = array() ): void {
+		self::palette_control( $target, $prefix . '_track', __( 'Track', 'galaxie-woo' ), $track, 'background-color', $condition );
+		self::palette_control( $target, $prefix . '_fill', __( 'Fill', 'galaxie-woo' ), $fill, 'background-color', $condition );
+		self::palette_control( $target, $prefix . '_fill_done', (string) ( $defaults['done_label'] ?? __( 'Fill once reached', 'galaxie-woo' ) ), $done, 'background-color', $condition );
+
+		self::add_responsive( $target, $condition, $prefix . '_bar_height', array(
+			'label'      => __( 'Height', 'galaxie-woo' ),
+			'type'       => Controls_Manager::SLIDER,
+			'size_units' => array( 'px' ),
+			'range'      => array( 'px' => array( 'min' => 2, 'max' => 32 ) ),
+			'selectors'  => array( $track => 'height: {{SIZE}}{{UNIT}};' ),
+		) );
+
+		// Track and fill together: the fill inherits the track's radius in the
+		// stylesheet, and a rounded track with square ends reads as a bug.
+		self::add_responsive( $target, $condition, $prefix . '_bar_radius', array(
+			'label'      => __( 'Border radius', 'galaxie-woo' ),
+			'type'       => Controls_Manager::SLIDER,
+			'size_units' => array( 'px' ),
+			'range'      => array( 'px' => array( 'min' => 0, 'max' => 20 ) ),
+			'selectors'  => array( $track . ', ' . $fill => 'border-radius: {{SIZE}}{{UNIT}};' ),
 		) );
 	}
 

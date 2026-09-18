@@ -125,6 +125,14 @@ function delete_transient( $name ) {
 }
 
 /** No product categories: the Gift Wrap category fields just have no options. */
+// The Gift Wrap settings page now says which candle sizes it found, which asks
+// the packing engine, which caches. A schema request must survive that.
+defined( 'DAY_IN_SECONDS' ) || define( 'DAY_IN_SECONDS', 86400 );
+
+function get_transient( $key ) { return false; }
+function set_transient( $key, $value, $ttl = 0 ) { return true; }
+function taxonomy_exists( $taxonomy ) { return false; }
+
 function get_terms( $args = array() ) {
 	return array();
 }

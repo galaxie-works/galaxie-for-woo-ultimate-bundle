@@ -402,7 +402,10 @@ final class KitBuilderWidget extends Widget_Base {
 			)
 		);
 		$shown = array( 'steps_show' => 'yes' );
-		PixfortControls::palette_control( $this, 'steps_dot_bg', __( 'Dot', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-kit-step-dot', 'background-color', $shown );
+		// The pill the Wishlist's badges wear, so a dot follows the site's radius
+		// scale instead of a hand-typed 999px. `steps_dot_bg` is the id the
+		// background already had, so that choice survives the move.
+		PixfortControls::surface( $this, 'steps_dot', '{{WRAPPER}} .galaxie-kit-step-dot', array( 'rounded' => 'badge-pill', 'radius_set' => 'badge' ), $shown );
 		PixfortControls::palette_control( $this, 'steps_dot_color', __( 'Dot number', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-kit-step-dot', 'color', $shown );
 		PixfortControls::palette_control( $this, 'steps_active_bg', __( 'Current and done dots', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-kit-step.is-current .galaxie-kit-step-dot, {{WRAPPER}} .galaxie-kit-step.is-done .galaxie-kit-step-dot', 'background-color', $shown );
 		PixfortControls::palette_control( $this, 'steps_active_color', __( 'Current and done numbers', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-kit-step.is-current .galaxie-kit-step-dot, {{WRAPPER}} .galaxie-kit-step.is-done .galaxie-kit-step-dot', 'color', $shown );
@@ -464,7 +467,42 @@ final class KitBuilderWidget extends Widget_Base {
 		$this->heading( 'small_style_heading', __( 'Labels, hints and the room-left line', 'galaxie-woo' ) );
 		PixfortControls::text( $this, 'small', array( 'size' => 'text-sm', 'bold' => '' ), array(), '{{WRAPPER}} .galaxie-kit-small', 'text', array( 'inline', 'position' ) );
 		$this->margin( 'starting_margin', __( 'Space around the "started from a product" line', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-kit-starting' );
-		PixfortControls::palette_control( $this, 'error_color', __( 'Error color', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-kit-error, {{WRAPPER}} .galaxie-kit-warning', 'color' );
+		$this->end_controls_section();
+
+		// The messages the kit prints on its own line are pixfort Alerts, the
+		// same component the Buy Box uses, so a refusal here and a refusal there
+		// are one object. The two inside someone else's markup — the reason on a
+		// box card, "Indisponível" on a candle line — stay words, because an
+		// alert cannot live inside a <button>, and `error_color` is theirs.
+		//
+		// Section id and control ids share one namespace in Elementor, and
+		// alert() registers no `_style`, so `kit_message_style` cannot collide
+		// with the `kit_alert_*` set below it.
+		$this->start_controls_section( 'kit_message_style', $style( __( 'Warnings and errors', 'galaxie-woo' ) ) );
+		$types = PixfortControls::alert_types();
+		$this->add_control(
+			'kit_alert_error_type',
+			array(
+				'label'   => __( 'Error style', 'galaxie-woo' ),
+				'type'    => Controls_Manager::SELECT,
+				'options' => $types,
+				'default' => 'danger',
+			)
+		);
+		$this->add_control(
+			'kit_alert_warning_type',
+			array(
+				'label'   => __( 'Warning style', 'galaxie-woo' ),
+				'type'    => Controls_Manager::SELECT,
+				'options' => $types,
+				'default' => 'warning',
+			)
+		);
+		// No icon and no close button by default: pixfort's own fallback glyph is
+		// a question mark, which is the wrong face for a refusal, and a message
+		// the script re-shows on every redraw should not offer to be dismissed.
+		PixfortControls::alert( $this, 'kit_alert', array( 'hide_close' => 'true', 'media_type' => 'none' ), array(), '{{WRAPPER}} .galaxie-kit-alert' );
+		PixfortControls::palette_control( $this, 'error_color', __( 'Warning color inside cards and lines', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-kit-warning', 'color' );
 		$this->end_controls_section();
 
 		// The line under the title reads as a hint, not as body copy, so it can
@@ -494,28 +532,11 @@ final class KitBuilderWidget extends Widget_Base {
 			)
 		);
 		$badge = array( 'hint_badge' => 'yes' );
-		PixfortControls::palette_control( $this, 'hint_bg', __( 'Badge background', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-kit-text.galaxie-kit-badge', 'background-color', $badge );
-		$this->add_responsive_control(
-			'hint_padding',
-			array(
-				'label'      => __( 'Badge padding', 'galaxie-woo' ),
-				'type'       => Controls_Manager::DIMENSIONS,
-				'size_units' => array( 'px', 'rem', 'em' ),
-				'condition'  => $badge,
-				'selectors'  => array( '{{WRAPPER}} .galaxie-kit-text.galaxie-kit-badge' => 'padding: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};' ),
-			)
-		);
-		$this->add_responsive_control(
-			'hint_radius',
-			array(
-				'label'      => __( 'Badge corners', 'galaxie-woo' ),
-				'type'       => Controls_Manager::SLIDER,
-				'size_units' => array( 'px' ),
-				'range'      => array( 'px' => array( 'min' => 0, 'max' => 40 ) ),
-				'condition'  => $badge,
-				'selectors'  => array( '{{WRAPPER}} .galaxie-kit-text.galaxie-kit-badge' => 'border-radius: {{SIZE}}{{UNIT}};' ),
-			)
-		);
+		// The Wishlist's pill: pixfort's own `badge-pill` rather than a typed
+		// 999px, so the hint follows the site's badge radius. `hint_bg` and
+		// `hint_padding` keep their ids and their meaning; `hint_radius` is now
+		// the slider behind "Custom", which is where a typed corner belongs.
+		PixfortControls::surface( $this, 'hint', '{{WRAPPER}} .galaxie-kit-text.galaxie-kit-badge', array( 'rounded' => 'badge-pill', 'radius_set' => 'badge' ), $badge );
 		$this->add_responsive_control(
 			'hint_align',
 			array(
@@ -577,7 +598,10 @@ final class KitBuilderWidget extends Widget_Base {
 			$this->end_controls_section();
 		}
 
-		$this->start_controls_section( 'kit_box_style', $style( __( 'Box cards', 'galaxie-woo' ) ) );
+		// Not "Box cards": the name and the meta set here dress the box step, the
+		// card step, the summary's own rows and the candle lines. The section is
+		// named after all four rather than after the first one written.
+		$this->start_controls_section( 'kit_box_style', $style( __( 'Cards and rows (boxes, cards, summary, candles)', 'galaxie-woo' ) ) );
 		PixfortControls::surface( $this, 'box_card', '{{WRAPPER}} .galaxie-kit-choice' );
 		PixfortControls::palette_control( $this, 'box_selected', __( 'Selected: border color', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-kit-choice[aria-pressed="true"]', 'border-color', array(), ' border-style: solid; border-width: 2px;' );
 		$this->add_control(
@@ -594,18 +618,13 @@ final class KitBuilderWidget extends Widget_Base {
 		PixfortControls::text( $this, 'box_name', array( 'bold' => 'font-weight-bold' ), array(), '{{WRAPPER}} .galaxie-kit-choice-name', 'text', array( 'inline', 'position' ) );
 		$this->heading( 'box_meta_heading', __( 'Price, description and what it holds', 'galaxie-woo' ) );
 		PixfortControls::text( $this, 'box_meta', array( 'size' => 'text-sm', 'bold' => '' ), array(), '{{WRAPPER}} .galaxie-kit-choice-meta', 'text', array( 'inline', 'position' ) );
-		$this->add_responsive_control(
-			'box_image_size',
-			array(
-				'label'      => __( 'Picture size', 'galaxie-woo' ),
-				'type'       => Controls_Manager::SLIDER,
-				'size_units' => array( 'px' ),
-				'range'      => array( 'px' => array( 'min' => 0, 'max' => 160 ) ),
-				'default'    => array( 'unit' => 'px', 'size' => 64 ),
-				'selectors'  => array( '{{WRAPPER}} .galaxie-kit-thumb' => 'width: {{SIZE}}{{UNIT}}; height: {{SIZE}}{{UNIT}};' ),
-				'separator'  => 'before',
-			)
-		);
+		// The cart's and the wishlist's thumbnail set, scoped to the choice cards
+		// alone. The old "Picture size" wrote to every `.galaxie-kit-thumb` on
+		// the widget and tied on specificity with the stylesheet's own rule for
+		// the candle lines, so which won depended on the order the two
+		// stylesheets loaded. The summary's rows have their own set now.
+		$this->heading( 'box_image_heading', __( 'Picture', 'galaxie-woo' ) );
+		PixfortControls::thumb( $this, 'choice_thumb', '{{WRAPPER}} .galaxie-kit-choice .galaxie-kit-thumb', array( 'rounded' => 'custom', 'size' => 64, 'radius' => 8 ) );
 		$this->add_responsive_control(
 			'choices_gap',
 			array(
@@ -620,29 +639,88 @@ final class KitBuilderWidget extends Widget_Base {
 		$this->margin( 'choices_margin', __( 'Space around the list', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-kit-choices' );
 		$this->end_controls_section();
 
-		$this->start_controls_section( 'kit_field_style', $style( __( 'Name and message fields', 'galaxie-woo' ) ) );
-		PixfortControls::palette_control( $this, 'field_text', __( 'Text color', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-kit-input', 'color' );
-		PixfortControls::palette_control( $this, 'field_bg', __( 'Background color', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-kit-input', 'background-color' );
-		PixfortControls::palette_control( $this, 'field_border', __( 'Border color', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-kit-input', 'border-color', array(), ' border-style: solid; border-width: 1px;' );
+		// The summary is the editor's default screen and the one most shoppers
+		// see, and until now it borrowed every control it had from "Box cards"
+		// and from the small-text set. Its rows — the box, the card and each
+		// candle — are one shape, so one section dresses them.
+		//
+		// Ungated on purpose: the gated sections behind the two pickers are the
+		// six screens and the eleven buttons, and a merchant should not have to
+		// find a picker to reach the screen they came for.
+		$this->start_controls_section( 'kit_summary_style', $style( __( 'Summary rows', 'galaxie-woo' ) ) );
 		$this->add_responsive_control(
-			'field_radius',
+			'rows_gap',
 			array(
-				'label'      => __( 'Border radius', 'galaxie-woo' ),
+				'label'      => __( 'Space between the rows', 'galaxie-woo' ),
+				'type'       => Controls_Manager::SLIDER,
+				'size_units' => array( 'px', 'rem' ),
+				'range'      => array( 'px' => array( 'min' => 0, 'max' => 40 ) ),
+				'default'    => array( 'unit' => 'px', 'size' => 10 ),
+				'selectors'  => array( '{{WRAPPER}} .galaxie-kit-summary, {{WRAPPER}} .galaxie-kit-lines' => 'gap: {{SIZE}}{{UNIT}};' ),
+			)
+		);
+		$this->heading( 'line_thumb_heading', __( 'Picture', 'galaxie-woo' ) );
+		PixfortControls::thumb( $this, 'line_thumb', '{{WRAPPER}} .galaxie-kit-row .galaxie-kit-thumb', array( 'rounded' => 'custom', 'size' => 48, 'radius' => 8 ) );
+
+		// "trocar" and "Remover" used to wear the small-text set, so restyling a
+		// field label silently restyled two actions. They are their own text now.
+		$this->heading( 'link_heading', __( '"trocar" and "Remover"', 'galaxie-woo' ) );
+		PixfortControls::text( $this, 'link', array( 'size' => 'text-sm', 'bold' => '' ), array(), '{{WRAPPER}} .galaxie-kit-link', 'text', array( 'inline', 'position' ) );
+		PixfortControls::icon_color( $this, 'link_icon_color', __( 'Icon color', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-kit-link' );
+		$this->add_responsive_control(
+			'link_icon_size',
+			array(
+				'label'      => __( 'Icon size', 'galaxie-woo' ),
 				'type'       => Controls_Manager::SLIDER,
 				'size_units' => array( 'px' ),
-				'range'      => array( 'px' => array( 'min' => 0, 'max' => 30 ) ),
-				'selectors'  => array( '{{WRAPPER}} .galaxie-kit-input' => 'border-radius: {{SIZE}}{{UNIT}};' ),
+				'range'      => array( 'px' => array( 'min' => 10, 'max' => 48 ) ),
+				'selectors'  => array( '{{WRAPPER}} .galaxie-kit-link svg' => 'width: {{SIZE}}{{UNIT}}; height: {{SIZE}}{{UNIT}};' ),
 			)
 		);
+
+		// The shop's third spinner, from the set the buy box and the cart share.
+		// `style` and `max` are skipped: this number is a <span> the script
+		// writes, so there is no input to turn into a dropdown — and with them
+		// skipped no `kit_qty_style` control exists to collide with a section id.
+		$this->heading( 'qty_heading', __( 'The − / + stepper', 'galaxie-woo' ) );
+		PixfortControls::quantity(
+			$this,
+			'kit_qty',
+			'{{WRAPPER}} .galaxie-kit-stepper',
+			'{{WRAPPER}} .galaxie-kit-qty',
+			array(),
+			array(),
+			'',
+			array( 'style', 'max' )
+		);
+		PixfortControls::icon_color( $this, 'qty_icon_color', __( 'Icon color', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-kit-qty-step' );
 		$this->add_responsive_control(
-			'field_padding',
+			'qty_icon_size',
 			array(
-				'label'      => __( 'Field padding', 'galaxie-woo' ),
-				'type'       => Controls_Manager::DIMENSIONS,
-				'size_units' => array( 'px', 'rem', 'em' ),
-				'selectors'  => array( '{{WRAPPER}} .galaxie-kit-input' => 'padding: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};' ),
+				'label'      => __( 'Icon size', 'galaxie-woo' ),
+				'type'       => Controls_Manager::SLIDER,
+				'size_units' => array( 'px' ),
+				'range'      => array( 'px' => array( 'min' => 10, 'max' => 48 ) ),
+				'selectors'  => array( '{{WRAPPER}} .galaxie-kit-qty-step svg' => 'width: {{SIZE}}{{UNIT}}; height: {{SIZE}}{{UNIT}};' ),
 			)
 		);
+		$this->end_controls_section();
+
+		$this->start_controls_section( 'kit_field_style', $style( __( 'Name and message fields', 'galaxie-woo' ) ) );
+		// Payment Methods' pattern (`pm_field`): the shared box set, then the
+		// typed text, then the states. `field_bg` and `field_padding` keep their
+		// ids; `field_radius` becomes the slider behind "Custom", which is why
+		// Custom is the default — a corner already typed keeps working.
+		PixfortControls::surface( $this, 'field', '{{WRAPPER}} .galaxie-kit-input', array( 'rounded' => 'custom' ) );
+		$this->heading( 'field_text_heading', __( 'Typed text', 'galaxie-woo' ) );
+		PixfortControls::palette_control( $this, 'field_text', __( 'Text color', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-kit-input', 'color' );
+		// The two states the field had no way to show: the one the shopper is in,
+		// and the one the message counter already marks on the label around it.
+		$this->heading( 'field_state_heading', __( 'States', 'galaxie-woo' ) );
+		PixfortControls::palette_control( $this, 'field_focus', __( 'Border when focused', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-kit-input:focus', 'border-color' );
+		PixfortControls::palette_control( $this, 'field_focus_bg', __( 'Background when focused', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-kit-input:focus', 'background-color' );
+		PixfortControls::palette_control( $this, 'field_over', __( 'Border over the message limit', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-kit-field.is-over .galaxie-kit-input', 'border-color' );
+		$this->heading( 'field_space_heading', __( 'Spacing', 'galaxie-woo' ) );
 		$this->add_responsive_control(
 			'field_gap',
 			array(
@@ -658,19 +736,18 @@ final class KitBuilderWidget extends Widget_Base {
 		$this->end_controls_section();
 
 		$this->start_controls_section( 'kit_fill_style', $style( __( 'Fill bar', 'galaxie-woo' ) ) );
-		PixfortControls::palette_control( $this, 'fill_track', __( 'Track color', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-kit-fill-track', 'background-color' );
-		PixfortControls::palette_control( $this, 'fill_bar', __( 'Bar color', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-kit-fill-bar', 'background-color' );
-		PixfortControls::palette_control( $this, 'fill_bar_full', __( 'Bar color when full', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-kit-fill.is-full .galaxie-kit-fill-bar', 'background-color' );
-		$this->add_responsive_control(
-			'fill_height',
-			array(
-				'label'      => __( 'Height', 'galaxie-woo' ),
-				'type'       => Controls_Manager::SLIDER,
-				'size_units' => array( 'px' ),
-				'range'      => array( 'px' => array( 'min' => 2, 'max' => 24 ) ),
-				'default'    => array( 'unit' => 'px', 'size' => 8 ),
-				'selectors'  => array( '{{WRAPPER}} .galaxie-kit-fill-track' => 'height: {{SIZE}}{{UNIT}};' ),
-			)
+		// The same bar the Free Shipping and the Kit Progress widgets draw, under
+		// the Free Shipping ids. This widget's own `fill_track` / `fill_bar` /
+		// `fill_bar_full` / `fill_height` are the ones that change, so a fill bar
+		// already restyled HERE starts from the defaults again — the only one of
+		// the three that loses anything, and the price of one vocabulary.
+		PixfortControls::progress(
+			$this,
+			'progress',
+			'{{WRAPPER}} .galaxie-kit-fill-track',
+			'{{WRAPPER}} .galaxie-kit-fill-bar',
+			'{{WRAPPER}} .galaxie-kit-fill.is-full .galaxie-kit-fill-bar',
+			array( 'done_label' => __( 'Fill when full', 'galaxie-woo' ) )
 		);
 		$this->add_control(
 			'confetti',
@@ -979,6 +1056,36 @@ final class KitBuilderWidget extends Widget_Base {
 		);
 	}
 
+	/**
+	 * A message on a line of its own, drawn by pixfort's own Alert — the same
+	 * component the Buy Box refuses with, so a refusal here and a refusal there
+	 * are one object rather than two red paragraphs.
+	 *
+	 * The element the script finds stays on the OUTSIDE: PixAlert draws its own
+	 * `<div class="alert">` and puts the words in a `.pix-alert-title` inside
+	 * it, so kit-builder.ts writes into that node instead of into the wrapper.
+	 * The fallback below carries the same class for the same reason — the
+	 * script must find one target whether or not the theme is installed.
+	 *
+	 * @param array<string,mixed> $settings
+	 * @param string              $kind     `error` or `warning`: which type control answers.
+	 * @param string              $attr     The wrapper's attributes, already escaped.
+	 * @param string              $text     The message; empty on a line the script fills.
+	 */
+	private function message( array $settings, string $kind, string $attr, string $text = '' ): string {
+		$type = (string) ( $settings[ 'kit_alert_' . $kind . '_type' ] ?? ( 'error' === $kind ? 'danger' : 'warning' ) );
+
+		$inner = PixfortControls::available()
+			? (string) \PixfortCore::instance()->elementsManager->renderElement( 'Alert', PixfortControls::alert_attr( $settings, 'kit_alert', $text, $type ) )
+			: sprintf(
+				'<div class="alert alert-%1$s" role="alert"><div class="pix-alert-title">%2$s</div></div>',
+				esc_attr( $type ),
+				wp_kses_post( $text )
+			);
+
+		return sprintf( '<div class="galaxie-kit-alert" %1$s>%2$s</div>', $attr, $inner );
+	}
+
 	private function heading( string $id, string $label, bool $separator = true ): void {
 		$this->add_control(
 			$id,
@@ -1039,7 +1146,7 @@ final class KitBuilderWidget extends Widget_Base {
 			echo '</section>';
 		}
 
-		printf( '<p class="galaxie-kit-error galaxie-kit-small %1$s" data-kit-error role="alert" hidden></p>', esc_attr( PixfortControls::text_classes( $settings, 'small' ) ) );
+		echo $this->message( $settings, 'error', 'data-kit-error hidden' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in message().
 
 		if ( ! $editing ) {
 			$this->render_templates( $settings, $texts );
@@ -1073,9 +1180,10 @@ final class KitBuilderWidget extends Widget_Base {
 		foreach ( $steps as $name => $label ) {
 			$class = false !== $current && $n < $current ? ' is-done' : ( $n === $current ? ' is-current' : '' );
 			printf(
-				'<li class="galaxie-kit-step%1$s" data-step="%2$s"><span class="galaxie-kit-step-dot">%3$d</span><span class="galaxie-kit-step-label %4$s">%5$s</span></li>',
+				'<li class="galaxie-kit-step%1$s" data-step="%2$s"><span class="galaxie-kit-step-dot %3$s">%4$d</span><span class="galaxie-kit-step-label %5$s">%6$s</span></li>',
 				esc_attr( $class ),
 				esc_attr( $name ),
+				esc_attr( PixfortControls::surface_classes( $settings, 'steps_dot' ) ),
 				$n + 1,
 				esc_attr( PixfortControls::text_classes( $settings, 'steps_label' ) ),
 				esc_html( $texts[ $label ] )
@@ -1178,10 +1286,14 @@ final class KitBuilderWidget extends Widget_Base {
 		$text       = $this->hint;
 		$this->hint = null;
 
+		$badge = 'yes' === ( $settings['hint_badge'] ?? '' )
+			? ' galaxie-kit-badge ' . PixfortControls::surface_classes( $settings, 'hint' )
+			: '';
+
 		printf(
 			'<p class="galaxie-kit-text %1$s%2$s" data-slot="text">%3$s</p>',
 			esc_attr( PixfortControls::text_classes( $settings, $this->hint_prefix ) ),
-			'yes' === ( $settings['hint_badge'] ?? '' ) ? ' galaxie-kit-badge' : '',
+			esc_attr( rtrim( $badge ) ),
 			GiftKit::html( $text ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- through wp_kses().
 		);
 	}
@@ -1266,7 +1378,8 @@ final class KitBuilderWidget extends Widget_Base {
 		printf( '<label class="galaxie-kit-field"><span class="galaxie-kit-small %1$s">%2$s</span>', esc_attr( PixfortControls::text_classes( $settings, 'small' ) ), esc_html( $texts['name_label'] ) );
 		$this->hint_anchor( $settings );
 		printf(
-			'<input type="text" class="galaxie-kit-input" data-kit-name maxlength="%1$d" placeholder="%2$s" autocomplete="off" /></label>',
+			'<input type="text" class="galaxie-kit-input %1$s" data-kit-name maxlength="%2$d" placeholder="%3$s" autocomplete="off" /></label>',
+			esc_attr( PixfortControls::surface_classes( $settings, 'field' ) ),
 			(int) GiftKit::NAME_MAX,
 			esc_attr( $texts['name_placeholder'] )
 		);
@@ -1286,7 +1399,7 @@ final class KitBuilderWidget extends Widget_Base {
 		}
 
 		echo '</div>';
-		printf( '<p class="galaxie-kit-warning galaxie-kit-small %1$s" data-kit-box-none hidden></p>', esc_attr( PixfortControls::text_classes( $settings, 'small' ) ) );
+		echo $this->message( $settings, 'warning', 'data-kit-box-none hidden' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in message().
 
 		$this->nav( $settings, $texts );
 	}
@@ -1313,14 +1426,15 @@ final class KitBuilderWidget extends Widget_Base {
 		$max = (int) Module::setting( 'card_message_max' );
 
 		printf(
-			'<label class="galaxie-kit-field" data-kit-%1$s-wrap%2$s><span class="galaxie-kit-small %3$s">%4$s</span><textarea class="galaxie-kit-input" rows="3" data-kit-%1$s placeholder="%5$s">%6$s</textarea><span class="galaxie-kit-count galaxie-kit-small %3$s" data-kit-%1$s-count>%7$s</span></label>',
+			'<label class="galaxie-kit-field" data-kit-%1$s-wrap%2$s><span class="galaxie-kit-small %3$s">%4$s</span><textarea class="galaxie-kit-input %8$s" rows="3" data-kit-%1$s placeholder="%5$s">%6$s</textarea><span class="galaxie-kit-count galaxie-kit-small %3$s" data-kit-%1$s-count>%7$s</span></label>',
 			esc_attr( $slot ),
 			$hidden ? ' hidden' : '',
 			esc_attr( PixfortControls::text_classes( $settings, 'small' ) ),
 			esc_html( 'message' === $slot ? $texts['card_label'] : $texts['summary_message'] ),
 			esc_attr( $texts['card_placeholder'] ),
 			esc_textarea( $message ),
-			esc_html( GiftGroups::message_length( $message ) . '/' . $max )
+			esc_html( GiftGroups::message_length( $message ) . '/' . $max ),
+			esc_attr( PixfortControls::surface_classes( $settings, 'field' ) )
 		);
 	}
 
@@ -1349,18 +1463,21 @@ final class KitBuilderWidget extends Widget_Base {
 		$small = esc_attr( PixfortControls::text_classes( $settings, 'small' ) );
 		$meta  = esc_attr( PixfortControls::text_classes( $settings, 'box_meta' ) );
 		$name  = esc_attr( PixfortControls::text_classes( $settings, 'box_name' ) );
+		$link  = esc_attr( PixfortControls::text_classes( $settings, 'link' ) );
+		$thumb = esc_attr( PixfortControls::thumb_classes( $settings, 'line_thumb' ) );
 
 		$this->head( $settings, 'summary', $texts['summary_title'], $texts['summary_text'] );
 
 		echo '<div class="galaxie-kit-summary">';
 
 		printf(
-			'<label class="galaxie-kit-field"><span class="galaxie-kit-small %1$s">%2$s</span><input type="text" class="galaxie-kit-input" data-kit-summary-name maxlength="%3$d" placeholder="%4$s" value="%5$s" autocomplete="off" /></label>',
+			'<label class="galaxie-kit-field"><span class="galaxie-kit-small %1$s">%2$s</span><input type="text" class="galaxie-kit-input %6$s" data-kit-summary-name maxlength="%3$d" placeholder="%4$s" value="%5$s" autocomplete="off" /></label>',
 			$small, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped above.
 			esc_html( $texts['summary_name'] ),
 			(int) GiftKit::NAME_MAX,
 			esc_attr( $texts['name_placeholder'] ),
-			esc_attr( $sample ? $sample['name'] : '' )
+			esc_attr( $sample ? $sample['name'] : '' ),
+			esc_attr( PixfortControls::surface_classes( $settings, 'field' ) )
 		);
 
 		foreach ( array( 'box' => 'change-box', 'card' => 'change-card' ) as $part => $action ) {
@@ -1371,7 +1488,7 @@ final class KitBuilderWidget extends Widget_Base {
 			);
 
 			printf(
-				'<div class="galaxie-kit-row galaxie-kit-row--%1$s" data-kit-summary-%1$s><img class="galaxie-kit-thumb" alt="" data-slot="image"%2$s /><span class="galaxie-kit-row-body"><span class="galaxie-kit-small %3$s">%4$s</span><span class="galaxie-kit-choice-name %5$s" data-slot="name">%6$s</span><span class="galaxie-kit-choice-meta %7$s" data-slot="price">%8$s</span></span><a href="#" class="galaxie-kit-link galaxie-kit-small %3$s" data-kit-action="%9$s">%11$s%10$s</a></div>',
+				'<div class="galaxie-kit-row galaxie-kit-row--%1$s" data-kit-summary-%1$s><img class="galaxie-kit-thumb %12$s" alt="" data-slot="image"%2$s /><span class="galaxie-kit-row-body"><span class="galaxie-kit-small %3$s">%4$s</span><span class="galaxie-kit-choice-name %5$s" data-slot="name">%6$s</span><span class="galaxie-kit-choice-meta %7$s" data-slot="price">%8$s</span></span><a href="#" class="galaxie-kit-link %13$s" data-kit-action="%9$s">%11$s%10$s</a></div>',
 				esc_attr( $part ),
 				'' !== $row['image'] ? ' src="' . esc_url( $row['image'] ) . '"' : ' hidden',
 				$small, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped above.
@@ -1382,13 +1499,15 @@ final class KitBuilderWidget extends Widget_Base {
 				esc_html( $row['price'] ),
 				esc_attr( $action ),
 				esc_html( $texts['summary_change'] ),
-				self::row_icon( $settings, 'summary_change' ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pixfort's own SVG.
+				self::row_icon( $settings, 'summary_change' ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pixfort's own SVG.
+				$thumb, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped above.
+				$link // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped above.
 			);
 		}
 
 		$this->message_field( $settings, $texts, $sample ? $sample['message'] : '', false, 'summary-message' );
-		printf( '<p class="galaxie-kit-warning galaxie-kit-small %1$s" data-kit-warning hidden>%2$s</p>', $small, esc_html( $texts['summary_no_msg'] ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped above.
-		printf( '<p class="galaxie-kit-warning galaxie-kit-small %1$s" data-kit-card-warning hidden>%2$s</p>', $small, esc_html( $texts['summary_no_card_fit'] ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped above.
+		echo $this->message( $settings, 'warning', 'data-kit-warning hidden', $texts['summary_no_msg'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in message().
+		echo $this->message( $settings, 'warning', 'data-kit-card-warning hidden', $texts['summary_no_card_fit'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in message().
 
 		printf( '<span class="galaxie-kit-small %1$s">%2$s</span>', $small, esc_html( $texts['summary_candles'] ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped above.
 		echo '<div class="galaxie-kit-lines" data-kit-candles>';
@@ -1402,11 +1521,14 @@ final class KitBuilderWidget extends Widget_Base {
 
 		echo '</div>';
 
-		$fill = $sample ? (int) $sample['fill'] : 0;
+		// null is "not known", which the editor draws as the striped bar the page
+		// draws, not as an empty one.
+		$fill    = $sample && null !== $sample['fill'] ? (int) $sample['fill'] : 0;
+		$unknown = $sample && null === $sample['fill'];
 		$full = $sample && $sample['full'];
 
 		$this->foot_open();
-		printf( '<div class="galaxie-kit-fill%1$s" data-kit-fill>', $full ? ' is-full' : '' );
+		printf( '<div class="galaxie-kit-fill%1$s%2$s" data-kit-fill>', $full ? ' is-full' : '', $unknown ? ' is-unknown' : '' );
 		printf( '<div class="galaxie-kit-fill-track"><div class="galaxie-kit-fill-bar" data-slot="bar" style="width:%d%%"></div></div>', (int) $fill );
 		printf( '<span class="galaxie-kit-small %1$s" data-slot="room">%2$s</span>', $small, esc_html( $sample ? $sample['room'] : '' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped above.
 		echo '</div>';
@@ -1463,7 +1585,7 @@ final class KitBuilderWidget extends Widget_Base {
 		};
 
 		return sprintf(
-			'<button type="button" class="galaxie-kit-choice %1$s" data-kit-choice aria-pressed="%2$s" aria-disabled="%3$s"><img class="galaxie-kit-thumb" alt="" data-slot="image"%4$s /><span class="galaxie-kit-choice-body"><span class="galaxie-kit-choice-name %5$s" data-slot="name">%6$s</span>%7$s%8$s%9$s%10$s</span></button>',
+			'<button type="button" class="galaxie-kit-choice %1$s" data-kit-choice aria-pressed="%2$s" aria-disabled="%3$s"><img class="galaxie-kit-thumb %11$s" alt="" data-slot="image"%4$s /><span class="galaxie-kit-choice-body"><span class="galaxie-kit-choice-name %5$s" data-slot="name">%6$s</span>%7$s%8$s%9$s%10$s</span></button>',
 			esc_attr( PixfortControls::surface_classes( $settings, 'box_card' ) ),
 			! empty( $data['pressed'] ) ? 'true' : 'false',
 			! empty( $data['disabled'] ) ? 'true' : 'false',
@@ -1473,7 +1595,8 @@ final class KitBuilderWidget extends Widget_Base {
 			$slot( 'price' ),
 			$slot( 'description' ),
 			$slot( 'holds' ),
-			$slot( 'reason', 'galaxie-kit-warning' )
+			$slot( 'reason', 'galaxie-kit-warning' ),
+			esc_attr( PixfortControls::thumb_classes( $settings, 'choice_thumb' ) )
 		);
 	}
 
@@ -1487,8 +1610,13 @@ final class KitBuilderWidget extends Widget_Base {
 	private function candle_line( array $settings, array $texts, array $data = array() ): string {
 		$image = (string) ( $data['image'] ?? '' );
 
+		// The stepper's pixfort classes used to be typed in here — `pix-px-10
+		// pix-base-background rounded-lg shadow-sm` — where no control could
+		// reach them and no other spinner in the shop could match them. They are
+		// the stylesheet's defaults now, and the shared quantity set writes over
+		// them. `.quantity` stays: it is what the theme's own rules look for.
 		return sprintf(
-			'<div class="galaxie-kit-row galaxie-kit-line" data-kit-line><img class="galaxie-kit-thumb" alt="" data-slot="image"%1$s /><span class="galaxie-kit-row-body"><span class="galaxie-kit-choice-name %2$s" data-slot="name">%3$s</span><span class="galaxie-kit-choice-meta %4$s" data-slot="price">%5$s</span><span class="galaxie-kit-small galaxie-kit-gone %6$s" data-kit-gone hidden>%14$s</span><a href="#" class="galaxie-kit-link galaxie-kit-small %6$s" data-kit-remove>%13$s%7$s</a></span><span class="galaxie-kit-stepper quantity pix-px-10 pix-base-background rounded-lg shadow-sm d-inline-flex justify-content-between"><button type="button" class="galaxie-kit-qty-step text-body-default" data-step="-1" aria-label="%8$s">%9$s</button><span class="galaxie-kit-qty" data-slot="qty">%10$d</span><button type="button" class="galaxie-kit-qty-step text-body-default" data-step="1" aria-label="%11$s">%12$s</button></span></div>',
+			'<div class="galaxie-kit-row galaxie-kit-line" data-kit-line><img class="galaxie-kit-thumb %15$s" alt="" data-slot="image"%1$s /><span class="galaxie-kit-row-body"><span class="galaxie-kit-choice-name %2$s" data-slot="name">%3$s</span><span class="galaxie-kit-choice-meta %4$s" data-slot="price">%5$s</span><span class="galaxie-kit-small galaxie-kit-warning galaxie-kit-gone %6$s" data-kit-gone hidden>%14$s</span><a href="#" class="galaxie-kit-link %16$s" data-kit-remove>%13$s%7$s</a></span><span class="galaxie-kit-stepper quantity"><button type="button" class="galaxie-kit-qty-step text-body-default" data-step="-1" aria-label="%8$s">%9$s</button><span class="galaxie-kit-qty" data-slot="qty">%10$d</span><button type="button" class="galaxie-kit-qty-step text-body-default" data-step="1" aria-label="%11$s">%12$s</button></span></div>',
 			'' !== $image ? ' src="' . esc_url( $image ) . '"' : ' hidden',
 			esc_attr( PixfortControls::text_classes( $settings, 'box_name' ) ),
 			esc_html( (string) ( $data['name'] ?? '' ) ),
@@ -1502,7 +1630,9 @@ final class KitBuilderWidget extends Widget_Base {
 			esc_attr__( 'Mais', 'galaxie-woo' ),
 			self::row_icon( $settings, 'summary_plus', '+' ),
 			self::row_icon( $settings, 'summary_remove' ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pixfort's own SVG.
-			esc_html( $texts['summary_gone'] )
+			esc_html( $texts['summary_gone'] ),
+			esc_attr( PixfortControls::thumb_classes( $settings, 'line_thumb' ) ),
+			esc_attr( PixfortControls::text_classes( $settings, 'link' ) )
 		);
 	}
 
@@ -1545,7 +1675,9 @@ final class KitBuilderWidget extends Widget_Base {
 		$chosen   = null;
 
 		foreach ( $catalog ? $catalog->boxes() : array() as $box ) {
-			$fits  = ! $units || GiftPacking::fits( $box['shape'], $units, $options );
+			// The editor shows a box unless the search proved it cannot hold the
+			// sample: an answer nobody could settle is not a refusal.
+			$fits  = ! $units || false !== GiftPacking::fits_known( $box['shape'], $units, $options );
 			$empty = GiftKit::wording( GiftKit::combos( $box['shape'], array(), $sizes, $options ), $labels );
 
 			if ( $fits && 0 !== $box['stock'] && ( ! $chosen || $box['price'] < $chosen['price'] ) ) {

@@ -48,7 +48,6 @@ final class Module implements ModuleContract, ProvidesBootData, ProvidesElemento
 		'size_attribute'     => 'pa_peso',
 		// Jars go into a gift box bare (without their shipping box), snug: no gap unless the merchant adds one.
 		'packing_gap'        => 0,
-		'allow_stacking'     => false,
 		'candle_orientation' => 'lying',
 		'box_categories'     => array(),
 		'ribbon_categories'  => array(),
@@ -114,7 +113,6 @@ final class Module implements ModuleContract, ProvidesBootData, ProvidesElemento
 		( new BoxFields(
 			self::size_attribute(),
 			$options['gap'],
-			$options['stacking'],
 			self::categories( 'box' ),
 			$options['orientation']
 		) )->register();
@@ -289,14 +287,13 @@ final class Module implements ModuleContract, ProvidesBootData, ProvidesElemento
 	 * The options every packing question is asked with — here, in the cart, on
 	 * the server and, through the builder's data, in the popup.
 	 *
-	 * @return array{gap:float, stacking:bool, orientation:string}
+	 * @return array{gap:float, orientation:string}
 	 */
 	public static function packing_options(): array {
 		$orientation = (string) self::setting( 'candle_orientation' );
 
 		return array(
 			'gap'         => (float) self::setting( 'packing_gap' ),
-			'stacking'    => (bool) self::setting( 'allow_stacking' ),
 			'orientation' => in_array( $orientation, self::ORIENTATIONS, true ) ? $orientation : self::DEFAULTS['candle_orientation'],
 		);
 	}
@@ -342,13 +339,6 @@ final class Module implements ModuleContract, ProvidesBootData, ProvidesElemento
 				step: '0.1',
 				min: '0',
 				max: (string) self::MAX_PACKING_GAP
-			),
-			new Field(
-				key: 'allow_stacking',
-				label: __( 'Stacking allowed', 'galaxie-woo' ),
-				type: Field::TYPE_TOGGLE,
-				description: __( 'Let candles be stacked in a box. Off: one layer, side by side.', 'galaxie-woo' ),
-				default: self::DEFAULTS['allow_stacking']
 			),
 			new Field(
 				key: 'candle_orientation',

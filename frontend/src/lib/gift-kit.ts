@@ -9,7 +9,7 @@
  * test straight from source).
  */
 
-import { fits, MAX_ITEMS, withDeadline } from './gift-packing.ts'
+import { fitsKnown, MAX_ITEMS, withDeadline } from './gift-packing.ts'
 import type { Box, Candle, PackingOptions } from './gift-packing.ts'
 import { cleanMessage } from './gift-groups.ts'
 
@@ -30,11 +30,19 @@ export interface ComboEntry {
   count: number
 }
 
+export interface ComboRow {
+  entries: ComboEntry[]
+  /** The row reached MAX_ITEMS: where the search stops, not where the box does. */
+  capped: boolean
+}
+
 export interface Combos {
-  singles: ComboEntry[][]
-  mixes: ComboEntry[][]
+  singles: ComboRow[]
+  mixes: ComboRow[]
   /** False when some size's most could not be settled in the budget. */
   complete?: boolean
+  /** False when the mixes were not searched to the end: no mixes listed is then not "there are none". */
+  settled?: boolean
 }
 
 export type RoomState = 'full' | 'one' | 'many' | 'unknown'
@@ -52,7 +60,11 @@ function volume(candle: Candle): number {
   return units(candle.length) * units(candle.width) * units(candle.height)
 }
 
-/** Distinct sizes, largest first (first seen on a tie). */
+/**
+ * Distinct sizes, largest first. Sizes of the same volume come out in reverse
+ * order of appearance, so the last of the list is the one `smallestOf()` in
+ * gift-groups.ts picks. See GiftKit::ordered().
+ */
 function ordered(sizes: Candle[]): Candle[] {
   const seen = new Map<string, Candle>()
 
@@ -63,7 +75,7 @@ function ordered(sizes: Candle[]): Candle[] {
 
   const list = Array.from(seen.values())
   const order = list.map((_, i) => i)
-  order.sort((a, b) => volume(list[b]) - volume(list[a]) || a - b)
+  order.sort((a, b) => volume(list[b]) - volume(list[a]) || b - a)
 
   return order.map((i) => list[i])
 }
@@ -79,7 +91,7 @@ function compareDesc(a: number[], b: number[]): number {
   return 0
 }
 
-/** What still fits, as rows of { size, count } in size order. See GiftKit::combos(). */
+/** What still fits, as rows of { entries, capped } in size order. See GiftKit::combos(). */
 export function combos(box: Box, candles: Candle[], sizes: Candle[], options: PackingOptions = {}, budgetMs = BUDGET_MS): Combos {
   const list = ordered(sizes)
   const k = list.length
@@ -88,9 +100,13 @@ export function combos(box: Box, candles: Candle[], sizes: Candle[], options: Pa
 
   if (max > 0) limit = Math.min(limit, max)
 
-  const room = limit - candles.length
+  const inside = candles.length
+  const room = limit - inside
 
-  if (k === 0 || room < 1) return { singles: [], mixes: [], complete: true }
+  // No room left is an answer; no size to try is not one.
+  if (room < 1) return { singles: [], mixes: [], complete: true, settled: true }
+
+  if (k === 0) return { singles: [], mixes: [], complete: false, settled: false }
 
   const found = withDeadline(budgetMs, () => {
     let checks = 0
@@ -114,9 +130,9 @@ export function combos(box: Box, candles: Candle[], sizes: Candle[], options: Pa
         for (let j = 0; j < c; j++) group.push(list[i])
       })
 
-      const result = withDeadline(3600000, () => fits(box, group, options))
-      // A "no" the clock gave is not an answer.
-      const answer = result.expired && !result.value ? null : result.value
+      // null is the engine's own "not known" — the clock, the work limit,
+      // either way nothing was shown against the group.
+      const answer = fitsKnown(box, group, options)
       memo.set(key, answer)
       return answer
     }
@@ -179,7 +195,7 @@ export function combos(box: Box, candles: Candle[], sizes: Candle[], options: Pa
       if (settled && maximal && v.filter((c) => c > 0).length > 1) mixes.push(v)
     }
 
-    return { singles, mixes: settled ? mixes : [], complete }
+    return { singles, mixes: settled ? mixes : [], complete, settled }
   }).value
 
   const volumes = list.map(volume)
@@ -190,8 +206,14 @@ export function combos(box: Box, candles: Candle[], sizes: Candle[], options: Pa
     return vb - va || sum(b) - sum(a) || compareDesc(a, b)
   })
 
-  const row = (v: number[]): ComboEntry[] =>
-    v.flatMap((c, i) => (c > 0 ? [{ size: String(list[i].size), count: c }] : []))
+  // A row that fills the box to MAX_ITEMS is where the search stops, not where
+  // the box does — unless the box's own `max` is the smaller limit.
+  const capping = max === 0 || max > MAX_ITEMS
+
+  const row = (v: number[]): ComboRow => ({
+    entries: v.flatMap((c, i) => (c > 0 ? [{ size: String(list[i].size), count: c }] : [])),
+    capped: capping && inside + sum(v) >= MAX_ITEMS,
+  })
 
   return {
     singles: Array.from(found.singles.keys())
@@ -199,19 +221,67 @@ export function combos(box: Box, candles: Candle[], sizes: Candle[], options: Pa
       .map((i) => row(found.singles.get(i) as number[])),
     mixes: found.mixes.slice(0, MIXES).map(row),
     complete: found.complete,
+    settled: found.settled,
   }
 }
 
+/**
+ * How full a box is, 0–100, or null when nothing about it is settled: the
+ * volume in the box against the fullest the box was shown to take. See
+ * GiftKit::fill_percent().
+ */
+export function fillPercent(found: Combos, sizes: Candle[], inside: Candle[]): number | null {
+  const volumes = new Map<string, number>()
+
+  for (const size of ordered(sizes)) volumes.set(String(size.size), volume(size))
+
+  let used = 0
+  for (const candle of inside) used += volume(candle)
+
+  const rows = [...(found.singles ?? []), ...(found.mixes ?? [])]
+
+  // Nothing listed and everything searched: the box is full. Nothing listed
+  // because nothing was searched: say nothing at all.
+  if (!rows.length) {
+    const known = found.complete !== false && found.settled !== false
+    if (!known) return null
+    return used > 0 ? 100 : 0
+  }
+
+  if (used < 1) return 0
+
+  let most = used
+
+  for (const row of rows) {
+    let more = 0
+    for (const entry of row.entries) more += entry.count * (volumes.get(entry.size) ?? 0)
+    most = Math.max(most, used + more)
+  }
+
+  return Math.min(99, Math.floor((used * 100 + Math.floor(most / 2)) / most))
+}
+
 /** combos() in words. See GiftKit::wording(). */
-export function wording(found: Combos, labels: Record<string, string> = {}, or = ' ou ', plus = ' + '): Wording {
+export function wording(found: Combos, labels: Record<string, string> = {}, or = ' ou ', plus = ' + ', more = ' ou mais'): Wording {
   const rows = [...found.singles, ...found.mixes]
   const complete = found.complete !== false
+  // Missing means an older or hand-written answer: read as searched out.
+  const settled = found.settled !== false
 
-  if (!rows.length) return { state: complete ? 'full' : 'unknown', combos: '' }
+  // "Nothing fits" is only "a caixa está completa" when every size and every mix
+  // was settled; otherwise the honest sentence is none at all.
+  if (!rows.length) return { state: complete && settled ? 'full' : 'unknown', combos: '' }
 
-  const text = rows.map((entries) => entries.map((entry) => `${entry.count} × ${labels[entry.size] ?? entry.size}`).join(plus)).join(or)
-  // "Only one fits" is only said when every size was settled.
-  const one = complete && rows.length === 1 && sum(rows[0].map((entry) => entry.count)) === 1
+  const text = rows
+    .map((row) => {
+      const line = row.entries.map((entry) => `${entry.count} × ${labels[entry.size] ?? entry.size}`).join(plus)
+      return row.capped ? line + more : line
+    })
+    .join(or)
+
+  // "Only one fits" is only said when every size and every mix was settled, and
+  // when that one is a real most rather than where the search stopped.
+  const one = complete && settled && rows.length === 1 && !rows[0].capped && sum(rows[0].entries.map((entry) => entry.count)) === 1
 
   return { state: one ? 'one' : 'many', combos: text }
 }

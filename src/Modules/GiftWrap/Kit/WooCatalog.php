@@ -24,6 +24,19 @@ final class WooCatalog implements Catalog {
 	/** Shared packing answers kept at once. */
 	private const HOLDS_KEPT = 100;
 
+	/**
+	 * How long an answer the search could not finish is kept before it is asked
+	 * again. A settled answer keeps for a day; this one is a guess that stops
+	 * the endpoint recomputing it on every request, and nothing more.
+	 *
+	 * A quarter of an hour, from measuring the boxes the store sells: two of ten
+	 * "Leva até …" answers do not settle, and each costs the combinations'
+	 * 250 ms budget to ask. Long enough that one request in a quarter of an hour
+	 * pays it, short enough that a store whose slow moment has passed is not
+	 * stuck with the answer it gave during it.
+	 */
+	private const UNSETTLED_SECONDS = 900;
+
 	/** @var array<int, array|null> */
 	private array $candles = array();
 
@@ -158,18 +171,34 @@ final class WooCatalog implements Catalog {
 	 * In GiftPacking::HOLDS_TRANSIENT, a day at most, the newest HOLDS_KEPT
 	 * answers; GiftPacking::flush_sizes() clears it with the sizes.
 	 *
+	 * Every row carries whether the search finished and when it ran. An answer
+	 * it could not finish used to be kept for a day like any other, so a single
+	 * slow request set "Leva até …" for every shopper until the sizes changed;
+	 * it is now asked again after UNSETTLED_SECONDS. Rows written before this
+	 * rule have no marker and are asked again.
+	 *
+	 * @param callable $compute (): array{0:mixed, 1:bool}
 	 * @return mixed
 	 */
 	public function remember( string $key, callable $compute ) {
 		$kept = get_transient( GiftPacking::HOLDS_TRANSIENT );
 		$kept = is_array( $kept ) ? $kept : array();
+		$row  = $kept[ $key ] ?? null;
+		$now  = time();
 
-		if ( array_key_exists( $key, $kept ) ) {
-			return $kept[ $key ];
+		if ( is_array( $row ) && array_key_exists( 'value', $row ) && array_key_exists( 'settled', $row )
+			&& ( $row['settled'] || $now - (int) ( $row['at'] ?? 0 ) < self::UNSETTLED_SECONDS ) ) {
+			return $row['value'];
 		}
 
-		$value        = $compute();
-		$kept[ $key ] = $value;
+		list( $value, $settled ) = $compute();
+
+		unset( $kept[ $key ] );
+		$kept[ $key ] = array(
+			'value'   => $value,
+			'settled' => (bool) $settled,
+			'at'      => $now,
+		);
 
 		set_transient( GiftPacking::HOLDS_TRANSIENT, array_slice( $kept, -self::HOLDS_KEPT, null, true ), DAY_IN_SECONDS );
 

@@ -48,6 +48,15 @@ foreach ( $fixtures['fits'] as $case ) {
 	$check( 'fits', $case['name'], GiftPacking::fits( $boxes[ $case['box'] ], $expand( $case['candles'] ), $options ), $case['expect'] );
 }
 
+// A search that ran out of work says so; fits() folds that into "no", and
+// nothing that refuses a shopper may use it.
+foreach ( $fixtures['fits_known'] as $case ) {
+	$options = $case['options'] ?? array();
+	$known   = GiftPacking::fits_known( $boxes[ $case['box'] ], $expand( $case['candles'] ), $options );
+	$check( 'fits_known', $case['name'], $known, $case['expect'] );
+	$check( 'fits_known', $case['name'] . ' (fits() folds "not known" into "no")', GiftPacking::fits( $boxes[ $case['box'] ], $expand( $case['candles'] ), $options ), true === $known );
+}
+
 $shape = static function ( array $gifts ): array {
 	return array_map(
 		static fn( array $gift ): array => array(
@@ -76,12 +85,12 @@ foreach ( $fixtures['summary'] as $case ) {
 	$check( 'summary', $case['name'], GiftPacking::summary( $boxes[ $case['box'] ], $try, $case['options'] ?? array() ), $case['expect'] );
 }
 
-foreach ( $fixtures['cover'] as $case ) {
-	$covered = GiftPacking::cover( array_map( static fn( string $s ): array => $sizes[ $s ], $case['candles'] ) );
-	$check( 'cover', $case['name'], $covered, $case['expect'] );
+foreach ( $fixtures['offered'] as $case ) {
+	$each = GiftPacking::offered( array_map( static fn( string $s ): array => $sizes[ $s ], $case['candles'] ) );
+	$check( 'offered', $case['name'], $each, $case['expect'] );
 
 	if ( isset( $case['box'] ) ) {
-		$check( 'cover', $case['name'] . ' (fits ' . $case['box'] . ')', GiftPacking::fits( $boxes[ $case['box'] ], $covered, $case['options'] ?? array() ), $case['fits'] );
+		$check( 'offered', $case['name'] . ' (fits ' . $case['box'] . ')', GiftPacking::fits( $boxes[ $case['box'] ], $each, $case['options'] ?? array() ), $case['fits'] );
 	}
 }
 

@@ -243,14 +243,27 @@ final class KtCatalog implements Catalog {
 	}
 
 	public function sizes(): array { return $this->sizes; }
-	public function options(): array { return array( 'gap' => 0, 'stacking' => false, 'orientation' => 'lying' ); }
+	public function options(): array { return array( 'gap' => 0, 'orientation' => 'lying' ); }
 	public function message_max(): int { return 20; }
 	public function can_add( array $product, int $quantity ): string { return 101 === $product['id'] && $quantity > 3 ? 'A loja recusou.' : ''; }
 	public function money( float $amount ): string { return 'R$ ' . number_format( $amount, 2, ',', '.' ); }
 	public bool $shows = true;
 	public function shows_stock(): bool { return $this->shows; }
 	public array $kept = array();
-	public function remember( string $key, callable $compute ) { return $this->kept[ $key ] ??= $compute(); }
+	/** Keeps only what the search finished, like WooCatalog::remember() (which also re-asks after a while). */
+	public function remember( string $key, callable $compute ) {
+		if ( array_key_exists( $key, $this->kept ) ) {
+			return $this->kept[ $key ];
+		}
+
+		list( $value, $settled ) = $compute();
+
+		if ( $settled ) {
+			$this->kept[ $key ] = $value;
+		}
+
+		return $value;
+	}
 }
 
 // ---------------------------------------------------------------- runner
@@ -283,7 +296,9 @@ $expand = static function ( array $pairs ) use ( $fixtures ): array {
 
 foreach ( $fixtures['combos'] as $case ) {
 	$sizes = array_map( static fn( string $s ): array => $fixtures['sizes'][ $s ], $case['sizes'] );
-	$found = GiftKit::combos( $fixtures['boxes'][ $case['box'] ], $expand( $case['candles'] ), $sizes );
+	// A case may pin the budget: 0 is "the clock was already out", the branch a
+	// wall-clock fixture could never reach the same way on every machine.
+	$found = GiftKit::combos( $fixtures['boxes'][ $case['box'] ], $expand( $case['candles'] ), $sizes, array(), (float) ( $case['budget_ms'] ?? GiftKit::BUDGET_MS ) );
 	$check( 'combos', $case['name'], $found, $case['expect'] );
 	$check( 'combos wording', $case['name'], GiftKit::wording( $found, $fixtures['labels'] ), $case['wording'] );
 }
@@ -304,14 +319,17 @@ foreach ( $fixtures['timing'] as $case ) {
 	$true = true;
 
 	foreach ( $found['singles'] as $row ) {
-		$size = $fixtures['sizes'][ $row[0]['size'] ] ?? null;
-		$with = static fn( int $n ): array => array_merge( $inside, array_fill( 0, $n, $size ) );
-		$true = $true && 1 === count( $row ) && GiftPacking::fits( $box, $with( $row[0]['count'] ) ) && ( $row[0]['count'] + 1 > $room || ! GiftPacking::fits( $box, $with( $row[0]['count'] + 1 ) ) );
+		$entry = $row['entries'][0];
+		$size  = $fixtures['sizes'][ $entry['size'] ] ?? null;
+		$with  = static fn( int $n ): array => array_merge( $inside, array_fill( 0, $n, $size ) );
+		$true  = $true && 1 === count( $row['entries'] ) && GiftPacking::fits( $box, $with( $entry['count'] ) ) && ( $entry['count'] + 1 > $room || ! GiftPacking::fits( $box, $with( $entry['count'] + 1 ) ) );
+		// A capped row is where the search stops, and only there.
+		$true = $true && $row['capped'] === ( count( $inside ) + $entry['count'] >= GiftPacking::MAX_ITEMS );
 	}
 
 	foreach ( $found['mixes'] as $row ) {
 		$group = $inside;
-		foreach ( $row as $entry ) {
+		foreach ( $row['entries'] as $entry ) {
 			$group = array_merge( $group, array_fill( 0, $entry['count'], $fixtures['sizes'][ $entry['size'] ] ) );
 		}
 		$true = $true && GiftPacking::fits( $box, $group );
@@ -326,6 +344,15 @@ foreach ( $fixtures['wording'] as $case ) {
 
 foreach ( $fixtures['fill'] as $case ) {
 	$check( 'fill', $case['name'], GiftKit::fill( $case['text'], $case['values'] ), $case['expect'] );
+}
+
+// The fill bar: volume in the box against the fullest the box was shown to take.
+foreach ( $fixtures['fill_percent'] as $case ) {
+	$sizes  = array_map( static fn( string $s ): array => $fixtures['sizes'][ $s ], $case['sizes'] );
+	$inside = $expand( $case['candles'] ?? array() );
+	$found  = isset( $case['box'] ) ? GiftKit::combos( $fixtures['boxes'][ $case['box'] ], $inside, $sizes ) : $case['combos'];
+
+	$check( 'fill_percent', $case['name'], GiftKit::fill_percent( $found, $sizes, $inside ), $case['expect'] );
 }
 
 foreach ( $fixtures['clean_name'] as $case ) {
@@ -516,20 +543,43 @@ $response = $call( 'start', array( 'name' => 'Stella', 'box' => '10', 'card' => 
 $check( 'ajax', 'start opens a session and answers with the kit and its new nonce', array( $response->ok, $response->data['kit']['name'], $response->data['kit']['count'], $response->data['nonce'] ), array( true, 'Stella', 2, 'nonce:galaxie_kit|guest42' ) );
 $kept = WC()->session->get( Store::PACKING_KEY );
 $check( 'cache', 'the draft\'s packing answer is kept in the session', array( is_array( $kept ), $kept['value']['room'] ?? null ), array( true, $response->data['kit']['room'] ) );
-WC()->session->set( Store::PACKING_KEY, array( 'key' => $kept['key'], 'value' => array( 'room' => array( 'state' => 'many', 'combos' => 'cached' ), 'extras' => array(), 'complete' => true, 'fill' => 7 ) ) );
+$planted = static function ( bool $settled, int $age ) use ( $kept ): void {
+	WC()->session->set(
+		Store::PACKING_KEY,
+		array(
+			'key'     => $kept['key'],
+			'value'   => array( 'room' => array( 'state' => 'many', 'combos' => 'cached' ), 'extras' => array(), 'complete' => true, 'fill' => 7 ),
+			'settled' => $settled,
+			'at'      => time() - $age,
+		)
+	);
+};
+$check( 'cache', 'a settled answer is kept', array( is_array( $kept ), $kept['settled'] ?? null ), array( true, true ) );
+$planted( true, 0 );
 $check( 'cache', 'and read back while the draft is unchanged', array( $call( 'get', array(), '' )->data['kit']['room']['combos'], $call( 'get', array(), '' )->data['kit']['fill'] ), array( 'cached', 7 ) );
+$planted( false, 0 );
+$check( 'cache', 'an answer the search could not finish still answers this minute', $call( 'get', array(), '' )->data['kit']['room']['combos'], 'cached' );
+$planted( false, 120 );
+$check( 'cache', 'and is asked again once it is old, never kept as the truth', $call( 'get', array(), '' )->data['kit']['room']['combos'], '1 × 190g ou 1 × 50g' );
+WC()->session->set( Store::PACKING_KEY, array( 'key' => $kept['key'], 'value' => array( 'room' => array( 'state' => 'many', 'combos' => 'cached' ), 'extras' => array() ) ) );
+$check( 'cache', 'a value kept before the marker existed is asked again', $call( 'get', array(), '' )->data['kit']['room']['combos'], '1 × 190g ou 1 × 50g' );
 WC()->session->set( Store::PACKING_KEY, $kept );
 $response = $call( 'get', array( 'catalog' => '1', 'pending_id' => '101', 'pending_qty' => '2' ), '' );
 $stock_keys = array();
 array_walk_recursive( $response->data, function ( $value, $key ) use ( &$stock_keys ) { if ( 'stock' === $key ) { $stock_keys[] = $value; } } );
 $check( 'stock', 'the public get sends no stock numbers (catalog, pending, kit)', array( $stock_keys, $response->data['catalog']['boxes'][1]['inStock'], $response->data['catalog']['cards'][0]['inStock'] ), array( array(), true, true ) );
 $check( 'cache', 'the catalog sends each box\'s "Leva até" answer', array_map( fn( $b ) => $b['holds'], $response->data['catalog']['boxes'] ), array( array( 'state' => 'many', 'combos' => '3 × 190g ou 4 × 50g ou 2 × 190g + 1 × 50g ou 1 × 190g + 3 × 50g' ), array( 'state' => 'many', 'combos' => '4 × 50g' ) ) );
-foreach ( array( array( 'big', array() ), array( 'big', array( array( '190g', 2 ) ) ), array( 'big', array( array( '190g', 1 ), array( '50g', 2 ) ) ), array( 'square', array( array( '50g', 3 ) ) ), array( 'big', array( array( '190g', 3 ) ) ) ) as list( $b, $pairs ) ) {
-	$inside = $expand( $pairs );
-	$sizes  = array( $fixtures['sizes']['190g'], $fixtures['sizes']['50g'] );
-	$check( 'fill', "{$b} with " . json_encode( $pairs ) . ': same as GiftGroups::fill()', GiftKit::fill_percent( GiftKit::combos( $fixtures['boxes'][ $b ], $inside, $sizes ), $sizes, count( $inside ) ), GiftGroups::fill( $fixtures['boxes'][ $b ], $inside, $sizes ) );
-}
-$check( 'fill', 'unknown room: an empty bar, never a full one', GiftKit::fill_percent( array( 'singles' => array(), 'mixes' => array(), 'complete' => false ), array( $fixtures['sizes']['50g'] ), 3 ), 0 );
+
+// The store's sizes go missing: nothing is known about any box, and nothing
+// anyone knows is kept for the next shopper.
+$was            = $catalog->sizes;
+$catalog->sizes = array();
+$catalog->kept  = array();
+$check( 'cache', 'with no size at all a box holds nothing anyone knows of', $kits->box_holds( $catalog->boxes[10] ), array( 'state' => 'unknown', 'combos' => '' ) );
+$check( 'cache', 'and that answer is never kept for a day', $catalog->kept, array() );
+$catalog->sizes = $was;
+$catalog->kept  = array();
+$check( 'cache', 'a settled "Leva até" is kept', array( $kits->box_holds( $catalog->boxes[10] )['state'], count( $catalog->kept ) ), array( 'many', 1 ) );
 
 $response = $call( 'start', array( 'box' => '10' ) );
 $check( 'hint', 'start sets the guest hint', kt_cookie( Store::HINT_COOKIE ), 'g' );
