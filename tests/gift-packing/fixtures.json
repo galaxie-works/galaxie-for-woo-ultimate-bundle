@@ -15,7 +15,9 @@
     "s-5004": { "size": "s", "length": 5.004, "width": 5, "height": 3 },
     "slab": { "size": "slab", "length": 4.89, "width": 3.07, "height": 4.68 },
     "plank": { "size": "plank", "length": 5.55, "width": 7.44, "height": 3.26 },
-    "100g-gift": { "size": "100g", "length": 6.5, "width": 6.5, "height": 7.5 }
+    "100g-gift": { "size": "100g", "length": 6.5, "width": 6.5, "height": 7.5 },
+    "t-flat": { "size": "t", "length": 6, "width": 4, "height": 2 },
+    "t-narrow": { "size": "t", "length": 8, "width": 3, "height": 2 }
   },
   "boxes": {
     "b14": { "id": "b14", "length": 14, "width": 11, "height": 9.5, "price": 12 },
@@ -244,10 +246,33 @@
     { "name": "shipping dims, lying, gap 0.5, 14.2 x 14.2 x 4.8: nothing", "box": "mdf142", "sizes": ["50g", "190g"], "options": { "orientation": "lying", "gap": 0.5 }, "expect": [] },
     { "name": "gift dims, square box with 0.5 overflow (the Cabe: line the merchant sees)", "box": "real-square-lid", "sizes": ["50g-gift", "190g-gift"], "options": { "orientation": "lying", "gap": 0 }, "expect": [{ "counts": { "50g": 4 }, "capped": false }] }
   ],
-  "cover": [
-    { "name": "6 x 6 and 10 x 2 of one size cover as 10 x 6", "candles": ["x-wide", "x-long"], "expect": [{ "size": "x", "length": 10, "width": 6, "height": 2 }], "box": "b7", "options": { "orientation": "upright", "gap": 0.5 }, "fits": false },
-    { "name": "the 6 x 6 alone fits that box", "candles": ["x-wide"], "expect": [{ "size": "x", "length": 6, "width": 6, "height": 2 }], "box": "b7", "options": { "orientation": "upright", "gap": 0.5 }, "fits": true },
-    { "name": "per size, first-seen order, tallest and widest win", "candles": ["50g", "190g", "50g-tall"], "expect": [{ "size": "50g", "length": 5.2, "width": 5, "height": 7 }, { "size": "190g", "length": 8, "width": 8, "height": 8.5 }] }
+  "_offered_readme": "offered(): one candle per size, the smallest the store sells of it. A shape covering every variation is a jar nobody sells, and the add packs the exact variation the shopper picked — see GiftPacking::offered().",
+  "offered": [
+    {
+      "name": "6 x 6 and 10 x 2 of one size: the 10 x 2 is the smaller jar, and it is a real one",
+      "candles": ["x-wide", "x-long"],
+      "expect": [{ "size": "x", "length": 10, "width": 2, "height": 2 }],
+      "box": "ten5", "options": { "orientation": "upright", "gap": 0 }, "fits": true
+    },
+    {
+      "name": "the shape covering both would be 10 x 6, which fits that box no better than it exists",
+      "candles": ["x-wide"],
+      "expect": [{ "size": "x", "length": 6, "width": 6, "height": 2 }],
+      "box": "ten5", "options": { "orientation": "upright", "gap": 0 }, "fits": false
+    },
+    {
+      "name": "per size, first-seen order, the smallest of each",
+      "candles": ["50g", "190g", "50g-tall"],
+      "expect": [
+        { "size": "50g", "length": 5, "width": 5, "height": 6.5 },
+        { "size": "190g", "length": 8, "width": 8, "height": 8.5 }
+      ]
+    },
+    {
+      "name": "two variations of one volume: the first seen wins, as GiftGroups::smallest() has it",
+      "candles": ["t-narrow", "t-flat"],
+      "expect": [{ "size": "t", "length": 8, "width": 3, "height": 2 }]
+    }
   ],
   "_groups_readme": "GiftGroups.php / gift-groups.ts. Every case pins orientation 'upright' so the answers do not move when the packing default changes. Validate candles are [size, count, id, added?].",
   "fill": [

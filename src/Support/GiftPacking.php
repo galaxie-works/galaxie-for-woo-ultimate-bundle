@@ -541,35 +541,33 @@ final class GiftPacking {
 	}
 
 	/**
-	 * One candle per size that no candle of that size can outgrow: the longest
-	 * long side, the longest short side and the tallest height among them.
+	 * One candle per size, the smallest of it the store actually sells: least
+	 * volume, the first seen on a tie — the rule {@see GiftGroups::smallest()}
+	 * follows.
 	 *
-	 * Candles turn, so a 10 × 2 and a 6 × 6 of the same size become 10 × 6 — a
-	 * box that takes that takes either. Other keys come from the first seen.
+	 * This used to be a covering shape: the longest long side, the longest short
+	 * side and the tallest height taken from whichever variation had each. That
+	 * shape is a jar nobody sells, and one variation never measured for gifts —
+	 * whose dimensions are then the jar inside its shipping box — widened its
+	 * whole size until the size disappeared from "ainda cabem …" although adding
+	 * it still worked, because `add_candle()` packs the exact variation the
+	 * shopper picked. The two paths have to answer about the same jar. They
+	 * answer about a real one now: the sentence says a size still goes in when at
+	 * least one variation of it does, the shopper gets the variation they picked,
+	 * and the add has the last word on which.
 	 *
 	 * @param array $candles Candle arrays, sizes repeated freely.
 	 * @return array<int, array> Sizes in first-seen order.
 	 */
-	public static function cover( array $candles ): array {
+	public static function offered( array $candles ): array {
 		$out = array();
 
 		foreach ( $candles as $candle ) {
-			$key   = (string) ( $candle['size'] ?? '' );
-			$long  = max( $candle['length'] ?? 0, $candle['width'] ?? 0 );
-			$short = min( $candle['length'] ?? 0, $candle['width'] ?? 0 );
-			$tall  = $candle['height'] ?? 0;
+			$key = (string) ( $candle['size'] ?? '' );
 
-			if ( ! isset( $out[ $key ] ) ) {
-				$out[ $key ]           = $candle;
-				$out[ $key ]['length'] = $long;
-				$out[ $key ]['width']  = $short;
-				$out[ $key ]['height'] = $tall;
-				continue;
+			if ( ! isset( $out[ $key ] ) || self::bulk( $candle ) < self::bulk( $out[ $key ] ) ) {
+				$out[ $key ] = $candle;
 			}
-
-			$out[ $key ]['length'] = max( $out[ $key ]['length'], $long );
-			$out[ $key ]['width']  = max( $out[ $key ]['width'], $short );
-			$out[ $key ]['height'] = max( $out[ $key ]['height'], $tall );
 		}
 
 		return array_values( $out );
@@ -663,11 +661,11 @@ final class GiftPacking {
 	/**
 	 * One candle per term of the size attribute, as the store sells them.
 	 *
-	 * Every variation of each term whose parent product is published is read,
-	 * and when they disagree on dimensions `cover()` builds a shape none of them
-	 * outgrows, so a preview never promises a fit that one of those candles would
-	 * break. Drafts and trashed products do not count. Term order as WooCommerce
-	 * sorts the attribute.
+	 * Every variation of each term whose parent product is published is read, and
+	 * when they disagree on dimensions the smallest of them stands for the size
+	 * ({@see self::offered()}), because that is a jar the store really sells and
+	 * the add packs the exact variation anyway. Drafts and trashed products do
+	 * not count. Term order as WooCommerce sorts the attribute.
 	 *
 	 * Each candle's dimensions resolve as in `candle_from_product()`: variation
 	 * gift dimensions, then its size term's, then WooCommerce's.
@@ -755,7 +753,7 @@ final class GiftPacking {
 			}
 
 			if ( $found ) {
-				$size = self::cover( $found )[0];
+				$size = self::offered( $found )[0];
 				unset( $size['price'] );
 				$size['label'] = $term->name;
 				$sizes[]       = $size;
@@ -1468,6 +1466,21 @@ final class GiftPacking {
 	private static function down( $cm ): int {
 		$cm = is_numeric( $cm ) ? (float) $cm : 0.0;
 		return $cm > 0 ? (int) floor( $cm * 100 + 1e-6 ) : 0;
+	}
+
+	/**
+	 * A candle's volume in hundredths of a centimetre cubed, rounded as
+	 * GiftGroups and GiftKit round theirs so all three rank sizes alike.
+	 *
+	 * @param array $candle Candle array.
+	 */
+	private static function bulk( array $candle ): int {
+		$units = static function ( $cm ): int {
+			$cm = is_numeric( $cm ) ? (float) $cm : 0.0;
+			return $cm > 0 ? (int) floor( $cm * 100 + 0.5 ) : 0;
+		};
+
+		return $units( $candle['length'] ?? 0 ) * $units( $candle['width'] ?? 0 ) * $units( $candle['height'] ?? 0 );
 	}
 
 	/**

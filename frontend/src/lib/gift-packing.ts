@@ -478,30 +478,28 @@ export function summary(box: Box, sizes: Candle[], options: PackingOptions = {})
 }
 
 /**
- * One candle per size that no candle of that size can outgrow: longest long
- * side, longest short side, tallest height. Other keys come from the first seen.
+ * One candle per size, the smallest of it the store actually sells: least
+ * volume, the first seen on a tie. See GiftPacking::offered() for why a shape
+ * covering every variation was the wrong jar to describe a size by.
  */
-export function cover<C extends Candle>(candles: C[]): C[] {
+export function offered<C extends Candle>(candles: C[]): C[] {
   const out = new Map<string, C>()
 
   for (const candle of candles) {
     const key = String(candle.size ?? '')
-    const long = Math.max(candle.length ?? 0, candle.width ?? 0)
-    const short = Math.min(candle.length ?? 0, candle.width ?? 0)
-    const tall = candle.height ?? 0
     const seen = out.get(key)
 
-    if (!seen) {
-      out.set(key, { ...candle, length: long, width: short, height: tall })
-      continue
-    }
-
-    seen.length = Math.max(seen.length, long)
-    seen.width = Math.max(seen.width, short)
-    seen.height = Math.max(seen.height, tall)
+    if (!seen || bulk(candle) < bulk(seen)) out.set(key, candle)
   }
 
   return [...out.values()]
+}
+
+/** A candle's volume in hundredths of a cm cubed; the rounding gift-groups.ts uses. */
+function bulk(candle: Candle): number {
+  const units = (cm: number): number => (Number(cm) > 0 ? Math.floor(Number(cm) * 100 + 0.5) : 0)
+
+  return units(candle.length) * units(candle.width) * units(candle.height)
 }
 
 function place(s: Search, last: number, left: number, area: number): boolean {

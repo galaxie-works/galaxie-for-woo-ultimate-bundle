@@ -85,12 +85,12 @@ foreach ( $fixtures['summary'] as $case ) {
 	$check( 'summary', $case['name'], GiftPacking::summary( $boxes[ $case['box'] ], $try, $case['options'] ?? array() ), $case['expect'] );
 }
 
-foreach ( $fixtures['cover'] as $case ) {
-	$covered = GiftPacking::cover( array_map( static fn( string $s ): array => $sizes[ $s ], $case['candles'] ) );
-	$check( 'cover', $case['name'], $covered, $case['expect'] );
+foreach ( $fixtures['offered'] as $case ) {
+	$each = GiftPacking::offered( array_map( static fn( string $s ): array => $sizes[ $s ], $case['candles'] ) );
+	$check( 'offered', $case['name'], $each, $case['expect'] );
 
 	if ( isset( $case['box'] ) ) {
-		$check( 'cover', $case['name'] . ' (fits ' . $case['box'] . ')', GiftPacking::fits( $boxes[ $case['box'] ], $covered, $case['options'] ?? array() ), $case['fits'] );
+		$check( 'offered', $case['name'] . ' (fits ' . $case['box'] . ')', GiftPacking::fits( $boxes[ $case['box'] ], $each, $case['options'] ?? array() ), $case['fits'] );
 	}
 }
 
