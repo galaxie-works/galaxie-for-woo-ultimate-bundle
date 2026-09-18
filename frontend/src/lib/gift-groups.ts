@@ -77,7 +77,8 @@ export function fill(box: Box, candles: Candle[], sizes: Candle[] = [], options:
 
   while (smallest && withMore.length < MAX_ITEMS) {
     withMore.push(smallest)
-    if (!fits(box, withMore, options)) break
+    // An unproved "no" is not a no, the same rule the kit's own cap follows.
+    if (fitsKnown(box, withMore, options) === false) break
     extra++
   }
 

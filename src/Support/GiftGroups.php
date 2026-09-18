@@ -71,7 +71,10 @@ final class GiftGroups {
 		while ( $smallest && count( $with ) < GiftPacking::MAX_ITEMS ) {
 			$with[] = $smallest;
 
-			if ( ! GiftPacking::fits( $box, $with, $options ) ) {
+			// An unproved "no" is not a no: the block cart's gift groups stopped the
+			// stepper on a search that ran out of budget, the same way the kit's
+			// own cap used to.
+			if ( false === GiftPacking::fits_known( $box, $with, $options ) ) {
 				break;
 			}
 

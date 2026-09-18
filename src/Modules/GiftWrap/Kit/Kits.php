@@ -139,7 +139,9 @@ final class Kits {
 		}
 
 		if ( $draft['card'] && ! $this->catalog->card_for( (int) $draft['card'], $box ) ) {
-			throw new KitError( 'card_size', __( 'O cartão deste kit não existe para essa caixa.', 'galaxie-woo' ) );
+			// A refusal with no way out is a dead end: the shopper cannot guess that
+			// the card is what stands between them and the box they want.
+			throw new KitError( 'card_size', __( 'O cartão deste kit não existe para essa caixa. Troque o cartão (ou siga sem cartão) e escolha a caixa de novo.', 'galaxie-woo' ) );
 		}
 
 		$draft['box'] = $box;
