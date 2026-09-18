@@ -319,6 +319,39 @@ function galaxie_boot_kit( array $booted, array $scenario, callable $hooked ): s
 			}
 		}
 
+		// The summary's own text sets have to reach the summary's own markup: a
+		// class that never lands is a control that moves nothing, and that is
+		// exactly how this screen ended up borrowing four other sections.
+		if ( 'editor_screen' === $key ) {
+			$widget->settings = array(
+				$key                  => 'summary',
+				'summary_label_size'  => 'text-lg',
+				'row_name_size'       => 'h6',
+				'row_meta_size'       => 'text-xl',
+				'total_label_size'    => 'h4',
+				'total_value_size'    => 'h3',
+				'count_size'          => 'text-xs',
+				'room_size'           => 'h5',
+			);
+			$dressed          = $widget->render_for_test();
+
+			$wanted = array(
+				'galaxie-kit-label text-lg'        => 'the labels',
+				'galaxie-kit-choice-name h6'       => 'a row name',
+				'galaxie-kit-choice-meta text-xl'  => 'a row price',
+				'galaxie-kit-total-label h4'       => 'the total label',
+				'galaxie-kit-total-value h3'       => 'the total',
+				'galaxie-kit-count text-xs'        => 'the message counter',
+				'h5" data-slot="room'              => 'the room sentence',
+			);
+
+			foreach ( $wanted as $needle => $what ) {
+				if ( false === strpos( $dressed, $needle ) ) {
+					throw new RuntimeException( "Kit summary: {$what} does not wear its own text set" );
+				}
+			}
+		}
+
 		// The fill bar is drawn once, wherever it was sent — three call sites, one
 		// bar, or the script would fill whichever it found first.
 		if ( 'editor_screen' === $key ) {
