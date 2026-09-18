@@ -384,6 +384,8 @@ final class Kits {
 		$units   = $this->units( $draft );
 		$key     = 'packing|' . md5( (string) wp_json_encode( array( self::shape( $box ), $units, $sizes, $options, GiftKit::BUDGET_MS ) ) );
 
+		// [ the answer, whether the search finished ]: only a finished one is
+		// worth keeping past this request ({@see Store::remember()}).
 		$compute = static function () use ( $box, $units, $sizes, $options ): array {
 			$combos = GiftKit::combos( self::shape( $box ), $units, $sizes, $options );
 			$extras = array();
@@ -397,16 +399,19 @@ final class Kits {
 			}
 
 			return array(
-				'room'     => GiftKit::wording( $combos, self::labels( $sizes ) ),
-				'extras'   => $extras,
-				'complete' => (bool) $combos['complete'],
-				'fill'     => GiftKit::fill_percent( $combos, $sizes, $units ),
+				array(
+					'room'     => GiftKit::wording( $combos, self::labels( $sizes ) ),
+					'extras'   => $extras,
+					'complete' => (bool) $combos['complete'],
+					'fill'     => GiftKit::fill_percent( $combos, $sizes, $units ),
+				),
+				! empty( $combos['complete'] ) && ! empty( $combos['settled'] ),
 			);
 		};
 
-		$found = $this->remember ? ( $this->remember )( $key, $compute ) : $compute();
+		$found = $this->remember ? ( $this->remember )( $key, $compute ) : $compute()[0];
 
-		return is_array( $found ) && isset( $found['room'], $found['extras'] ) ? $found : $compute();
+		return is_array( $found ) && isset( $found['room'], $found['extras'] ) ? $found : $compute()[0];
 	}
 
 	/**
@@ -422,7 +427,16 @@ final class Kits {
 
 		$found = $this->catalog->remember(
 			$key,
-			static fn(): array => GiftKit::wording( GiftKit::combos( self::shape( $box ), array(), $sizes, $options ), self::labels( $sizes ) )
+			static function () use ( $box, $sizes, $options ): array {
+				$combos = GiftKit::combos( self::shape( $box ), array(), $sizes, $options );
+
+				// A day of every shopper's "Leva até …" is only for an answer
+				// the search finished.
+				return array(
+					GiftKit::wording( $combos, self::labels( $sizes ) ),
+					! empty( $combos['complete'] ) && ! empty( $combos['settled'] ),
+				);
+			}
 		);
 
 		return is_array( $found ) && isset( $found['state'] ) ? $found : array(

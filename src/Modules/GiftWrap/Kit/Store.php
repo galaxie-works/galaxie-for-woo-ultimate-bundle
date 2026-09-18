@@ -136,28 +136,47 @@ final class Store {
 	}
 
 	/**
+	 * How long a packing answer the search could not finish is kept in the
+	 * session before it is worked out again. A settled answer keeps until the
+	 * draft changes; this one is a guess, and a shopper who waits a moment and
+	 * asks again deserves the better answer.
+	 */
+	private const UNSETTLED_SECONDS = 60;
+
+	/**
 	 * One packing answer for this visitor's draft, kept in the session by key
 	 * (the draft's box, candles, sizes and options): the kit endpoint answers
 	 * every request with the draft, and the answer only changes with those.
 	 *
+	 * `$compute` answers `[ value, settled ]`. An answer the search could not
+	 * finish is kept for UNSETTLED_SECONDS and then asked again, so one slow
+	 * request does not fix a shopper's "ainda cabem …" for as long as the draft
+	 * lasts. A value kept before this rule has no marker and is asked again.
+	 *
+	 * @param callable $compute (): array{0:mixed, 1:bool}
 	 * @return mixed
 	 */
 	public static function remember( string $key, callable $compute ) {
 		$session = self::session();
 		$kept    = $session ? $session->get( self::PACKING_KEY ) : null;
+		$now     = time();
 
-		if ( is_array( $kept ) && ( $kept['key'] ?? null ) === $key && array_key_exists( 'value', $kept ) ) {
+		if ( is_array( $kept ) && ( $kept['key'] ?? null ) === $key
+			&& array_key_exists( 'value', $kept ) && array_key_exists( 'settled', $kept )
+			&& ( $kept['settled'] || $now - (int) ( $kept['at'] ?? 0 ) < self::UNSETTLED_SECONDS ) ) {
 			return $kept['value'];
 		}
 
-		$value = $compute();
+		list( $value, $settled ) = $compute();
 
 		if ( $session && self::get() ) {
 			self::session_set(
 				self::PACKING_KEY,
 				array(
-					'key'   => $key,
-					'value' => $value,
+					'key'     => $key,
+					'value'   => $value,
+					'settled' => (bool) $settled,
+					'at'      => $now,
 				)
 			);
 		}

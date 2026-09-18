@@ -250,7 +250,20 @@ final class KtCatalog implements Catalog {
 	public bool $shows = true;
 	public function shows_stock(): bool { return $this->shows; }
 	public array $kept = array();
-	public function remember( string $key, callable $compute ) { return $this->kept[ $key ] ??= $compute(); }
+	/** Keeps only what the search finished, like WooCatalog::remember() (which also re-asks after a while). */
+	public function remember( string $key, callable $compute ) {
+		if ( array_key_exists( $key, $this->kept ) ) {
+			return $this->kept[ $key ];
+		}
+
+		list( $value, $settled ) = $compute();
+
+		if ( $settled ) {
+			$this->kept[ $key ] = $value;
+		}
+
+		return $value;
+	}
 }
 
 // ---------------------------------------------------------------- runner
@@ -530,14 +543,43 @@ $response = $call( 'start', array( 'name' => 'Stella', 'box' => '10', 'card' => 
 $check( 'ajax', 'start opens a session and answers with the kit and its new nonce', array( $response->ok, $response->data['kit']['name'], $response->data['kit']['count'], $response->data['nonce'] ), array( true, 'Stella', 2, 'nonce:galaxie_kit|guest42' ) );
 $kept = WC()->session->get( Store::PACKING_KEY );
 $check( 'cache', 'the draft\'s packing answer is kept in the session', array( is_array( $kept ), $kept['value']['room'] ?? null ), array( true, $response->data['kit']['room'] ) );
-WC()->session->set( Store::PACKING_KEY, array( 'key' => $kept['key'], 'value' => array( 'room' => array( 'state' => 'many', 'combos' => 'cached' ), 'extras' => array(), 'complete' => true, 'fill' => 7 ) ) );
+$planted = static function ( bool $settled, int $age ) use ( $kept ): void {
+	WC()->session->set(
+		Store::PACKING_KEY,
+		array(
+			'key'     => $kept['key'],
+			'value'   => array( 'room' => array( 'state' => 'many', 'combos' => 'cached' ), 'extras' => array(), 'complete' => true, 'fill' => 7 ),
+			'settled' => $settled,
+			'at'      => time() - $age,
+		)
+	);
+};
+$check( 'cache', 'a settled answer is kept', array( is_array( $kept ), $kept['settled'] ?? null ), array( true, true ) );
+$planted( true, 0 );
 $check( 'cache', 'and read back while the draft is unchanged', array( $call( 'get', array(), '' )->data['kit']['room']['combos'], $call( 'get', array(), '' )->data['kit']['fill'] ), array( 'cached', 7 ) );
+$planted( false, 0 );
+$check( 'cache', 'an answer the search could not finish still answers this minute', $call( 'get', array(), '' )->data['kit']['room']['combos'], 'cached' );
+$planted( false, 120 );
+$check( 'cache', 'and is asked again once it is old, never kept as the truth', $call( 'get', array(), '' )->data['kit']['room']['combos'], '1 × 190g ou 1 × 50g' );
+WC()->session->set( Store::PACKING_KEY, array( 'key' => $kept['key'], 'value' => array( 'room' => array( 'state' => 'many', 'combos' => 'cached' ), 'extras' => array() ) ) );
+$check( 'cache', 'a value kept before the marker existed is asked again', $call( 'get', array(), '' )->data['kit']['room']['combos'], '1 × 190g ou 1 × 50g' );
 WC()->session->set( Store::PACKING_KEY, $kept );
 $response = $call( 'get', array( 'catalog' => '1', 'pending_id' => '101', 'pending_qty' => '2' ), '' );
 $stock_keys = array();
 array_walk_recursive( $response->data, function ( $value, $key ) use ( &$stock_keys ) { if ( 'stock' === $key ) { $stock_keys[] = $value; } } );
 $check( 'stock', 'the public get sends no stock numbers (catalog, pending, kit)', array( $stock_keys, $response->data['catalog']['boxes'][1]['inStock'], $response->data['catalog']['cards'][0]['inStock'] ), array( array(), true, true ) );
 $check( 'cache', 'the catalog sends each box\'s "Leva até" answer', array_map( fn( $b ) => $b['holds'], $response->data['catalog']['boxes'] ), array( array( 'state' => 'many', 'combos' => '3 × 190g ou 4 × 50g ou 2 × 190g + 1 × 50g ou 1 × 190g + 3 × 50g' ), array( 'state' => 'many', 'combos' => '4 × 50g' ) ) );
+
+// The store's sizes go missing: nothing is known about any box, and nothing
+// anyone knows is kept for the next shopper.
+$was            = $catalog->sizes;
+$catalog->sizes = array();
+$catalog->kept  = array();
+$check( 'cache', 'with no size at all a box holds nothing anyone knows of', $kits->box_holds( $catalog->boxes[10] ), array( 'state' => 'unknown', 'combos' => '' ) );
+$check( 'cache', 'and that answer is never kept for a day', $catalog->kept, array() );
+$catalog->sizes = $was;
+$catalog->kept  = array();
+$check( 'cache', 'a settled "Leva até" is kept', array( $kits->box_holds( $catalog->boxes[10] )['state'], count( $catalog->kept ) ), array( 'many', 1 ) );
 
 $response = $call( 'start', array( 'box' => '10' ) );
 $check( 'hint', 'start sets the guest hint', kt_cookie( Store::HINT_COOKIE ), 'g' );

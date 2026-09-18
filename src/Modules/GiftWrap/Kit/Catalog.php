@@ -57,9 +57,13 @@ interface Catalog {
 
 	/**
 	 * A packing answer every shopper shares, kept between requests (the site: a
-	 * transient flushed with the store sizes). `$compute` runs when it is not kept.
+	 * transient flushed with the store sizes). `$compute` runs when it is not
+	 * kept, and answers `[ value, settled ]`: an answer the search could not
+	 * finish is kept for minutes and asked again, never for a day, because one
+	 * slow request must not set the whole store's "Leva até …".
 	 *
-	 * @return mixed
+	 * @param callable $compute (): array{0:mixed, 1:bool}
+	 * @return mixed The value.
 	 */
 	public function remember( string $key, callable $compute );
 }
