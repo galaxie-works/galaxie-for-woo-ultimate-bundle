@@ -1175,7 +1175,13 @@ final class BuyBoxWidget extends Widget_Base {
 		$link = is_array( $link ) ? $link : array( 'url' => (string) $link );
 
 		if ( '' === trim( (string) ( $link['url'] ?? '' ) ) ) {
-			$link['url'] = function_exists( 'wc_get_cart_url' ) ? wc_get_cart_url() : '';
+			$popup = 'kit_added' === $key ? GiftWrapModule::kit_popup_id() : 0;
+
+			if ( $popup ) {
+				$link['url'] = '#pix_popup_' . $popup;
+			} else {
+				$link['url'] = function_exists( 'wc_get_cart_url' ) ? wc_get_cart_url() : '';
+			}
 		}
 
 		return array(
@@ -1432,6 +1438,25 @@ final class BuyBoxWidget extends Widget_Base {
 				'label' => __( 'Add to cart failed', 'galaxie-woo' ),
 				'icon'  => 'Line/pixfort-icon-exclamation-mark-circle-1',
 				'text'  => __( 'Não foi possível adicionar ao carrinho. Tente novamente.', 'galaxie-woo' ),
+				'type'  => 'danger',
+			),
+			// Adding to the kit happens without a page load and without the theme's
+			// cart panel, so this one is on by default: a click that says nothing
+			// reads as a click that did nothing.
+			'kit_added'   => array(
+				'label'     => __( 'Added to the kit', 'galaxie-woo' ),
+				'icon'      => 'Line/pixfort-icon-gift-1',
+				'text'      => __( 'Adicionada ao kit {kit}. {room}', 'galaxie-woo' ),
+				'type'      => 'success',
+				// The kit is a popup, not a page: the link opens it where the
+				// shopper already is.
+				'link'      => true,
+				'link_text' => __( 'Ver kit', 'galaxie-woo' ),
+			),
+			'kit_error'   => array(
+				'label' => __( 'Adding to the kit failed', 'galaxie-woo' ),
+				'icon'  => 'Line/pixfort-icon-exclamation-mark-circle-1',
+				'text'  => __( 'Não foi possível adicionar ao kit.', 'galaxie-woo' ),
 				'type'  => 'danger',
 			),
 			// Off unless the merchant asks for it: the theme already opens its cart

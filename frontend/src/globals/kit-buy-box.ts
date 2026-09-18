@@ -130,7 +130,13 @@ function paint(state: ButtonState): void {
 
 /** A sentence in the Buy Box's Alert block, or its dialog without one. */
 function say(form: HTMLFormElement, message: string): void {
-  if (!(findAlert()?.show('error', message) ?? false)) {
+  const alert = findAlert()
+
+  // The kit's own failure sentence when the merchant wrote one; otherwise the
+  // buy box's, which at least carries the right colour and icon.
+  if (alert?.has('kit_error') && alert.show('kit_error', message)) return
+
+  if (!(alert?.show('error', message) ?? false)) {
     void tell(form, 'buybox_dialog', { text: message, fallback: message })
   }
 }
@@ -159,7 +165,14 @@ async function add(state: ButtonState, kit: KitView): Promise<void> {
   const texts = kitConfig()?.texts ?? {}
 
   const note = limited ? `${fillText(holder.dataset.textCap ?? '', { n: String(qty) })} ` : ''
-  showKitToast(note + fillText(texts.added ?? '', kitValues(next)), limited ? 'info' : 'success')
+  // Adding to the kit answers where the click was, like adding to the cart
+  // does. The toast stays for a buy box with no alert block, or one whose
+  // message the merchant emptied to stay silent.
+  const said = note + fillText(texts.added ?? '', kitValues(next))
+
+  if (!((findAlert(form) ?? findAlert())?.show('kit_added', said) ?? false)) {
+    showKitToast(said, limited ? 'info' : 'success')
+  }
 
   if (next?.full && !wasFull) celebrate(holder)
 }
