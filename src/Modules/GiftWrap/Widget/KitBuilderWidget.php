@@ -750,6 +750,31 @@ final class KitBuilderWidget extends Widget_Base {
 			array( 'done_label' => __( 'Fill when full', 'galaxie-woo' ) )
 		);
 		$this->add_control(
+			'fill_place',
+			array(
+				'label'       => __( 'Where it sits', 'galaxie-woo' ),
+				'description' => __( 'Beside the name it scrolls with the kit unless you pin it; above the buttons it is always in view.', 'galaxie-woo' ),
+				'type'        => Controls_Manager::SELECT,
+				'default'     => 'foot',
+				'options'     => array(
+					'foot'  => __( 'Above the buttons', 'galaxie-woo' ),
+					'above' => __( 'Above the kit name', 'galaxie-woo' ),
+					'below' => __( 'Below the kit name', 'galaxie-woo' ),
+					''      => __( 'Do not show it', 'galaxie-woo' ),
+				),
+			)
+		);
+		$this->add_control(
+			'fill_pinned',
+			array(
+				'label'        => __( 'Pin it while the kit scrolls', 'galaxie-woo' ),
+				'type'         => Controls_Manager::SWITCHER,
+				'return_value' => 'yes',
+				'default'      => 'yes',
+				'condition'    => array( 'fill_place' => array( 'above', 'below' ) ),
+			)
+		);
+		$this->add_control(
 			'confetti',
 			array(
 				'label'        => __( 'Confetti when the box fills', 'galaxie-woo' ),
@@ -1470,6 +1495,8 @@ final class KitBuilderWidget extends Widget_Base {
 
 		echo '<div class="galaxie-kit-summary">';
 
+		$this->fill_bar( $settings, $sample, 'above' );
+
 		printf(
 			'<label class="galaxie-kit-field"><span class="galaxie-kit-small %1$s">%2$s</span><input type="text" class="galaxie-kit-input %6$s" data-kit-summary-name maxlength="%3$d" placeholder="%4$s" value="%5$s" autocomplete="off" /></label>',
 			$small, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped above.
@@ -1479,6 +1506,8 @@ final class KitBuilderWidget extends Widget_Base {
 			esc_attr( $sample ? $sample['name'] : '' ),
 			esc_attr( PixfortControls::surface_classes( $settings, 'field' ) )
 		);
+
+		$this->fill_bar( $settings, $sample, 'below' );
 
 		foreach ( array( 'box' => 'change-box', 'card' => 'change-card' ) as $part => $action ) {
 			$row = $sample ? $sample[ 'summary_' . $part ] : array(
@@ -1521,17 +1550,10 @@ final class KitBuilderWidget extends Widget_Base {
 
 		echo '</div>';
 
-		// null is "not known", which the editor draws as the striped bar the page
-		// draws, not as an empty one.
-		$fill    = $sample && null !== $sample['fill'] ? (int) $sample['fill'] : 0;
-		$unknown = $sample && null === $sample['fill'];
-		$full = $sample && $sample['full'];
+		$this->fill_bar( $settings, $sample, 'foot' );
 
-		$this->foot_open();
-		printf( '<div class="galaxie-kit-fill%1$s%2$s" data-kit-fill>', $full ? ' is-full' : '', $unknown ? ' is-unknown' : '' );
-		printf( '<div class="galaxie-kit-fill-track"><div class="galaxie-kit-fill-bar" data-slot="bar" style="width:%d%%"></div></div>', (int) $fill );
-		printf( '<span class="galaxie-kit-small %1$s" data-slot="room">%2$s</span>', $small, esc_html( $sample ? $sample['room'] : '' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped above.
-		echo '</div>';
+		// Which of the two add buttons starts visible; the script swaps them.
+		$full = $sample && $sample['full'];
 
 		printf(
 			'<div class="galaxie-kit-total"><span class="galaxie-kit-text %1$s">%2$s</span><strong class="galaxie-kit-text %1$s" data-kit-total>%3$s</strong></div>',
@@ -1553,6 +1575,48 @@ final class KitBuilderWidget extends Widget_Base {
 		echo $this->button( $settings, 'cart_new', 'to-cart-new', $texts['action_new'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in button().
 		echo $this->button( $settings, 'discard', 'discard', $texts['action_discard'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in button().
 		$this->previous_button( $settings, $texts );
+		echo '</div>';
+	}
+
+	/**
+	 * The fill bar, wherever the merchant put it: beside the kit's name, where it
+	 * reads as part of the kit, or above the buttons, where the scrolling list
+	 * cannot carry it away. Pinned, it keeps both.
+	 *
+	 * Called from all three places on every render; each call draws only when it
+	 * is the chosen one, so the bar exists once and the script finds one of it.
+	 *
+	 * @param array<string,mixed>      $settings
+	 * @param array<string,mixed>|null $sample   The editor's sample kit.
+	 * @param string                   $at       The place asking.
+	 */
+	private function fill_bar( array $settings, ?array $sample, string $at ): void {
+		$place = (string) ( $settings['fill_place'] ?? 'foot' );
+
+		if ( '' === $place || $place !== $at ) {
+			return;
+		}
+
+		// Above the buttons it belongs to the frame, so the panel closes first.
+		if ( 'foot' === $place ) {
+			$this->foot_open();
+		}
+
+		// null is "not known", which the editor draws as the striped bar the page
+		// draws, not as an empty one.
+		$fill    = $sample && null !== $sample['fill'] ? (int) $sample['fill'] : 0;
+		$unknown = $sample && null === $sample['fill'];
+		$full    = $sample && $sample['full'];
+		$pinned  = 'foot' !== $place && 'yes' === ( $settings['fill_pinned'] ?? 'yes' );
+
+		printf(
+			'<div class="galaxie-kit-fill%1$s%2$s%3$s" data-kit-fill>',
+			$full ? ' is-full' : '',
+			$unknown ? ' is-unknown' : '',
+			$pinned ? ' is-pinned' : ''
+		);
+		printf( '<div class="galaxie-kit-fill-track"><div class="galaxie-kit-fill-bar" data-slot="bar" style="width:%d%%"></div></div>', (int) $fill );
+		printf( '<span class="galaxie-kit-small %1$s" data-slot="room">%2$s</span>', esc_attr( PixfortControls::text_classes( $settings, 'small' ) ), esc_html( $sample ? $sample['room'] : '' ) );
 		echo '</div>';
 	}
 

@@ -828,6 +828,17 @@ form.galaxie-buybox .galaxie-kit-button[aria-disabled="true"] {
   display: none;
 }
 
+/* Beside the kit's name, the bar scrolls with it — pinned, it rides the top of
+   the panel instead, which is the only way to have it both in place and in
+   view. The background is the panel's own, so the list passes under it. */
+.galaxie-kit-fill.is-pinned {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding-block: 4px;
+  background: inherit;
+}
+
 /* Nothing settled behind the bar: striped rather than empty, because a bar at
    zero reads as "plenty of room" and that is exactly what is not known. */
 .galaxie-kit-fill.is-unknown .galaxie-kit-fill-bar,
