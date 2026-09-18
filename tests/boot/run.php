@@ -277,6 +277,23 @@ function galaxie_boot_kit( array $booted, array $scenario, callable $hooked ): s
 			}
 		}
 
+		// Adding to the kit answers in the buy box's own alert, like adding to the
+		// cart does: the two messages have to be there to be shown.
+		if ( 'editor_screen' === $key ) {
+			$buy = new \Galaxie\Woo\Modules\VariationSwatches\Widget\BuyBoxWidget();
+			$buy->register_for_test();
+
+			foreach ( array( 'alert_kit_added_text', 'alert_kit_error_text', 'alert_kit_added_link_text' ) as $control ) {
+				if ( ! isset( $buy->controls[ $control ] ) ) {
+					throw new RuntimeException( "Buy box: {$control} is not registered" );
+				}
+			}
+
+			if ( '' === (string) ( $buy->controls['alert_kit_added_text']['default'] ?? '' ) ) {
+				throw new RuntimeException( 'Buy box: "added to the kit" ships silent' );
+			}
+		}
+
 		// The summary's fill bar, total and buttons sit after the content panel:
 		// only the panel scrolls, and those three must stay in view.
 		if ( 'editor_screen' === $key ) {
