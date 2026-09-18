@@ -277,6 +277,31 @@ function galaxie_boot_kit( array $booted, array $scenario, callable $hooked ): s
 			}
 		}
 
+		// A stale cart notice must never reach the Store API: it becomes a 409 the
+		// block checkout can only call "an error occurred during payment
+		// processing", and the shopper cannot pay for anything until it clears.
+		if ( 'editor_screen' === $key && function_exists( 'wc_add_notice' ) ) {
+			$cart = new \Galaxie\Woo\Modules\Cart\Module();
+
+			wc_add_notice( 'Informe um CEP válido para calcular o frete.', 'error' );
+			wc_add_notice( 'Um erro de verdade desta requisição.', 'error' );
+
+			$store = new class() {
+				public function get_route(): string {
+					return '/wc/store/v1/checkout';
+				}
+			};
+
+			$cart->drop_stale_calculator_notice( null, null, $store );
+			$left = array_map( static fn( array $n ): string => (string) $n['notice'], wc_get_notices( 'error' ) );
+
+			if ( array( 'Um erro de verdade desta requisição.' ) !== $left ) {
+				throw new RuntimeException( 'Cart: the stale calculator notice survives a Store API request: ' . implode( ' | ', $left ) );
+			}
+
+			wc_clear_notices();
+		}
+
 		// Adding to the kit answers in the buy box's own alert, like adding to the
 		// cart does: the two messages have to be there to be shown.
 		if ( 'editor_screen' === $key ) {

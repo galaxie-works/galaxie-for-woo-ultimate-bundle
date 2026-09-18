@@ -236,6 +236,13 @@ function get_woocommerce_currency_symbol( $currency = '' ) { return 'R$'; }
 /** The published pixfort popup the kit scenarios name. */
 function get_post_type( $post = null ) { return 4549 === (int) $post ? 'pixpopup' : false; }
 function get_post_status( $post = null ) { return 4549 === (int) $post ? 'publish' : false; }
+// WooCommerce's notice queue, enough of it for a module that has to keep a
+// stale notice out of a Store API request.
+$GLOBALS['galaxie_notices'] = array();
+function wc_add_notice( $message, $type = 'success', $data = array() ) { $GLOBALS['galaxie_notices'][ $type ][] = array( 'notice' => $message, 'data' => $data ); }
+function wc_get_notices( $type = '' ) { return '' === $type ? $GLOBALS['galaxie_notices'] : ( $GLOBALS['galaxie_notices'][ $type ] ?? array() ); }
+function wc_set_notices( $notices ) { $GLOBALS['galaxie_notices'] = (array) $notices; }
+function wc_clear_notices() { $GLOBALS['galaxie_notices'] = array(); }
 function get_posts( $args = array() ) { return array(); }
 function get_term( $term, $taxonomy = '' ) { return null; }
 function get_term_by( ...$args ) { return false; }
