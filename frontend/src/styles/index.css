@@ -835,8 +835,13 @@ form.galaxie-buybox .galaxie-kit-button[aria-disabled="true"] {
   position: sticky;
   top: 0;
   z-index: 1;
+}
+
+/* A background it can be read against, written with no specificity at all so
+   the widget's own box — background, corners, padding, shadow — always wins. */
+:where(.galaxie-kit-fill.is-pinned) {
   padding-block: 4px;
-  background: inherit;
+  background-color: var(--pix-base, #fff);
 }
 
 /* Nothing settled behind the bar: striped rather than empty, because a bar at
