@@ -11,6 +11,11 @@ every one of the store's own boxes and jars. What is wrong is the data that
 reaches it, what it does when it runs out of time, and how honestly that is
 reported and cached.
 
+## Status, 2026-09-18
+
+Everything below is done and on `feat/gift-kit` unless a line says otherwise.
+Four items were deliberately left, and they are listed at the end.
+
 ## Fixed already
 
 - **`store_sizes()` misread `fields => 'id=>parent'`.** WP_Query returns
@@ -183,3 +188,15 @@ the six per-screen sections are 73 % of that.
 - `combos()` producing `complete: false` — the wording fixtures hand-craft it.
 - `fill_percent()` — PHP only, no twin.
 - `arrange()` is covered at `upright` only, while the store runs `lying`.
+
+## Left on purpose
+
+- **Closing the popup mid-step still loses the step.** Nothing is saved before
+  "Criar kit", by the scope's own decision, so there is nothing to restore; what
+  is missing is a warning, not a fix. Worth a line on the stepper.
+- **The login-merge notice is still a toast.** It says a kit was put in the
+  shopper's cart, which deserves to sit on the next screen rather than fade.
+- **`need_candle` stays** as the guard behind a disabled button: unreachable by
+  pointer, and cheap insurance for every other way in.
+- **Disabled box cards keep their place in the tab order**, with `aria-disabled`
+  rather than `disabled`, so the reason beneath them can still be read.
