@@ -9,6 +9,7 @@ namespace Galaxie\Woo\Support;
 
 use Elementor\Controls_Manager;
 use Elementor\Repeater;
+use Galaxie\Woo\Support\Dialog;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -64,6 +65,26 @@ final class CartParts {
 	/* ---------------------------------------------------------------------
 	 * Controls
 	 * ------------------------------------------------------------------ */
+
+	/**
+	 * The questions and notices a cart line asks: today only "Editar kit", which
+	 * takes a kit out of the cart and back into the popup. Registered here so a
+	 * cart drawn by either widget carries the same dialog, styled with it.
+	 */
+	public static function register_dialog_controls( object $widget ): void {
+		Dialog::controls(
+			$widget,
+			'kit_edit',
+			array(
+				'label' => __( 'Edit kit dialog', 'galaxie-woo' ),
+				'title' => __( 'Editar kit', 'galaxie-woo' ),
+				'text'  => __( 'Este kit volta para o montador e sai do carrinho. Tudo bem?', 'galaxie-woo' ),
+				'yes'   => __( 'Sim, editar', 'galaxie-woo' ),
+				'no'    => __( 'Cancelar', 'galaxie-woo' ),
+				'yes_defaults' => array( 'color' => 'primary', 'size' => 'sm' ),
+			)
+		);
+	}
 
 	public static function register_line_controls( object $widget ): void {
 		$widget->start_controls_section( 'lines_section', array( 'label' => __( 'Line fields', 'galaxie-woo' ) ) );
@@ -901,6 +922,7 @@ final class CartParts {
 
 		wp_nonce_field( 'woocommerce-cart', 'woocommerce-cart-nonce' );
 		echo '</form>';
+		echo Dialog::render( $settings, 'kit_edit' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built from escaped parts.
 	}
 
 	/**

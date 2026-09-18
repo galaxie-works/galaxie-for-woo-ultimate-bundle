@@ -64,7 +64,7 @@ async function edit(group: string, from: Element): Promise<void> {
   let result = await kitCall('edit_from_cart', { group })
 
   if (!result.ok && result.data?.reason === 'needs_confirm') {
-    const yes = await ask(from, 'kit_edit', result.data.message ?? '')
+    const yes = await ask(from, 'kit_edit', { text: result.data.message ?? '', fallback: result.data.message ?? '' })
     if (!yes) return
 
     result = await kitCall('edit_from_cart', { group, confirm: 1 })

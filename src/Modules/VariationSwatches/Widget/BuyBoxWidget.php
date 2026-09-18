@@ -11,6 +11,7 @@ use Elementor\Controls_Manager;
 use Galaxie\Woo\Core\Plugin;
 use Galaxie\Woo\Modules\GiftWrap\Module as GiftWrapModule;
 use Galaxie\Woo\Modules\Wishlist\Gifts;
+use Galaxie\Woo\Support\Dialog;
 use Galaxie\Woo\Support\GiftPacking;
 use Galaxie\Woo\Support\PixfortControls;
 use Galaxie\Woo\Support\QuantityField;
@@ -105,6 +106,21 @@ final class BuyBoxWidget extends Widget_Base {
 		$this->register_button_section( 'addcart', __( 'Add to Cart button', 'galaxie-woo' ), __( 'Adicionar ao carrinho', 'galaxie-woo' ), '' );
 		$this->register_button_section( 'buynow', __( 'Buy Now button', 'galaxie-woo' ), __( 'Comprar agora', 'galaxie-woo' ), 'outline' );
 		$this->register_layout_section();
+
+		// "Não foi possível adicionar ao carrinho" and the rest of what the buy
+		// box has to say: one notice, styled like the widget that says it,
+		// instead of the script's plain fallback.
+		Dialog::controls(
+			$this,
+			'buybox_dialog',
+			array(
+				'label' => __( 'Notice dialog', 'galaxie-woo' ),
+				'title' => '',
+				'text'  => __( 'Não foi possível adicionar ao carrinho.', 'galaxie-woo' ),
+				'yes'   => __( 'Entendi', 'galaxie-woo' ),
+				'no'    => null,
+			)
+		);
 	}
 
 	/** Order and presence. Nothing else — see the class docblock. */
@@ -743,6 +759,7 @@ final class BuyBoxWidget extends Widget_Base {
 		$this->render_hidden_fields( $product, $variable );
 
 		echo '</form>';
+		echo Dialog::render( $settings, 'buybox_dialog', false ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built from escaped parts.
 	}
 
 	/**
