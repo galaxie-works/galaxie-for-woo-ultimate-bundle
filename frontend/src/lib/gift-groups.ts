@@ -15,7 +15,7 @@
  * test straight from source).
  */
 
-import { arrange, fits, MAX_ITEMS } from './gift-packing.ts'
+import { arrange, fits, fitsKnown, MAX_ITEMS } from './gift-packing.ts'
 import type { Box, Candle, Gift, PackingOptions } from './gift-packing.ts'
 
 export interface PlanCandle extends Candle {
@@ -179,7 +179,8 @@ export function validate(plan: Plan, options: PackingOptions = {}): PlanError[] 
     }
 
     if (box) {
-      if (candles.length && !fits(box, candles, options)) errors.push(error('box_too_small', g, box.id ?? ''))
+      // Only a proved "no": a search that ran out of work has shown nothing.
+      if (candles.length && fitsKnown(box, candles, options) === false) errors.push(error('box_too_small', g, box.id ?? ''))
       if (box.added !== false) ask(box.id ?? '', 1)
     }
 

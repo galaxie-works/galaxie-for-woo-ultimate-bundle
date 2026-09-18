@@ -372,6 +372,18 @@
       "groups": [{ "candles": [["190g", 1, "v190"]], "box": { "id": "mdf136" }, "items": [] }],
       "options": { "orientation": "lying", "gap": 0 }, "expect": [{"code":"box_too_small","group":0,"id":"mdf136"}]
     }
+  ,
+    {
+      "name": "a box the search could not settle is never 'box_too_small'",
+      "message_max": 200,
+      "stock": {},
+      "in_cart": {},
+      "groups": [
+        { "candles": [["190g-gift", 7, "v190"], ["50g-gift", 1, "v50"]], "box": { "id": "wide-30" }, "items": [] }
+      ],
+      "options": { "orientation": "lying", "gap": 0 },
+      "expect": []
+    }
   ],
   "arrange_all": [
     { "name": "4 x 50g: exactly arrange()", "candles": [["50g", 4]], "boxes": ["b14", "big"], "options": { "gap": 0.5, "orientation": "upright" }, "expect": { "gifts": [{ "box": "b14", "candles": ["50g", "50g", "50g", "50g"] }], "loose": [] } },

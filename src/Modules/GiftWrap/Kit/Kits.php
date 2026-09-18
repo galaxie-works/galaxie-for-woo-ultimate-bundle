@@ -121,7 +121,10 @@ final class Kits {
 
 		$units = $this->units( $draft );
 
-		if ( $units && ! GiftPacking::fits( self::shape( $row ), $units, $this->catalog->options() ) ) {
+		// Only a proved "no" refuses the box: a search that ran out of work has
+		// not shown the candles will not go in, and the shopper must not pay for
+		// the difference.
+		if ( $units && false === GiftPacking::fits_known( self::shape( $row ), $units, $this->catalog->options() ) ) {
 			throw new KitError( 'box_too_small', __( 'Essa caixa não comporta as velas deste kit.', 'galaxie-woo' ) );
 		}
 
@@ -269,6 +272,12 @@ final class Kits {
 	/**
 	 * How many more of this candle the kit's box takes (0 with no box).
 	 *
+	 * The walk stops where `takes()` starts refusing and nowhere earlier: one
+	 * more is counted in while the search cannot prove it will not go in, and a
+	 * check that ran out of work or of clock has proved nothing. The two used to
+	 * disagree — the cap was budgeted and the refusal was not — so the "+" ran
+	 * out before the server did.
+	 *
 	 * @param array $candle A catalog candle row.
 	 */
 	public function room_for( array $draft, array $candle ): int {
@@ -278,17 +287,32 @@ final class Kits {
 			return 0;
 		}
 
-		$units = $this->units( $draft );
+		$units   = $this->units( $draft );
+		$shape   = self::shape( $box );
+		$options = $this->catalog->options();
+		$more    = 0;
 
-		if ( count( $units ) >= GiftPacking::MAX_ITEMS ) {
-			return 0;
+		while ( count( $units ) + $more < GiftPacking::MAX_ITEMS ) {
+			$with = $units;
+
+			for ( $i = 0; $i <= $more; $i++ ) {
+				$with[] = $candle['candle'];
+			}
+
+			if ( false === GiftPacking::fits_known( $shape, $with, $options ) ) {
+				break;
+			}
+
+			++$more;
 		}
 
-		return GiftGroups::max_quantity( self::shape( $box ), $units, $candle['candle'], 0, $this->catalog->options() );
+		return $more;
 	}
 
 	/**
-	 * Whether the draft's box takes `$qty` more of this candle: one fit check.
+	 * Whether the draft's box takes `$qty` more of this candle: one fit check,
+	 * within the combinations' budget so a long search cannot hold the request,
+	 * and an unproved "no" lets the add through ({@see self::room_for()}).
 	 */
 	private function takes( array $draft, array $candle, int $qty ): bool {
 		$box   = $this->catalog->boxes()[ (int) $draft['box'] ] ?? null;
@@ -302,12 +326,20 @@ final class Kits {
 			$units[] = $candle['candle'];
 		}
 
-		return GiftPacking::fits( self::shape( $box ), $units, $this->catalog->options() );
+		$shape   = self::shape( $box );
+		$options = $this->catalog->options();
+
+		list( $answer ) = GiftPacking::with_deadline(
+			(float) GiftKit::BUDGET_MS,
+			static fn(): ?bool => GiftPacking::fits_known( $shape, $units, $options )
+		);
+
+		return false !== $answer;
 	}
 
 	/**
-	 * room_for() within the combinations' budget, for the refusal message and
-	 * the popup's + button: at worst it says less than fits, never more.
+	 * room_for() within the same budget takes() gets, for the refusal message
+	 * and the popup's + button.
 	 */
 	private function room_within( array $draft, array $candle ): int {
 		list( $cap ) = GiftPacking::with_deadline( (float) GiftKit::BUDGET_MS, fn(): int => $this->room_for( $draft, $candle ) );

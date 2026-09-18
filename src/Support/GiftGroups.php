@@ -249,7 +249,10 @@ final class GiftGroups {
 			}
 
 			if ( is_array( $box ) ) {
-				if ( $candles && ! GiftPacking::fits( $box, $candles, $options ) ) {
+				// Only a proved "no": a search that ran out of work has shown
+				// nothing, and the gift was let through on the same rule when it
+				// was built ({@see GiftPacking::fits_known()}).
+				if ( $candles && false === GiftPacking::fits_known( $box, $candles, $options ) ) {
 					$errors[] = self::error( 'box_too_small', $g, $box['id'] ?? '' );
 				}
 
