@@ -1521,11 +1521,14 @@ final class KitBuilderWidget extends Widget_Base {
 
 		echo '</div>';
 
-		$fill = $sample ? (int) $sample['fill'] : 0;
+		// null is "not known", which the editor draws as the striped bar the page
+		// draws, not as an empty one.
+		$fill    = $sample && null !== $sample['fill'] ? (int) $sample['fill'] : 0;
+		$unknown = $sample && null === $sample['fill'];
 		$full = $sample && $sample['full'];
 
 		$this->foot_open();
-		printf( '<div class="galaxie-kit-fill%1$s" data-kit-fill>', $full ? ' is-full' : '' );
+		printf( '<div class="galaxie-kit-fill%1$s%2$s" data-kit-fill>', $full ? ' is-full' : '', $unknown ? ' is-unknown' : '' );
 		printf( '<div class="galaxie-kit-fill-track"><div class="galaxie-kit-fill-bar" data-slot="bar" style="width:%d%%"></div></div>', (int) $fill );
 		printf( '<span class="galaxie-kit-small %1$s" data-slot="room">%2$s</span>', $small, esc_html( $sample ? $sample['room'] : '' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped above.
 		echo '</div>';
@@ -1672,7 +1675,9 @@ final class KitBuilderWidget extends Widget_Base {
 		$chosen   = null;
 
 		foreach ( $catalog ? $catalog->boxes() : array() as $box ) {
-			$fits  = ! $units || GiftPacking::fits( $box['shape'], $units, $options );
+			// The editor shows a box unless the search proved it cannot hold the
+			// sample: an answer nobody could settle is not a refusal.
+			$fits  = ! $units || false !== GiftPacking::fits_known( $box['shape'], $units, $options );
 			$empty = GiftKit::wording( GiftKit::combos( $box['shape'], array(), $sizes, $options ), $labels );
 
 			if ( $fits && 0 !== $box['stock'] && ( ! $chosen || $box['price'] < $chosen['price'] ) ) {

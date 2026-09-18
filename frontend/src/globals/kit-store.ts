@@ -108,7 +108,8 @@ export interface KitView {
   count: number
   full: boolean
   room: { state: RoomState | 'none' | 'nofit'; combos: string }
-  fill: number
+  /** null when nothing could be settled: an unknown bar, not an empty one. */
+  fill: number | null
   total: number
   totalText: string
   warnings: string[]

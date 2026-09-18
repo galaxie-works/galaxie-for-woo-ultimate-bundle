@@ -603,7 +603,11 @@ function create(root: HTMLElement): Controller {
     if (fill) {
       fill.classList.toggle('is-full', kit.full)
       const bar = slot(fill, 'bar')
-      if (bar) bar.style.width = `${Math.max(0, Math.min(100, kit.fill))}%`
+      // A bar with nothing settled behind it is not an empty box: it says so
+      // rather than drawing a zero the shopper would read as "there is room".
+      const known = typeof kit.fill === 'number'
+      fill.classList.toggle('is-unknown', !known)
+      if (bar) bar.style.width = known ? `${Math.max(0, Math.min(100, kit.fill as number))}%` : '100%'
       setText(slot(fill, 'room'), roomSentence(kit.room, kitValues(kit)))
     }
 

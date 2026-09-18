@@ -819,6 +819,20 @@ form.galaxie-buybox .galaxie-kit-button[aria-disabled="true"] {
   display: none;
 }
 
+/* Nothing settled behind the bar: striped rather than empty, because a bar at
+   zero reads as "plenty of room" and that is exactly what is not known. */
+.galaxie-kit-fill.is-unknown .galaxie-kit-fill-bar,
+.galaxie-kit-progress.is-unknown .galaxie-kit-progress-fill {
+  background-image: repeating-linear-gradient(
+    45deg,
+    rgba(255, 255, 255, 0.35) 0,
+    rgba(255, 255, 255, 0.35) 6px,
+    transparent 6px,
+    transparent 12px
+  );
+  opacity: 0.55;
+}
+
 /* Step indicator: 1•2•3•4. */
 .galaxie-kit-steps {
   display: flex;
