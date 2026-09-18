@@ -361,7 +361,7 @@ final class Kits {
 	 * how full the box is — from one budgeted combos() call, kept in the session
 	 * by the draft's box, candles, the store's sizes and options.
 	 *
-	 * @return array{room: array{state:string, combos:string}, extras: array<string,int>, complete: bool, fill: int}
+	 * @return array{room: array{state:string, combos:string}, extras: array<string,int>, complete: bool, fill: ?int}
 	 */
 	public function packing( array $draft ): array {
 		$box = $this->catalog->boxes()[ (int) $draft['box'] ] ?? null;
@@ -374,7 +374,8 @@ final class Kits {
 				),
 				'extras'   => array(),
 				'complete' => true,
-				'fill'     => 0,
+				// With no box there is nothing to be full of, which is not 0 %.
+				'fill'     => null,
 			);
 		}
 
@@ -399,7 +400,7 @@ final class Kits {
 				'room'     => GiftKit::wording( $combos, self::labels( $sizes ) ),
 				'extras'   => $extras,
 				'complete' => (bool) $combos['complete'],
-				'fill'     => GiftKit::fill_percent( $combos, $sizes, count( $units ) ),
+				'fill'     => GiftKit::fill_percent( $combos, $sizes, $units ),
 			);
 		};
 

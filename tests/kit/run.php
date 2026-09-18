@@ -333,6 +333,15 @@ foreach ( $fixtures['fill'] as $case ) {
 	$check( 'fill', $case['name'], GiftKit::fill( $case['text'], $case['values'] ), $case['expect'] );
 }
 
+// The fill bar: volume in the box against the fullest the box was shown to take.
+foreach ( $fixtures['fill_percent'] as $case ) {
+	$sizes  = array_map( static fn( string $s ): array => $fixtures['sizes'][ $s ], $case['sizes'] );
+	$inside = $expand( $case['candles'] ?? array() );
+	$found  = isset( $case['box'] ) ? GiftKit::combos( $fixtures['boxes'][ $case['box'] ], $inside, $sizes ) : $case['combos'];
+
+	$check( 'fill_percent', $case['name'], GiftKit::fill_percent( $found, $sizes, $inside ), $case['expect'] );
+}
+
 foreach ( $fixtures['clean_name'] as $case ) {
 	$check( 'clean_name', $case['name'], GiftKit::clean_name( $case['name_in'] ), $case['expect'] );
 }
@@ -529,12 +538,6 @@ $stock_keys = array();
 array_walk_recursive( $response->data, function ( $value, $key ) use ( &$stock_keys ) { if ( 'stock' === $key ) { $stock_keys[] = $value; } } );
 $check( 'stock', 'the public get sends no stock numbers (catalog, pending, kit)', array( $stock_keys, $response->data['catalog']['boxes'][1]['inStock'], $response->data['catalog']['cards'][0]['inStock'] ), array( array(), true, true ) );
 $check( 'cache', 'the catalog sends each box\'s "Leva até" answer', array_map( fn( $b ) => $b['holds'], $response->data['catalog']['boxes'] ), array( array( 'state' => 'many', 'combos' => '3 × 190g ou 4 × 50g ou 2 × 190g + 1 × 50g ou 1 × 190g + 3 × 50g' ), array( 'state' => 'many', 'combos' => '4 × 50g' ) ) );
-foreach ( array( array( 'big', array() ), array( 'big', array( array( '190g', 2 ) ) ), array( 'big', array( array( '190g', 1 ), array( '50g', 2 ) ) ), array( 'square', array( array( '50g', 3 ) ) ), array( 'big', array( array( '190g', 3 ) ) ) ) as list( $b, $pairs ) ) {
-	$inside = $expand( $pairs );
-	$sizes  = array( $fixtures['sizes']['190g'], $fixtures['sizes']['50g'] );
-	$check( 'fill', "{$b} with " . json_encode( $pairs ) . ': same as GiftGroups::fill()', GiftKit::fill_percent( GiftKit::combos( $fixtures['boxes'][ $b ], $inside, $sizes ), $sizes, count( $inside ) ), GiftGroups::fill( $fixtures['boxes'][ $b ], $inside, $sizes ) );
-}
-$check( 'fill', 'unknown room: an empty bar, never a full one', GiftKit::fill_percent( array( 'singles' => array(), 'mixes' => array(), 'complete' => false ), array( $fixtures['sizes']['50g'] ), 3 ), 0 );
 
 $response = $call( 'start', array( 'box' => '10' ) );
 $check( 'hint', 'start sets the guest hint', kt_cookie( Store::HINT_COOKIE ), 'g' );

@@ -60,7 +60,11 @@ function volume(candle: Candle): number {
   return units(candle.length) * units(candle.width) * units(candle.height)
 }
 
-/** Distinct sizes, largest first (first seen on a tie). */
+/**
+ * Distinct sizes, largest first. Sizes of the same volume come out in reverse
+ * order of appearance, so the last of the list is the one `smallestOf()` in
+ * gift-groups.ts picks. See GiftKit::ordered().
+ */
 function ordered(sizes: Candle[]): Candle[] {
   const seen = new Map<string, Candle>()
 
@@ -71,7 +75,7 @@ function ordered(sizes: Candle[]): Candle[] {
 
   const list = Array.from(seen.values())
   const order = list.map((_, i) => i)
-  order.sort((a, b) => volume(list[b]) - volume(list[a]) || a - b)
+  order.sort((a, b) => volume(list[b]) - volume(list[a]) || b - a)
 
   return order.map((i) => list[i])
 }
@@ -219,6 +223,42 @@ export function combos(box: Box, candles: Candle[], sizes: Candle[], options: Pa
     complete: found.complete,
     settled: found.settled,
   }
+}
+
+/**
+ * How full a box is, 0–100, or null when nothing about it is settled: the
+ * volume in the box against the fullest the box was shown to take. See
+ * GiftKit::fill_percent().
+ */
+export function fillPercent(found: Combos, sizes: Candle[], inside: Candle[]): number | null {
+  const volumes = new Map<string, number>()
+
+  for (const size of ordered(sizes)) volumes.set(String(size.size), volume(size))
+
+  let used = 0
+  for (const candle of inside) used += volume(candle)
+
+  const rows = [...(found.singles ?? []), ...(found.mixes ?? [])]
+
+  // Nothing listed and everything searched: the box is full. Nothing listed
+  // because nothing was searched: say nothing at all.
+  if (!rows.length) {
+    const known = found.complete !== false && found.settled !== false
+    if (!known) return null
+    return used > 0 ? 100 : 0
+  }
+
+  if (used < 1) return 0
+
+  let most = used
+
+  for (const row of rows) {
+    let more = 0
+    for (const entry of row.entries) more += entry.count * (volumes.get(entry.size) ?? 0)
+    most = Math.max(most, used + more)
+  }
+
+  return Math.min(99, Math.floor((used * 100 + Math.floor(most / 2)) / most))
 }
 
 /** combos() in words. See GiftKit::wording(). */

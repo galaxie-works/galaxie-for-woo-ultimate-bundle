@@ -299,38 +299,71 @@ final class GiftKit {
 	}
 
 	/**
-	 * How full a box is, 0–100, from combos() of what is in it: the candles
-	 * against the candles it could hold, filling what is left with the smallest
-	 * size (as GiftGroups::fill()). 0 when that is not known: a bar never
-	 * shows fuller than the box is.
+	 * How full a box is, 0–100, or null when nothing about it is settled.
+	 *
+	 * Space, not candles: the volume in the box against the fullest the box was
+	 * shown to take — what is in it plus the fullest row combos() listed. So a
+	 * bar moves by what a candle takes up, and it only reaches the end when the
+	 * search found nothing more that goes in.
+	 *
+	 * Counting candles instead read 100 % whenever the smallest size happened to
+	 * fit nowhere while a larger one still did, 0 % with a box full of candles
+	 * whenever nothing had been settled, and stepped one candle 25 → 67 → 100.
+	 *
+	 * With rows listed the box is not full, so the bar stops at 99: the last
+	 * hundredth belongs to a box with nothing more to add. When the rows are all
+	 * that was searched (`settled` false) a mix nobody looked for may go in too,
+	 * and the bar is then the fullest the box can honestly be said to be.
 	 *
 	 * @param array $combos From combos() of the box with these candles.
 	 * @param array $sizes  The sizes combos() was given.
+	 * @param array $inside The candles in the box, one per unit.
 	 */
-	public static function fill_percent( array $combos, array $sizes, int $count ): int {
-		if ( $count < 1 ) {
-			return 0;
+	public static function fill_percent( array $combos, array $sizes, array $inside ): ?int {
+		$volumes = array();
+
+		foreach ( self::ordered( $sizes ) as $size ) {
+			$volumes[ (string) $size['size'] ] = self::volume( $size );
 		}
 
-		$ordered  = self::ordered( $sizes );
-		$smallest = $ordered ? (string) end( $ordered )['size'] : '';
-		$extra    = 0;
-		$known    = ! empty( $combos['complete'] );
+		$used = 0;
 
-		foreach ( (array) ( $combos['singles'] ?? array() ) as $row ) {
-			$entries = (array) ( $row['entries'] ?? array() );
+		foreach ( $inside as $candle ) {
+			$used += self::volume( $candle );
+		}
 
-			if ( 1 === count( $entries ) && (string) $entries[0]['size'] === $smallest ) {
-				$extra = (int) $entries[0]['count'];
-				$known = true;
+		$rows = array_merge( (array) ( $combos['singles'] ?? array() ), (array) ( $combos['mixes'] ?? array() ) );
+
+		// Nothing listed and everything searched: the box is full. Nothing
+		// listed because nothing was searched: say nothing at all.
+		if ( ! $rows ) {
+			$known = ( ! array_key_exists( 'complete', $combos ) || ! empty( $combos['complete'] ) )
+				&& ( ! array_key_exists( 'settled', $combos ) || ! empty( $combos['settled'] ) );
+
+			if ( ! $known ) {
+				return null;
 			}
+
+			return $used > 0 ? 100 : 0;
 		}
 
-		if ( ! $known ) {
+		if ( $used < 1 ) {
 			return 0;
 		}
 
-		return intdiv( $count * 100 + intdiv( $count + $extra, 2 ), $count + $extra );
+		$most = $used;
+
+		foreach ( $rows as $row ) {
+			$more = 0;
+
+			foreach ( (array) ( $row['entries'] ?? array() ) as $entry ) {
+				$more += (int) $entry['count'] * (int) ( $volumes[ (string) $entry['size'] ] ?? 0 );
+			}
+
+			$most = max( $most, $used + $more );
+		}
+
+		return min( 99, intdiv( $used * 100 + intdiv( $most, 2 ), $most ) );
 	}
 
 	/**
@@ -521,7 +554,13 @@ final class GiftKit {
 	}
 
 	/**
-	 * Distinct sizes, largest first (first seen on a tie), each with a volume.
+	 * Distinct sizes, largest first, each with a volume.
+	 *
+	 * Sizes of the same volume come out in reverse order of appearance, so that
+	 * the last of the list is the size {@see GiftGroups::smallest()} picks —
+	 * which keeps the first one seen. The two used to break that tie opposite
+	 * ways, and "the smallest size" then meant two different candles depending
+	 * on which one was asked.
 	 *
 	 * @return array<int, array>
 	 */
@@ -541,7 +580,7 @@ final class GiftKit {
 
 		usort(
 			$order,
-			static fn( int $a, int $b ): int => ( self::volume( $list[ $b ] ) <=> self::volume( $list[ $a ] ) ) ?: ( $a <=> $b )
+			static fn( int $a, int $b ): int => ( self::volume( $list[ $b ] ) <=> self::volume( $list[ $a ] ) ) ?: ( $b <=> $a )
 		);
 
 		return array_map( static fn( int $i ): array => $list[ $i ], $order );

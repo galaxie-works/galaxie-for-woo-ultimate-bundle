@@ -8,7 +8,7 @@
 import { readFileSync } from 'node:fs'
 import { isDeepStrictEqual } from 'node:util'
 
-import { BUDGET_MS, cleanName, combos, defaultName, fillText, wording } from '../../frontend/src/lib/gift-kit.ts'
+import { BUDGET_MS, cleanName, combos, defaultName, fillPercent, fillText, wording } from '../../frontend/src/lib/gift-kit.ts'
 import type { Combos, Wording } from '../../frontend/src/lib/gift-kit.ts'
 import { fits, MAX_ITEMS } from '../../frontend/src/lib/gift-packing.ts'
 import type { Box, Candle } from '../../frontend/src/lib/gift-packing.ts'
@@ -20,6 +20,7 @@ interface Fixtures {
   combos: { name: string; box: string; candles: [string, number][]; sizes: string[]; budget_ms?: number; expect: Combos; wording: Wording }[]
   wording: { name: string; combos: Combos; labels: Record<string, string>; expect: Wording }[]
   fill: { name: string; text: string; values: Record<string, string>; expect: string }[]
+  fill_percent: { name: string; box?: string; combos?: Combos; candles?: [string, number][]; sizes: string[]; expect: number | null }[]
   clean_name: { name: string; name_in: string; expect: string }[]
   default_name: { name: string; used: string[]; expect: string }[]
   timing: { name: string; box: string; candles: [string, number][]; sizes: string[]; max_ms: number }[]
@@ -87,6 +88,15 @@ for (const c of fixtures.wording) {
 
 for (const c of fixtures.fill) {
   check('fill', c.name, fillText(c.text, c.values), c.expect)
+}
+
+// The fill bar: volume in the box against the fullest the box was shown to take.
+for (const c of fixtures.fill_percent) {
+  const sizeList = c.sizes.map((s) => sizes[s])
+  const inside = expand(c.candles ?? [])
+  const found = c.box !== undefined ? combos(boxes[c.box], inside, sizeList) : (c.combos as Combos)
+
+  check('fill_percent', c.name, fillPercent(found, sizeList, inside), c.expect)
 }
 
 for (const c of fixtures.clean_name) {
