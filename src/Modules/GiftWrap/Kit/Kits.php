@@ -83,11 +83,21 @@ final class Kits {
 		$draft = $this->set_card( $draft, (int) ( $input['card'] ?? 0 ) );
 		$draft = $this->set_message( $draft, (string) ( $input['message'] ?? '' ) );
 
+		// The candle the shopper came with is the one thing here that can go away
+		// between the product page and this request. Losing it must not lose the
+		// name, the box, the card and the message with it: the kit is kept and
+		// the candle is reported on its own.
+		$refused = '';
+
 		if ( ! empty( $input['candle'] ) ) {
-			$draft = $this->add_candle( $draft, (int) $input['candle'], (int) ( $input['qty'] ?? 1 ), $in_cart );
+			try {
+				$draft = $this->add_candle( $draft, (int) $input['candle'], (int) ( $input['qty'] ?? 1 ), $in_cart );
+			} catch ( KitError $error ) {
+				$refused = $error->getMessage();
+			}
 		}
 
-		return $draft;
+		return array( $draft, $refused );
 	}
 
 	/**

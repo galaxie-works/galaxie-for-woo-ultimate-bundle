@@ -756,6 +756,11 @@ function create(root: HTMLElement): Controller {
       form = { name: '', box: 0, card: -1, message: '' }
       go('continue')
 
+      // The kit was made even though its starting candle could not join it —
+      // sold out, or no longer sold. Step 4 says so instead of the shopper
+      // finding an empty kit and no reason for it.
+      if (answer.notice) error(answer.notice)
+
       if (answer.kit?.full && confetti) celebrate(root)
     }
   }

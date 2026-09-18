@@ -141,6 +141,8 @@ export interface KitAnswer {
   kit: KitView | null
   nonce: string
   notices?: string[]
+  /** Something worth saying on the screen the answer opens, not in a toast. */
+  notice?: string
   catalog?: KitCatalog
   pending?: KitPending | null
   pendingError?: string
