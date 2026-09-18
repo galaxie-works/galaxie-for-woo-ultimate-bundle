@@ -46,6 +46,13 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 	private const ACTION = 'galaxie_cart_update';
 	private const NONCE  = 'galaxie-cart';
 
+	/**
+	 * The calculator's own refusal, kept as a constant because two places need
+	 * the exact sentence: the one that raises it, and the one that makes sure a
+	 * shopper who never saw it cannot be stopped by it at the checkout.
+	 */
+	private const CALCULATOR_NOTICE = 'Informe um CEP válido para calcular o frete.';
+
 	public function id(): string {
 		return 'cart';
 	}
@@ -76,6 +83,13 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 
 		add_action( 'wp_loaded', array( $this, 'handle_shipping_calculator' ), 20 );
 
+		// A notice nobody printed is a notice nobody cleared, and the Store API
+		// turns whatever is in the queue into a 409 the block checkout can only
+		// describe as "an error occurred during payment processing". A shopper
+		// who typed a bad postcode on the cart page an hour ago could not pay
+		// for anything, in any cart, until the session expired.
+		add_filter( 'rest_pre_dispatch', array( $this, 'drop_stale_calculator_notice' ), 10, 3 );
+
 		// The coupon widget's messages, swapped in at WooCommerce's own filters.
 		add_filter( 'woocommerce_coupon_message', array( $this, 'coupon_message' ), 10, 3 );
 		add_filter( 'woocommerce_coupon_error', array( $this, 'coupon_error' ), 10, 3 );
@@ -84,6 +98,54 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 		// Our totals box, not WooCommerce's default, in the answer cart.js gets
 		// after a carrier is chosen or a coupon removed.
 		add_filter( 'wc_get_template', array( $this, 'totals_template' ), 10, 2 );
+	}
+
+	/**
+	 * Marks the queue so the cart page prints what the calculator just said.
+	 *
+	 * A cart assembled from Elementor widgets runs no WooCommerce template, so
+	 * nothing calls `woocommerce_output_all_notices()` and the notice waits in
+	 * the session for a page that never comes.
+	 */
+	private function print_notices_next(): void {
+		add_action( 'galaxie_cart_before_table', 'woocommerce_output_all_notices', 5 );
+	}
+
+	/**
+	 * Drops the calculator's refusal from a Store API request it cannot belong
+	 * to: that endpoint takes JSON, never `calc_shipping`, so anything of ours
+	 * in the queue there was raised by an earlier request and never shown.
+	 *
+	 * @param mixed            $result  Whatever an earlier filter decided.
+	 * @param \WP_REST_Server  $server  Unused.
+	 * @param \WP_REST_Request $request The request about to run.
+	 * @return mixed
+	 */
+	public function drop_stale_calculator_notice( $result, $server, $request ) {
+		if ( ! function_exists( 'wc_get_notices' ) || ! is_object( $request ) || 0 !== strpos( (string) $request->get_route(), '/wc/store/' ) ) {
+			return $result;
+		}
+
+		$errors = wc_get_notices( 'error' );
+
+		if ( ! $errors ) {
+			return $result;
+		}
+
+		$kept = array_values(
+			array_filter(
+				$errors,
+				static fn( $notice ): bool => self::CALCULATOR_NOTICE !== trim( wp_strip_all_tags( (string) ( $notice['notice'] ?? '' ) ) )
+			)
+		);
+
+		if ( count( $kept ) !== count( $errors ) ) {
+			$all          = wc_get_notices();
+			$all['error'] = $kept;
+			wc_set_notices( $all );
+		}
+
+		return $result;
 	}
 
 	/**
@@ -135,7 +197,8 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 			// "Shipping to Sao Paulo." and quoted nothing, which left a free
 			// shipping method as the only option on the page.
 			if ( ! \Galaxie\Woo\Support\BrazilianPostcode::is_valid( $postcode ) ) {
-				wc_add_notice( __( 'Informe um CEP válido para calcular o frete.', 'galaxie-woo' ), 'error' );
+				wc_add_notice( __( self::CALCULATOR_NOTICE, 'galaxie-woo' ), 'error' ); // phpcs:ignore WordPress.WP.I18n.NonSingularStringLiteralText -- one sentence, two readers.
+				$this->print_notices_next();
 				unset( $_POST['calc_shipping'] );
 				return;
 			}

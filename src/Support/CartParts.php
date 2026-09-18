@@ -862,6 +862,12 @@ final class CartParts {
 	 * @param array<string,mixed> $settings
 	 */
 	public static function render_table( array $settings ): void {
+		// Anything the request has to say to the shopper, said above the cart it
+		// is about. Nothing listens unless something asked to be heard, so a
+		// normal load prints nothing and a page with WooCommerce's own notices
+		// block does not print them twice.
+		do_action( 'galaxie_cart_before_table' );
+
 		$fields = self::fields( $settings );
 
 		// Widgets saved before Position was withdrawn still carry `text-left`
