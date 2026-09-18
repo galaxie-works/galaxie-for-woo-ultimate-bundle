@@ -756,6 +756,11 @@ final class KitBuilderWidget extends Widget_Base {
 		$this->end_controls_section();
 
 		$this->start_controls_section( 'kit_fill_style', $style( __( 'Fill bar', 'galaxie-woo' ) ) );
+		// Pinned, the bar sits over the candle list: without a background of its
+		// own the text scrolls through it and neither can be read.
+		$this->heading( 'fill_box_heading', __( 'The box around it', 'galaxie-woo' ), false );
+		PixfortControls::surface( $this, 'fill_box', '{{WRAPPER}} .galaxie-kit-fill' );
+		$this->heading( 'fill_bar_heading', __( 'The bar', 'galaxie-woo' ) );
 		// The same bar the Free Shipping and the Kit Progress widgets draw, under
 		// the Free Shipping ids. This widget's own `fill_track` / `fill_bar` /
 		// `fill_bar_full` / `fill_height` are the ones that change, so a fill bar
@@ -1633,10 +1638,11 @@ final class KitBuilderWidget extends Widget_Base {
 		$pinned  = 'foot' !== $place && 'yes' === ( $settings['fill_pinned'] ?? 'yes' );
 
 		printf(
-			'<div class="galaxie-kit-fill%1$s%2$s%3$s" data-kit-fill>',
+			'<div class="galaxie-kit-fill%1$s%2$s%3$s %4$s" data-kit-fill>',
 			$full ? ' is-full' : '',
 			$unknown ? ' is-unknown' : '',
-			$pinned ? ' is-pinned' : ''
+			$pinned ? ' is-pinned' : '',
+			esc_attr( PixfortControls::surface_classes( $settings, 'fill_box' ) )
 		);
 		printf( '<div class="galaxie-kit-fill-track"><div class="galaxie-kit-fill-bar" data-slot="bar" style="width:%d%%"></div></div>', (int) $fill );
 		printf( '<span class="galaxie-kit-small %1$s" data-slot="room">%2$s</span>', esc_attr( PixfortControls::text_classes( $settings, 'room' ) ), esc_html( $sample ? $sample['room'] : '' ) );

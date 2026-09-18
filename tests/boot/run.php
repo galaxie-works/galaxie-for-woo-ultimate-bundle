@@ -364,6 +364,15 @@ function galaxie_boot_kit( array $booted, array $scenario, callable $hooked ): s
 				}
 			}
 
+			// Pinned over the list, the bar needs a box of its own: the surface's
+			// classes have to be on the element, not only in the panel.
+			$widget->settings = array( $key => 'summary', 'fill_place' => 'above', 'fill_box_rounded' => 'rounded-lg', 'fill_box_shadow' => '2' );
+			$boxed            = $widget->render_for_test();
+
+			if ( ! preg_match( '/galaxie-kit-fill[^"]*rounded-lg/', $boxed ) ) {
+				throw new RuntimeException( 'Kit: the fill bar does not wear its own box' );
+			}
+
 			$widget->settings = array( $key => 'summary', 'fill_place' => 'above' );
 			$above            = $widget->render_for_test();
 
