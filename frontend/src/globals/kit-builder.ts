@@ -408,7 +408,15 @@ function create(root: HTMLElement): Controller {
     list.replaceChildren(...nodes.filter((node): node is HTMLElement => !!node))
 
     if (none) {
-      const text = !catalog.boxes.length ? (texts.box_empty ?? '') : usable ? '' : fillText(texts.box_none ?? '', { candles: candlesText() })
+      // With no candle chosen there is nothing to name in "Nenhuma caixa comporta
+      // {candles}", and the sentence came out broken.
+      const text = !catalog.boxes.length
+        ? (texts.box_empty ?? '')
+        : usable
+          ? ''
+          : units.length
+            ? fillText(texts.box_none ?? '', { candles: candlesText() })
+            : (texts.box_none_any ?? '')
       setText(none, text)
       none.hidden = !text
     }
@@ -531,6 +539,11 @@ function create(root: HTMLElement): Controller {
     const warning = el.querySelector<HTMLElement>('[data-kit-warning]')
     if (warning) warning.hidden = !kit.warnings.includes('card_without_message')
 
+    // The card that no longer exists for this box: the summary used to say
+    // "Sem cartão", hide the message and let the cart do the refusing.
+    const cardWarning = el.querySelector<HTMLElement>('[data-kit-card-warning]')
+    if (cardWarning) cardWarning.hidden = !kit.warnings.includes('card_missing')
+
     const list = el.querySelector<HTMLElement>('[data-kit-candles]')
     const empty = el.querySelector<HTMLElement>('[data-kit-candles-empty]')
     if (list) {
@@ -545,10 +558,16 @@ function create(root: HTMLElement): Controller {
             setText(slot(node, 'qty'), String(line.qty))
             setImage(slot<HTMLImageElement>(node, 'image'), line.image)
 
+            // A candle the shop no longer sells cannot be counted up or down —
+            // only removed — and the line says so instead of looking ordinary.
+            const gone = node.querySelector<HTMLElement>('[data-kit-gone]')
+            if (gone) gone.hidden = !line.missing
+            node.classList.toggle('is-gone', line.missing)
+
             node.querySelectorAll<HTMLButtonElement>('[data-step]').forEach((button) => {
               const step = Number(button.dataset.step)
               const next = line.qty + step
-              button.disabled = busy || (step > 0 && next > line.cap) || next < 0
+              button.disabled = busy || line.missing || (step > 0 && next > line.cap) || next < 0
 
               button.addEventListener('click', (event) => {
                 event.preventDefault()
@@ -853,6 +872,13 @@ function create(root: HTMLElement): Controller {
       }
 
       if (kit && !previous && screen === 'welcome') {
+        go('summary')
+        return
+      }
+
+      // A kit created in another tab used to leave this one stuck on step 3,
+      // repeating the same refusal for ever: there is a kit now, so show it.
+      if (kit && !previous && mode === 'new' && ['name', 'box', 'card'].includes(screen)) {
         go('summary')
         return
       }

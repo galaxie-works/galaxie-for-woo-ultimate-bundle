@@ -85,11 +85,11 @@ final class KitBuilderWidget extends Widget_Base {
 				'step_name'  => array( __( 'Step 1 label', 'galaxie-woo' ), __( 'Nome', 'galaxie-woo' ) ),
 				'step_box'   => array( __( 'Step 2 label', 'galaxie-woo' ), __( 'Caixa', 'galaxie-woo' ) ),
 				'step_card'  => array( __( 'Step 3 label', 'galaxie-woo' ), __( 'Cartão', 'galaxie-woo' ) ),
-				'step_more'  => array( __( 'Step 4 label', 'galaxie-woo' ), __( 'Velas', 'galaxie-woo' ) ),
+				'step_more'  => array( __( 'Step 4 label', 'galaxie-woo' ), __( 'Pronto', 'galaxie-woo' ) ),
 			),
 			'welcome'  => array(
 				'welcome_title'  => array( __( 'Title', 'galaxie-woo' ), __( 'Monte um kit de presente', 'galaxie-woo' ) ),
-				'welcome_text'   => array( __( 'Text', 'galaxie-woo' ), __( 'Escolha a caixa, um cartão com mensagem e as velas. Nós montamos e enviamos prontinho.', 'galaxie-woo' ) ),
+				'welcome_text'   => array( __( 'Text', 'galaxie-woo' ), __( 'Escolha a caixa e um cartão com mensagem. As velas você vai somando pela loja, e nós montamos e enviamos prontinho.', 'galaxie-woo' ) ),
 				'welcome_button' => array( __( 'Button', 'galaxie-woo' ), __( 'Montar um kit', 'galaxie-woo' ) ),
 			),
 			'name'     => array(
@@ -100,11 +100,12 @@ final class KitBuilderWidget extends Widget_Base {
 			),
 			'box'      => array(
 				'box_title'   => array( __( 'Title', 'galaxie-woo' ), __( 'Escolha a caixa', 'galaxie-woo' ) ),
-				'box_text'    => array( __( 'Text', 'galaxie-woo' ), __( 'Cada caixa leva um tanto de velas. Você completa o kit depois, na loja.', 'galaxie-woo' ) ),
+				'box_text'    => array( __( 'Text', 'galaxie-woo' ), __( 'Cada caixa leva uma quantidade diferente de velas. Você completa o kit depois, na loja.', 'galaxie-woo' ) ),
 				'box_reason'  => array( __( 'A box that cannot hold the candles ({candles})', 'galaxie-woo' ), __( 'Não comporta {candles}', 'galaxie-woo' ) ),
 				'box_sold'    => array( __( 'A sold-out box', 'galaxie-woo' ), __( 'Esgotada', 'galaxie-woo' ) ),
 				'box_none'    => array( __( 'No box holds the candles ({candles})', 'galaxie-woo' ), __( 'Nenhuma caixa comporta {candles}. Diminua a quantidade na página do produto e tente de novo.', 'galaxie-woo' ) ),
 				'box_empty'   => array( __( 'No boxes on offer', 'galaxie-woo' ), __( 'Nenhuma caixa disponível no momento.', 'galaxie-woo' ) ),
+				'box_none_any' => array( __( 'No box holds anything the shop sells', 'galaxie-woo' ), __( 'Nenhuma caixa comporta as velas da loja agora. Tente de novo mais tarde.', 'galaxie-woo' ) ),
 			),
 			'card'     => array(
 				'card_title'       => array( __( 'Title', 'galaxie-woo' ), __( 'Quer um cartão?', 'galaxie-woo' ) ),
@@ -133,12 +134,14 @@ final class KitBuilderWidget extends Widget_Base {
 				'summary_change'   => array( __( '"Trocar" link', 'galaxie-woo' ), __( 'trocar', 'galaxie-woo' ) ),
 				'summary_message'  => array( __( 'Message label', 'galaxie-woo' ), __( 'Mensagem', 'galaxie-woo' ) ),
 				'summary_no_msg'   => array( __( 'Card without a message', 'galaxie-woo' ), __( 'Cartão sem mensagem', 'galaxie-woo' ) ),
+				'summary_no_card_fit' => array( __( 'The card no longer exists for this box', 'galaxie-woo' ), __( 'O cartão escolhido não existe para esta caixa. Troque o cartão para continuar.', 'galaxie-woo' ) ),
+				'summary_gone'     => array( __( 'A candle that is no longer sold', 'galaxie-woo' ), __( 'Indisponível — remova para continuar', 'galaxie-woo' ) ),
 				'summary_candles'  => array( __( 'Candles label', 'galaxie-woo' ), __( 'Velas', 'galaxie-woo' ) ),
-				'summary_empty'    => array( __( 'No candles yet', 'galaxie-woo' ), __( 'Nenhuma vela ainda. Escolha velas na loja e use "Adicionar ao kit".', 'galaxie-woo' ) ),
+				'summary_empty'    => array( __( 'No candles yet', 'galaxie-woo' ), __( 'Nenhuma vela ainda. Feche o kit, escolha uma vela na loja e use "Adicionar ao kit".', 'galaxie-woo' ) ),
 				'summary_remove'   => array( __( 'Remove a candle', 'galaxie-woo' ), __( 'Remover', 'galaxie-woo' ) ),
 				'summary_total'    => array( __( 'Total label', 'galaxie-woo' ), __( 'Total do kit', 'galaxie-woo' ) ),
 				'action_cart'      => array( __( 'Add to cart button', 'galaxie-woo' ), __( 'Adicionar kit ao carrinho', 'galaxie-woo' ) ),
-				'action_continue'  => array( __( 'Keep choosing button (closes the popup)', 'galaxie-woo' ), __( 'Continuar escolhendo', 'galaxie-woo' ) ),
+				'action_continue'  => array( __( 'Close button', 'galaxie-woo' ), __( 'Fechar', 'galaxie-woo' ) ),
 				'action_new'       => array( __( 'Add and start another button', 'galaxie-woo' ), __( 'Adicionar ao carrinho e começar um novo', 'galaxie-woo' ) ),
 				'action_discard'   => array( __( 'Discard button', 'galaxie-woo' ), __( 'Descartar kit', 'galaxie-woo' ) ),
 				'action_previous'  => array( __( 'Kit kept at login ({kit})', 'galaxie-woo' ), __( 'Recuperar kit anterior ({kit})', 'galaxie-woo' ) ),
@@ -1385,6 +1388,7 @@ final class KitBuilderWidget extends Widget_Base {
 
 		$this->message_field( $settings, $texts, $sample ? $sample['message'] : '', false, 'summary-message' );
 		printf( '<p class="galaxie-kit-warning galaxie-kit-small %1$s" data-kit-warning hidden>%2$s</p>', $small, esc_html( $texts['summary_no_msg'] ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped above.
+		printf( '<p class="galaxie-kit-warning galaxie-kit-small %1$s" data-kit-card-warning hidden>%2$s</p>', $small, esc_html( $texts['summary_no_card_fit'] ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped above.
 
 		printf( '<span class="galaxie-kit-small %1$s">%2$s</span>', $small, esc_html( $texts['summary_candles'] ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped above.
 		echo '<div class="galaxie-kit-lines" data-kit-candles>';
@@ -1484,7 +1488,7 @@ final class KitBuilderWidget extends Widget_Base {
 		$image = (string) ( $data['image'] ?? '' );
 
 		return sprintf(
-			'<div class="galaxie-kit-row galaxie-kit-line" data-kit-line><img class="galaxie-kit-thumb" alt="" data-slot="image"%1$s /><span class="galaxie-kit-row-body"><span class="galaxie-kit-choice-name %2$s" data-slot="name">%3$s</span><span class="galaxie-kit-choice-meta %4$s" data-slot="price">%5$s</span><a href="#" class="galaxie-kit-link galaxie-kit-small %6$s" data-kit-remove>%13$s%7$s</a></span><span class="galaxie-kit-stepper quantity pix-px-10 pix-base-background rounded-lg shadow-sm d-inline-flex justify-content-between"><button type="button" class="galaxie-kit-qty-step text-body-default" data-step="-1" aria-label="%8$s">%9$s</button><span class="galaxie-kit-qty" data-slot="qty">%10$d</span><button type="button" class="galaxie-kit-qty-step text-body-default" data-step="1" aria-label="%11$s">%12$s</button></span></div>',
+			'<div class="galaxie-kit-row galaxie-kit-line" data-kit-line><img class="galaxie-kit-thumb" alt="" data-slot="image"%1$s /><span class="galaxie-kit-row-body"><span class="galaxie-kit-choice-name %2$s" data-slot="name">%3$s</span><span class="galaxie-kit-choice-meta %4$s" data-slot="price">%5$s</span><span class="galaxie-kit-small galaxie-kit-gone %6$s" data-kit-gone hidden>%14$s</span><a href="#" class="galaxie-kit-link galaxie-kit-small %6$s" data-kit-remove>%13$s%7$s</a></span><span class="galaxie-kit-stepper quantity pix-px-10 pix-base-background rounded-lg shadow-sm d-inline-flex justify-content-between"><button type="button" class="galaxie-kit-qty-step text-body-default" data-step="-1" aria-label="%8$s">%9$s</button><span class="galaxie-kit-qty" data-slot="qty">%10$d</span><button type="button" class="galaxie-kit-qty-step text-body-default" data-step="1" aria-label="%11$s">%12$s</button></span></div>',
 			'' !== $image ? ' src="' . esc_url( $image ) . '"' : ' hidden',
 			esc_attr( PixfortControls::text_classes( $settings, 'box_name' ) ),
 			esc_html( (string) ( $data['name'] ?? '' ) ),
@@ -1497,7 +1501,8 @@ final class KitBuilderWidget extends Widget_Base {
 			(int) ( $data['qty'] ?? 1 ),
 			esc_attr__( 'Mais', 'galaxie-woo' ),
 			self::row_icon( $settings, 'summary_plus', '+' ),
-			self::row_icon( $settings, 'summary_remove' ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pixfort's own SVG.
+			self::row_icon( $settings, 'summary_remove' ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pixfort's own SVG.
+			esc_html( $texts['summary_gone'] )
 		);
 	}
 
