@@ -489,6 +489,17 @@ function galaxie_boot_kit( array $booted, array $scenario, callable $hooked ): s
 			}
 		}
 
+		// The line that says why the popup opened wears its own text and its own
+		// box, not the shared small set it used to borrow.
+		if ( 'editor_screen' === $key ) {
+			$widget->settings = array( $key => 'name', 'starting_size' => 'text-lg', 'starting_box_rounded' => 'rounded-lg' );
+			$line             = $widget->render_for_test();
+
+			if ( ! preg_match( '/galaxie-kit-starting [^"]*text-lg[^"]*rounded-lg/', $line ) ) {
+				throw new RuntimeException( 'Kit: the "Começando com…" line does not wear its own text and box' );
+			}
+		}
+
 		// A button standing alone on a screen needs to be able to step away from
 		// what is above it, and pixfort's own set has no margin.
 		if ( 'editor_screen' === $key ) {
