@@ -141,6 +141,21 @@ final class PixfortControls {
 			) );
 		}
 
+		// The space a button keeps around itself, which pixfort's own set has no
+		// control for: its padding is the label's, and a button standing alone on
+		// a screen — the welcome step's, say — had no way to be moved off what
+		// sits above it. Written on the button and on whatever wraps it, because
+		// a widget that prints its own <button> around pixfort's element is the
+		// element that takes part in the layout.
+		self::add_responsive( $target, $condition, $prefix . '_margin', array(
+			'label'      => __( 'Space around the button', 'galaxie-woo' ),
+			'type'       => Controls_Manager::DIMENSIONS,
+			'size_units' => array( 'px', 'rem', 'em' ),
+			'selectors'  => array(
+				self::button_selector( $prefix, $scope ) => 'margin: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};',
+			),
+		) );
+
 		self::add( $target, $condition, $prefix . '_remove_padding', array(
 			'label'        => __( 'Remove padding', 'galaxie-woo' ),
 			'type'         => Controls_Manager::SWITCHER,

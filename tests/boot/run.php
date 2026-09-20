@@ -489,6 +489,20 @@ function galaxie_boot_kit( array $booted, array $scenario, callable $hooked ): s
 			}
 		}
 
+		// A button standing alone on a screen needs to be able to step away from
+		// what is above it, and pixfort's own set has no margin.
+		if ( 'editor_screen' === $key ) {
+			$margin = $widget->controls['kit_start_margin'] ?? null;
+
+			if ( ! $margin || ! isset( $margin['selectors'] ) ) {
+				throw new RuntimeException( 'Buttons: no space-around control on the welcome button' );
+			}
+
+			if ( false === strpos( implode( ' ', array_keys( (array) $margin['selectors'] ) ), 'galaxie-btn-kit_start' ) ) {
+				throw new RuntimeException( 'Buttons: the space-around control does not aim at the button' );
+			}
+		}
+
 		// Every button role has a section of its own and is used exactly where it
 		// belongs: a role nobody prints is a styling panel that moves nothing.
 		if ( 'editor_screen' === $key ) {
