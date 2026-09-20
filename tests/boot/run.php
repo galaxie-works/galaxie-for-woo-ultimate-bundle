@@ -489,6 +489,21 @@ function galaxie_boot_kit( array $booted, array $scenario, callable $hooked ): s
 			}
 		}
 
+		// One control for every field label, whichever screen the field is on:
+		// "Nome do kit" used to answer to the shared small set and the summary's
+		// own labels to a different control.
+		if ( 'editor_screen' === $key ) {
+			foreach ( array( 'name', 'card', 'summary' ) as $where ) {
+				$widget->settings = array( $key => $where, 'summary_label_size' => 'text-lg' );
+				$screen           = $widget->render_for_test();
+
+
+				if ( ! preg_match( '/galaxie-kit-screen--' . $where . '\b.*?galaxie-kit-label text-lg/s', $screen ) ) {
+					throw new RuntimeException( "Kit: the field label on the {$where} screen does not follow the label control" );
+				}
+			}
+		}
+
 		// The line that says why the popup opened wears its own text and its own
 		// box, not the shared small set it used to borrow.
 		if ( 'editor_screen' === $key ) {
