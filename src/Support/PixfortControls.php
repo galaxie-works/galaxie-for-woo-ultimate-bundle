@@ -151,8 +151,12 @@ final class PixfortControls {
 			'label'      => __( 'Space around the button', 'galaxie-woo' ),
 			'type'       => Controls_Manager::DIMENSIONS,
 			'size_units' => array( 'px', 'rem', 'em' ),
+			// `!important` because pixfort prints Bootstrap's `m-0` on its own
+			// button element, and `.m-0{margin:0!important}` beats anything
+			// Elementor generates. Without it this control moved nothing, which
+			// is exactly how it was first shipped.
 			'selectors'  => array(
-				self::button_selector( $prefix, $scope ) => 'margin: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};',
+				self::button_selector( $prefix, $scope ) => 'margin: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}} !important;',
 			),
 		) );
 
