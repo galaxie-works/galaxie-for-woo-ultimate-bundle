@@ -247,6 +247,18 @@ final class KitProgressWidget extends Widget_Base {
 				'selectors'  => array( '{{WRAPPER}} .galaxie-kit-progress-part' => 'gap: {{SIZE}}{{UNIT}};' ),
 			)
 		);
+		// Every button, link and card in this widget, and the dialogs it prints.
+		$this->add_responsive_control(
+			'hover_ms',
+			array(
+				'label'      => __( 'How long a hover takes', 'galaxie-woo' ),
+				'type'       => Controls_Manager::SLIDER,
+				'size_units' => array( 'ms' ),
+				'range'      => array( 'ms' => array( 'min' => 0, 'max' => 600, 'step' => 10 ) ),
+				'default'    => array( 'unit' => 'ms', 'size' => 200 ),
+				'selectors'  => array( '{{WRAPPER}}' => '--galaxie-kit-hover-ms: {{SIZE}}ms;' ),
+			)
+		);
 		$this->end_controls_section();
 
 		$this->start_controls_section( 'kit_progress_text_style', $style( __( 'Message', 'galaxie-woo' ) ) );

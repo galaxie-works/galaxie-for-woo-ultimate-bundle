@@ -1013,6 +1013,19 @@ final class KitBuilderWidget extends Widget_Base {
 			)
 		);
 
+		$this->add_responsive_control(
+			'hover_ms',
+			array(
+				'label'       => __( 'How long a hover takes', 'galaxie-woo' ),
+				'description' => __( 'Every button, link and card in the popup, and its dialogs. Zero snaps; a visitor who asks for less motion gets none either way.', 'galaxie-woo' ),
+				'type'        => Controls_Manager::SLIDER,
+				'size_units'  => array( 'ms' ),
+				'range'       => array( 'ms' => array( 'min' => 0, 'max' => 600, 'step' => 10 ) ),
+				'default'     => array( 'unit' => 'ms', 'size' => 200 ),
+				'selectors'   => array( '{{WRAPPER}}' => '--galaxie-kit-hover-ms: {{SIZE}}ms;' ),
+			)
+		);
+
 		$this->heading( 'actions_heading', __( 'The row of buttons', 'galaxie-woo' ) );
 		$this->add_responsive_control(
 			'actions_stack',
