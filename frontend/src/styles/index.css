@@ -480,10 +480,38 @@ form.galaxie-buybox .single_add_to_cart_button:hover {
    pixfort's own button element by the Hover lift control; without a rule to
    consume it the control moved nothing in the kit, the kit progress bar or any
    dialog — fourteen sliders that did nothing. */
+/* Everything the hover actually changes, not the lift alone: the colours, the
+   border and the shadow are what a hover is mostly made of, and with no
+   transition on them the button snapped between two states. */
 .galaxie-kit-btn .btn,
 .galaxie-kit-progress-btn .btn,
 .galaxie-dialog-button .btn {
-  transition: transform 0.2s ease;
+  transition:
+    background-color var(--galaxie-kit-hover-ms, 200ms) ease,
+    border-color var(--galaxie-kit-hover-ms, 200ms) ease,
+    color var(--galaxie-kit-hover-ms, 200ms) ease,
+    box-shadow var(--galaxie-kit-hover-ms, 200ms) ease,
+    transform var(--galaxie-kit-hover-ms, 200ms) ease;
+}
+
+/* The icon travels with the label it sits beside. */
+.galaxie-kit-btn .btn svg,
+.galaxie-kit-progress-btn .btn svg,
+.galaxie-dialog-button .btn svg,
+.galaxie-kit-link svg,
+.galaxie-kit-qty-step svg {
+  transition: color var(--galaxie-kit-hover-ms, 200ms) ease;
+}
+
+/* The links and the stepper are buttons too, as far as a pointer is concerned. */
+.galaxie-kit-link,
+.galaxie-kit-qty-step,
+.galaxie-kit-choice {
+  transition:
+    background-color var(--galaxie-kit-hover-ms, 200ms) ease,
+    border-color var(--galaxie-kit-hover-ms, 200ms) ease,
+    color var(--galaxie-kit-hover-ms, 200ms) ease,
+    box-shadow var(--galaxie-kit-hover-ms, 200ms) ease;
 }
 
 .galaxie-kit-btn:hover .btn,
@@ -495,7 +523,15 @@ form.galaxie-buybox .single_add_to_cart_button:hover {
 @media (prefers-reduced-motion: reduce) {
   .galaxie-kit-btn .btn,
   .galaxie-kit-progress-btn .btn,
-  .galaxie-dialog-button .btn {
+  .galaxie-dialog-button .btn,
+  .galaxie-kit-btn .btn svg,
+  .galaxie-kit-progress-btn .btn svg,
+  .galaxie-dialog-button .btn svg,
+  .galaxie-kit-link,
+  .galaxie-kit-link svg,
+  .galaxie-kit-qty-step,
+  .galaxie-kit-qty-step svg,
+  .galaxie-kit-choice {
     transition: none;
   }
 }
