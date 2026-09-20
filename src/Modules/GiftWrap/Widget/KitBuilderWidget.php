@@ -464,7 +464,14 @@ final class KitBuilderWidget extends Widget_Base {
 		$this->heading( 'body_style_heading', __( 'Text', 'galaxie-woo' ) );
 		PixfortControls::text( $this, 'body', array( 'bold' => '' ), array(), '{{WRAPPER}} .galaxie-kit-text', 'text', array( 'inline', 'position' ) );
 		$this->margin( 'body_margin', __( 'Space around the text', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-kit-text' );
-		$this->heading( 'small_style_heading', __( 'Labels, hints and the room-left line', 'galaxie-woo' ) );
+		// Every label above something the shopper types or picks — "Nome do kit"
+		// on the name step, "Mensagem do cartão", the summary's own rows — wears
+		// this one, wherever the field is. Its id stays the summary's, where it
+		// started, so a value already typed survives the move.
+		$this->heading( 'summary_label_heading', __( 'Field labels (Nome do kit, Mensagem, Caixa…)', 'galaxie-woo' ) );
+		PixfortControls::text( $this, 'summary_label', array( 'size' => 'text-sm', 'bold' => '' ), array(), '{{WRAPPER}} .galaxie-kit-label', 'text', array( 'inline', 'position' ) );
+
+		$this->heading( 'small_style_heading', __( 'Hints and the room-left line', 'galaxie-woo' ) );
 		PixfortControls::text( $this, 'small', array( 'size' => 'text-sm', 'bold' => '' ), array(), '{{WRAPPER}} .galaxie-kit-small', 'text', array( 'inline', 'position' ) );
 		$this->end_controls_section();
 
@@ -472,7 +479,7 @@ final class KitBuilderWidget extends Widget_Base {
 		// popup opened at all, and it wore the shared small text with nothing of
 		// its own. It is printed once, above the steps, so it belongs here rather
 		// than inside a screen's section.
-		$this->start_controls_section( 'kit_starting_style', $style( __( 'The "Começando com…" line', 'galaxie-woo' ) ) );
+		$this->start_controls_section( 'kit_starting_style', $style( __( 'Started from a product', 'galaxie-woo' ) ) );
 		PixfortControls::text( $this, 'starting', array( 'size' => 'text-sm', 'bold' => '' ), array(), '{{WRAPPER}} .galaxie-kit-starting', 'text', array( 'inline', 'position' ) );
 		$this->heading( 'starting_box_heading', __( 'The box around it', 'galaxie-woo' ) );
 		PixfortControls::surface( $this, 'starting_box', '{{WRAPPER}} .galaxie-kit-starting' );
@@ -683,12 +690,9 @@ final class KitBuilderWidget extends Widget_Base {
 				'selectors'  => array( '{{WRAPPER}} .galaxie-kit-summary, {{WRAPPER}} .galaxie-kit-lines' => 'gap: {{SIZE}}{{UNIT}};' ),
 			)
 		);
-		// Everything in the summary used to borrow: the labels wore the shared
-		// small text, the names and prices wore the choice cards', and the total
-		// wore the body set for both halves. Sizing one of them moved four.
-		$this->heading( 'summary_label_heading', __( 'Labels (Nome, Caixa, Cartão, Velas)', 'galaxie-woo' ) );
-		PixfortControls::text( $this, 'summary_label', array( 'size' => 'text-sm', 'bold' => '' ), array(), '{{WRAPPER}} .galaxie-kit-label', 'text', array( 'inline', 'position' ) );
-
+		// Everything else in the summary used to borrow: the names and prices wore
+		// the choice cards' sets and the total wore the body set for both halves,
+		// so sizing one of them moved four.
 		$this->heading( 'row_name_heading', __( 'What each row names', 'galaxie-woo' ) );
 		PixfortControls::text( $this, 'row_name', array( 'bold' => 'font-weight-bold' ), array(), '{{WRAPPER}} .galaxie-kit-row .galaxie-kit-choice-name', 'text', array( 'inline', 'position' ) );
 		$this->heading( 'row_meta_heading', __( 'Its price and details', 'galaxie-woo' ) );
@@ -1551,7 +1555,7 @@ final class KitBuilderWidget extends Widget_Base {
 		// Live, the hint waits for the script: the default name depends on the visitor's cart.
 		$this->head( $settings, 'name', $texts['name_title'], $sample ? GiftKit::fill( $texts['name_text'], array( 'kit' => $sample['name'] ) ) : '', true );
 
-		printf( '<label class="galaxie-kit-field"><span class="galaxie-kit-small %1$s">%2$s</span>', esc_attr( PixfortControls::text_classes( $settings, 'small' ) ), esc_html( $texts['name_label'] ) );
+		printf( '<label class="galaxie-kit-field"><span class="galaxie-kit-small galaxie-kit-label %1$s">%2$s</span>', esc_attr( PixfortControls::text_classes( $settings, 'summary_label' ) ), esc_html( $texts['name_label'] ) );
 		$this->hint_anchor( $settings );
 		printf(
 			'<input type="text" class="galaxie-kit-input %1$s" data-kit-name maxlength="%2$d" placeholder="%3$s" autocomplete="off" /></label>',
@@ -1605,7 +1609,7 @@ final class KitBuilderWidget extends Widget_Base {
 			'<label class="galaxie-kit-field" data-kit-%1$s-wrap%2$s><span class="galaxie-kit-small galaxie-kit-label %3$s">%4$s</span><textarea class="galaxie-kit-input %8$s %10$s" rows="3" data-kit-%1$s placeholder="%5$s">%6$s</textarea><span class="galaxie-kit-count %9$s" data-kit-%1$s-count>%7$s</span></label>',
 			esc_attr( $slot ),
 			$hidden ? ' hidden' : '',
-			esc_attr( PixfortControls::text_classes( $settings, 'summary' === $slot || 'summary-message' === $slot ? 'summary_label' : 'small' ) ),
+			esc_attr( PixfortControls::text_classes( $settings, 'summary_label' ) ),
 			esc_html( 'message' === $slot ? $texts['card_label'] : $texts['summary_message'] ),
 			esc_attr( $texts['card_placeholder'] ),
 			esc_textarea( $message ),
