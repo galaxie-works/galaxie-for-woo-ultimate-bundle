@@ -512,6 +512,12 @@ function galaxie_boot_kit( array $booted, array $scenario, callable $hooked ): s
 			if ( false === strpos( implode( ' ', array_keys( (array) $margin['selectors'] ) ), 'galaxie-btn-kit_start' ) ) {
 				throw new RuntimeException( 'Buttons: the space-around control does not aim at the button' );
 			}
+
+			// pixfort's own element carries Bootstrap's m-0, which is
+			// `margin:0!important`: a rule without !important loses to it.
+			if ( false === strpos( implode( ' ', (array) $margin['selectors'] ), '!important' ) ) {
+				throw new RuntimeException( 'Buttons: the space-around control loses to the m-0 pixfort prints' );
+			}
 		}
 
 		// Every button role has a section of its own and is used exactly where it
