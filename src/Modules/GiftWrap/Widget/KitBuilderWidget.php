@@ -466,7 +466,31 @@ final class KitBuilderWidget extends Widget_Base {
 		$this->margin( 'body_margin', __( 'Space around the text', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-kit-text' );
 		$this->heading( 'small_style_heading', __( 'Labels, hints and the room-left line', 'galaxie-woo' ) );
 		PixfortControls::text( $this, 'small', array( 'size' => 'text-sm', 'bold' => '' ), array(), '{{WRAPPER}} .galaxie-kit-small', 'text', array( 'inline', 'position' ) );
-		$this->margin( 'starting_margin', __( 'Space around the "started from a product" line', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-kit-starting' );
+		$this->end_controls_section();
+
+		// "Começando com: 2 × Nordic Moss 190g" is the one line that says why the
+		// popup opened at all, and it wore the shared small text with nothing of
+		// its own. It is printed once, above the steps, so it belongs here rather
+		// than inside a screen's section.
+		$this->start_controls_section( 'kit_starting_style', $style( __( 'The "Começando com…" line', 'galaxie-woo' ) ) );
+		PixfortControls::text( $this, 'starting', array( 'size' => 'text-sm', 'bold' => '' ), array(), '{{WRAPPER}} .galaxie-kit-starting', 'text', array( 'inline', 'position' ) );
+		$this->heading( 'starting_box_heading', __( 'The box around it', 'galaxie-woo' ) );
+		PixfortControls::surface( $this, 'starting_box', '{{WRAPPER}} .galaxie-kit-starting' );
+		$this->margin( 'starting_margin', __( 'Space around it', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-kit-starting' );
+		$this->add_responsive_control(
+			'starting_align',
+			array(
+				'label'     => __( 'Align it', 'galaxie-woo' ),
+				'type'      => Controls_Manager::CHOOSE,
+				'options'   => array(
+					'flex-start' => array( 'title' => __( 'Left', 'galaxie-woo' ), 'icon' => 'eicon-text-align-left' ),
+					'center'     => array( 'title' => __( 'Center', 'galaxie-woo' ), 'icon' => 'eicon-text-align-center' ),
+					'flex-end'   => array( 'title' => __( 'Right', 'galaxie-woo' ), 'icon' => 'eicon-text-align-right' ),
+					'stretch'    => array( 'title' => __( 'Full width', 'galaxie-woo' ), 'icon' => 'eicon-text-align-justify' ),
+				),
+				'selectors' => array( '{{WRAPPER}} .galaxie-kit-starting' => 'align-self: {{VALUE}};' ),
+			)
+		);
 		$this->end_controls_section();
 
 		// The messages the kit prints on its own line are pixfort Alerts, the
@@ -1282,8 +1306,8 @@ final class KitBuilderWidget extends Widget_Base {
 		}
 
 		printf(
-			'<p class="galaxie-kit-starting galaxie-kit-small %1$s" data-kit-starting%2$s>%3$s</p>',
-			esc_attr( PixfortControls::text_classes( $settings, 'small' ) ),
+			'<p class="galaxie-kit-starting %1$s" data-kit-starting%2$s>%3$s</p>',
+			esc_attr( trim( PixfortControls::text_classes( $settings, 'starting' ) . ' ' . PixfortControls::surface_classes( $settings, 'starting_box' ) ) ),
 			in_array( $screen, array( 'name', 'box' ), true ) && $sample ? '' : ' hidden',
 			$sample ? GiftKit::html( GiftKit::fill( $texts['starting'], array( 'candles' => $sample['starting'] ) ) ) : '' // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- through wp_kses().
 		);
