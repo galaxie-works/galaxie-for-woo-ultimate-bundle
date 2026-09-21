@@ -20,6 +20,8 @@
     "t-narrow": { "size": "t", "length": 8, "width": 3, "height": 2 }
   },
   "boxes": {
+    "stand": { "id": "stand", "length": 11, "width": 3.5, "height": 4.5, "price": 7 },
+    "stand2": { "id": "stand2", "length": 11, "width": 6.5, "height": 4.5, "price": 9 },
     "b14": { "id": "b14", "length": 14, "width": 11, "height": 9.5, "price": 12 },
     "p11": { "id": "p11", "length": 11, "width": 11, "height": 7, "price": 8 },
     "short": { "id": "short", "length": 14, "width": 11, "height": 8.9, "price": 10 },
@@ -60,6 +62,11 @@
     { "name": "a candle taller than the box is a proved no, however long the search could run", "box": "b7", "candles": [["190g", 1]], "options": { "orientation": "upright" }, "expect": false }
   ],
   "fits": [
+    {"name": "stand: a bar (10 x 4 x 3) on its 10 x 3 face; only 'faces' lets a box-shaped item turn that way", "box": "stand", "candles": [["bar", 1]], "options": {"orientation": "faces"}, "expect": true},
+    {"name": "stand: the same bar upright needs a 4 cm wide floor the box does not have", "box": "stand", "candles": [["bar", 1]], "options": {"orientation": "upright"}, "expect": false},
+    {"name": "stand: 'lying' rolls the bar like a jar, 10 cm tall, and refuses what 'faces' fits", "box": "stand", "candles": [["bar", 1]], "options": {"orientation": "lying"}, "expect": false},
+    {"name": "stand2: two bars on their sides, side by side", "box": "stand2", "candles": [["bar", 2]], "options": {"orientation": "faces"}, "expect": true},
+    {"name": "stand2: a third bar has no face that still fits", "box": "stand2", "candles": [["bar", 3]], "options": {"orientation": "faces"}, "expect": false},
     { "name": "box b14 takes 4 x 50g", "box": "b14", "candles": [["50g", 4]], "options": { "orientation": "upright", "gap": 0.5 }, "expect": true },
     { "name": "box b14 refuses 5 x 50g although the area would allow it", "box": "b14", "candles": [["50g", 5]], "options": { "orientation": "upright", "gap": 0.5 }, "expect": false },
     { "name": "box b14 takes 1 x 190g", "box": "b14", "candles": [["190g", 1]], "options": { "orientation": "upright", "gap": 0.5 }, "expect": true },

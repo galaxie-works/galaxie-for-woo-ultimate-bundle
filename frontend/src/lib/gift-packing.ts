@@ -9,7 +9,8 @@
  *
  * - `orientation` (default 'lying'): 'upright' uses L × W of floor and H of
  *   height; 'lying' puts the jar on its side, H × max(L, W) of floor and
- *   max(L, W) of height; 'any' lets each candle take whichever lets the set fit.
+ *   max(L, W) of height; 'any' lets each candle take whichever lets the set fit;
+ *   'faces' (a box-shaped item) lets any of its three faces go down.
  *   The gap is added to both floor sides and to the height used, which must be
  *   ≤ the box height. One layer only, always — see GiftPacking.php.
  * - Footprints turn 90° on the floor if that helps.
@@ -46,7 +47,7 @@ export interface Box {
 }
 
 /** How a candle sits in the box. */
-export type Orientation = 'upright' | 'lying' | 'any'
+export type Orientation = 'upright' | 'lying' | 'any' | 'faces'
 
 export interface PackingOptions {
   /** Paper filling around each candle, cm. Default 0 (tissue paper fills the gaps). */
@@ -774,7 +775,8 @@ function sidesOf(type: CandleType): number[] {
 }
 
 function orientationOf(options: PackingOptions): Orientation {
-  return options.orientation === 'upright' || options.orientation === 'any' ? options.orientation : 'lying'
+  const o = options.orientation
+  return o === 'upright' || o === 'any' || o === 'faces' ? o : 'lying'
 }
 
 /**
@@ -792,8 +794,13 @@ function shapesOf(candle: Candle, orientation: Orientation, gap: number, bx: num
   const across = Math.max(l, w)
   const ways: [number, number, number][] = []
 
-  if (orientation !== 'lying') ways.push([l + gap, w + gap, h + gap])
-  if (orientation !== 'upright') ways.push([h + gap, across + gap, across + gap])
+  // 'faces': a box-shaped item, any of its three faces down (the PHP twin says why).
+  if (orientation === 'faces') {
+    ways.push([l + gap, w + gap, h + gap], [l + gap, h + gap, w + gap], [w + gap, h + gap, l + gap])
+  } else {
+    if (orientation !== 'lying') ways.push([l + gap, w + gap, h + gap])
+    if (orientation !== 'upright') ways.push([h + gap, across + gap, across + gap])
+  }
 
   const shapes: [number, number][] = []
   for (const [a, b, z] of ways) {

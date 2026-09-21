@@ -245,7 +245,12 @@ $check( 'candle_from_product', 'gift height missing: WooCommerce dimensions', $d
 $check( 'candle_from_product', 'gift width 0: WooCommerce dimensions', $dims( GiftPacking::candle_from_product( $candle_with( array( '_galaxie_gift_width' => '0' ) + $gift ) ) ), array( '50g', 5.0, 5.0, 6.5 ) );
 $check( 'candle_from_product', 'gift length non-numeric: WooCommerce dimensions', $dims( GiftPacking::candle_from_product( $candle_with( array( '_galaxie_gift_length' => 'x' ) + $gift ) ) ), array( '50g', 5.0, 5.0, 6.5 ) );
 $check( 'candle_from_product', 'no gift meta at all: WooCommerce dimensions', $dims( GiftPacking::candle_from_product( $candle_with( array() ) ) ), array( '50g', 5.0, 5.0, 6.5 ) );
-$check( 'candle_from_product', 'no size attribute: not a candle', GiftPacking::candle_from_product( $candle_with( $gift, array() ) ), null );
+// A store that does not size its goods by the attribute: the product is its
+// own size, but only with gift measures. Shipping dimensions alone never make a
+// product a kit item (a box or a card has them too).
+$check( 'candle_from_product', 'no size attribute, gift measures: its own size', $dims( GiftPacking::candle_from_product( $candle_with( $gift, array() ) ) ), array( 'item-7', 5.3, 5.3, 6.7 ) );
+$check( 'candle_from_product', 'no size attribute, shipping dimensions only: not a kit item', GiftPacking::candle_from_product( $candle_with( array(), array() ) ), null );
+$check( 'candle_from_product', 'no size attribute, gift height missing: not a kit item', GiftPacking::candle_from_product( $candle_with( array( '_galaxie_gift_height' => '' ) + $gift, array() ) ), null );
 
 // Gift dimensions per size term: variation → size term → WooCommerce.
 $GLOBALS['gx_terms']     = array(
