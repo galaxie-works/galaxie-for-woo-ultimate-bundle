@@ -158,13 +158,13 @@ final class ProductMeta {
 			BoxFields::META['height']    => $number( 'Gift box internal (usable) height, cm.' ),
 			BoxFields::META['max']       => array(
 				'type'        => 'integer',
-				'description' => 'Most candles the gift box takes; 0 for no limit beyond what fits.',
+				'description' => 'Most items the gift box takes; 0 for no limit beyond what fits.',
 				'minimum'     => 0,
 			),
-			BoxFields::META['overflow']  => $number( 'Extra height, cm, candles may stand above the base with the lid still closing (0–2).', array( 'maximum' => BoxFields::OVERFLOW_MAX ) ),
-			CandleFields::META['length'] => $number( 'Candle jar alone, lid on, length in cm, for gift packing. Optional override: empty uses the size term\'s gift dimensions, then the shipping dimensions.' ),
-			CandleFields::META['width']  => $number( 'Candle jar alone, lid on, width in cm, for gift packing.' ),
-			CandleFields::META['height'] => $number( 'Candle jar alone, lid on, height in cm, for gift packing.' ),
+			BoxFields::META['overflow']  => $number( 'Extra height, cm, items may stand above the base with the lid still closing (0–2).', array( 'maximum' => BoxFields::OVERFLOW_MAX ) ),
+			CandleFields::META['length'] => $number( 'The item alone, as it goes into a gift box: length in cm. On a product with the size attribute an optional override (empty uses the size term\'s gift dimensions, then the shipping dimensions); without it, what makes the product a kit item.' ),
+			CandleFields::META['width']  => $number( 'The item alone, as it goes into a gift box: width in cm.' ),
+			CandleFields::META['height'] => $number( 'The item alone, as it goes into a gift box: height in cm.' ),
 		);
 	}
 }

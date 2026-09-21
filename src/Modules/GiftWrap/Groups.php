@@ -288,7 +288,8 @@ final class Groups {
 			case self::ROLE_CARD:
 				return __( 'Cartão', 'galaxie-woo' );
 			default:
-				return __( 'Vela', 'galaxie-woo' );
+				// Written into the order item's meta: the word the store used then.
+				return Module::noun( false, true );
 		}
 	}
 

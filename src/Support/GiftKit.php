@@ -429,6 +429,12 @@ final class GiftKit {
 	 * @param array<string,string> $values Placeholder name (without braces) => value.
 	 */
 	public static function fill( string $text, array $values ): string {
+		// {items} is the neutral name of {candles}, which stays for the texts
+		// merchants have already typed. The TS twin does the same.
+		if ( array_key_exists( 'candles', $values ) && ! array_key_exists( 'items', $values ) ) {
+			$values['items'] = $values['candles'];
+		}
+
 		return (string) preg_replace_callback(
 			'/\{([a-zà-ú_]+)\}/u',
 			static fn( array $m ): string => array_key_exists( $m[1], $values ) ? (string) $values[ $m[1] ] : $m[0],

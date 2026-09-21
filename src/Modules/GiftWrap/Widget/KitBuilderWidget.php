@@ -70,14 +70,17 @@ final class KitBuilderWidget extends Widget_Base {
 
 	/**
 	 * Texts by screen: key => [ label, default ]. Placeholders the script fills:
-	 * {kit}, {combos}, {room}, {preço}, {candles}, {n}.
+	 * {kit}, {combos}, {room}, {preço}, {items} (or its old name {candles}),
+	 * {n}. The store's noun ({noun}, {nouns}, {um}, {os}…, see
+	 * Module::nouns()) is put in on the server, defaults and typed texts alike.
+	 * The keys are Elementor control ids: renaming one drops saved wording.
 	 *
 	 * @return array<string, array<string, array{0:string, 1:string}>>
 	 */
 	private static function texts(): array {
 		return array(
 			'general'  => array(
-				'starting'   => array( __( 'Started from a product ({candles})', 'galaxie-woo' ), __( 'Começando com: {candles}', 'galaxie-woo' ) ),
+				'starting'   => array( __( 'Started from a product ({items})', 'galaxie-woo' ), __( 'Começando com: {items}', 'galaxie-woo' ) ),
 				'back'       => array( __( 'Back button', 'galaxie-woo' ), __( 'Voltar', 'galaxie-woo' ) ),
 				'next'       => array( __( 'Next button', 'galaxie-woo' ), __( 'Próximo', 'galaxie-woo' ) ),
 				'loading'    => array( __( 'Loading', 'galaxie-woo' ), __( 'Carregando…', 'galaxie-woo' ) ),
@@ -89,7 +92,7 @@ final class KitBuilderWidget extends Widget_Base {
 			),
 			'welcome'  => array(
 				'welcome_title'  => array( __( 'Title', 'galaxie-woo' ), __( 'Monte um kit de presente', 'galaxie-woo' ) ),
-				'welcome_text'   => array( __( 'Text', 'galaxie-woo' ), __( 'Escolha a caixa e um cartão com mensagem. As velas você vai somando pela loja, e nós montamos e enviamos prontinho.', 'galaxie-woo' ) ),
+				'welcome_text'   => array( __( 'Text', 'galaxie-woo' ), __( 'Escolha a caixa e um cartão com mensagem. {Os} {nouns} você vai somando pela loja, e nós montamos e enviamos prontinho.', 'galaxie-woo' ) ),
 				'welcome_button' => array( __( 'Button', 'galaxie-woo' ), __( 'Montar um kit', 'galaxie-woo' ) ),
 			),
 			'name'     => array(
@@ -100,12 +103,12 @@ final class KitBuilderWidget extends Widget_Base {
 			),
 			'box'      => array(
 				'box_title'   => array( __( 'Title', 'galaxie-woo' ), __( 'Escolha a caixa', 'galaxie-woo' ) ),
-				'box_text'    => array( __( 'Text', 'galaxie-woo' ), __( 'Cada caixa leva uma quantidade diferente de velas. Você completa o kit depois, na loja.', 'galaxie-woo' ) ),
-				'box_reason'  => array( __( 'A box that cannot hold the candles ({candles})', 'galaxie-woo' ), __( 'Não comporta {candles}', 'galaxie-woo' ) ),
+				'box_text'    => array( __( 'Text', 'galaxie-woo' ), __( 'Cada caixa leva uma quantidade diferente de {nouns}. Você completa o kit depois, na loja.', 'galaxie-woo' ) ),
+				'box_reason'  => array( __( 'A box that cannot hold them ({items})', 'galaxie-woo' ), __( 'Não comporta {items}', 'galaxie-woo' ) ),
 				'box_sold'    => array( __( 'A sold-out box', 'galaxie-woo' ), __( 'Esgotada', 'galaxie-woo' ) ),
-				'box_none'    => array( __( 'No box holds the candles ({candles})', 'galaxie-woo' ), __( 'Nenhuma caixa comporta {candles}. Diminua a quantidade na página do produto e tente de novo.', 'galaxie-woo' ) ),
+				'box_none'    => array( __( 'No box holds them ({items})', 'galaxie-woo' ), __( 'Nenhuma caixa comporta {items}. Diminua a quantidade na página do produto e tente de novo.', 'galaxie-woo' ) ),
 				'box_empty'   => array( __( 'No boxes on offer', 'galaxie-woo' ), __( 'Nenhuma caixa disponível no momento.', 'galaxie-woo' ) ),
-				'box_none_any' => array( __( 'No box holds anything the shop sells', 'galaxie-woo' ), __( 'Nenhuma caixa comporta as velas da loja agora. Tente de novo mais tarde.', 'galaxie-woo' ) ),
+				'box_none_any' => array( __( 'No box holds anything the shop sells', 'galaxie-woo' ), __( 'Nenhuma caixa comporta {os} {nouns} da loja agora. Tente de novo mais tarde.', 'galaxie-woo' ) ),
 			),
 			'card'     => array(
 				'card_title'       => array( __( 'Title', 'galaxie-woo' ), __( 'Quer um cartão?', 'galaxie-woo' ) ),
@@ -118,7 +121,7 @@ final class KitBuilderWidget extends Widget_Base {
 			),
 			'continue' => array(
 				'continue_title'  => array( __( 'Title', 'galaxie-woo' ), __( 'Kit {kit} criado!', 'galaxie-woo' ) ),
-				'continue_text'   => array( __( 'Text ({n} candles so far, {combos}, {room}, {kit})', 'galaxie-woo' ), __( 'Você ainda pode adicionar {combos}. Continue pesquisando nossos produtos e adicionando a este kit.', 'galaxie-woo' ) ),
+				'continue_text'   => array( __( 'Text ({n} items so far, {combos}, {room}, {kit})', 'galaxie-woo' ), __( 'Você ainda pode adicionar {combos}. Continue pesquisando nossos produtos e adicionando a este kit.', 'galaxie-woo' ) ),
 				'continue_full'   => array( __( 'Text when the box is already full', 'galaxie-woo' ), __( 'A caixa já está completa. Veja o kit e adicione ao carrinho.', 'galaxie-woo' ) ),
 				'continue_button' => array( __( 'Keep choosing button (closes and goes to the shop)', 'galaxie-woo' ), __( 'Continuar escolhendo', 'galaxie-woo' ) ),
 				'continue_view'   => array( __( 'See the kit button', 'galaxie-woo' ), __( 'Ver kit', 'galaxie-woo' ) ),
@@ -135,17 +138,17 @@ final class KitBuilderWidget extends Widget_Base {
 				'summary_message'  => array( __( 'Message label', 'galaxie-woo' ), __( 'Mensagem', 'galaxie-woo' ) ),
 				'summary_no_msg'   => array( __( 'Card without a message', 'galaxie-woo' ), __( 'Cartão sem mensagem', 'galaxie-woo' ) ),
 				'summary_no_card_fit' => array( __( 'The card no longer exists for this box', 'galaxie-woo' ), __( 'O cartão escolhido não existe para esta caixa. Troque o cartão para continuar.', 'galaxie-woo' ) ),
-				'summary_gone'     => array( __( 'A candle that is no longer sold', 'galaxie-woo' ), __( 'Indisponível — remova para continuar', 'galaxie-woo' ) ),
-				'summary_candles'  => array( __( 'Candles label', 'galaxie-woo' ), __( 'Velas', 'galaxie-woo' ) ),
-				'summary_empty'    => array( __( 'No candles yet', 'galaxie-woo' ), __( 'Nenhuma vela ainda. Feche o kit, escolha uma vela na loja e use "Adicionar ao kit".', 'galaxie-woo' ) ),
-				'summary_remove'   => array( __( 'Remove a candle', 'galaxie-woo' ), __( 'Remover', 'galaxie-woo' ) ),
+				'summary_gone'     => array( __( 'An item that is no longer sold', 'galaxie-woo' ), __( 'Indisponível — remova para continuar', 'galaxie-woo' ) ),
+				'summary_candles'  => array( __( 'Items label', 'galaxie-woo' ), '{Nouns}' ),
+				'summary_empty'    => array( __( 'Nothing in the kit yet', 'galaxie-woo' ), __( '{Nenhum} {noun} ainda. Feche o kit, escolha {um} {noun} na loja e use "Adicionar ao kit".', 'galaxie-woo' ) ),
+				'summary_remove'   => array( __( 'Remove an item', 'galaxie-woo' ), __( 'Remover', 'galaxie-woo' ) ),
 				'summary_total'    => array( __( 'Total label', 'galaxie-woo' ), __( 'Total do kit', 'galaxie-woo' ) ),
 				'action_cart'      => array( __( 'Add to cart button', 'galaxie-woo' ), __( 'Adicionar kit ao carrinho', 'galaxie-woo' ) ),
 				'action_continue'  => array( __( 'Close button', 'galaxie-woo' ), __( 'Fechar', 'galaxie-woo' ) ),
 				'action_new'       => array( __( 'Add and start another button', 'galaxie-woo' ), __( 'Adicionar ao carrinho e começar um novo', 'galaxie-woo' ) ),
 				'action_discard'   => array( __( 'Discard button', 'galaxie-woo' ), __( 'Descartar kit', 'galaxie-woo' ) ),
 				'action_previous'  => array( __( 'Kit kept at login ({kit})', 'galaxie-woo' ), __( 'Recuperar kit anterior ({kit})', 'galaxie-woo' ) ),
-				'need_candle'      => array( __( 'Adding with no candle', 'galaxie-woo' ), __( 'Adicione pelo menos uma vela ao kit.', 'galaxie-woo' ) ),
+				'need_candle'      => array( __( 'Adding to the cart with nothing in the kit', 'galaxie-woo' ), __( 'Adicione pelo menos {um} {noun} ao kit.', 'galaxie-woo' ) ),
 			),
 		);
 	}
@@ -295,7 +298,7 @@ final class KitBuilderWidget extends Widget_Base {
 					'continue_cart_show',
 					array(
 						'label'        => __( 'Offer "Adicionar kit ao carrinho" here', 'galaxie-woo' ),
-						'description'  => __( 'For a kit that is already good to go. It waits for the first candle.', 'galaxie-woo' ),
+						'description'  => __( 'For a kit that is already good to go. It waits for the first item.', 'galaxie-woo' ),
 						'type'         => Controls_Manager::SWITCHER,
 						'return_value' => 'yes',
 						'default'      => 'yes',
@@ -632,7 +635,7 @@ final class KitBuilderWidget extends Widget_Base {
 		// Not "Box cards": the name and the meta set here dress the box step, the
 		// card step, the summary's own rows and the candle lines. The section is
 		// named after all four rather than after the first one written.
-		$this->start_controls_section( 'kit_box_style', $style( __( 'Cards and rows (boxes, cards, summary, candles)', 'galaxie-woo' ) ) );
+		$this->start_controls_section( 'kit_box_style', $style( __( 'Cards and rows (boxes, cards, summary, items)', 'galaxie-woo' ) ) );
 		PixfortControls::surface( $this, 'box_card', '{{WRAPPER}} .galaxie-kit-choice' );
 		PixfortControls::palette_control( $this, 'box_selected', __( 'Selected: border color', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-kit-choice[aria-pressed="true"]', 'border-color', array(), ' border-style: solid; border-width: 2px;' );
 		$this->add_control(
@@ -1291,7 +1294,7 @@ final class KitBuilderWidget extends Widget_Base {
 
 		foreach ( self::texts() as $group ) {
 			foreach ( $group as $key => $text ) {
-				$texts[ $key ] = (string) ( $settings[ $key . '_text' ] ?? $text[1] );
+				$texts[ $key ] = Module::nouns( (string) ( $settings[ $key . '_text' ] ?? $text[1] ) );
 			}
 		}
 
@@ -1894,7 +1897,7 @@ final class KitBuilderWidget extends Widget_Base {
 			'full'  => (string) Module::setting( 'kit_text_full' ),
 			'holds' => (string) Module::setting( 'kit_text_box_holds' ),
 		);
-		$starting = $candle ? '2 × ' . $candle['name'] : '2 × ' . __( 'Exemplo: vela', 'galaxie-woo' );
+		$starting = $candle ? '2 × ' . $candle['name'] : '2 × ' . Module::nouns( __( 'Exemplo: {noun}', 'galaxie-woo' ) );
 		$boxes    = array();
 		$chosen   = null;
 
@@ -2010,7 +2013,7 @@ final class KitBuilderWidget extends Widget_Base {
 			),
 			'candles'      => array(
 				array(
-					'name'  => $candle ? $candle['name'] : __( 'Exemplo: vela', 'galaxie-woo' ),
+					'name'  => $candle ? $candle['name'] : Module::nouns( __( 'Exemplo: {noun}', 'galaxie-woo' ) ),
 					'image' => $candle ? $candle['image'] : self::placeholder(),
 					'price' => $candle ? $money( (float) $candle['price'] ) : '',
 					'qty'   => 2,

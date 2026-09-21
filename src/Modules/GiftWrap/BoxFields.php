@@ -45,15 +45,17 @@ final class BoxFields {
 	 * @param string    $attribute   Candle size attribute, e.g. `pa_peso`.
 	 * @param float     $gap         Packing gap in cm (default 0: tissue paper fills).
 	 * @param int[]     $categories  Product categories that are gift boxes; empty = every variable product.
-	 * @param string    $orientation 'lying' (default, the jar on its side), 'upright' or 'any'.
+	 * @param string    $orientation 'lying' (default, the jar on its side), 'upright', 'any' or 'faces'.
+	 * @param bool      $stacking    Identical items may stand in columns.
 	 */
 	public function __construct(
 		private string $attribute = 'pa_peso',
 		private float $gap = 0.0,
 		private array $categories = array(),
-		private string $orientation = 'lying'
+		private string $orientation = 'lying',
+		private bool $stacking = false
 	) {
-		if ( ! in_array( $this->orientation, array( 'upright', 'lying', 'any' ), true ) ) {
+		if ( ! in_array( $this->orientation, array( 'upright', 'lying', 'any', 'faces' ), true ) ) {
 			$this->orientation = 'lying';
 		}
 	}
@@ -80,7 +82,7 @@ final class BoxFields {
 		$id   = (int) $variation->ID;
 
 		echo '<div class="galaxie-gift-box-fields" style="clear:both;border-top:1px solid #eee;padding-top:8px">';
-		echo '<p class="form-row form-row-full" style="margin-bottom:0"><strong>' . esc_html__( 'Caixa de presente', 'galaxie-woo' ) . '</strong> — ' . esc_html__( 'Medidas INTERNAS (úteis) em cm: o espaço que as velas realmente têm, usado para calcular quais velas cabem. Deixe em branco se esta variação não for uma caixa.', 'galaxie-woo' ) . '<br><em>' . esc_html__( 'Mediu por fora? Desconte a espessura do MDF ou papelão: duas paredes no comprimento e na largura, a base e a tampa na altura (ex.: MDF de 3 mm, 14,2 cm por fora = 13,6 cm por dentro).', 'galaxie-woo' ) . '</em></p>';
+		echo '<p class="form-row form-row-full" style="margin-bottom:0"><strong>' . esc_html__( 'Caixa de presente', 'galaxie-woo' ) . '</strong> — ' . esc_html( Module::nouns( __( 'Medidas INTERNAS (úteis) em cm: o espaço que {os} {nouns} realmente têm, usado para calcular o que cabe. Deixe em branco se esta variação não for uma caixa.', 'galaxie-woo' ) ) ) . '<br><em>' . esc_html__( 'Mediu por fora? Desconte a espessura do MDF ou papelão: duas paredes no comprimento e na largura, a base e a tampa na altura (ex.: MDF de 3 mm, 14,2 cm por fora = 13,6 cm por dentro).', 'galaxie-woo' ) . '</em></p>';
 
 		wp_nonce_field( self::NONCE, self::NONCE_FIELD, false );
 
@@ -114,7 +116,7 @@ final class BoxFields {
 				'id'                => self::META['max'] . $loop,
 				'name'              => self::META['max'] . '[' . $loop . ']',
 				'value'             => $max > 0 ? (string) $max : '',
-				'label'             => __( 'Máximo de velas (opcional)', 'galaxie-woo' ),
+				'label'             => Module::nouns( __( 'Máximo de {nouns} (opcional)', 'galaxie-woo' ) ),
 				'type'              => 'number',
 				'wrapper_class'     => 'form-row form-row-last',
 				'desc_tip'          => true,
@@ -137,7 +139,7 @@ final class BoxFields {
 				'type'              => 'number',
 				'wrapper_class'     => 'form-row form-row-first',
 				'desc_tip'          => true,
-				'description'       => __( 'Quanto as velas podem ficar acima da base com a tampa ainda fechando por cima (0 a 2 cm). Somada à altura interna.', 'galaxie-woo' ),
+				'description'       => Module::nouns( __( 'Quanto {os} {nouns} podem ficar acima da base com a tampa ainda fechando por cima (0 a 2 cm). Somada à altura interna.', 'galaxie-woo' ) ),
 				'custom_attributes' => array(
 					'step' => '0.1',
 					'min'  => '0',
@@ -224,14 +226,14 @@ final class BoxFields {
 		);
 
 		if ( $box['length'] <= 0 || $box['width'] <= 0 || $box['height'] <= 0 ) {
-			return __( 'Preencha comprimento, largura e altura internos e salve para ver quais velas cabem.', 'galaxie-woo' );
+			return __( 'Preencha comprimento, largura e altura internos e salve para ver o que cabe.', 'galaxie-woo' );
 		}
 
 		$sizes = GiftPacking::store_sizes( $this->attribute );
 
 		if ( ! $sizes ) {
 			/* translators: %s: attribute taxonomy, e.g. pa_peso */
-			return sprintf( __( 'Nenhuma vela com medidas encontrada para o atributo de tamanho %s.', 'galaxie-woo' ), $this->attribute );
+			return sprintf( Module::nouns( __( '{Nenhum} {noun} com medidas encontrado: nem pelo atributo de tamanho %s, nem por medidas de presente no produto.', 'galaxie-woo' ) ), $this->attribute );
 		}
 
 		$labels = array();
@@ -242,6 +244,7 @@ final class BoxFields {
 		$options = array(
 			'gap'         => $this->gap,
 			'orientation' => $this->orientation,
+			'stacking'    => $this->stacking,
 		);
 		$rows    = array();
 
@@ -257,18 +260,19 @@ final class BoxFields {
 		}
 
 		$ways = array(
-			'lying'   => __( 'deitadas', 'galaxie-woo' ),
+			'lying'   => __( 'deitados', 'galaxie-woo' ),
 			'upright' => __( 'em pé', 'galaxie-woo' ),
-			'any'     => __( 'em pé ou deitadas', 'galaxie-woo' ),
+			'any'     => __( 'em pé ou deitados', 'galaxie-woo' ),
+			'faces'   => __( 'qualquer face', 'galaxie-woo' ),
 		);
 
 		if ( ! $rows ) {
 			/* translators: %s: how the candles sit, e.g. "deitadas" */
-			return sprintf( __( 'Cabe: nenhuma vela (%s)', 'galaxie-woo' ), $ways[ $this->orientation ] );
+			return sprintf( Module::nouns( __( 'Cabe: {nenhum} {noun} (%s)', 'galaxie-woo' ) ), $ways[ $this->orientation ] );
 		}
 
 		/* translators: 1: fits, e.g. "4 × 50g · 1 × 190g", 2: how the candles sit, e.g. "deitadas", 3: gap in cm */
-		return sprintf( __( 'Cabe: %1$s (%2$s, folga de %3$s cm)', 'galaxie-woo' ), implode( ' · ', $rows ), $ways[ $this->orientation ], wc_format_localized_decimal( $this->gap ) );
+		return sprintf( __( 'Cabe: %1$s (%2$s, folga de %3$s cm)', 'galaxie-woo' ), implode( ' · ', $rows ), $ways[ $this->orientation ] . ( $this->stacking ? ', ' . __( 'empilhando', 'galaxie-woo' ) : '' ), wc_format_localized_decimal( $this->gap ) );
 	}
 
 	/**

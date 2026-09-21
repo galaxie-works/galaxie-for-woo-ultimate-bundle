@@ -9,9 +9,11 @@
  *
  * - `orientation` (default 'lying'): 'upright' uses L × W of floor and H of
  *   height; 'lying' puts the jar on its side, H × max(L, W) of floor and
- *   max(L, W) of height; 'any' lets each candle take whichever lets the set fit.
+ *   max(L, W) of height; 'any' lets each candle take whichever lets the set fit;
+ *   'faces' (a box-shaped item) lets any of its three faces go down.
  *   The gap is added to both floor sides and to the height used, which must be
- *   ≤ the box height. One layer only, always — see GiftPacking.php.
+ *   ≤ the box height. One layer unless `stacking`: then identical items may
+ *   also stand in columns — see GiftPacking.php.
  * - Footprints turn 90° on the floor if that helps.
  * - The floor search is exact over "normal pattern" corners in bottom-left
  *   order, with remembered failures and a conservative-scale bound. Past
@@ -46,13 +48,15 @@ export interface Box {
 }
 
 /** How a candle sits in the box. */
-export type Orientation = 'upright' | 'lying' | 'any'
+export type Orientation = 'upright' | 'lying' | 'any' | 'faces'
 
 export interface PackingOptions {
   /** Paper filling around each candle, cm. Default 0 (tissue paper fills the gaps). */
   gap?: number
   /** Default 'lying' (the jar on its side). Anything else unknown counts as 'lying'. */
   orientation?: Orientation
+  /** Identical items may stand one on another, in columns. Default off. */
+  stacking?: boolean
 }
 
 export interface Gift<C extends Candle = Candle, B extends Box = Box> {
@@ -65,6 +69,9 @@ export const STEP_LIMIT = 300000
 
 /** Work the second pass gets, with every footprint turned the other way round. */
 export const RETRY_LIMIT = 75000
+
+/** Most ways of standing a kit's items in columns tried per question. See GiftPacking::STACK_COMBOS. */
+export const STACK_COMBOS = 81
 
 /** Failed search states remembered per `fits()` call. */
 export const MEMO_LIMIT = 50000
@@ -186,17 +193,35 @@ export function fitsKnown(box: Box, candles: Candle[], options: PackingOptions =
   bz += down(box.overflow ?? 0)
 
   const orientation = orientationOf(options)
-
-  // Candles with the same possible footprints are one type with a count: the
-  // search then never tries swapping two of them.
-  const byKey = new Map<string, CandleType>()
-  let area = 0
+  const pieces: [number, number][][] = []
 
   for (const candle of candles) {
     const shapes = shapesOf(candle, orientation, gap, bx, by, bz)
 
     if (shapes.length === 0) return false
 
+    pieces.push(shapes)
+  }
+
+  const answer = floorFits(pieces, bx, by)
+
+  if (answer === true || !options.stacking) return answer
+
+  // Stacking: the columns' yes is a yes; their no leaves the floor's answer.
+  // See GiftPacking::fits_known().
+  return stacksFit(candles, orientation, gap, bx, by, bz) ? true : answer
+}
+
+/** The exact one-layer search. See GiftPacking::floor_fits(). */
+function floorFits(pieces: [number, number][][], bx: number, by: number): boolean | null {
+  const n = pieces.length
+
+  // Pieces with the same possible footprints are one type with a count: the
+  // search then never tries swapping two of them.
+  const byKey = new Map<string, CandleType>()
+  let area = 0
+
+  for (const shapes of pieces) {
     const key = shapes.map(([w, d]) => `${w}x${d}`).join(';')
     let type = byKey.get(key)
 
@@ -774,15 +799,15 @@ function sidesOf(type: CandleType): number[] {
 }
 
 function orientationOf(options: PackingOptions): Orientation {
-  return options.orientation === 'upright' || options.orientation === 'any' ? options.orientation : 'lying'
+  const o = options.orientation
+  return o === 'upright' || o === 'any' || o === 'faces' ? o : 'lying'
 }
 
 /**
- * The floor footprints a candle may take in this box, gap included, each as
- * [short, long] and sorted: upright L × W under H, lying H × max(L, W) under
- * max(L, W). Shapes too tall, or too big for the floor either way round, drop.
+ * The ways an item can go into this box, gap included: [short, long, height
+ * used], those too tall or too big for the floor dropped, sorted.
  */
-function shapesOf(candle: Candle, orientation: Orientation, gap: number, bx: number, by: number, bz: number): [number, number][] {
+function waysOf(candle: Candle, orientation: Orientation, gap: number, bx: number, by: number, bz: number): [number, number, number][] {
   const l = up(candle.length)
   const w = up(candle.width)
   const h = up(candle.height)
@@ -792,19 +817,86 @@ function shapesOf(candle: Candle, orientation: Orientation, gap: number, bx: num
   const across = Math.max(l, w)
   const ways: [number, number, number][] = []
 
-  if (orientation !== 'lying') ways.push([l + gap, w + gap, h + gap])
-  if (orientation !== 'upright') ways.push([h + gap, across + gap, across + gap])
+  // 'faces': a box-shaped item, any of its three faces down (the PHP twin says why).
+  if (orientation === 'faces') {
+    ways.push([l + gap, w + gap, h + gap], [l + gap, h + gap, w + gap], [w + gap, h + gap, l + gap])
+  } else {
+    if (orientation !== 'lying') ways.push([l + gap, w + gap, h + gap])
+    if (orientation !== 'upright') ways.push([h + gap, across + gap, across + gap])
+  }
 
-  const shapes: [number, number][] = []
+  const out: [number, number, number][] = []
   for (const [a, b, z] of ways) {
     const short = Math.min(a, b)
     const long = Math.max(a, b)
 
     if (z > bz || !((short <= bx && long <= by) || (long <= bx && short <= by))) continue
-    if (!shapes.some(([p, q]) => p === short && q === long)) shapes.push([short, long])
+    if (!out.some(([p, q, r]) => p === short && q === long && r === z)) out.push([short, long, z])
   }
 
-  return shapes.sort((p, q) => cmp(p[0], q[0]) || cmp(p[1], q[1]))
+  return out.sort((p, q) => cmp(p[0], q[0]) || cmp(p[1], q[1]) || cmp(p[2], q[2]))
+}
+
+/** The floor footprints an item may take, [short, long], sorted: its ways without the height. */
+function shapesOf(candle: Candle, orientation: Orientation, gap: number, bx: number, by: number, bz: number): [number, number][] {
+  const shapes: [number, number][] = []
+  for (const [a, b] of waysOf(candle, orientation, gap, bx, by, bz)) {
+    if (!shapes.some(([p, q]) => p === a && q === b)) shapes.push([a, b])
+  }
+  return shapes
+}
+
+/**
+ * Whether the items fit when identical ones may stand in columns. Only
+ * identical items stack: it can miss a fit, never invent one. See
+ * GiftPacking::stacks_fit().
+ */
+function stacksFit(candles: Candle[], orientation: Orientation, gap: number, bx: number, by: number, bz: number): boolean {
+  const groups = new Map<string, { candle: Candle; n: number }>()
+
+  for (const candle of candles) {
+    const key = `${up(candle.length)}x${up(candle.width)}x${up(candle.height)}`
+    const group = groups.get(key)
+    if (group) group.n++
+    else groups.set(key, { candle, n: 1 })
+  }
+
+  const keys = [...groups.keys()].sort(byString)
+
+  // Each option: [footprint, columns needed, whether it stacks at all].
+  let combos: [[number, number], number, boolean][][] = [[]]
+  for (const key of keys) {
+    const group = groups.get(key)!
+    const options: [[number, number], number, boolean][] = []
+    for (const [a, b, z] of waysOf(group.candle, orientation, gap, bx, by, bz)) {
+      const high = Math.max(1, Math.floor(bz / z))
+      options.push([[a, b], Math.ceil(group.n / high), high > 1])
+    }
+
+    const next: [[number, number], number, boolean][][] = []
+    for (const combo of combos) {
+      for (const option of options) next.push([...combo, option])
+    }
+
+    combos = next
+
+    if (combos.length > STACK_COMBOS) return false
+  }
+
+  for (const combo of combos) {
+    if (!combo.some((option) => option[2])) continue
+
+    if (late()) return false
+
+    const pieces: [number, number][][] = []
+    for (const [shape, count] of combo) {
+      for (let i = 0; i < count; i++) pieces.push([shape])
+    }
+
+    if (floorFits(pieces, bx, by) === true) return true
+  }
+
+  return false
 }
 
 /** Byte order, like PHP's SORT_STRING (keys are ASCII). */

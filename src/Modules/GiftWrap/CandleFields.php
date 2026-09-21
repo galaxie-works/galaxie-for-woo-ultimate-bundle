@@ -21,8 +21,11 @@ defined( 'ABSPATH' ) || exit;
  * optional override: left blank, the size term's gift dimensions are used
  * ({@see SizeTermFields}), and without those the shipping dimensions.
  *
- * Shown on variable products that have the candle size attribute and are not
- * gift boxes. Self-contained: the Gift Wrap module boots it with its settings.
+ * Shown on every variation of a variable product, and in the Shipping tab of a
+ * simple product, unless the product is a gift box. On a product without the
+ * size attribute (a store that does not sell by size) these measures are what
+ * makes it a kit item at all: shipping dimensions alone never do.
+ * Self-contained: the Gift Wrap module boots it with its settings.
  */
 final class CandleFields {
 
@@ -49,6 +52,8 @@ final class CandleFields {
 	public function register(): void {
 		add_action( 'woocommerce_product_after_variable_attributes', array( $this, 'render' ), 10, 3 );
 		add_action( 'woocommerce_save_product_variation', array( $this, 'save' ), 10, 2 );
+		add_action( 'woocommerce_product_options_shipping', array( $this, 'render_simple' ) );
+		add_action( 'woocommerce_admin_process_product_object', array( $this, 'save_simple' ) );
 		\Galaxie\Woo\Support\GiftPacking::watch_sizes();
 	}
 
@@ -67,8 +72,14 @@ final class CandleFields {
 		$loop = (int) $loop;
 		$id   = (int) $variation->ID;
 
+		$sized = $this->sized( (int) $variation->post_parent );
+
 		echo '<div class="galaxie-gift-candle-fields" style="clear:both;border-top:1px solid #eee;padding-top:8px">';
-		echo '<p class="form-row form-row-full" style="margin-bottom:0"><strong>' . esc_html__( 'Medidas para embalagem de presente (cm)', 'galaxie-woo' ) . '</strong><br><em>' . esc_html__( 'Opcional: só o pote, com tampa e sem a caixinha de envio, quando esta variação difere das outras do mesmo tamanho. Em branco usa as medidas do tamanho (Produtos → Atributos); se o tamanho também estiver em branco, as dimensões de envio.', 'galaxie-woo' ) . '</em></p>';
+		echo '<p class="form-row form-row-full" style="margin-bottom:0"><strong>' . esc_html__( 'Medidas para embalagem de presente (cm)', 'galaxie-woo' ) . '</strong><br><em>' . esc_html(
+			$sized
+				? __( 'Opcional: o item sozinho, como vai dentro da caixa de presente (sem a embalagem de envio), quando esta variação difere das outras do mesmo tamanho. Em branco usa as medidas do tamanho (Produtos → Atributos); se o tamanho também estiver em branco, as dimensões de envio.', 'galaxie-woo' )
+				: __( 'O item sozinho, como vai dentro da caixa de presente (sem a embalagem de envio). Este produto não tem o atributo de tamanho: sem estas três medidas, a variação não entra em kits.', 'galaxie-woo' )
+		) . '</em></p>';
 
 		wp_nonce_field( self::NONCE, self::NONCE_FIELD, false );
 
@@ -132,6 +143,73 @@ final class CandleFields {
 	}
 
 	/**
+	 * The three fields in a simple product's Shipping tab, beside the shipping
+	 * dimensions they differ from. Hidden by WooCommerce for other types.
+	 */
+	public function render_simple(): void {
+		global $post;
+
+		$id = $post instanceof \WP_Post ? (int) $post->ID : 0;
+
+		if ( ! $id || ( $this->box_categories && has_term( array_map( 'intval', $this->box_categories ), 'product_cat', $id ) ) ) {
+			return;
+		}
+
+		echo '<div class="options_group show_if_simple galaxie-gift-candle-fields">';
+		echo '<p class="form-field"><strong>' . esc_html__( 'Medidas para embalagem de presente (cm)', 'galaxie-woo' ) . '</strong><br><em>' . esc_html__( 'O item sozinho, como vai dentro da caixa de presente (sem a embalagem de envio). Com as três preenchidas, o produto entra em kits; em branco, não entra (a menos que tenha o atributo de tamanho).', 'galaxie-woo' ) . '</em></p>';
+
+		wp_nonce_field( self::NONCE, self::NONCE_FIELD, false );
+
+		$fields = array(
+			'length' => __( 'Comprimento (cm)', 'galaxie-woo' ),
+			'width'  => __( 'Largura (cm)', 'galaxie-woo' ),
+			'height' => __( 'Altura (cm)', 'galaxie-woo' ),
+		);
+
+		foreach ( $fields as $field => $label ) {
+			$value = (float) get_post_meta( $id, self::META[ $field ], true );
+
+			woocommerce_wp_text_input(
+				array(
+					'id'                => self::META[ $field ],
+					'value'             => $value > 0 ? wc_format_localized_decimal( $value ) : '',
+					'label'             => $label,
+					'type'              => 'number',
+					'custom_attributes' => array(
+						'step' => '0.01',
+						'min'  => '0',
+					),
+				)
+			);
+		}
+
+		echo '</div>';
+	}
+
+	/**
+	 * Saves the simple product's fields with the product form.
+	 *
+	 * @param \WC_Product $product Product being saved.
+	 */
+	public function save_simple( $product ): void {
+		$nonce = isset( $_POST[ self::NONCE_FIELD ] ) ? sanitize_text_field( wp_unslash( $_POST[ self::NONCE_FIELD ] ) ) : '';
+
+		if ( ! $product instanceof \WC_Product || ! $product->is_type( 'simple' ) || ! wp_verify_nonce( $nonce, self::NONCE ) || ! current_user_can( 'edit_product', $product->get_id() ) ) {
+			return;
+		}
+
+		foreach ( self::META as $key ) {
+			if ( ! isset( $_POST[ $key ] ) || is_array( $_POST[ $key ] ) ) {
+				continue;
+			}
+
+			$value = self::clean( wc_clean( wp_unslash( $_POST[ $key ] ) ) ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- wc_clean.
+
+			'' !== $value ? $product->update_meta_data( $key, $value ) : $product->delete_meta_data( $key );
+		}
+	}
+
+	/**
 	 * A size as saved: a positive decimal string, or '' for "not set" (the
 	 * panel deletes it). The REST meta registration ({@see ProductMeta})
 	 * sanitises with this too.
@@ -145,8 +223,9 @@ final class CandleFields {
 	}
 
 	/**
-	 * Whether the fields belong on this product: variable, with the size
-	 * attribute, and not in a gift box category.
+	 * Whether the fields belong on this product's variations: variable, and
+	 * not in a gift box category. With or without the size attribute: without
+	 * it, these measures are the only way in.
 	 *
 	 * @param int $product_id Parent product ID.
 	 */
@@ -157,6 +236,18 @@ final class CandleFields {
 
 		$product = wc_get_product( $product_id );
 
-		return $product && $product->is_type( 'variable' ) && array_key_exists( $this->attribute, $product->get_attributes() );
+		return $product && $product->is_type( 'variable' );
+	}
+
+	/**
+	 * Whether a variable product tells its variations apart by the size
+	 * attribute (the measures are then an optional override).
+	 *
+	 * @param int $product_id Parent product ID.
+	 */
+	private function sized( int $product_id ): bool {
+		$product = wc_get_product( $product_id );
+
+		return $product && array_key_exists( $this->attribute, $product->get_attributes() );
 	}
 }

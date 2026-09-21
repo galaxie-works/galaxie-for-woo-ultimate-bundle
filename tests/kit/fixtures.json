@@ -216,6 +216,9 @@
     { "name": "30 × 22 × 12 already holding 2 × 190g + 1 × 100g", "box": "wide-30", "candles": [["190g", 2], ["100g", 1]], "sizes": ["50g", "190g", "100g"], "max_ms": 1500 }
   ],
   "fill": [
+    {"name": "{items} is filled from the candles value", "text": "Começando com: {items}", "values": {"candles": "2 × Nordic Moss"}, "expect": "Começando com: 2 × Nordic Moss"},
+    {"name": "{candles} still works in texts typed before {items}", "text": "Não comporta {candles}", "values": {"candles": "3 × 190g"}, "expect": "Não comporta 3 × 190g"},
+    {"name": "an items value of its own wins over the alias", "text": "{items}", "values": {"candles": "a", "items": "b"}, "expect": "b"},
     { "name": "kit and combos", "text": "{kit} · Ainda cabem {combos}", "values": { "kit": "Kit 1", "combos": "2 × 190g" }, "expect": "Kit 1 · Ainda cabem 2 × 190g" },
     { "name": "price with a cedilla", "text": "Adicionar cartão ({preço})", "values": { "preço": "R$ 2,00" }, "expect": "Adicionar cartão (R$ 2,00)" },
     { "name": "unknown placeholders stay", "text": "{kit} {nada}", "values": { "kit": "A" }, "expect": "A {nada}" },

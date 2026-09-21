@@ -270,7 +270,7 @@ final class GiftSummary {
 		};
 
 		$rows = array(
-			array( __( 'Velas', 'galaxie-woo' ), array_map( $line, $gift['candles'] ) ),
+			array( \Galaxie\Woo\Modules\GiftWrap\Module::noun( true, true ), array_map( $line, $gift['candles'] ) ),
 			array( __( 'Caixa', 'galaxie-woo' ), $gift['box'] ? array_map( static fn( array $e ): string => $e['name'], $gift['box'] ) : array( __( 'Sem caixa', 'galaxie-woo' ) ) ),
 		);
 

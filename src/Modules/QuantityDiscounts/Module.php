@@ -129,7 +129,7 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 				key: 'apply_to_variations',
 				label: __( 'Apply to variations', 'galaxie-woo' ),
 				type: Field::TYPE_TOGGLE,
-				description: __( 'Tiers are always evaluated per cart line: a line of 3× "Vela 190g" qualifies for a 3+ tier, but 2× 50g plus 2× 190g are two separate lines of 2 and neither qualifies. Turn this off to leave variation lines at full price and discount only simple products.', 'galaxie-woo' ),
+				description: __( 'Tiers are always evaluated per cart line: a line of 3× "Product 190g" qualifies for a 3+ tier, but 2× 50g plus 2× 190g are two separate lines of 2 and neither qualifies. Turn this off to leave variation lines at full price and discount only simple products.', 'galaxie-woo' ),
 				default: true
 			),
 		);

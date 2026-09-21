@@ -337,7 +337,7 @@ final class Ajax {
 					/* translators: %s: the open kit's name. */
 					? sprintf( __( 'Adicionar o kit %s ao carrinho e editar este?', 'galaxie-woo' ), $draft['name'] )
 					/* translators: %s: the open kit's name. */
-					: sprintf( __( 'O kit %s ainda não tem velas. Descartá-lo e editar este?', 'galaxie-woo' ), $draft['name'] ),
+					: sprintf( Module::nouns( __( 'O kit %s ainda não tem {nouns}. Descartá-lo e editar este?', 'galaxie-woo' ) ), $draft['name'] ),
 				array( 'current' => $draft['name'] )
 			);
 		}
@@ -377,7 +377,7 @@ final class Ajax {
 					/* translators: %s: the open kit's name. */
 					? sprintf( __( 'Adicionar o kit %s ao carrinho e recuperar o anterior?', 'galaxie-woo' ), $draft['name'] )
 					/* translators: %s: the open kit's name. */
-					: sprintf( __( 'O kit %s ainda não tem velas. Descartá-lo e recuperar o anterior?', 'galaxie-woo' ), $draft['name'] ),
+					: sprintf( Module::nouns( __( 'O kit %s ainda não tem {nouns}. Descartá-lo e recuperar o anterior?', 'galaxie-woo' ) ), $draft['name'] ),
 				array( 'current' => $draft['name'] )
 			);
 		}

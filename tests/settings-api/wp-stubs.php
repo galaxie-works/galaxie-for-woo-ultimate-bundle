@@ -132,6 +132,9 @@ defined( 'DAY_IN_SECONDS' ) || define( 'DAY_IN_SECONDS', 86400 );
 function get_transient( $key ) { return false; }
 function set_transient( $key, $value, $ttl = 0 ) { return true; }
 function taxonomy_exists( $taxonomy ) { return false; }
+if ( ! function_exists( 'get_posts' ) ) {
+	function get_posts( $args = array() ) { return array(); }
+}
 
 function get_terms( $args = array() ) {
 	return array();
