@@ -56,6 +56,8 @@ final class Module implements ModuleContract, ProvidesBootData, ProvidesElemento
 		// Jars go into a gift box bare (without their shipping box), snug: no gap unless the merchant adds one.
 		'packing_gap'        => 0,
 		'candle_orientation' => 'lying',
+		// One layer, as a jar is packed. On: identical items may stand in columns.
+		'gift_stacking'      => false,
 		'box_categories'     => array(),
 		'ribbon_categories'  => array(),
 		'card_categories'    => array(),
@@ -127,7 +129,8 @@ final class Module implements ModuleContract, ProvidesBootData, ProvidesElemento
 			self::size_attribute(),
 			$options['gap'],
 			self::categories( 'box' ),
-			$options['orientation']
+			$options['orientation'],
+			$options['stacking']
 		) )->register();
 
 		// The jar's own size for packing, beside the shipping dimensions Melhor Envio reads.
@@ -366,7 +369,7 @@ final class Module implements ModuleContract, ProvidesBootData, ProvidesElemento
 	 * The options every packing question is asked with — here, in the cart, on
 	 * the server and, through the builder's data, in the popup.
 	 *
-	 * @return array{gap:float, orientation:string}
+	 * @return array{gap:float, orientation:string, stacking:bool}
 	 */
 	public static function packing_options(): array {
 		$orientation = (string) self::setting( 'candle_orientation' );
@@ -374,6 +377,7 @@ final class Module implements ModuleContract, ProvidesBootData, ProvidesElemento
 		return array(
 			'gap'         => (float) self::setting( 'packing_gap' ),
 			'orientation' => in_array( $orientation, self::ORIENTATIONS, true ) ? $orientation : self::DEFAULTS['candle_orientation'],
+			'stacking'    => (bool) self::setting( 'gift_stacking' ),
 		);
 	}
 
@@ -457,6 +461,13 @@ final class Module implements ModuleContract, ProvidesBootData, ProvidesElemento
 					'any'     => __( 'Em pé ou deitado (item redondo)', 'galaxie-woo' ),
 					'faces'   => __( 'Qualquer face (item retangular)', 'galaxie-woo' ),
 				)
+			),
+			new Field(
+				key: 'gift_stacking',
+				label: __( 'Empilhar na caixa de presente', 'galaxie-woo' ),
+				type: Field::TYPE_TOGGLE,
+				description: __( 'Off: one layer, as a candle jar is packed. On: identical items may stand one on another in columns, as tall as the box allows (soaps, chocolates, sachets). Only identical items stack, so a mixed stack is never counted: the box may take a little more than "Leva até" says, never less.', 'galaxie-woo' ),
+				default: self::DEFAULTS['gift_stacking']
 			),
 			new Field(
 				key: 'box_categories',

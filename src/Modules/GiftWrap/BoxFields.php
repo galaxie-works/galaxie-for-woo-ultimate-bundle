@@ -45,13 +45,15 @@ final class BoxFields {
 	 * @param string    $attribute   Candle size attribute, e.g. `pa_peso`.
 	 * @param float     $gap         Packing gap in cm (default 0: tissue paper fills).
 	 * @param int[]     $categories  Product categories that are gift boxes; empty = every variable product.
-	 * @param string    $orientation 'lying' (default, the jar on its side), 'upright' or 'any'.
+	 * @param string    $orientation 'lying' (default, the jar on its side), 'upright', 'any' or 'faces'.
+	 * @param bool      $stacking    Identical items may stand in columns.
 	 */
 	public function __construct(
 		private string $attribute = 'pa_peso',
 		private float $gap = 0.0,
 		private array $categories = array(),
-		private string $orientation = 'lying'
+		private string $orientation = 'lying',
+		private bool $stacking = false
 	) {
 		if ( ! in_array( $this->orientation, array( 'upright', 'lying', 'any', 'faces' ), true ) ) {
 			$this->orientation = 'lying';
@@ -242,6 +244,7 @@ final class BoxFields {
 		$options = array(
 			'gap'         => $this->gap,
 			'orientation' => $this->orientation,
+			'stacking'    => $this->stacking,
 		);
 		$rows    = array();
 
@@ -269,7 +272,7 @@ final class BoxFields {
 		}
 
 		/* translators: 1: fits, e.g. "4 × 50g · 1 × 190g", 2: how the candles sit, e.g. "deitadas", 3: gap in cm */
-		return sprintf( __( 'Cabe: %1$s (%2$s, folga de %3$s cm)', 'galaxie-woo' ), implode( ' · ', $rows ), $ways[ $this->orientation ], wc_format_localized_decimal( $this->gap ) );
+		return sprintf( __( 'Cabe: %1$s (%2$s, folga de %3$s cm)', 'galaxie-woo' ), implode( ' · ', $rows ), $ways[ $this->orientation ] . ( $this->stacking ? ', ' . __( 'empilhando', 'galaxie-woo' ) : '' ), wc_format_localized_decimal( $this->gap ) );
 	}
 
 	/**

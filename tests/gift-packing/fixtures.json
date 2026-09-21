@@ -22,6 +22,8 @@
   "boxes": {
     "stand": { "id": "stand", "length": 11, "width": 3.5, "height": 4.5, "price": 7 },
     "stand2": { "id": "stand2", "length": 11, "width": 6.5, "height": 4.5, "price": 9 },
+    "deep": { "id": "deep", "length": 11, "width": 5, "height": 7, "price": 7 },
+    "tall": { "id": "tall", "length": 11, "width": 4.5, "height": 9, "price": 9 },
     "b14": { "id": "b14", "length": 14, "width": 11, "height": 9.5, "price": 12 },
     "p11": { "id": "p11", "length": 11, "width": 11, "height": 7, "price": 8 },
     "short": { "id": "short", "length": 14, "width": 11, "height": 8.9, "price": 10 },
@@ -62,6 +64,13 @@
     { "name": "a candle taller than the box is a proved no, however long the search could run", "box": "b7", "candles": [["190g", 1]], "options": { "orientation": "upright" }, "expect": false }
   ],
   "fits": [
+    {"name": "deep: one layer, the floor takes a single bar", "box": "deep", "candles": [["bar", 2]], "options": {"orientation": "upright"}, "expect": false},
+    {"name": "deep: stacking on, two bars stand in one column (2 x 3 cm under 7)", "box": "deep", "candles": [["bar", 2]], "options": {"orientation": "upright", "stacking": true}, "expect": true},
+    {"name": "deep: stacking on, a third bar needs a second column the floor has no room for", "box": "deep", "candles": [["bar", 3]], "options": {"orientation": "upright", "stacking": true}, "expect": false},
+    {"name": "tall: stacking on, any face, three bars in one column of 4 x 10 footprint", "box": "tall", "candles": [["bar", 3]], "options": {"orientation": "faces", "stacking": true}, "expect": true},
+    {"name": "tall: stacking on, a fourth bar: two columns do not share a 4.5 cm floor", "box": "tall", "candles": [["bar", 4]], "options": {"orientation": "faces", "stacking": true}, "expect": false},
+    {"name": "big: stacking on changes nothing for jars the box height cannot double: four on the floor", "box": "big", "candles": [["190g-gift", 4]], "options": {"orientation": "upright", "stacking": true}, "expect": true},
+    {"name": "big: stacking on, a fifth jar still does not fit", "box": "big", "candles": [["190g-gift", 5]], "options": {"orientation": "upright", "stacking": true}, "expect": false},
     {"name": "stand: a bar (10 x 4 x 3) on its 10 x 3 face; only 'faces' lets a box-shaped item turn that way", "box": "stand", "candles": [["bar", 1]], "options": {"orientation": "faces"}, "expect": true},
     {"name": "stand: the same bar upright needs a 4 cm wide floor the box does not have", "box": "stand", "candles": [["bar", 1]], "options": {"orientation": "upright"}, "expect": false},
     {"name": "stand: 'lying' rolls the bar like a jar, 10 cm tall, and refuses what 'faces' fits", "box": "stand", "candles": [["bar", 1]], "options": {"orientation": "lying"}, "expect": false},

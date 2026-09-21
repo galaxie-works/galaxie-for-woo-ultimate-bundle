@@ -20,7 +20,7 @@ defined( 'ABSPATH' ) || exit;
  *   candle  { size, length, width, height, price? }        cm, as WooCommerce stores them
  *   box     { id, length, width, height, max?, overflow?, price }
  *           internal cm; max 0 = no limit; overflow = extra height the lid still closes over (0–2)
- *   options { gap, orientation }                           gap in cm, default 0 (tissue paper fills); orientation default 'lying'
+ *   options { gap, orientation, stacking }                 gap in cm, default 0 (tissue paper fills); orientation default 'lying'; stacking default off
  *
  * The model:
  * - `orientation` says how a candle sits. 'upright': floor length × width,
@@ -34,8 +34,10 @@ defined( 'ABSPATH' ) || exit;
  * - The gap is added to both floor sides and to the height used, which must be
  *   ≤ the box height. Neighbours are a full gap apart and every candle keeps
  *   half a gap from the walls. Footprints may turn 90° on the floor. One layer
- *   only, always: a gift box the merchant sells is shallower than two jars, and
- *   a candle resting on another is not how one is packed.
+ *   by default: a candle resting on another is not how one is packed. With
+ *   `stacking` on, identical items may also stand in columns as tall as the
+ *   box allows (stacks_fit()); a mixed stack is never counted, so the answer
+ *   can fall short of what fits but never over it.
  * - The floor search is exact: it tries every "normal pattern" placement (x and
  *   y are sums of other footprints, which any packing can be pushed into), in
  *   bottom-left order so each layout is visited once. Failed states are
@@ -66,6 +68,13 @@ final class GiftPacking {
 
 	/** Largest group `arrange()` and `summary()` consider at once. */
 	public const MAX_ITEMS = 12;
+
+	/**
+	 * Most ways of standing a kit's items in columns tried per question (one
+	 * way per item kind, multiplied): a kit has a few kinds, each with up to
+	 * three ways, so this is only reached by an unusual mix.
+	 */
+	public const STACK_COMBOS = 81;
 
 	/** Transient holding the kit popup's "Leva até …" per box, flushed with the sizes. */
 	public const HOLDS_TRANSIENT = 'galaxie_kit_holds';
@@ -173,11 +182,7 @@ final class GiftPacking {
 		$bz += self::down( $box['overflow'] ?? 0 );
 
 		$orientation = self::orientation_of( $options );
-
-		// Candles with the same possible footprints are one type with a count:
-		// the search then never tries swapping two of them.
-		$types = array();
-		$area  = 0;
+		$pieces      = array();
 
 		foreach ( $candles as $candle ) {
 			$shapes = self::shapes_of( $candle, $orientation, $gap, $bx, $by, $bz );
@@ -186,6 +191,38 @@ final class GiftPacking {
 				return false;
 			}
 
+			$pieces[] = $shapes;
+		}
+
+		$answer = self::floor_fits( $pieces, $bx, $by );
+
+		if ( true === $answer || empty( $options['stacking'] ) ) {
+			return $answer;
+		}
+
+		// Stacking on: a yes from the columns is a yes. Their no is the floor's
+		// answer, which is exact for one layer; a mixed stack (a small item on
+		// a big one) is not modelled, so with stacking a "no" can be short.
+		return self::stacks_fit( $candles, $orientation, $gap, $bx, $by, $bz ) ? true : $answer;
+	}
+
+	/**
+	 * The exact one-layer search: whether these footprints share the floor.
+	 *
+	 * @param array<int, array<int, int[]>> $pieces Each piece's possible footprints, from shapes_of().
+	 * @param int                          $bx     Box length in units.
+	 * @param int                          $by     Box width in units.
+	 * @return bool|null Null when the search ran out of work or time.
+	 */
+	private static function floor_fits( array $pieces, int $bx, int $by ): ?bool {
+		$n = count( $pieces );
+
+		// Pieces with the same possible footprints are one type with a count:
+		// the search then never tries swapping two of them.
+		$types = array();
+		$area  = 0;
+
+		foreach ( $pieces as $shapes ) {
 			$key = implode( ';', array_map( static fn( array $s ): string => $s[0] . 'x' . $s[1], $shapes ) );
 
 			if ( ! isset( $types[ $key ] ) ) {
@@ -1433,12 +1470,11 @@ final class GiftPacking {
 	}
 
 	/**
-	 * The floor footprints a candle may take in this box, gap included, each as
-	 * [ short, long ] and sorted: upright L × W under H, lying H × max(L, W)
-	 * under max(L, W). Shapes too tall, or too big for the floor either way
-	 * round, drop.
+	 * The ways an item can go into this box, gap included: [ short, long,
+	 * height used ] in units, those too tall or too big for the floor either
+	 * way round dropped, sorted.
 	 *
-	 * @param array  $candle      Candle array.
+	 * @param array  $candle      Item.
 	 * @param string $orientation From orientation_of().
 	 * @param int    $gap         Gap in units.
 	 * @param int    $bx          Box length in units.
@@ -1446,7 +1482,7 @@ final class GiftPacking {
 	 * @param int    $bz          Box height in units.
 	 * @return array<int, int[]>
 	 */
-	private static function shapes_of( array $candle, string $orientation, int $gap, int $bx, int $by, int $bz ): array {
+	private static function ways_of( array $candle, string $orientation, int $gap, int $bx, int $by, int $bz ): array {
 		$l = self::up( $candle['length'] ?? 0 );
 		$w = self::up( $candle['width'] ?? 0 );
 		$h = self::up( $candle['height'] ?? 0 );
@@ -1475,7 +1511,7 @@ final class GiftPacking {
 			$ways[] = array( $h + $gap, $across + $gap, $across + $gap );
 		}
 
-		$shapes = array();
+		$out = array();
 		foreach ( $ways as $way ) {
 			$short = min( $way[0], $way[1] );
 			$long  = max( $way[0], $way[1] );
@@ -1483,14 +1519,118 @@ final class GiftPacking {
 			if ( $way[2] > $bz || ! ( ( $short <= $bx && $long <= $by ) || ( $long <= $bx && $short <= $by ) ) ) {
 				continue;
 			}
-			if ( ! in_array( array( $short, $long ), $shapes, true ) ) {
-				$shapes[] = array( $short, $long );
+			if ( ! in_array( array( $short, $long, $way[2] ), $out, true ) ) {
+				$out[] = array( $short, $long, $way[2] );
 			}
 		}
 
-		usort( $shapes, static fn( array $p, array $q ): int => ( $p[0] <=> $q[0] ) ?: ( $p[1] <=> $q[1] ) );
+		usort( $out, static fn( array $p, array $q ): int => ( $p[0] <=> $q[0] ) ?: ( $p[1] <=> $q[1] ) ?: ( $p[2] <=> $q[2] ) );
+
+		return $out;
+	}
+
+	/**
+	 * The floor footprints an item may take in this box, gap included, each as
+	 * [ short, long ] and sorted: its ways without the height.
+	 *
+	 * @param array  $candle      Item.
+	 * @param string $orientation From orientation_of().
+	 * @param int    $gap         Gap in units.
+	 * @param int    $bx          Box length in units.
+	 * @param int    $by          Box width in units.
+	 * @param int    $bz          Box height in units.
+	 * @return array<int, int[]>
+	 */
+	private static function shapes_of( array $candle, string $orientation, int $gap, int $bx, int $by, int $bz ): array {
+		$shapes = array();
+		foreach ( self::ways_of( $candle, $orientation, $gap, $bx, $by, $bz ) as $way ) {
+			if ( ! in_array( array( $way[0], $way[1] ), $shapes, true ) ) {
+				$shapes[] = array( $way[0], $way[1] );
+			}
+		}
 
 		return $shapes;
+	}
+
+	/**
+	 * Whether the items fit when identical ones may stand one on another, in
+	 * columns: each kind of item takes one of its ways, a column of it holds
+	 * as many as the box height allows, and the columns share the floor (the
+	 * exact search). Every way per kind is tried, while that stays under
+	 * STACK_COMBOS. Only identical items stack; a small item on a big one is
+	 * not modelled, so this can miss a fit but never invents one.
+	 *
+	 * @param array  $candles     Items.
+	 * @param string $orientation From orientation_of().
+	 * @param int    $gap         Gap in units.
+	 * @param int    $bx          Box length in units.
+	 * @param int    $by          Box width in units.
+	 * @param int    $bz          Usable box height in units.
+	 */
+	private static function stacks_fit( array $candles, string $orientation, int $gap, int $bx, int $by, int $bz ): bool {
+		$groups = array();
+
+		foreach ( $candles as $candle ) {
+			$key = self::up( $candle['length'] ?? 0 ) . 'x' . self::up( $candle['width'] ?? 0 ) . 'x' . self::up( $candle['height'] ?? 0 );
+
+			if ( ! isset( $groups[ $key ] ) ) {
+				$groups[ $key ] = array(
+					'candle' => $candle,
+					'n'      => 0,
+				);
+			}
+
+			++$groups[ $key ]['n'];
+		}
+
+		ksort( $groups, SORT_STRING );
+
+		// Each option: [ footprint, columns needed, whether it stacks at all ].
+		$combos = array( array() );
+		foreach ( $groups as $group ) {
+			$options = array();
+			foreach ( self::ways_of( $group['candle'], $orientation, $gap, $bx, $by, $bz ) as $way ) {
+				$high      = max( 1, intdiv( $bz, $way[2] ) );
+				$options[] = array( array( $way[0], $way[1] ), (int) ceil( $group['n'] / $high ), $high > 1 );
+			}
+
+			$next = array();
+			foreach ( $combos as $combo ) {
+				foreach ( $options as $option ) {
+					$next[] = array_merge( $combo, array( $option ) );
+				}
+			}
+
+			$combos = $next;
+
+			if ( count( $combos ) > self::STACK_COMBOS ) {
+				return false;
+			}
+		}
+
+		foreach ( $combos as $combo ) {
+			// Nothing in it stacks: the one-layer search already answered.
+			if ( ! in_array( true, array_column( $combo, 2 ), true ) ) {
+				continue;
+			}
+
+			if ( self::late() ) {
+				return false;
+			}
+
+			$pieces = array();
+			foreach ( $combo as $option ) {
+				for ( $i = 0; $i < $option[1]; $i++ ) {
+					$pieces[] = array( $option[0] );
+				}
+			}
+
+			if ( true === self::floor_fits( $pieces, $bx, $by ) ) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	/**
