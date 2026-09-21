@@ -257,7 +257,7 @@ final class Module implements ModuleContract, ProvidesSettings, ProvidesRestSett
 				key: 'stacking',
 				label: __( 'Stacking allowed', 'galaxie-woo' ),
 				type: Field::TYPE_TOGGLE,
-				description: __( 'Items may be stacked in layers inside a carton (candles and gift boxes on top of each other). Off: one layer.', 'galaxie-woo' ),
+				description: __( 'Items may be stacked in layers inside a carton (products and gift boxes on top of each other). Off: one layer.', 'galaxie-woo' ),
 				default: self::DEFAULTS['stacking']
 			),
 			new Field(

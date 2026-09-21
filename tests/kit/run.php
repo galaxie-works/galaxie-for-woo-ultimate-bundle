@@ -155,7 +155,7 @@ class WooCommerce {
 function WC() { static $wc = null; return $wc ??= new WooCommerce(); }
 
 /** The one Module method the kit code asks, with a popup the tests set. */
-eval( 'namespace Galaxie\\Woo\\Modules\\GiftWrap; final class Module { public static int $popup = 0; public static function kit_popup_id(): int { return self::$popup; } public static function size_attribute(): string { return "pa_peso"; } public static function packing_options(): array { return array(); } }' );
+eval( 'namespace Galaxie\\Woo\\Modules\\GiftWrap; final class Module { public static int $popup = 0; public static function kit_popup_id(): int { return self::$popup; } public static function size_attribute(): string { return "pa_peso"; } public static function packing_options(): array { return array(); } public static function noun( bool $many = false, bool $capital = false ): string { $w = $many ? "velas" : "vela"; return $capital ? ucfirst( $w ) : $w; } public static function nouns( string $t ): string { return strtr( $t, array( "{noun}" => "vela", "{nouns}" => "velas", "{Noun}" => "Vela", "{Nouns}" => "Velas", "{um}" => "uma", "{nenhum}" => "nenhuma", "{o}" => "a", "{os}" => "as", "{este}" => "esta", "{esse}" => "essa", "{Um}" => "Uma", "{Nenhum}" => "Nenhuma", "{O}" => "A", "{Os}" => "As", "{Este}" => "Esta", "{Esse}" => "Essa" ) ); } }' );
 
 foreach ( array(
 	'src/Support/GiftPacking.php',

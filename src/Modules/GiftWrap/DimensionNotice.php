@@ -66,7 +66,7 @@ final class DimensionNotice {
 		}
 
 		echo '<div class="notice notice-warning"><p><strong>' . esc_html__( 'Gift Wrap', 'galaxie-woo' ) . ':</strong> '
-			. esc_html__( 'these candle variations have no gift dimensions (their own or their size\'s) and no WooCommerce dimensions, so they cannot be packed in a gift. The gift builder refuses them until dimensions are filled in: once per size in Products → Attributes → edit the size, or on the variation (Products → edit → Variations).', 'galaxie-woo' )
+			. esc_html__( 'these variations have no gift dimensions (their own or their size\'s) and no WooCommerce dimensions, so they cannot be packed in a gift. The gift builder refuses them until dimensions are filled in: once per size in Products → Attributes → edit the size, or on the variation (Products → edit → Variations).', 'galaxie-woo' )
 			. '</p><ul style="list-style:disc;margin-left:1.5em">';
 
 		foreach ( array_slice( $missing, 0, self::LIMIT ) as $variation ) {

@@ -64,9 +64,9 @@ final class SizeTermFields {
 		add_filter( 'woocommerce_taxonomy_args_' . $taxonomy, array( self::class, 'show_in_rest' ) );
 
 		$descriptions = array(
-			'length' => 'Candle jar of this size alone, lid on: length in cm, for gift packing. Used when the variation has no gift dimensions of its own.',
-			'width'  => 'Candle jar of this size alone, lid on: width in cm, for gift packing.',
-			'height' => 'Candle jar of this size alone, lid on: height in cm, for gift packing.',
+			'length' => 'The item of this size alone, as it goes into a gift box: length in cm. Used when the variation has no gift dimensions of its own.',
+			'width'  => 'The item of this size alone, as it goes into a gift box: width in cm.',
+			'height' => 'The item of this size alone, as it goes into a gift box: height in cm.',
 		);
 
 		foreach ( CandleFields::META as $field => $key ) {
@@ -188,7 +188,7 @@ final class SizeTermFields {
 	}
 
 	private static function help(): string {
-		return __( 'Só o pote deste tamanho, com tampa e sem a caixinha de envio. Vale para todas as variações deste tamanho que não tenham medidas próprias. Em branco usa as dimensões de envio de cada variação.', 'galaxie-woo' );
+		return __( 'O item deste tamanho sozinho, como vai dentro da caixa de presente (sem a embalagem de envio). Vale para todas as variações deste tamanho que não tenham medidas próprias. Em branco usa as dimensões de envio de cada variação.', 'galaxie-woo' );
 	}
 
 	/** @return array<string,string> Field => label. */

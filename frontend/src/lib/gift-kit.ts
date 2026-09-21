@@ -288,6 +288,8 @@ export function wording(found: Combos, labels: Record<string, string> = {}, or =
 
 /** A merchant's text with `{name}` placeholders filled; unknown ones stay. */
 export function fillText(text: string, values: Record<string, string>): string {
+  // {items} is the neutral name of {candles}, kept for texts already typed.
+  if ('candles' in values && !('items' in values)) values = { ...values, items: values.candles }
   return (text ?? '').replace(/\{([a-zà-ú_]+)\}/gu, (match, key: string) => (Object.prototype.hasOwnProperty.call(values, key) ? String(values[key]) : match))
 }
 

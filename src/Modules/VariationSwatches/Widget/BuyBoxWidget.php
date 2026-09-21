@@ -551,7 +551,7 @@ final class BuyBoxWidget extends Widget_Base {
 		$texts = array(
 			'giftkit_start_text' => array( __( 'Text with no kit open', 'galaxie-woo' ), __( 'Montar um kit ou presente', 'galaxie-woo' ) ),
 			'giftkit_add_text'   => array( __( 'Text with a kit open', 'galaxie-woo' ), __( 'Adicionar ao kit {kit}', 'galaxie-woo' ) ),
-			'giftkit_full_text'  => array( __( 'Text when the candle does not fit', 'galaxie-woo' ), __( 'Não cabe na caixa deste kit', 'galaxie-woo' ) ),
+			'giftkit_full_text'  => array( __( 'Text when the item does not fit', 'galaxie-woo' ), __( 'Não cabe na caixa deste kit', 'galaxie-woo' ) ),
 			/* translators: {n}: how many fit. Kept for the script. */
 			'giftkit_cap_text'   => array( __( 'When fewer fit than the quantity chosen ({n})', 'galaxie-woo' ), __( 'Cabem só {n} no kit', 'galaxie-woo' ) ),
 		);
@@ -578,7 +578,7 @@ final class BuyBoxWidget extends Widget_Base {
 				'options'   => array(
 					'start' => __( 'No kit open', 'galaxie-woo' ),
 					'add'   => __( 'A kit open', 'galaxie-woo' ),
-					'full'  => __( 'Candle does not fit', 'galaxie-woo' ),
+					'full'  => __( 'Item does not fit', 'galaxie-woo' ),
 				),
 				'condition' => $on,
 			)

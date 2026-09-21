@@ -122,6 +122,16 @@ function galaxie_boot_kit( array $booted, array $scenario, callable $hooked ): s
 	$module = new \Galaxie\Woo\Modules\GiftWrap\Module();
 	$data   = $module->boot_data()['giftWrap']['kit'] ?? null;
 
+	// The store's noun is put into the texts on the server, agreeing words and
+	// all: the scripts never see a {noun} token.
+	if ( is_array( $data ) && 'Esta caixa não comporta nenhuma vela da loja. Escolha outra caixa.' !== ( $data['texts']['room_nofit'] ?? '' ) ) {
+		throw new RuntimeException( 'Kit: the room_nofit text did not get the store noun: ' . ( $data['texts']['room_nofit'] ?? '(none)' ) );
+	}
+
+	if ( 'Nenhuma vela ainda' !== \Galaxie\Woo\Modules\GiftWrap\Module::nouns( '{Nenhum} {noun} ainda' ) || 'Velas' !== \Galaxie\Woo\Modules\GiftWrap\Module::noun( true, true ) ) {
+		throw new RuntimeException( 'Kit: the default noun is not "vela"' );
+	}
+
 	if ( ! is_array( $data ) || 4549 !== $data['popup'] || array( 'room_many', 'room_one', 'room_nofit', 'full', 'box_holds', 'added', 'offline', 'add_failed', 'not_candle', 'edit_closed', 'edit_failed', 'edit_done' ) !== array_keys( $data['texts'] ) ) {
 		throw new RuntimeException( 'Kit: boot data ' . json_encode( $data ) );
 	}

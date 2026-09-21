@@ -7,6 +7,7 @@
 
 namespace Galaxie\Woo\Modules\GiftWrap\Kit;
 
+use Galaxie\Woo\Modules\GiftWrap\Module;
 use Galaxie\Woo\Support\GiftGroups;
 use Galaxie\Woo\Support\GiftKit;
 use Galaxie\Woo\Support\GiftPacking;
@@ -135,7 +136,7 @@ final class Kits {
 		// not shown the candles will not go in, and the shopper must not pay for
 		// the difference.
 		if ( $units && false === GiftPacking::fits_known( self::shape( $row ), $units, $this->catalog->options() ) ) {
-			throw new KitError( 'box_too_small', __( 'Essa caixa não comporta as velas deste kit.', 'galaxie-woo' ) );
+			throw new KitError( 'box_too_small', Module::nouns( __( 'Essa caixa não comporta {os} {nouns} deste kit.', 'galaxie-woo' ) ) );
 		}
 
 		if ( $draft['card'] && ! $this->catalog->card_for( (int) $draft['card'], $box ) ) {
@@ -255,7 +256,7 @@ final class Kits {
 		}
 
 		if ( null === $index ) {
-			throw new KitError( 'not_in_kit', __( 'Essa vela não está no kit.', 'galaxie-woo' ) );
+			throw new KitError( 'not_in_kit', Module::nouns( __( '{Esse} {noun} não está no kit.', 'galaxie-woo' ) ) );
 		}
 
 		$candle = $this->candle( $id );
@@ -468,7 +469,7 @@ final class Kits {
 	 */
 	public function plan( array $draft, array $in_cart ): array {
 		if ( ! $draft['candles'] ) {
-			throw new KitError( 'empty', __( 'Adicione pelo menos uma vela ao kit.', 'galaxie-woo' ) );
+			throw new KitError( 'empty', Module::nouns( __( 'Adicione pelo menos {um} {noun} ao kit.', 'galaxie-woo' ) ) );
 		}
 
 		$box = $this->catalog->boxes()[ (int) $draft['box'] ] ?? null;
@@ -486,7 +487,7 @@ final class Kits {
 			$candle = $this->catalog->candle( (int) $line['id'] );
 
 			if ( ! $candle ) {
-				throw new KitError( 'candle_gone', __( 'Uma vela do kit não está mais disponível. Remova-a do kit.', 'galaxie-woo' ) );
+				throw new KitError( 'candle_gone', Module::nouns( __( '{Um} {noun} do kit não está mais disponível. Remova-{o} do kit.', 'galaxie-woo' ) ) );
 			}
 
 			for ( $i = 0; $i < $line['qty']; $i++ ) {
@@ -504,7 +505,7 @@ final class Kits {
 		}
 
 		if ( count( $units ) > GiftPacking::MAX_ITEMS ) {
-			throw new KitError( 'box_too_small', __( 'As velas deste kit não cabem na caixa escolhida.', 'galaxie-woo' ) );
+			throw new KitError( 'box_too_small', Module::nouns( __( '{Os} {nouns} deste kit não cabem na caixa escolhida.', 'galaxie-woo' ) ) );
 		}
 
 		$lines[] = array(
@@ -561,7 +562,7 @@ final class Kits {
 
 			switch ( $error['code'] ) {
 				case 'box_too_small':
-					throw new KitError( 'box_too_small', __( 'As velas deste kit não cabem na caixa escolhida.', 'galaxie-woo' ) );
+					throw new KitError( 'box_too_small', Module::nouns( __( '{Os} {nouns} deste kit não cabem na caixa escolhida.', 'galaxie-woo' ) ) );
 				case 'message_too_long':
 					/* translators: %d: character limit. */
 					throw new KitError( 'message_too_long', sprintf( __( 'A mensagem passa de %d caracteres.', 'galaxie-woo' ), $this->catalog->message_max() ) );
