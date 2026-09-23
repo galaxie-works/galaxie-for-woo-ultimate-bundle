@@ -26,6 +26,8 @@ interface CartResponse {
   success: boolean
   data?: {
     removed?: boolean
+    /** Every line still in the cart: a removal can take others with it (a gift's ribbons). */
+    keys?: string[]
     subtotal?: string
     count?: number
     empty?: boolean
@@ -207,6 +209,15 @@ function apply(line: HTMLElement, data: NonNullable<CartResponse['data']>): void
   } else if (data.subtotal !== undefined) {
     const cell = line.querySelector('.galaxie-cart-subtotal')
     if (cell) cell.innerHTML = data.subtotal
+  }
+
+  // Lines the server dropped along with this one — a gift's box, ribbons and
+  // cards once its last candle goes (Gift Wrap) — leave the table too.
+  if (data.keys) {
+    const kept = new Set(data.keys)
+    document.querySelectorAll<HTMLElement>('.galaxie-cart-line[data-galaxie-key]').forEach((row) => {
+      if (!kept.has(row.dataset.galaxieKey ?? '')) row.remove()
+    })
   }
 
   if (data.totals) {

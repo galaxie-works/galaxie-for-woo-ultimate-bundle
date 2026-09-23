@@ -30,7 +30,9 @@ interface AddToCartResponse {
   data?: { message?: string; fragments?: Record<string, string>; cart_hash?: string }
 }
 
-import { findAlert } from '@/globals/buy-box-alert'
+import { blockedByChoice, findAlert } from '@/globals/buy-box-alert'
+import { addGift } from '@/globals/gift-builder'
+import { giftPlanRequest, giftWrapAdded, giftWrapChecked, interceptForGift, pendingCandle } from '@/globals/gift-wrap'
 import { tell } from '@/lib/dialog'
 
 interface VariationPayload {
@@ -235,35 +237,19 @@ function initButtons(form: HTMLFormElement, config?: BuyBoxConfig): void {
    * `.woocommerce-variation-add-to-cart` wrapper that our markup does not have
    * — so nothing else was standing in the way.
    */
-  const blocked = (): boolean => {
-    const selects = Array.from(form.querySelectorAll<HTMLSelectElement>('.variations select'))
-    if (!selects.length) return false
-
-    if (Number(variationField?.value) > 0) {
-      alert?.hide()
-      return false
-    }
-
-    // Every attribute chosen and still no match is a combination the shop does
-    // not sell; a blank one is just an unfinished choice. Different sentence.
-    const key = selects.every((select) => select.value !== '') ? 'unavailable' : 'select'
-
-    // With no Alert block on the widget there is nowhere to say it, so the
-    // native submit is left alone and WooCommerce reports it its own way.
-    return alert?.show(key) ?? false
-  }
+  //
+  // Shared with "Configurar presente" (gift-wrap.ts), which has to give the same
+  // answer to the same missing choice: see blockedByChoice() in buy-box-alert.ts.
+  // With no Alert block on the widget there is nowhere to say it, so the
+  // native submit is left alone and WooCommerce reports it its own way.
+  const blocked = (): boolean => blockedByChoice(form, alert)
 
   // Buy Now navigates away regardless, so it stays a plain native submit —
   // every WooCommerce validation, stock check and third-party add-to-cart hook
   // still runs, and the server-side redirect filter reads this flag. The field
   // is cleared afterwards so a failed submit can't leave it set and send a
   // later ordinary add-to-cart straight to checkout.
-  buyNow?.addEventListener('click', (event) => {
-    if (blocked()) {
-      event.preventDefault()
-      return
-    }
-
+  const markBuyNow = (): void => {
     const flag = form.querySelector<HTMLInputElement>('input[name="galaxie_buy_now"]')
     if (flag) {
       flag.value = '1'
@@ -271,6 +257,81 @@ function initButtons(form: HTMLFormElement, config?: BuyBoxConfig): void {
         flag.value = ''
       }, 0)
     }
+  }
+
+  /**
+   * The native submit a click would have made, for when the gift popup held
+   * that click and hands it back. `requestSubmit()` with the button as
+   * submitter posts the same fields the click would have, and fires no click —
+   * so it does not come back through these handlers.
+   */
+  const submitWith = (button: HTMLButtonElement): void => {
+    if (typeof form.requestSubmit === 'function') form.requestSubmit(button)
+    else form.submit()
+  }
+
+  /** What went wrong, said where the widget can say it. */
+  const report = (message?: string): void => {
+    const spoken = alert?.show('error', message) ?? false
+    if (!spoken) void tell(form, 'buybox_dialog', { text: message, fallback: 'Não foi possível adicionar ao carrinho.' })
+  }
+
+  /**
+   * A gift built in the popup goes in whole — candles, box, ribbons, cards —
+   * through the gift endpoint, which validates it again on the server. True
+   * when there was such a gift to send; the caller then does nothing else.
+   */
+  const sendGift = (button: HTMLButtonElement | null, after: (data: { fragments?: Record<string, string>; cart_hash?: string; checkout_url?: string }) => void): boolean => {
+    const request = giftPlanRequest(form)
+    if (!request) return false
+
+    if (button) button.disabled = true
+
+    void addGift(request, pendingCandle(form)).then((json) => {
+      if (button) button.disabled = false
+
+      if (!json.success || !json.data) {
+        report(json.data?.message)
+        return
+      }
+
+      giftWrapAdded(form)
+      after(json.data)
+    })
+
+    return true
+  }
+
+  const buyNowGift = (): boolean =>
+    sendGift(buyNow, (data) => {
+      window.location.href = data.checkout_url || window.location.href
+    })
+
+  buyNow?.addEventListener('click', (event) => {
+    if (blocked()) {
+      event.preventDefault()
+      return
+    }
+
+    // A gift opens its builder first; Buy Now carries on from the popup.
+    if (
+      interceptForGift(form, () => {
+        if (buyNowGift()) return
+        markBuyNow()
+        submitWith(buyNow)
+      })
+    ) {
+      event.preventDefault()
+      return
+    }
+
+    // Settled earlier through "Configurar presente".
+    if (buyNowGift()) {
+      event.preventDefault()
+      return
+    }
+
+    markBuyNow()
   })
 
   addCart?.addEventListener('click', (event) => {
@@ -281,17 +342,54 @@ function initButtons(form: HTMLFormElement, config?: BuyBoxConfig): void {
 
     // Without the localized config there is no endpoint to call, so the native
     // submit stays as the fallback — it is a complete working path on its own.
-    if (!config) return
-
-    const variationId = Number(variationField?.value) || 0
-    const productId = Number(productField?.value) || 0
+    if (!config) {
+      if (interceptForGift(form, () => addGiftToCart() || submitWith(addCart))) {
+        event.preventDefault()
+      } else if (addGiftToCart()) {
+        event.preventDefault()
+      }
+      return
+    }
 
     // A variable product with nothing resolved was already caught above.
     // Anything else with no id at all falls through rather than posting a
     // request the server could not act on.
-    if (!variationId && !productId) return
+    if (!(Number(variationField?.value) || 0) && !(Number(productField?.value) || 0)) return
 
     event.preventDefault()
+
+    if (interceptForGift(form, () => sendAddToCart(config))) return
+
+    sendAddToCart(config)
+  })
+
+  /** Add to Cart's success, whichever endpoint answered. */
+  function added(data?: { fragments?: Record<string, string>; cart_hash?: string }): void {
+    if (alert?.has('added')) alert.show('added')
+    giftWrapAdded(form)
+
+    const jq = window.jQuery
+    if (jq && data && addCart) {
+      jq(document.body).trigger('added_to_cart', [data.fragments, data.cart_hash, jq(addCart)])
+    }
+  }
+
+  function addGiftToCart(): boolean {
+    return sendGift(addCart, added)
+  }
+
+  /**
+   * Read at send time, not at click time: a gift popup can sit between the two,
+   * and the fields are the form's word on what is being bought.
+   */
+  function sendAddToCart(config: BuyBoxConfig): void {
+    if (!addCart) return
+
+    if (addGiftToCart()) return
+
+    const variationId = Number(variationField?.value) || 0
+    const productId = Number(productField?.value) || 0
+
     addCart.disabled = true
 
     const body = new URLSearchParams({
@@ -301,6 +399,9 @@ function initButtons(form: HTMLFormElement, config?: BuyBoxConfig): void {
       product_id: String(productId),
       quantity: String(currentQuantity(form)),
     })
+
+    // The native submit posts the checkbox by itself; this request has to copy it.
+    if (giftWrapChecked(form)) body.set('galaxie_gift_wrap', '1')
 
     fetch(config.ajaxUrl, { method: 'POST', credentials: 'same-origin', body })
       .then((response) => response.json() as Promise<AddToCartResponse>)
@@ -313,22 +414,16 @@ function initButtons(form: HTMLFormElement, config?: BuyBoxConfig): void {
           // guess — falling back to the configured wording otherwise. Only if
           // there is no Alert block at all does this resort to a browser
           // dialog, which is what the whole change is here to get rid of.
-          const spoken = alert?.show('error', json.data?.message) ?? false
-          if (!spoken) void tell(form, 'buybox_dialog', { text: json.data?.message, fallback: 'Não foi possível adicionar ao carrinho.' })
+          report(json.data?.message)
           return
         }
 
-        if (alert?.has('added')) alert.show('added')
-
-        const jq = window.jQuery
-        if (jq && json.data) {
-          jq(document.body).trigger('added_to_cart', [json.data.fragments, json.data.cart_hash, jq(addCart)])
-        }
+        added(json.data)
       })
       .catch(() => {
         addCart.disabled = false
       })
-  })
+  }
 }
 
 export function bootBuyBox(config?: BuyBoxConfig): void {
