@@ -72,6 +72,31 @@ lists reviews as its own module).
 
 ---
 
+## Galaxie Checkout (redesign, 2026-09-24)
+
+PR 1 (`feat/checkout-redesign`: two columns, order summary, editor preview,
+dark mode, pt-BR texts on the widget) is on test. Decided, not built:
+
+- **PR 2: delivery step.** Sign-in is mandatory (no guest checkout). Three cases:
+  - saved default address: address cards with the default preselected, plus
+    "Adicionar novo";
+  - no address: a form prefilled with the CEP/city/state quoted in the cart
+    (`WC()->customer` session), street filled by a CEP lookup;
+  - CEP quoted in the cart but not in the profile: preselect a saved address
+    with that CEP; if none has it, offer "entregar nesse CEP" (new address) or
+    "usar endereço salvo" (re-quotes shipping).
+  - New address: "Salvar no meu cadastro" (on by default) and "Tornar padrão".
+    Uses the Address Book module when it is on.
+  - Separate fields for Rua, Número, Complemento and Bairro, stored as
+    `billing_number`/`billing_neighborhood` (the Brazilian Market names Melhor
+    Envio reads). `address_1` stays "Rua, Número".
+  - CEP lookup through a plugin endpoint that queries ViaCEP, with a cache.
+    Nothing in the bundle looks up a CEP today; Google Places is not a CEP
+    lookup.
+- **PR 3: Google sign-in.** The GoogleLogin module only has settings; `boot()`
+  is a TODO. Full OAuth needs a client ID from Google Cloud Console. The button
+  goes on the checkout's sign-in step.
+
 ## Elsewhere
 
 - **The brand document is still in the git history.** `docs/eirnaturals-scent-profiles.md`
