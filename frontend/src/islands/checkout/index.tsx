@@ -2,11 +2,13 @@ import * as React from 'react'
 
 import { cn } from '@/lib/cn'
 import { getGalaxieConfig, post } from '@/lib/wp'
+import { AddressBookStep } from './AddressBookStep'
 import { AddressStep, formatAddress } from './AddressStep'
 import { OtpLogin } from '@/islands/login/OtpLogin'
 import {
   fillNativeBilling,
   hasChosenShippingMethod,
+  applyStripeAppearance,
   decorateShipping,
   onCheckoutUpdated,
   relocatePayment,
@@ -67,6 +69,12 @@ function Checkout(props: CheckoutProps) {
       method: ui.cls.method,
       methodName: ui.cls.methodName,
       methodBox: ui.cls.methodBox,
+      token: ui.cls.token,
+      tokenNumber: ui.cls.tokenNumber,
+      tokenExpiry: ui.cls.tokenExpiry,
+      tokenBadge: ui.cls.tokenBadge,
+      small: ui.cls.small,
+      label: ui.cls.label,
       placeOrder: ui.buttons.placeOrder,
       marker: ui.marker,
     }),
@@ -87,6 +95,13 @@ function Checkout(props: CheckoutProps) {
 
   const shippingMountRef = React.useRef<HTMLDivElement>(null)
   const paymentMountRef = React.useRef<HTMLDivElement>(null)
+  const stripeProbeRef = React.useRef<HTMLDivElement>(null)
+
+  // Before Stripe mounts its card form (after the first updated_checkout):
+  // hand it the checkout fields' look. See applyStripeAppearance().
+  React.useEffect(() => {
+    if (!preview) applyStripeAppearance(stripeProbeRef.current)
+  }, [preview])
 
   // Mirror what we know into the native (hidden) fields, so the real form —
   // the one WooCommerce actually submits — always carries valid data by the
@@ -128,7 +143,9 @@ function Checkout(props: CheckoutProps) {
   // rate calculation immediately so shipping options are ready without
   // requiring an extra click.
   React.useEffect(() => {
-    if (!preview && props.loggedIn && props.address.has_address) {
+    // With the Address Book the delivery step prices its own preselected
+    // address on arrival (AddressBookStep), so this would only do it twice.
+    if (!preview && props.loggedIn && props.address.has_address && !props.addressBook) {
       void waitForCheckoutUpdate()
     }
     // Only on mount — this mirrors the address the widget rendered with.
@@ -205,6 +222,49 @@ function Checkout(props: CheckoutProps) {
     setBusy(false)
   }
 
+  /**
+   * An Address Book entry chosen (or just saved) in the delivery step becomes
+   * the order's address: mirrored into WooCommerce's hidden fields, then
+   * repriced, so the carriers on screen are for it.
+   */
+  async function handleUseAddress(values: AddressValues) {
+    setAddressValues(values)
+    setAddressSaved(true)
+    setAddressEditing(false)
+    setAddressErrors({})
+    fillNativeBilling({
+      address_1: values.address_1,
+      address_2: values.address_2,
+      city: values.city,
+      state: values.state,
+      postcode: values.postcode,
+      country: values.country,
+    })
+    setBusy(true)
+    await waitForCheckoutUpdate()
+    setBusy(false)
+  }
+
+  /**
+   * A card saved from the payment step: WooCommerce redraws its block (the
+   * card now in the saved list), and the new card is chosen for this order —
+   * WooCommerce only preselects a customer's first card by itself.
+   */
+  async function handleCardSaved(token: string) {
+    setNotice(null)
+    await waitForCheckoutUpdate()
+    const input = token
+      ? paymentMountRef.current?.querySelector<HTMLInputElement>(`.wc-saved-payment-methods input[value="${CSS.escape(token)}"]`)
+      : null
+    if (input) {
+      input.checked = true
+      input.dispatchEvent(new Event('change', { bubbles: true }))
+    }
+  }
+
+  const needCard = React.useCallback(() => setNotice(text.needCard), [text.needCard])
+  const ownCards = preview || null !== props.stripeCards
+
   function handleContinueToPayment() {
     if (preview) return
     // Re-checked rather than trusted: the address may have been saved before
@@ -249,6 +309,7 @@ function Checkout(props: CheckoutProps) {
       <div
         className={cn(
           'gx-co',
+          ownCards && 'gx-co--own-cards',
           'left' === layout.summaryPosition && 'gx-co--left',
           layout.summarySticky && 'gx-co--sticky'
         )}
@@ -273,6 +334,7 @@ function Checkout(props: CheckoutProps) {
                 text={text}
                 genericError={props.i18n.genericError}
                 onVerified={() => window.location.reload()}
+              initialTab={props.preview?.firstPurchase ? 'register' : 'otp'}
                 preview={preview}
               />
             </StepSection>
@@ -299,28 +361,48 @@ function Checkout(props: CheckoutProps) {
                 </>
               }
             >
-              <AddressStep
-                initial={addressValues}
-                saved={addressSaved}
-                editing={addressEditing}
-                busy={busy}
-                errors={addressErrors}
-                text={text}
-                shippingMountRef={shippingMountRef}
-                onEdit={() => setAddressEditing(true)}
-                onSave={handleAddressSave}
-                onContinue={handleContinueToPayment}
-                preview={preview}
-              />
+              {props.addressBook ? (
+                <AddressBookStep
+                  book={props.addressBook}
+                  quoted={props.quoted}
+                  profile={profileValues}
+                  text={text}
+                  busy={busy}
+                  genericError={props.i18n.genericError}
+                  shippingMountRef={shippingMountRef}
+                  onUse={handleUseAddress}
+                  onContinue={handleContinueToPayment}
+                  onNotice={setNotice}
+                  preview={preview}
+                />
+              ) : (
+                <AddressStep
+                  initial={addressValues}
+                  saved={addressSaved}
+                  editing={addressEditing}
+                  busy={busy}
+                  errors={addressErrors}
+                  text={text}
+                  shippingMountRef={shippingMountRef}
+                  onEdit={() => setAddressEditing(true)}
+                  onSave={handleAddressSave}
+                  onContinue={handleContinueToPayment}
+                  preview={preview}
+                />
+              )}
             </StepSection>
 
             <StepSection index={4} title={text.stepPayment} status={status('payment')}>
               <PaymentStep
-                addressSummary={addressLine}
                 text={text}
-                onBack={() => goTo('address')}
+                ownCards={ownCards}
+                stripeCards={props.stripeCards}
+                onCardSaved={handleCardSaved}
+                onNeedCard={needCard}
                 paymentMountRef={paymentMountRef}
-                preview={preview}
+                stripeProbeRef={stripeProbeRef}
+                decor={decor}
+                sample={props.preview?.payment ?? null}
               />
             </StepSection>
           </div>

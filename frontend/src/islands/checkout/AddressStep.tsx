@@ -5,6 +5,8 @@ import { Input } from '@/ui/input'
 import { CoField, PixButton, useFieldClass, useUi } from '@/lib/pix'
 import type { AddressValues, CheckoutText, CheckoutUi } from './types'
 import type { AddressErrors } from './validation'
+import { PlacesSearch } from './PlacesSearch'
+import { ShippingChoice } from './ShippingChoice'
 
 interface AddressStepProps {
   initial: Partial<AddressValues>
@@ -87,6 +89,20 @@ function AddressStep({
         // `noValidate` for the same reason as the profile step: our messages
         // carry WooCommerce's verdict too, the browser's bubble does not.
         <form noValidate onSubmit={handleSave} className="gx-co-form">
+          <PlacesSearch
+            label={text.addressSearch}
+            onPlace={(place) => {
+              setValues((prev) => ({
+                ...prev,
+                address_1: place.address_1 || prev.address_1,
+                address_2: prev.address_2 || place.neighbourhood,
+                city: place.city || prev.city,
+                state: place.state || prev.state,
+                postcode: place.postcode || prev.postcode,
+              }))
+              if (!place.postcode) document.getElementById(`${id}-cep`)?.focus()
+            }}
+          />
           <CoField label={text.postcode} htmlFor={`${id}-cep`} error={errors.postcode} className="gx-co-field--cep">
             <Input
               unstyled
@@ -147,41 +163,14 @@ function AddressStep({
         </form>
       )}
 
-      {/* Mounted even while the form shows: WooCommerce's list is moved in
-          here on every recalculation and must always have somewhere to land. */}
-      <div hidden={!showSummary} className="gx-co-form">
-        <div role="heading" aria-level={3} className={cn('gx-co-label', cls.label)}>
-          {text.shippingHeading}
-        </div>
-        {preview ? <SampleShipping /> : <div ref={shippingMountRef} className="galaxie-shipping-mount" />}
-        <PixButton button={buttons.paymentButton} onClick={onContinue} disabled={busy} />
-      </div>
-    </div>
-  )
-}
-
-/**
- * The shape WooCommerce's own list takes once moved in and decorated (see
- * native-checkout.ts `decorateShipping`), so the editor styles the real thing.
- */
-function SampleShipping() {
-  const { cls } = useUi<CheckoutUi>()
-  const rates = [
-    { id: 'sedex', label: 'SEDEX (2 a 4 dias úteis)', price: 'R$ 14,90' },
-    { id: 'pac', label: 'PAC (5 a 8 dias úteis)', price: 'R$ 9,67' },
-  ]
-  return (
-    <div className="galaxie-shipping-mount">
-      <ul id="shipping_method" className="woocommerce-shipping-methods">
-        {rates.map((rate, i) => (
-          <li key={rate.id} className={cls.rate}>
-            <input type="radio" name="gx_sample_shipping" id={`gx-sample-${rate.id}`} className="shipping_method" defaultChecked={0 === i} />
-            <label htmlFor={`gx-sample-${rate.id}`} className={cls.rateName}>
-              {rate.label}: <span className="woocommerce-Price-amount amount">{rate.price}</span>
-            </label>
-          </li>
-        ))}
-      </ul>
+      <ShippingChoice
+        text={text}
+        shippingMountRef={shippingMountRef}
+        busy={busy}
+        shown={showSummary}
+        onContinue={onContinue}
+        preview={preview}
+      />
     </div>
   )
 }

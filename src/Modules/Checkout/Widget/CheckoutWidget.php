@@ -11,9 +11,13 @@ use Elementor\Controls_Manager;
 use Galaxie\Woo\Elementor\AbstractIslandWidget;
 use Galaxie\Woo\Modules\Checkout\Module;
 use Galaxie\Woo\Modules\Checkout\OrderSummary;
+use Galaxie\Woo\Modules\Checkout\PaymentMarkup;
+use Galaxie\Woo\Support\AddressBook;
 use Galaxie\Woo\Support\CustomerProfile;
+use Galaxie\Woo\Support\FreeShipping;
 use Galaxie\Woo\Support\LoginControls;
 use Galaxie\Woo\Support\PixfortControls;
+use Galaxie\Woo\Support\StripeCards;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -56,6 +60,11 @@ final class CheckoutWidget extends AbstractIslandWidget {
 		'co_step_title'  => array( 'Texts: step titles', '.gx-co-step-title', array( 'size' => 'h5', 'bold' => 'font-weight-bold' ), 'heading' ),
 		'co_rate_name'   => array( 'Texts: shipping option', '.galaxie-shipping-mount #shipping_method label', array( 'size' => 'text-sm', 'bold' => 'font-weight-bold' ), 'text' ),
 		'co_method_name' => array( 'Texts: payment method', '#payment ul.payment_methods li > label', array( 'size' => 'text-sm', 'bold' => 'font-weight-bold' ), 'text' ),
+		'co_addr_name'        => array( 'Texts: saved address nickname', '.gx-co-address-name', array( 'bold' => 'font-weight-bold' ), 'text' ),
+		'co_addr_text'        => array( 'Texts: saved address', '.gx-co-address-text', array( 'size' => 'text-sm', 'bold' => '' ), 'text' ),
+		'co_token_number'     => array( 'Texts: saved card number', '.gx-co-card-number', array( 'bold' => 'font-weight-bold' ), 'text' ),
+		'co_token_expiry'     => array( 'Texts: saved card expiry', '.gx-co-card-expiry', array( 'size' => 'text-xs', 'bold' => '' ), 'text' ),
+		'co_token_badge_text' => array( 'Texts: saved card badges', '.gx-co-card-badge', array( 'size' => 'text-xs', 'bold' => 'font-weight-bold' ), 'text' ),
 		'co_sum_title'   => array( 'Order summary: title', '.gx-co-summary-title', array( 'size' => 'text-18', 'bold' => 'font-weight-bold' ), 'text' ),
 		'co_item_name'   => array( 'Order summary: product name', '.gx-co-item-name', array( 'size' => 'text-sm', 'bold' => 'font-weight-bold' ), 'text' ),
 		'co_item_meta'   => array( 'Order summary: product details', '.gx-co-item-meta', array( 'size' => 'text-xs', 'bold' => '' ), 'text' ),
@@ -120,6 +129,20 @@ final class CheckoutWidget extends AbstractIslandWidget {
 		);
 
 		$this->add_control(
+			'preview_customer',
+			array(
+				'label'       => __( 'Preview customer', 'galaxie-woo' ),
+				'description' => __( 'Only in the editor. First purchase: the sign-in opens on "Primeira compra", your details and delivery start empty, and payment has no saved cards.', 'galaxie-woo' ),
+				'type'        => Controls_Manager::SELECT,
+				'default'     => 'returning',
+				'options'     => array(
+					'returning' => __( 'Has bought before', 'galaxie-woo' ),
+					'new'       => __( 'First purchase', 'galaxie-woo' ),
+				),
+			)
+		);
+
+		$this->add_control(
 			'summary_position',
 			array(
 				'label'     => __( 'Order summary', 'galaxie-woo' ),
@@ -171,7 +194,6 @@ final class CheckoutWidget extends AbstractIslandWidget {
 		$this->text_control( 'address_button', __( 'Save address button', 'galaxie-woo' ), __( 'Salvar endereço', 'galaxie-woo' ) );
 		$this->text_control( 'shipping_heading', __( 'Shipping options heading', 'galaxie-woo' ), __( 'Forma de envio', 'galaxie-woo' ) );
 		$this->text_control( 'payment_button', __( 'Continue to payment button', 'galaxie-woo' ), __( 'Ir para o pagamento', 'galaxie-woo' ) );
-		$this->text_control( 'delivering_to', __( '"Delivering to" label', 'galaxie-woo' ), __( 'Entregar em', 'galaxie-woo' ) );
 
 		$this->end_controls_section();
 
@@ -188,6 +210,19 @@ final class CheckoutWidget extends AbstractIslandWidget {
 		$this->text_control( 'change_email', __( 'Change e-mail link', 'galaxie-woo' ), __( 'Usar outro e-mail', 'galaxie-woo' ) );
 		$this->text_control( 'marketing', __( 'Marketing opt-in', 'galaxie-woo' ), __( 'Quero receber novidades e ofertas da EIR.', 'galaxie-woo' ), true );
 		$this->text_control( 'terms', __( 'Terms checkbox', 'galaxie-woo' ), __( 'Li e aceito os termos de uso e a política de privacidade.', 'galaxie-woo' ) );
+
+		$this->end_controls_section();
+
+		$this->start_controls_section( 'text_saved_section', array( 'label' => __( 'Texts: addresses and cards', 'galaxie-woo' ) ) );
+
+		$this->text_control( 'add_address', __( 'Add address button', 'galaxie-woo' ), __( 'Adicionar endereço', 'galaxie-woo' ) );
+		$this->text_control( 'quoted_notice', __( 'Cart CEP not saved', 'galaxie-woo' ), __( 'Você calculou o frete para o CEP %s, que não está entre seus endereços.', 'galaxie-woo' ), false, false, __( '%s is replaced by the CEP.', 'galaxie-woo' ) );
+		$this->text_control( 'use_quoted', __( 'Deliver to that CEP button', 'galaxie-woo' ), __( 'Entregar neste CEP', 'galaxie-woo' ) );
+		$this->text_control( 'default_badge', __( 'Default address badge', 'galaxie-woo' ), __( 'Padrão', 'galaxie-woo' ) );
+		$this->text_control( 'cancel_label', __( 'Cancel button', 'galaxie-woo' ), __( 'Cancelar', 'galaxie-woo' ) );
+		$this->text_control( 'add_card', __( 'Add card button', 'galaxie-woo' ), __( 'Adicionar cartão', 'galaxie-woo' ), true );
+		$this->text_control( 'save_card', __( 'Save card button', 'galaxie-woo' ), __( 'Salvar cartão', 'galaxie-woo' ) );
+		$this->text_control( 'need_card', __( 'No card chosen', 'galaxie-woo' ), __( 'Adicione ou escolha um cartão para finalizar o pedido.', 'galaxie-woo' ) );
 
 		$this->end_controls_section();
 
@@ -320,6 +355,18 @@ final class CheckoutWidget extends AbstractIslandWidget {
 		$this->end_controls_section();
 		$this->text_sections( array( 'co_rate_name' ) );
 
+		// Saved addresses (the Address Book's entries) as selectable rows, the
+		// same shape as the shipping options and the saved cards.
+		$addr = '{{WRAPPER}} .gx-co-address';
+		$this->start_controls_section( 'co_addr_style', $style( __( 'Delivery: saved addresses', 'galaxie-woo' ) ) );
+		PixfortControls::surface( $this, 'co_addr', $addr, array( 'rounded' => 'rounded-lg' ) );
+		$this->add_control( 'co_addr_selected_heading', array( 'label' => __( 'Chosen address', 'galaxie-woo' ), 'type' => Controls_Manager::HEADING, 'separator' => 'before' ) );
+		PixfortControls::palette_control( $this, 'co_addr_selected_bg', __( 'Background', 'galaxie-woo' ), $addr . ':has(input:checked)', 'background-color' );
+		PixfortControls::palette_control( $this, 'co_addr_selected_border', __( 'Border color', 'galaxie-woo' ), $addr . ':has(input:checked)', 'border-color', array(), ' border-style: solid;' );
+		PixfortControls::palette_control( $this, 'co_addr_radio', __( 'Radio', 'galaxie-woo' ), $addr . ' input[type="radio"]', 'accent-color' );
+		$this->end_controls_section();
+		$this->text_sections( array( 'co_addr_name', 'co_addr_text' ) );
+
 		// And WooCommerce's payment block.
 		$method = '{{WRAPPER}} .gx-co #payment ul.payment_methods li';
 		$this->start_controls_section( 'co_method_style', $style( __( 'Payment: methods', 'galaxie-woo' ) ) );
@@ -331,6 +378,34 @@ final class CheckoutWidget extends AbstractIslandWidget {
 		PixfortControls::surface( $this, 'co_method_box', '{{WRAPPER}} .gx-co #payment div.payment_box' );
 		$this->end_controls_section();
 		$this->text_sections( array( 'co_method_name' ) );
+
+		// Saved cards: the Payment Methods widget's parts (brand icon, number,
+		// expiry, badges with a colour per state) as selectable rows. The new
+		// card's own fields are Stripe's, inside Stripe's frame; they take
+		// their look from the "Fields" section above (see stripeAppearance()).
+		$token = '{{WRAPPER}} .gx-co #payment .wc-saved-payment-methods li';
+		$this->start_controls_section( 'co_token_style', $style( __( 'Payment: saved cards', 'galaxie-woo' ) ) );
+		PixfortControls::surface( $this, 'co_token', $token, array( 'rounded' => 'rounded-lg' ) );
+		$this->add_control( 'co_token_selected_heading', array( 'label' => __( 'Chosen card', 'galaxie-woo' ), 'type' => Controls_Manager::HEADING, 'separator' => 'before' ) );
+		PixfortControls::palette_control( $this, 'co_token_selected_bg', __( 'Background', 'galaxie-woo' ), $token . ':has(input:checked)', 'background-color' );
+		PixfortControls::palette_control( $this, 'co_token_selected_border', __( 'Border color', 'galaxie-woo' ), $token . ':has(input:checked)', 'border-color', array(), ' border-style: solid;' );
+		PixfortControls::palette_control( $this, 'co_token_radio', __( 'Radio', 'galaxie-woo' ), $token . ' input[type="radio"]', 'accent-color' );
+		$this->add_control( 'co_token_icon_heading', array( 'label' => __( 'Brand icon', 'galaxie-woo' ), 'type' => Controls_Manager::HEADING, 'separator' => 'before' ) );
+		PixfortControls::icon_color( $this, 'co_token_icon', __( 'Color', 'galaxie-woo' ), '{{WRAPPER}} .gx-co-card-brand' );
+		$this->add_control( 'co_token_badge_heading', array( 'label' => __( 'Badges', 'galaxie-woo' ), 'type' => Controls_Manager::HEADING, 'separator' => 'before' ) );
+		PixfortControls::surface( $this, 'co_token_badge', '{{WRAPPER}} .gx-co-card-badge', array( 'rounded' => 'badge-pill', 'radius_set' => 'badge' ), array(), false );
+		foreach ( array(
+			'default'  => __( 'Default card', 'galaxie-woo' ),
+			'expiring' => __( 'Expiring soon', 'galaxie-woo' ),
+			'expired'  => __( 'Expired', 'galaxie-woo' ),
+		) as $state => $label ) {
+			$badge = '{{WRAPPER}} .gx-co-card-badge.is-' . $state;
+			$this->add_control( 'co_token_badge_' . $state . '_heading', array( 'label' => $label, 'type' => Controls_Manager::HEADING ) );
+			PixfortControls::palette_control( $this, 'co_token_badge_' . $state . '_bg', __( 'Background', 'galaxie-woo' ), $badge, 'background-color' );
+			PixfortControls::palette_control( $this, 'co_token_badge_' . $state . '_color', __( 'Text color', 'galaxie-woo' ), $badge, 'color' );
+		}
+		$this->end_controls_section();
+		$this->text_sections( array( 'co_token_number', 'co_token_expiry', 'co_token_badge_text' ) );
 
 		$this->start_controls_section( 'summary_box_style', $style( __( 'Order summary: box', 'galaxie-woo' ) ) );
 		PixfortControls::surface( $this, 'summary_box', '{{WRAPPER}} .gx-co-summary-box', array( 'rounded' => 'rounded-lg' ) );
@@ -404,6 +479,9 @@ final class CheckoutWidget extends AbstractIslandWidget {
 			'summaryBox' => $sc( 'summary_box' ),
 			'thumb'      => PixfortControls::thumb_classes( $settings, 'co_thumb' ),
 			'qty'        => trim( $tc( 'co_qty_text' ) . ' ' . $sc( 'co_qty' ) ),
+			'token'      => $sc( 'co_token' ),
+			'address'    => $sc( 'co_addr' ),
+			'tokenBadge' => trim( $tc( 'co_token_badge_text' ) . ' ' . $sc( 'co_token_badge' ) ),
 		);
 
 		$button = static fn( string $prefix, string $label ): array => array(
@@ -422,6 +500,11 @@ final class CheckoutWidget extends AbstractIslandWidget {
 				'placeOrder'     => $button( 'co_btn_place', self::LABEL_MARKER ),
 				'edit'           => $button( 'co_btn_link', $text['edit'] ),
 				'logout'         => $button( 'co_btn_link', $text['logout'] ),
+				'addAddress'     => $button( 'co_btn_link', $text['addAddress'] ),
+				'useQuoted'      => $button( 'co_btn_link', $text['useQuoted'] ),
+				'cancel'         => $button( 'co_btn_link', $text['cancel'] ),
+				'addCard'        => $button( 'co_btn_link', $text['addCard'] ),
+				'saveCard'       => $button( 'co_btn_main', $text['saveCard'] ),
 			),
 			'alert'   => $shared['alert'],
 			'marker'  => $shared['marker'],
@@ -453,6 +536,9 @@ final class CheckoutWidget extends AbstractIslandWidget {
 			),
 			'text'      => $text,
 			'ui'        => $this->ui( $settings, $text ),
+			'addressBook' => $logged_in ? self::address_book( $user->ID ) : null,
+			'quoted'      => $preview ? null : self::quoted(),
+			'stripeCards' => $logged_in && \Galaxie\Woo\Core\Plugin::instance()->settings()->is_enabled( 'my-account', true ) ? StripeCards::client_config() : null,
 			'i18n'      => array(
 				'genericError' => __( 'Algo deu errado. Tente novamente.', 'galaxie-woo' ),
 				'noShipping'   => __( 'Não há opções de envio para este endereço. Confira o endereço e tente novamente.', 'galaxie-woo' ),
@@ -461,8 +547,15 @@ final class CheckoutWidget extends AbstractIslandWidget {
 		);
 
 		if ( $preview ) {
-			$step             = (string) ( $settings['preview_step'] ?? 'entry' );
-			$props['preview'] = array( 'step' => in_array( $step, self::STEPS, true ) ? $step : 'entry' );
+			$step  = (string) ( $settings['preview_step'] ?? 'entry' );
+			$step  = in_array( $step, self::STEPS, true ) ? $step : 'entry';
+			$first = 'new' === ( $settings['preview_customer'] ?? 'returning' );
+
+			$props['preview'] = array(
+				'step'          => $step,
+				'firstPurchase' => $first,
+				'payment'       => PaymentMarkup::sample( ! $first ),
+			);
 			$props['userEmail'] = 'cliente@exemplo.com.br';
 			$props['profile']   = array(
 				'complete' => true,
@@ -484,9 +577,72 @@ final class CheckoutWidget extends AbstractIslandWidget {
 				'postcode'    => '05435-000',
 				'country'     => 'BR',
 			);
+
+			// The address book as a returning customer has it; none for a
+			// first purchase.
+			$props['addressBook'] = array(
+				'ajaxUrl' => '',
+				'nonce'   => '',
+				'entries' => $first ? array() : array(
+					array( 'id' => 'sample-home', 'label' => __( 'Casa', 'galaxie-woo' ), 'formatted' => 'Rua Harmonia, 123, Apto 42<br/>Vila Madalena<br/>São Paulo - SP<br/>05435-000', 'values' => array( 'address_1' => 'Rua Harmonia, 123', 'address_2' => 'Apto 42', 'city' => 'São Paulo', 'state' => 'SP', 'postcode' => '05435-000', 'country' => 'BR' ), 'shipping' => true, 'billing' => true ),
+					array( 'id' => 'sample-work', 'label' => __( 'Trabalho', 'galaxie-woo' ), 'formatted' => 'Av. Paulista, 1000, Conj. 81<br/>Bela Vista<br/>São Paulo - SP<br/>01310-100', 'values' => array( 'address_1' => 'Av. Paulista, 1000', 'address_2' => 'Conj. 81', 'city' => 'São Paulo', 'state' => 'SP', 'postcode' => '01310-100', 'country' => 'BR' ), 'shipping' => false, 'billing' => false ),
+				),
+			);
+
+			// A first purchase shows the step being previewed in the state a
+			// new customer meets it: nothing on file yet. The steps before it
+			// keep the sample, because by then that customer has filled them.
+			if ( $first && 'profile' === $step ) {
+				$props['profile'] = array( 'complete' => false, 'missing' => array(), 'values' => array() );
+			}
+			if ( $first && 'address' === $step ) {
+				$props['address'] = array( 'has_address' => false );
+			}
 		}
 
 		return $props;
+	}
+
+	/**
+	 * The customer's Address Book, when that module is on: its entries as My
+	 * Account draws them (`AddressBook::for_js()`), and its own nonce, so the
+	 * checkout saves through the same endpoint and the same rules (required
+	 * fields, CEP, the 20-address limit, an address already in the book being
+	 * updated rather than doubled). Null with the module off: the checkout then
+	 * keeps its single-address form.
+	 *
+	 * @return array<string,mixed>|null
+	 */
+	private static function address_book( int $user_id ): ?array {
+		if ( ! \Galaxie\Woo\Core\Plugin::instance()->settings()->is_enabled( 'address-book', false ) ) {
+			return null;
+		}
+
+		return array(
+			'ajaxUrl' => admin_url( 'admin-ajax.php' ),
+			'nonce'   => wp_create_nonce( \Galaxie\Woo\Modules\AddressBook\Module::NONCE_ACTION ),
+			'entries' => AddressBook::for_js( $user_id ),
+		);
+	}
+
+	/**
+	 * The CEP the shopper quoted shipping for on the cart — WooCommerce keeps it
+	 * in the session, never in the account — so the delivery step can start
+	 * from it. Null until a real destination was typed (WooCommerce otherwise
+	 * reports the store's own address).
+	 *
+	 * @return array<string,string>|null
+	 */
+	private static function quoted(): ?array {
+		if ( ! function_exists( 'WC' ) || ! WC()->customer || ! FreeShipping::destination_known() ) {
+			return null;
+		}
+
+		return array(
+			'postcode' => (string) WC()->customer->get_shipping_postcode(),
+			'city'     => (string) WC()->customer->get_shipping_city(),
+			'state'    => (string) WC()->customer->get_shipping_state(),
+		);
 	}
 
 	/**
@@ -511,7 +667,6 @@ final class CheckoutWidget extends AbstractIslandWidget {
 			'addressButton'   => $from( 'address_button', __( 'Salvar endereço', 'galaxie-woo' ) ),
 			'shippingHeading' => $from( 'shipping_heading', __( 'Forma de envio', 'galaxie-woo' ) ),
 			'paymentButton'   => $from( 'payment_button', __( 'Ir para o pagamento', 'galaxie-woo' ) ),
-			'deliveringTo'    => $from( 'delivering_to', __( 'Entregar em', 'galaxie-woo' ) ),
 			'entryIntro'      => $from( 'entry_intro', '' ),
 			'tabLogin'        => $from( 'tab_login', __( 'Já sou cliente', 'galaxie-woo' ) ),
 			'tabRegister'     => $from( 'tab_register', __( 'Primeira compra', 'galaxie-woo' ) ),
@@ -523,6 +678,20 @@ final class CheckoutWidget extends AbstractIslandWidget {
 			'changeEmail'     => $from( 'change_email', __( 'Usar outro e-mail', 'galaxie-woo' ) ),
 			'marketing'       => $from( 'marketing', __( 'Quero receber novidades e ofertas da EIR.', 'galaxie-woo' ) ),
 			'terms'           => $from( 'terms', __( 'Li e aceito os termos de uso e a política de privacidade.', 'galaxie-woo' ) ),
+			'addAddress'      => $from( 'add_address', __( 'Adicionar endereço', 'galaxie-woo' ) ),
+			'quotedNotice'    => $from( 'quoted_notice', __( 'Você calculou o frete para o CEP %s, que não está entre seus endereços.', 'galaxie-woo' ) ),
+			'useQuoted'       => $from( 'use_quoted', __( 'Entregar neste CEP', 'galaxie-woo' ) ),
+			'defaultBadge'    => $from( 'default_badge', __( 'Padrão', 'galaxie-woo' ) ),
+			'cancel'          => $from( 'cancel_label', __( 'Cancelar', 'galaxie-woo' ) ),
+			'addCard'         => $from( 'add_card', __( 'Adicionar cartão', 'galaxie-woo' ) ),
+			'saveCard'        => $from( 'save_card', __( 'Salvar cartão', 'galaxie-woo' ) ),
+			'needCard'        => $from( 'need_card', __( 'Adicione ou escolha um cartão para finalizar o pedido.', 'galaxie-woo' ) ),
+			'addressSearch'   => __( 'Buscar endereço', 'galaxie-woo' ),
+			'addressNickname' => __( 'Apelido (opcional)', 'galaxie-woo' ),
+			'addressNicknameHint' => __( 'Ex.: Casa, Trabalho', 'galaxie-woo' ),
+			'cardNumber'      => __( 'Número do cartão', 'galaxie-woo' ),
+			'cardExpiry'      => __( 'Validade', 'galaxie-woo' ),
+			'cardCvc'         => __( 'CVC', 'galaxie-woo' ),
 			'summaryTitle'    => $from( 'summary_title', __( 'Resumo do pedido', 'galaxie-woo' ) ),
 			'summaryTotal'    => $from( 'summary_total', __( 'Total', 'galaxie-woo' ) ),
 			'summaryShow'     => $from( 'summary_show', __( 'Ver resumo do pedido', 'galaxie-woo' ) ),

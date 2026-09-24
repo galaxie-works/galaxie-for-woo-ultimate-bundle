@@ -202,6 +202,15 @@ export interface NativeDecor {
   method: string
   methodName: string
   methodBox: string
+  /** Saved-card rows and their parts (see PHP Checkout\PaymentMarkup). */
+  token: string
+  tokenNumber: string
+  tokenExpiry: string
+  tokenBadge: string
+  /** Small print: gateway descriptions, the save-card checkbox. */
+  small: string
+  /** Field labels: the editor sample's stand-ins for Stripe's field labels. */
+  label: string
   /** pixfort's place-order button markup, `marker` standing for the label. */
   placeOrder: { html: string; full: boolean }
   marker: string
@@ -243,8 +252,13 @@ export function decoratePayment(mount: HTMLElement | null, decor: NativeDecor): 
   mount.querySelectorAll('li.wc_payment_method').forEach((li) => {
     addClasses(li, decor.method)
     addClasses(li.querySelector(':scope > label'), decor.methodName)
-    addClasses(li.querySelector('.payment_box'), decor.methodBox)
+    addClasses(li.querySelector('.payment_box'), `${decor.methodBox} ${decor.small}`)
   })
+  mount.querySelectorAll('.wc-saved-payment-methods > li').forEach((li) => addClasses(li, decor.token))
+  mount.querySelectorAll('.gx-co-card-number').forEach((el) => addClasses(el, decor.tokenNumber))
+  mount.querySelectorAll('.gx-co-card-expiry').forEach((el) => addClasses(el, decor.tokenExpiry))
+  mount.querySelectorAll('.gx-co-card-badge').forEach((el) => addClasses(el, decor.tokenBadge))
+  mount.querySelectorAll('.gx-co-sample-label').forEach((el) => addClasses(el, decor.label))
 
   const button = mount.querySelector<HTMLButtonElement>('#place_order')
   if (!button || button.querySelector('.btn')) return
@@ -268,4 +282,78 @@ export function watchPayment(mount: HTMLElement | null, decor: NativeDecor): () 
   const observer = new MutationObserver(() => decoratePayment(mount, decor))
   observer.observe(mount, { childList: true, subtree: true })
   return () => observer.disconnect()
+}
+
+/**
+ * The look Stripe's card form takes, from the checkout's own fields.
+ *
+ * The new card is typed into Stripe's Payment Element, an iframe this page
+ * cannot style. Left to itself, the Stripe plugin copies its look from
+ * `#billing_first_name` and the payment box — WooCommerce's native fields,
+ * which this widget keeps hidden, and a box the theme paints — so the frame
+ * came out in colours from nowhere on the page. The plugin takes a finished
+ * Appearance object from `wc_stripe_upe_params.appearance` instead of
+ * computing one, so this writes one there, read off `probe`: an input
+ * carrying the same `.form-control` and "Fields" classes every checkout field
+ * has, and a label with the "Field labels" classes. Whatever the panel sets
+ * for the fields is what Stripe's fields get.
+ *
+ * Must run before the plugin mounts its element (it does so after the first
+ * `updated_checkout`); the island runs at DOMContentLoaded, earlier.
+ */
+export function applyStripeAppearance(probe: HTMLElement | null): void {
+  const params = (window as unknown as { wc_stripe_upe_params?: Record<string, unknown> }).wc_stripe_upe_params
+  const input = probe?.querySelector<HTMLElement>('input')
+  const label = probe?.querySelector<HTMLElement>('.gx-co-label')
+  const accent = probe?.querySelector<HTMLElement>('.gx-co-stripe-accent')
+  if (!params || !input || !label || !accent) return
+
+  const field = getComputedStyle(input)
+  const text = getComputedStyle(label)
+  const primary = getComputedStyle(accent).backgroundColor
+  const background = opaque(field.backgroundColor) ? field.backgroundColor : pageBackground(probe as HTMLElement)
+  const border = `${field.borderTopWidth} ${field.borderTopStyle === 'none' ? 'solid' : field.borderTopStyle} ${field.borderTopColor}`
+
+  params.appearance = {
+    theme: isDark(background) ? 'night' : 'stripe',
+    variables: {
+      colorPrimary: primary,
+      colorBackground: background,
+      colorText: field.color,
+      colorDanger: '#df1b41',
+      fontFamily: field.fontFamily,
+      fontSizeBase: field.fontSize,
+      borderRadius: field.borderTopLeftRadius,
+    },
+    rules: {
+      '.Input': { border, boxShadow: 'none', padding: `${field.paddingTop} ${field.paddingLeft}` },
+      '.Input:focus': { borderColor: primary, boxShadow: 'none' },
+      '.Label': { color: text.color, fontWeight: text.fontWeight, fontSize: text.fontSize },
+      '.Tab': { border, boxShadow: 'none', backgroundColor: background },
+      '.Tab--selected': { borderColor: primary, boxShadow: 'none' },
+    },
+  }
+}
+
+function channels(color: string): number[] {
+  return (color.match(/[\d.]+/g) ?? []).map(Number)
+}
+
+function opaque(color: string): boolean {
+  const [, , , alpha = 1] = channels(color)
+  return channels(color).length >= 3 && alpha > 0.9
+}
+
+/** The first painted background up the tree: what a transparent field sits on. */
+function pageBackground(from: HTMLElement): string {
+  for (let el: HTMLElement | null = from; el; el = el.parentElement) {
+    const bg = getComputedStyle(el).backgroundColor
+    if (opaque(bg)) return bg
+  }
+  return 'rgb(255, 255, 255)'
+}
+
+function isDark(color: string): boolean {
+  const [r = 255, g = 255, b = 255] = channels(color)
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b < 128
 }

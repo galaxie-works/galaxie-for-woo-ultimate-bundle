@@ -3502,70 +3502,6 @@ address.galaxie-order-body {
     margin-left: 12px;
   }
 
-  /* WooCommerce's payment block, moved into the payment step and decorated
-     with the "Payment: methods" classes (decoratePayment). WooCommerce and
-     themes paint it as a grey panel with an arrow bubble per method: fine on
-     white, a light slab on a dark page. */
-  .gx-co #payment {
-    background: transparent;
-    border-radius: 0;
-    color: var(--foreground);
-  }
-  .gx-co #payment ul.payment_methods {
-    display: grid;
-    gap: 8px;
-    margin: 0 0 16px;
-    padding: 0;
-    border: 0;
-    list-style: none;
-  }
-  .gx-co #payment ul.payment_methods li {
-    margin: 0;
-    padding: 14px 16px;
-    border: 1px solid var(--border);
-    line-height: 1.4;
-  }
-  .gx-co #payment ul.payment_methods li:has(> input:checked) {
-    border-color: var(--primary);
-  }
-  .gx-co #payment ul.payment_methods li > input[type='radio'] {
-    margin-right: 8px;
-    accent-color: var(--primary);
-  }
-  .gx-co #payment ul.payment_methods li > label {
-    color: var(--foreground);
-    cursor: pointer;
-  }
-  .gx-co #payment div.payment_box {
-    margin: 12px 0 0;
-    padding: 12px 14px;
-    background: var(--muted);
-    color: var(--muted-foreground);
-  }
-  .gx-co #payment div.payment_box::before {
-    display: none;
-  }
-  .gx-co #payment div.form-row {
-    margin: 0;
-    padding: 0;
-  }
-  .gx-co #payment .woocommerce-terms-and-conditions-wrapper,
-  .gx-co #payment .woocommerce-privacy-policy-text {
-    margin-bottom: 16px;
-    color: var(--muted-foreground);
-    font-size: 13px;
-  }
-  .gx-co #payment .woocommerce-info,
-  .gx-co #payment .woocommerce-notice {
-    margin: 0 0 16px;
-    padding: 14px 16px;
-    border: 1px dashed var(--border);
-    background: transparent;
-    color: var(--muted-foreground);
-  }
-  .gx-co #payment .woocommerce-info::before {
-    display: none;
-  }
 }
 
 /* pixfort styles `label` by tag, outside any layer (inline-block, a bottom
@@ -3594,7 +3530,7 @@ address.galaxie-order-body {
 /* WooCommerce's place-order <button> once decorated: only the hit area, the
    pixfort .btn inside is the button. Outside the layer — the theme styles
    `#place_order` and `button` outside any layer too. */
-.gx-co #place_order.galaxie-account-submit {
+.gx-co .galaxie-payment-mount #payment #place_order.galaxie-account-submit {
   float: none;
   height: auto;
   margin: 0;
@@ -3603,3 +3539,387 @@ address.galaxie-order-body {
   background: none;
   box-shadow: none;
 }
+
+/* ── Checkout: WooCommerce's payment block ─────────────────────────────────
+   Moved into the payment step and decorated with the panel's classes
+   (native-checkout.ts decoratePayment). WooCommerce and pixfort's WooCommerce
+   sheet paint it as a tinted panel — pixfort's "secondary", a tint of the
+   store's primary, which is the gold slab on this store — with an arrow
+   bubble per method and bold half-black text inside it. All of that is
+   outside any layer with an id in the selector (`.woocommerce-checkout
+   #payment div.payment_box`), so these rules are too, one class more
+   specific. They set structure and a neutral look only: the panel's surface
+   controls write !important colours, and text colour and size are left to
+   the inherited value or the text classes the decorator adds. */
+.gx-co .galaxie-payment-mount #payment {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  color: var(--foreground);
+}
+/* pixfort's WooCommerce sheet also paints the block's own class with
+   !important (a white 80% panel with an inset shadow), which only a more
+   specific !important can answer. */
+.gx-co .galaxie-payment-mount #payment.woocommerce-checkout-payment,
+.gx-co .galaxie-payment-mount #payment {
+  margin: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+.gx-co .galaxie-payment-mount #payment ul.payment_methods {
+  display: grid;
+  gap: 10px;
+  margin: 0 0 20px;
+  padding: 0;
+  border: 0;
+  list-style: none;
+}
+.gx-co .galaxie-payment-mount #payment ul.payment_methods > li {
+  margin: 0;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  line-height: 1.4;
+  text-align: left;
+  transition: border-color 0.15s, background-color 0.15s;
+}
+/* WooCommerce clears each row with ::before/::after `display: table` holding
+   a space — an empty line above the radio in a flex-free row — and the theme
+   gives list items their marker back (the dot left of each method). */
+.gx-co .galaxie-payment-mount #payment ul.payment_methods > li,
+.gx-co .galaxie-payment-mount #payment .wc-saved-payment-methods > li {
+  list-style: none;
+}
+.gx-co .galaxie-payment-mount #payment ul.payment_methods > li::before,
+.gx-co .galaxie-payment-mount #payment ul.payment_methods > li::after,
+.gx-co .galaxie-payment-mount #payment .wc-saved-payment-methods > li::before,
+.gx-co .galaxie-payment-mount #payment .wc-saved-payment-methods > li::after {
+  content: none;
+  display: none;
+}
+.gx-co .galaxie-payment-mount #payment ul.payment_methods > li::marker {
+  content: none;
+}
+.gx-co .galaxie-payment-mount #payment ul.payment_methods > li:has(> input:checked) {
+  border-color: var(--primary);
+}
+.gx-co .galaxie-payment-mount #payment ul.payment_methods > li > input[type='radio'] {
+  margin: 0 10px 0 0 !important;
+  vertical-align: middle;
+  accent-color: var(--primary);
+}
+.gx-co .galaxie-payment-mount #payment ul.payment_methods > li > label {
+  display: inline;
+  margin: 0;
+  color: inherit;
+  cursor: pointer;
+}
+.gx-co .galaxie-payment-mount #payment ul.payment_methods > li > label img {
+  display: inline-block;
+  max-height: 22px;
+  margin: 0 0 0 8px;
+  vertical-align: middle;
+}
+
+/* The method's box: its description, and for a card the saved cards and
+   Stripe's fields. A plain area under the method, not a speech bubble. */
+.gx-co .galaxie-payment-mount #payment div.payment_box {
+  width: 100%;
+  margin: 14px 0 0;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font-size: inherit;
+  line-height: 1.5;
+}
+.gx-co .galaxie-payment-mount #payment div.payment_box::before {
+  display: none;
+}
+.gx-co .galaxie-payment-mount #payment div.payment_box p {
+  margin: 0 0 12px;
+  color: inherit;
+  font-weight: inherit;
+  font-size: inherit;
+}
+.gx-co .galaxie-payment-mount #payment div.payment_box p:last-child {
+  margin-bottom: 0;
+}
+.gx-co .galaxie-payment-mount #payment div.payment_box fieldset {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+/* Saved cards (Checkout\PaymentMarkup): one selectable row per card. */
+.gx-co .galaxie-payment-mount #payment .wc-saved-payment-methods {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 14px;
+  padding: 0;
+  list-style: none;
+}
+.gx-co .galaxie-payment-mount #payment .wc-saved-payment-methods > li {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  transition: border-color 0.15s, background-color 0.15s;
+}
+.gx-co .galaxie-payment-mount #payment .wc-saved-payment-methods > li:has(input:checked) {
+  border-color: var(--primary);
+}
+.gx-co .galaxie-payment-mount #payment .wc-saved-payment-methods > li.is-expired {
+  opacity: 0.55;
+}
+.gx-co .galaxie-payment-mount #payment .wc-saved-payment-methods input[type='radio'] {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin: 0 !important;
+  accent-color: var(--primary);
+}
+.gx-co .galaxie-payment-mount #payment .wc-saved-payment-methods label {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  margin: 0;
+  color: inherit;
+  cursor: pointer;
+}
+/* The whole row is the click target. */
+.gx-co .galaxie-payment-mount #payment .wc-saved-payment-methods label::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+}
+.gx-co .galaxie-payment-mount #payment .wc-saved-payment-methods li.is-expired label {
+  cursor: not-allowed;
+}
+.gx-co .gx-co-card-brand {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 28px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+.gx-co .gx-co-card-brand .pixfort-icon {
+  width: 26px;
+  height: 26px;
+}
+.gx-co .gx-co-card-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.3;
+}
+.gx-co .gx-co-card-expiry {
+  opacity: 0.75;
+}
+.gx-co .gx-co-card-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.gx-co .gx-co-card-badge {
+  padding: 3px 8px;
+  line-height: 1.2;
+  white-space: nowrap;
+  background-color: var(--muted);
+}
+.gx-co .gx-co-card-badge.is-expiring {
+  background-color: color-mix(in srgb, #f59e0b 22%, transparent);
+}
+.gx-co .gx-co-card-badge.is-expired {
+  background-color: color-mix(in srgb, var(--destructive) 18%, transparent);
+}
+
+/* Stripe's new-card form and the "save this card" line. */
+.gx-co .galaxie-payment-mount #payment .wc-upe-form,
+.gx-co .galaxie-payment-mount #payment .wc-payment-form {
+  margin: 0 0 12px;
+  padding: 0;
+  border: 0;
+}
+.gx-co .galaxie-payment-mount #payment .woocommerce-SavedPaymentMethods-saveNew {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+}
+.gx-co .galaxie-payment-mount #payment .woocommerce-SavedPaymentMethods-saveNew input {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin: 0 !important;
+  accent-color: var(--primary);
+}
+.gx-co .galaxie-payment-mount #payment .woocommerce-SavedPaymentMethods-saveNew label {
+  margin: 0;
+  color: inherit;
+  cursor: pointer;
+}
+
+/* The editor sample's stand-in for Stripe's fields (Checkout\PaymentMarkup::sample). */
+.gx-co .gx-co-sample-card {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.gx-co .gx-co-sample-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.gx-co .gx-co-sample-field.is-number {
+  grid-column: 1 / -1;
+}
+.gx-co .gx-co-sample-input {
+  display: flex;
+  align-items: center;
+  opacity: 0.6;
+}
+
+/* Terms, privacy text and "no methods available" notices. */
+.gx-co .galaxie-payment-mount #payment div.form-row,
+.gx-co .galaxie-payment-mount #payment .place-order {
+  margin: 0;
+  padding: 0;
+}
+.gx-co .galaxie-payment-mount #payment .woocommerce-terms-and-conditions-wrapper {
+  margin: 0 0 16px;
+  opacity: 0.8;
+  font-size: 13px;
+}
+.gx-co .galaxie-payment-mount #payment .woocommerce-privacy-policy-text p {
+  margin: 0;
+}
+.gx-co .galaxie-payment-mount #payment .woocommerce-info,
+.gx-co .galaxie-payment-mount #payment .woocommerce-notice {
+  margin: 0 0 16px;
+  padding: 14px 16px;
+  border: 1px dashed var(--border);
+  background: transparent;
+  color: inherit;
+}
+.gx-co .galaxie-payment-mount #payment .woocommerce-info::before {
+  display: none;
+}
+
+/* Stripe's appearance probe: never shown, only measured. */
+.gx-co .gx-co-stripe-accent {
+  background-color: var(--primary);
+}
+
+/* ── Checkout: reused Address Book and card form ───────────────────────────
+   Saved addresses are rows like the saved cards and the shipping options; the
+   card form is My Account's (lib/stripe-cards.ts), with the checkout's own
+   field boxes. Two classes deep, outside the layer: pixfort styles `li` and
+   `label` by tag outside any layer too. */
+.gx-co .gx-co-addresses {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.gx-co .gx-co-address {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 0;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  list-style: none;
+  transition: border-color 0.15s, background-color 0.15s;
+}
+.gx-co .gx-co-address:has(input:checked) {
+  border-color: var(--primary);
+}
+.gx-co .gx-co-address input[type='radio'] {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin: 3px 0 0;
+  accent-color: var(--primary);
+}
+.gx-co .gx-co-address label {
+  display: flex;
+  flex: 1;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  margin: 0;
+  color: inherit;
+  cursor: pointer;
+}
+/* The whole row is the click target. */
+.gx-co .gx-co-address label::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+}
+.gx-co .gx-co-address-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.gx-co .gx-co-address-name {
+  color: var(--foreground);
+}
+
+/* The gateway's own new-card row, form and "save" line give way to the
+   plugin's card form (PaymentStep / AddCard). WooCommerce's
+   tokenization script sets inline display on them, hence !important. */
+.gx-co--own-cards .galaxie-payment-mount #payment li.payment_method_stripe .woocommerce-SavedPaymentMethods-new,
+.gx-co--own-cards .galaxie-payment-mount #payment li.payment_method_stripe .wc-upe-form,
+.gx-co--own-cards .galaxie-payment-mount #payment li.payment_method_stripe .wc-payment-form,
+.gx-co--own-cards .galaxie-payment-mount #payment li.payment_method_stripe .woocommerce-SavedPaymentMethods-saveNew {
+  display: none !important;
+}
+.gx-co .gx-co-add-card {
+  margin-top: 4px;
+}
+.gx-co .gx-co-add-card-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.gx-co .gx-co-add-card-form.is-busy {
+  opacity: 0.7;
+  pointer-events: none;
+}
+.gx-co .gx-co-card-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.gx-co .gx-co-card-fields .is-number {
+  grid-column: 1 / -1;
+}
+.gx-co .gx-co-card-box {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 44px;
+  cursor: text;
+}
+.gx-co .gx-co-card-box > div {
+  width: 100%;
+}
+.gx-co .gx-co-card-sample {
+  opacity: 0.55;
+}
+
