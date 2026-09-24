@@ -12,6 +12,7 @@ use Galaxie\Woo\Elementor\AbstractIslandWidget;
 use Galaxie\Woo\Modules\Checkout\Module;
 use Galaxie\Woo\Modules\Checkout\OrderSummary;
 use Galaxie\Woo\Support\CustomerProfile;
+use Galaxie\Woo\Support\LoginControls;
 use Galaxie\Woo\Support\PixfortControls;
 
 defined( 'ABSPATH' ) || exit;
@@ -41,7 +42,8 @@ final class CheckoutWidget extends AbstractIslandWidget {
 	private const STEPS = array( 'entry', 'profile', 'address', 'payment' );
 
 	/** Stands in for a label pixfort draws before the island knows it (place order, alert text). */
-	private const LABEL_MARKER = '%%GX_LABEL%%';
+	/** The sign-in's own marker, so both widgets swap the same string. */
+	private const LABEL_MARKER = LoginControls::MARKER;
 
 	/**
 	 * The text roles, as prefix => [section label, selector, defaults, size
@@ -52,12 +54,6 @@ final class CheckoutWidget extends AbstractIslandWidget {
 	 */
 	private const TEXTS = array(
 		'co_step_title'  => array( 'Texts: step titles', '.gx-co-step-title', array( 'size' => 'h5', 'bold' => 'font-weight-bold' ), 'heading' ),
-		'co_body'        => array( 'Texts: body', '.gx-co-body', array( 'bold' => '' ), 'text' ),
-		'co_small'       => array( 'Texts: small text', '.gx-co-small', array( 'size' => 'text-sm', 'bold' => '' ), 'text' ),
-		'co_label'       => array( 'Texts: field labels', '.gx-co-label', array( 'size' => 'text-sm', 'bold' => 'font-weight-bold' ), 'text' ),
-		'co_hint'        => array( 'Texts: hints', '.gx-co-hint', array( 'size' => 'text-xs', 'bold' => '' ), 'text' ),
-		'co_error'       => array( 'Texts: error under a field', '.gx-co-error', array( 'size' => 'text-xs', 'bold' => '', 'content_color' => 'red' ), 'text' ),
-		'co_tab_text'    => array( 'Texts: sign-in tabs', '.gx-co-tab', array( 'size' => 'text-sm', 'bold' => 'font-weight-bold' ), 'text' ),
 		'co_rate_name'   => array( 'Texts: shipping option', '.galaxie-shipping-mount #shipping_method label', array( 'size' => 'text-sm', 'bold' => 'font-weight-bold' ), 'text' ),
 		'co_method_name' => array( 'Texts: payment method', '#payment ul.payment_methods li > label', array( 'size' => 'text-sm', 'bold' => 'font-weight-bold' ), 'text' ),
 		'co_sum_title'   => array( 'Order summary: title', '.gx-co-summary-title', array( 'size' => 'text-18', 'bold' => 'font-weight-bold' ), 'text' ),
@@ -78,10 +74,8 @@ final class CheckoutWidget extends AbstractIslandWidget {
 	 * padding, as the Address Book's secondary actions are.
 	 */
 	private const BUTTONS = array(
-		'co_btn_main'  => array( 'Button · Main actions', array( 'color' => 'primary', 'full' => 'yes' ) ),
 		'co_btn_next'  => array( 'Button · Continue to payment', array( 'color' => 'primary', 'full' => 'yes', 'icon' => 'Line/pixfort-icon-arrow-right-1', 'icon_position' => 'after' ) ),
 		'co_btn_place' => array( 'Button · Place order', array( 'color' => 'primary', 'full' => 'yes', 'size' => 'lg' ) ),
-		'co_btn_link'  => array( 'Button · Links (Alterar, Reenviar…)', array( 'style' => 'link', 'size' => 'sm', 'remove_padding' => 'no-padding', 'title_bold' => '' ) ),
 	);
 
 	public function get_name(): string {
@@ -289,16 +283,6 @@ final class CheckoutWidget extends AbstractIslandWidget {
 				'selectors'  => array( '{{WRAPPER}} .gx-co-main' => 'gap: {{SIZE}}{{UNIT}};' ),
 			)
 		);
-		$this->add_responsive_control(
-			'co_field_gap',
-			array(
-				'label'      => __( 'Space between fields', 'galaxie-woo' ),
-				'type'       => Controls_Manager::SLIDER,
-				'size_units' => array( 'px' ),
-				'range'      => array( 'px' => array( 'min' => 0, 'max' => 40 ) ),
-				'selectors'  => array( '{{WRAPPER}} .gx-co-form' => 'gap: {{SIZE}}{{UNIT}};' ),
-			)
-		);
 		$this->end_controls_section();
 
 		// The Kit Builder's step dot: a pill on the site's radius scale.
@@ -318,41 +302,11 @@ final class CheckoutWidget extends AbstractIslandWidget {
 		PixfortControls::palette_control( $this, 'co_step_current_border', __( 'Border color', 'galaxie-woo' ), '{{WRAPPER}} .gx-co-step.is-current', 'border-color', array(), ' border-style: solid;' );
 		$this->end_controls_section();
 
-		// Each text sits next to the part it belongs to (see text_sections()).
-		$this->text_sections( array( 'co_step_title', 'co_body', 'co_small', 'co_label', 'co_hint', 'co_error' ) );
+		$this->text_sections( array( 'co_step_title' ) );
 
-		// Sign-in tabs: the Wishlist's list tabs, a pill with a current state.
-		$this->start_controls_section( 'co_tab_box_style', $style( __( 'Sign-in tabs', 'galaxie-woo' ) ) );
-		PixfortControls::surface( $this, 'co_tab', '{{WRAPPER}} .gx-co-tab', array( 'rounded' => 'badge-pill', 'radius_set' => 'badge' ) );
-		$this->add_control( 'co_tab_current_heading', array( 'label' => __( 'Current tab', 'galaxie-woo' ), 'type' => Controls_Manager::HEADING, 'separator' => 'before' ) );
-		PixfortControls::palette_control( $this, 'co_tab_current_bg', __( 'Background', 'galaxie-woo' ), '{{WRAPPER}} .gx-co-tab.is-current', 'background-color' );
-		PixfortControls::palette_control( $this, 'co_tab_current_color', __( 'Text color', 'galaxie-woo' ), '{{WRAPPER}} .gx-co-tab.is-current', 'color' );
-		PixfortControls::palette_control( $this, 'co_tab_current_border', __( 'Border color', 'galaxie-woo' ), '{{WRAPPER}} .gx-co-tab.is-current', 'border-color', array(), ' border-style: solid; border-width: 1px;' );
-		$this->end_controls_section();
-		$this->text_sections( array( 'co_tab_text' ) );
-
-		// Fields: pixfort's .form-control, with the Payment Methods set of states.
-		$field = '{{WRAPPER}} .gx-co .form-control';
-		$this->start_controls_section( 'co_field_style', $style( __( 'Fields', 'galaxie-woo' ) ) );
-		PixfortControls::surface( $this, 'co_field', $field );
-		$this->add_control( 'co_field_text_heading', array( 'label' => __( 'Typed text', 'galaxie-woo' ), 'type' => Controls_Manager::HEADING, 'separator' => 'before' ) );
-		PixfortControls::palette_control( $this, 'co_field_color', __( 'Text color', 'galaxie-woo' ), $field, 'color' );
-		PixfortControls::palette_control( $this, 'co_field_placeholder', __( 'Placeholder color', 'galaxie-woo' ), $field . '::placeholder', 'color' );
-		$this->add_control( 'co_field_state_heading', array( 'label' => __( 'States', 'galaxie-woo' ), 'type' => Controls_Manager::HEADING, 'separator' => 'before' ) );
-		PixfortControls::palette_control( $this, 'co_field_focus', __( 'Border when focused', 'galaxie-woo' ), $field . ':focus', 'border-color' );
-		PixfortControls::palette_control( $this, 'co_field_focus_bg', __( 'Background when focused', 'galaxie-woo' ), $field . ':focus', 'background-color' );
-		PixfortControls::palette_control( $this, 'co_field_error', __( 'Border on error', 'galaxie-woo' ), $field . '[aria-invalid="true"]', 'border-color' );
-		$this->end_controls_section();
-
-		// The Communication widget's switch, and the checkbox accent the
-		// Wishlist popover uses.
-		$this->start_controls_section( 'co_choice_style', $style( __( 'Switch and checkbox', 'galaxie-woo' ) ) );
-		PixfortControls::surface( $this, 'co_option', '{{WRAPPER}} .gx-co-option', array( 'rounded' => 'rounded-lg' ) );
-		PixfortControls::palette_control( $this, 'co_switch_off', __( 'Switch: off', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-switch-track', 'background-color' );
-		PixfortControls::palette_control( $this, 'co_switch_on', __( 'Switch: on', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-switch input:checked + .galaxie-switch-track', 'background-color' );
-		PixfortControls::palette_control( $this, 'co_switch_knob', __( 'Switch: knob', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-switch-track::after', 'background-color' );
-		PixfortControls::palette_control( $this, 'co_checkbox', __( 'Checkbox', 'galaxie-woo' ), '{{WRAPPER}} .gx-co input[type="checkbox"]', 'accent-color' );
-		$this->end_controls_section();
+		// The sign-in's own panel — its texts, tabs, fields, switch, warning
+		// and its two buttons — belongs to the component both widgets draw.
+		LoginControls::register_style( $this );
 
 		// WooCommerce's own shipping list, moved into the delivery step: the
 		// Shipping Options widget's rows.
@@ -390,23 +344,6 @@ final class CheckoutWidget extends AbstractIslandWidget {
 		PixfortControls::text( $this, 'co_qty_text', array( 'size' => 'text-xs', 'bold' => 'font-weight-bold' ), array(), '{{WRAPPER}} .gx-co-qty', 'text', array( 'inline', 'position' ) );
 		$this->end_controls_section();
 		$this->text_sections( array( 'co_sum_title', 'co_item_name', 'co_item_meta', 'co_item_price', 'co_row_label', 'co_row_value', 'co_total_label', 'co_total_value' ) );
-
-		// Warnings: pixfort's Alert, as the Kit Builder and the Buy Box refuse.
-		// No icon and no close button, for the Kit Builder's reasons: pixfort's
-		// fallback glyph is a question mark, and a message the island re-shows
-		// on every attempt should not offer to be dismissed.
-		$this->start_controls_section( 'co_message_style', $style( __( 'Warnings and errors', 'galaxie-woo' ) ) );
-		$this->add_control(
-			'co_alert_type',
-			array(
-				'label'   => __( 'Error style', 'galaxie-woo' ),
-				'type'    => Controls_Manager::SELECT,
-				'options' => PixfortControls::alert_types(),
-				'default' => 'danger',
-			)
-		);
-		PixfortControls::alert( $this, 'co_alert', array( 'hide_close' => 'true', 'media_type' => 'none' ), array(), '{{WRAPPER}} .gx-co-alert' );
-		$this->end_controls_section();
 
 		// Buttons: the labels are on the Content tab, so `text` is skipped.
 		// The section id is `_button_style`, never `{prefix}_style`: button()
@@ -450,8 +387,10 @@ final class CheckoutWidget extends AbstractIslandWidget {
 		$tc = static fn( string $prefix ): string => PixfortControls::text_classes( $settings, $prefix );
 		$sc = static fn( string $prefix ): string => PixfortControls::surface_classes( $settings, $prefix );
 
+		$shared = LoginControls::ui( $settings, $text );
+
 		// co_step_title → stepTitle, the key the island reads.
-		$cls = array();
+		$cls = $shared['cls'];
 		foreach ( array_keys( self::TEXTS ) as $prefix ) {
 			$cls[ lcfirst( str_replace( ' ', '', ucwords( str_replace( '_', ' ', substr( $prefix, 3 ) ) ) ) ) ] = $tc( $prefix );
 		}
@@ -459,9 +398,6 @@ final class CheckoutWidget extends AbstractIslandWidget {
 		$cls += array(
 			'stepBox'    => $sc( 'co_step' ),
 			'stepDot'    => $sc( 'co_dot' ),
-			'tab'        => $sc( 'co_tab' ),
-			'field'      => $sc( 'co_field' ),
-			'option'     => $sc( 'co_option' ),
 			'rate'       => $sc( 'co_rate' ),
 			'method'     => $sc( 'co_method' ),
 			'methodBox'  => $sc( 'co_method_box' ),
@@ -477,10 +413,7 @@ final class CheckoutWidget extends AbstractIslandWidget {
 
 		return array(
 			'cls'     => $cls,
-			'buttons' => array(
-				'sendCode'       => $button( 'co_btn_main', $text['sendCode'] ),
-				'registerButton' => $button( 'co_btn_main', $text['registerButton'] ),
-				'confirmCode'    => $button( 'co_btn_main', $text['confirmCode'] ),
+			'buttons' => $shared['buttons'] + array(
 				'profileButton'  => $button( 'co_btn_main', $text['profileButton'] ),
 				'addressButton'  => $button( 'co_btn_main', $text['addressButton'] ),
 				'paymentButton'  => $button( 'co_btn_next', $text['paymentButton'] ),
@@ -488,29 +421,11 @@ final class CheckoutWidget extends AbstractIslandWidget {
 				// this one is drawn around a marker the island swaps for it.
 				'placeOrder'     => $button( 'co_btn_place', self::LABEL_MARKER ),
 				'edit'           => $button( 'co_btn_link', $text['edit'] ),
-				'resendCode'     => $button( 'co_btn_link', $text['resendCode'] ),
-				'changeEmail'    => $button( 'co_btn_link', $text['changeEmail'] ),
 				'logout'         => $button( 'co_btn_link', $text['logout'] ),
 			),
-			'alert'   => $this->alert_template( $settings ),
-			'marker'  => self::LABEL_MARKER,
+			'alert'   => $shared['alert'],
+			'marker'  => $shared['marker'],
 		);
-	}
-
-	/**
-	 * pixfort's Alert around a marker the island replaces with the message,
-	 * escaped. Drawn once here because the messages only exist in the browser.
-	 *
-	 * @param array<string,mixed> $settings
-	 */
-	private function alert_template( array $settings ): string {
-		$type = (string) ( $settings['co_alert_type'] ?? 'danger' );
-
-		$inner = PixfortControls::available()
-			? (string) \PixfortCore::instance()->elementsManager->renderElement( 'Alert', PixfortControls::alert_attr( $settings, 'co_alert', self::LABEL_MARKER, $type ) )
-			: sprintf( '<div class="alert alert-%1$s" role="alert"><div class="pix-alert-title">%2$s</div></div>', esc_attr( $type ), self::LABEL_MARKER );
-
-		return '<div class="gx-co-alert" role="alert">' . $inner . '</div>';
 	}
 
 	protected function island_props(): array {
