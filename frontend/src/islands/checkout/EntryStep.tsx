@@ -8,7 +8,7 @@ import { PhoneInput } from '@/ui/phone-input'
 import { Switch } from '@/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/ui/tabs'
 import { post } from '@/lib/wp'
-import type { ProfileValues } from './types'
+import type { CheckoutText, ProfileValues } from './types'
 import { BAD_PHONE } from './validation'
 
 interface AjaxEndpoint {
@@ -18,8 +18,11 @@ interface AjaxEndpoint {
 
 interface EntryStepProps {
   authCfg?: AjaxEndpoint
+  text: CheckoutText
   genericError: string
   onVerified: () => void
+  /** Editor preview: the forms render but never submit. */
+  preview: boolean
 }
 
 type Stage = 'request' | 'verify'
@@ -28,12 +31,11 @@ type Stage = 'request' | 'verify'
  * Passwordless sign-in / registration. Talks directly to the PasswordlessAuth
  * module's AJAX actions (galaxie_auth_send_otp / galaxie_auth_verify_otp).
  * On a verified code, reloads the page rather than managing a client-side
- * transition: the widget re-renders server-side with `loggedIn: true` and
- * fresh profile/address props, and the step machine's initial-step logic
- * (see index.tsx) naturally lands on the right next step. Simpler and more
- * robust than trying to hand-roll that transition — same approach v1 used.
+ * transition: the widget re-renders server-side signed in, with fresh
+ * profile/address props, and the step machine's initial-step logic (see
+ * index.tsx) lands on the right next step.
  */
-function EntryStep({ authCfg, genericError, onVerified }: EntryStepProps) {
+function EntryStep({ authCfg, text, genericError, onVerified, preview }: EntryStepProps) {
   const [tab, setTab] = React.useState<'otp' | 'register'>('otp')
   const [stage, setStage] = React.useState<Stage>('request')
   const [email, setEmail] = React.useState('')
@@ -62,7 +64,7 @@ function EntryStep({ authCfg, genericError, onVerified }: EntryStepProps) {
 
   async function sendCode(e: React.FormEvent) {
     e.preventDefault()
-    if (!authCfg) return
+    if (preview || !authCfg) return
     if ('register' === tab && '' !== reg.phone && false === phoneValid) {
       setError(BAD_PHONE)
       return
@@ -91,12 +93,13 @@ function EntryStep({ authCfg, genericError, onVerified }: EntryStepProps) {
       setError(res.data?.message ?? genericError)
       return
     }
+    setCode('')
     setStage('verify')
   }
 
   async function verifyCode(e: React.FormEvent) {
     e.preventDefault()
-    if (!authCfg) return
+    if (preview || !authCfg) return
     setBusy(true)
     setError(null)
     const res = await post(authCfg.ajaxUrl, 'galaxie_auth_verify_otp', authCfg.nonce, { email, code })
@@ -108,15 +111,62 @@ function EntryStep({ authCfg, genericError, onVerified }: EntryStepProps) {
     onVerified()
   }
 
+  if ('verify' === stage) {
+    return (
+      <form onSubmit={verifyCode} className="flex flex-col gap-4">
+        <p className="text-sm text-muted-foreground">
+          {text.codeHint.split('%s').map((part, i, all) => (
+            <React.Fragment key={i}>
+              {part}
+              {i < all.length - 1 && <strong className="font-semibold text-foreground">{email}</strong>}
+            </React.Fragment>
+          ))}
+        </p>
+        {error && (
+          <p role="alert" className="text-sm text-destructive">
+            {error}
+          </p>
+        )}
+        <OtpInput value={code} onChange={setCode} autoFocus />
+        <Button type="submit" size="lg" disabled={busy || 6 !== code.length}>
+          {text.confirmCode}
+        </Button>
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
+          <button type="button" onClick={sendCode} disabled={busy} className="text-muted-foreground underline underline-offset-4 hover:text-foreground">
+            {text.resendCode}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setStage('request')
+              setError(null)
+            }}
+            className="text-muted-foreground underline underline-offset-4 hover:text-foreground"
+          >
+            {text.changeEmail}
+          </button>
+        </div>
+      </form>
+    )
+  }
+
+  const emailField = (
+    <Field label={text.email}>
+      <Input type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+    </Field>
+  )
+
   return (
-    <div className="mx-auto flex max-w-sm flex-col gap-4">
-      <Tabs value={tab} onValueChange={(v) => switchTab(v as 'otp' | 'register')}>
-        <TabsList className="w-full">
-          <TabsTrigger value="otp" className="flex-1">
-            Sign in
+    <div className="flex flex-col gap-5">
+      {text.entryIntro && <p className="text-sm text-muted-foreground">{text.entryIntro}</p>}
+
+      <Tabs value={tab} onValueChange={(v) => switchTab(v as 'otp' | 'register')} className="gap-5">
+        <TabsList className="h-11 w-full">
+          <TabsTrigger value="otp" className="h-full">
+            {text.tabLogin}
           </TabsTrigger>
-          <TabsTrigger value="register" className="flex-1">
-            Create account
+          <TabsTrigger value="register" className="h-full">
+            {text.tabRegister}
           </TabsTrigger>
         </TabsList>
 
@@ -127,105 +177,64 @@ function EntryStep({ authCfg, genericError, onVerified }: EntryStepProps) {
         )}
 
         <TabsContent value="otp">
-          {'request' === stage ? (
-            <form onSubmit={sendCode} className="flex flex-col gap-4">
-              <Field label="Email">
-                <Input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
-              </Field>
-              <Button type="submit" disabled={busy}>
-                Send me a code
-              </Button>
-            </form>
-          ) : (
-            <VerifyPanel code={code} setCode={setCode} busy={busy} onSubmit={verifyCode} onResend={sendCode} />
-          )}
+          <form onSubmit={sendCode} className="flex flex-col gap-4">
+            {emailField}
+            <Button type="submit" size="lg" disabled={busy}>
+              {text.sendCode}
+            </Button>
+          </form>
         </TabsContent>
 
         <TabsContent value="register">
-          {'request' === stage ? (
-            <form onSubmit={sendCode} className="flex flex-col gap-4">
-              <Field label="Email">
-                <Input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+          <form onSubmit={sendCode} className="flex flex-col gap-4">
+            {emailField}
+            <div className="grid grid-cols-1 gap-4 @[420px]:grid-cols-2">
+              <Field label={text.firstName}>
+                <Input required autoComplete="given-name" value={reg.first_name} onChange={(e) => setReg({ ...reg, first_name: e.target.value })} />
               </Field>
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="First name">
-                  <Input required value={reg.first_name} onChange={(e) => setReg({ ...reg, first_name: e.target.value })} />
-                </Field>
-                <Field label="Last name">
-                  <Input required value={reg.last_name} onChange={(e) => setReg({ ...reg, last_name: e.target.value })} />
-                </Field>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="Date of birth">
-                  <Input type="date" value={reg.birthdate} onChange={(e) => setReg({ ...reg, birthdate: e.target.value })} />
-                </Field>
-                <Field label="CPF">
-                  <Input value={reg.cpf} onChange={(e) => setReg({ ...reg, cpf: e.target.value })} placeholder="000.000.000-00" />
-                </Field>
-              </div>
-              <Field label="Phone">
-                <PhoneInput
-                  value={reg.phone}
-                  onChange={(phone, valid) => {
-                    setReg((prev) => ({ ...prev, phone }))
-                    setPhoneValid(valid)
-                  }}
-                />
+              <Field label={text.lastName}>
+                <Input required autoComplete="family-name" value={reg.last_name} onChange={(e) => setReg({ ...reg, last_name: e.target.value })} />
               </Field>
+              <Field label={text.birthdate}>
+                <Input type="date" value={reg.birthdate} onChange={(e) => setReg({ ...reg, birthdate: e.target.value })} />
+              </Field>
+              <Field label={text.cpf}>
+                <Input inputMode="numeric" value={reg.cpf} onChange={(e) => setReg({ ...reg, cpf: e.target.value })} placeholder="000.000.000-00" />
+              </Field>
+            </div>
+            <Field label={text.phone}>
+              <PhoneInput
+                value={reg.phone}
+                onChange={(phone, valid) => {
+                  setReg((prev) => ({ ...prev, phone }))
+                  setPhoneValid(valid)
+                }}
+              />
+            </Field>
 
-              <div className="flex items-center justify-between gap-3 rounded-md border border-border p-3">
-                <span className="text-sm">Send me offers and news</span>
-                <Switch checked={reg.marketing} onCheckedChange={(v) => setReg({ ...reg, marketing: v })} />
-              </div>
+            <label className="flex items-center justify-between gap-3 rounded-md border border-border p-3 text-sm text-foreground">
+              <span>{text.marketing}</span>
+              <Switch checked={reg.marketing} onCheckedChange={(v) => setReg({ ...reg, marketing: v })} />
+            </label>
 
-              <label className="flex items-start gap-2 text-sm text-muted-foreground">
-                <input
-                  type="checkbox"
-                  required
-                  checked={reg.terms}
-                  onChange={(e) => setReg({ ...reg, terms: e.target.checked })}
-                  className="mt-0.5"
-                />
-                I agree to the terms and privacy policy.
-              </label>
+            <label className="flex items-start gap-2.5 text-sm text-muted-foreground">
+              <input
+                type="checkbox"
+                required
+                checked={reg.terms}
+                onChange={(e) => setReg({ ...reg, terms: e.target.checked })}
+                className="mt-0.5 size-4 shrink-0 accent-[var(--primary)]"
+              />
+              <span>{text.terms}</span>
+            </label>
 
-              <Button type="submit" disabled={busy}>
-                Create account
-              </Button>
-            </form>
-          ) : (
-            <VerifyPanel code={code} setCode={setCode} busy={busy} onSubmit={verifyCode} onResend={sendCode} />
-          )}
+            <Button type="submit" size="lg" disabled={busy}>
+              {text.registerButton}
+            </Button>
+          </form>
         </TabsContent>
       </Tabs>
     </div>
-  )
-}
-
-function VerifyPanel({
-  code,
-  setCode,
-  busy,
-  onSubmit,
-  onResend,
-}: {
-  code: string
-  setCode: (v: string) => void
-  busy: boolean
-  onSubmit: (e: React.FormEvent) => void
-  onResend: (e: React.FormEvent) => void
-}) {
-  return (
-    <form onSubmit={onSubmit} className="flex flex-col items-start gap-4">
-      <p className="text-sm text-muted-foreground">Enter the 6-digit code we emailed you.</p>
-      <OtpInput value={code} onChange={setCode} autoFocus />
-      <Button type="submit" disabled={busy || 6 !== code.length}>
-        Confirm code
-      </Button>
-      <button type="button" onClick={onResend} className="text-sm text-muted-foreground underline underline-offset-2">
-        Resend code
-      </button>
-    </form>
   )
 }
 

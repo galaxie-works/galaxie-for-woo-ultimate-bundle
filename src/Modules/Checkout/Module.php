@@ -40,6 +40,8 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 	public function boot(): void {
 		add_filter( 'woocommerce_package_rates', array( $this, 'filter_shipping_rates' ), 100, 2 );
 
+		add_filter( 'woocommerce_update_order_review_fragments', array( $this, 'summary_fragment' ) );
+
 		add_action( 'wp_ajax_galaxie_save_profile', array( $this, 'ajax_save_profile' ) );
 		add_action( 'wp_ajax_galaxie_save_address', array( $this, 'ajax_save_address' ) );
 	}
@@ -50,6 +52,36 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 				'ajaxUrl' => admin_url( 'admin-ajax.php' ),
 				'nonce'   => wp_create_nonce( self::NONCE_ACTION ),
 			),
+		);
+	}
+
+	/**
+	 * The order summary, refreshed in the same round trip that reprices the
+	 * order. WooCommerce swaps every fragment by selector after
+	 * `update_order_review`, so the island only has to re-read this node on
+	 * `updated_checkout` — no request of its own, and no way for the summary
+	 * to show a total the order review has already replaced.
+	 *
+	 * @param array<string,string> $fragments
+	 * @return array<string,string>
+	 */
+	public function summary_fragment( array $fragments ): array {
+		$fragments[ 'script#' . OrderSummary::FRAGMENT_ID ] = self::summary_script( OrderSummary::data() );
+
+		return $fragments;
+	}
+
+	/**
+	 * JSON in a non-executing script tag: the one element that carries text
+	 * through jQuery's `replaceWith` untouched, and that no theme styles.
+	 *
+	 * @param array<string,mixed> $data
+	 */
+	public static function summary_script( array $data ): string {
+		return sprintf(
+			'<script type="application/json" id="%s">%s</script>',
+			esc_attr( OrderSummary::FRAGMENT_ID ),
+			wp_json_encode( $data, JSON_HEX_TAG | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE )
 		);
 	}
 
