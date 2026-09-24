@@ -9,6 +9,7 @@ namespace Galaxie\Woo\Support;
 
 use Elementor\Controls_Manager;
 use Elementor\Repeater;
+use Galaxie\Woo\Support\Dialog;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -64,6 +65,26 @@ final class CartParts {
 	/* ---------------------------------------------------------------------
 	 * Controls
 	 * ------------------------------------------------------------------ */
+
+	/**
+	 * The questions and notices a cart line asks: today only "Editar kit", which
+	 * takes a kit out of the cart and back into the popup. Registered here so a
+	 * cart drawn by either widget carries the same dialog, styled with it.
+	 */
+	public static function register_dialog_controls( object $widget ): void {
+		Dialog::controls(
+			$widget,
+			'kit_edit',
+			array(
+				'label' => __( 'Edit kit dialog', 'galaxie-woo' ),
+				'title' => __( 'Editar kit', 'galaxie-woo' ),
+				'text'  => __( 'Este kit volta para o montador e sai do carrinho. Tudo bem?', 'galaxie-woo' ),
+				'yes'   => __( 'Sim, editar', 'galaxie-woo' ),
+				'no'    => __( 'Cancelar', 'galaxie-woo' ),
+				'yes_defaults' => array( 'color' => 'primary', 'size' => 'sm' ),
+			)
+		);
+	}
 
 	public static function register_line_controls( object $widget ): void {
 		$widget->start_controls_section( 'lines_section', array( 'label' => __( 'Line fields', 'galaxie-woo' ) ) );
@@ -841,6 +862,12 @@ final class CartParts {
 	 * @param array<string,mixed> $settings
 	 */
 	public static function render_table( array $settings ): void {
+		// Anything the request has to say to the shopper, said above the cart it
+		// is about. Nothing listens unless something asked to be heard, so a
+		// normal load prints nothing and a page with WooCommerce's own notices
+		// block does not print them twice.
+		do_action( 'galaxie_cart_before_table' );
+
 		$fields = self::fields( $settings );
 
 		// Widgets saved before Position was withdrawn still carry `text-left`
@@ -901,6 +928,7 @@ final class CartParts {
 
 		wp_nonce_field( 'woocommerce-cart', 'woocommerce-cart-nonce' );
 		echo '</form>';
+		echo Dialog::render( $settings, 'kit_edit' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built from escaped parts.
 	}
 
 	/**
@@ -990,6 +1018,9 @@ final class CartParts {
 
 			case 'name':
 				$name = apply_filters( 'woocommerce_cart_item_name', $product->get_name(), $item, $key );
+				// Links a module appends to the name for WooCommerce's own templates
+				// ("Editar kit") are printed under the item data here instead.
+				$name = (string) preg_replace( '#<span class="galaxie-kit-edit-wrap">.*?</span>#s', '', (string) $name );
 				$link = $product->is_visible() ? $product->get_permalink( $item ) : '';
 				echo PixfortControls::render_text( // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pixfort's own element around escaped text.
 					$settings,
@@ -1005,8 +1036,11 @@ final class CartParts {
 
 				$meta = wc_get_formatted_cart_item_data( $item, true );
 				if ( $meta ) {
-					printf( '<span class="galaxie-cart-meta">%s</span>', esc_html( $meta ) );
+					printf( '<span class="galaxie-cart-meta">%s</span>', esc_html( wp_strip_all_tags( $meta ) ) );
 				}
+
+				// Links a module adds under the line (Gift Wrap: "Editar kit").
+				do_action( 'galaxie_cart_item_after_meta', $item, $key );
 				break;
 
 			case 'price':
@@ -1059,9 +1093,14 @@ final class CartParts {
 	private static function render_quantity( string $key, array $item, \WC_Product $product, array $settings ): void {
 		echo '<span class="galaxie-cart-qty">';
 
-		if ( $product->is_sold_individually() ) {
-			printf( '<input type="hidden" name="cart[%s][qty]" value="1" />', esc_attr( $key ) );
-			echo '<span class="galaxie-cart-qty-fixed">1</span>';
+		// A line whose quantity belongs to something else — a gift's ribbon or
+		// card (Gift Wrap) — shows its number the way a sold-individually one does.
+		$locked = (bool) apply_filters( 'galaxie_cart_item_quantity_locked', false, $item, $key );
+
+		if ( $locked || $product->is_sold_individually() ) {
+			$fixed = $locked ? (int) $item['quantity'] : 1;
+			printf( '<input type="hidden" name="cart[%s][qty]" value="%d" />', esc_attr( $key ), (int) $fixed );
+			printf( '<span class="galaxie-cart-qty-fixed">%d</span>', (int) $fixed );
 		} else {
 			QuantityField::render(
 				$settings,

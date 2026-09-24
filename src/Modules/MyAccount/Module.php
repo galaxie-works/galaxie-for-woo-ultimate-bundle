@@ -57,6 +57,7 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 		add_action( 'wp_ajax_galaxie_myaccount_screen', array( $this, 'ajax_screen' ) );
 		add_action( 'wp_ajax_galaxie_myaccount_save_details', array( $this, 'ajax_save_details' ) );
 		add_action( 'wp_ajax_galaxie_myaccount_toggle_interest', array( $this, 'ajax_toggle_interest' ) );
+		add_action( 'wp_ajax_galaxie_myaccount_toggle_communication', array( $this, 'ajax_toggle_communication' ) );
 		add_action( 'wp_ajax_galaxie_myaccount_save_communication', array( $this, 'ajax_save_communication' ) );
 
 		\Galaxie\Woo\Support\StripeCards::hooks();
@@ -446,6 +447,41 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 		wp_send_json_success();
 	}
 
+	/**
+	 * One of the communications configured under Galaxie → FluentCRM, turned on
+	 * or off: the answer is the contact's membership of that list, so there is
+	 * nothing to store on our side.
+	 */
+	public function ajax_toggle_communication(): void {
+		$this->check_nonce_and_login();
+		$user = wp_get_current_user();
+
+		$list_id  = isset( $_POST['list_id'] ) ? absint( $_POST['list_id'] ) : 0;
+		$selected = ! empty( $_POST['selected'] );
+		$known    = array_column( \Galaxie\Woo\Modules\FluentCRM\Module::communications(), 'list_id' );
+
+		// Only a list the merchant put on the screen: a list id from anywhere
+		// else would let a request write a contact into any segment.
+		if ( $list_id <= 0 || ! in_array( $list_id, array_map( 'intval', $known ), true ) ) {
+			wp_send_json_error( array( 'message' => __( 'Essa opção não existe mais.', 'galaxie-woo' ) ) );
+		}
+
+		if ( ! FluentCRMApi::is_active() ) {
+			wp_send_json_error( array( 'message' => __( 'Não foi possível salvar agora. Tente de novo mais tarde.', 'galaxie-woo' ) ) );
+		}
+
+		if ( $selected ) {
+			FluentCRMApi::attach_lists( $user->user_email, array( $list_id ) );
+		} else {
+			FluentCRMApi::detach_lists( $user->user_email, array( $list_id ) );
+		}
+
+		/** Fires after a customer turns a communication on or off — the FluentCRM module notes it on the contact. */
+		do_action( 'galaxie_woo/communication_changed', $user->ID, $list_id, $selected );
+
+		wp_send_json_success();
+	}
+
 	public function ajax_save_communication(): void {
 		$this->check_nonce_and_login();
 		$user_id = get_current_user_id();
@@ -454,8 +490,7 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 		$opt_in = ! empty( $_POST['opt_in'] );
 		update_user_meta( $user_id, ProfileFields::MARKETING_OPT_IN, $opt_in ? 'yes' : 'no' );
 
-		$fluent_settings = \Galaxie\Woo\Core\Plugin::instance()->settings()->module_settings( 'fluentcrm' );
-		$list_id         = (int) ( $fluent_settings['newsletter_list_id'] ?? 0 );
+		$list_id = \Galaxie\Woo\Modules\FluentCRM\Module::consent_list_id();
 		if ( $list_id > 0 ) {
 			if ( $opt_in ) {
 				FluentCRMApi::attach_lists( $user->user_email, array( $list_id ) );

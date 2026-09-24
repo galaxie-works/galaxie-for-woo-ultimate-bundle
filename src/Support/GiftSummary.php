@@ -1,0 +1,309 @@
+<?php
+/**
+ * What goes in each gift box, for whoever packs the order.
+ *
+ * @package Galaxie\Woo
+ */
+
+namespace Galaxie\Woo\Support;
+
+use Galaxie\Woo\Modules\GiftWrap\Groups;
+
+defined( 'ABSPATH' ) || exit;
+
+/**
+ * "Presente 1: 2 × Vela 50g, Caixa P, 1 × Fita, Cartão — 'Feliz aniversário'"
+ * per gift, in the order screen and in the new-order e-mail to the store and
+ * the e-mails to the customer.
+ *
+ * Read from the hidden line item meta {@see Groups::line_item()} writes, so it
+ * needs neither the cart nor the Gift Wrap module: like the "Presente" badge
+ * ({@see GiftOrders}) it is booted from Plugin::boot() and keeps working for
+ * orders placed before the module was switched off.
+ */
+final class GiftSummary {
+
+	/** Order edit screens, both storages. */
+	private const SCREENS = array( 'shop_order', 'woocommerce_page_wc-orders' );
+
+	/** Set while a plain-text e-mail prints a gift line's meta. */
+	private static bool $plain = false;
+
+	public static function hooks(): void {
+		add_action( 'add_meta_boxes', array( self::class, 'meta_box' ), 30, 2 );
+		add_action( 'woocommerce_email_after_order_table', array( self::class, 'email' ), 20, 4 );
+
+		// Kit names in plain-text e-mails (see plain_meta()).
+		add_action( 'woocommerce_order_item_meta_start', array( self::class, 'plain_start' ), 10, 4 );
+		add_action( 'woocommerce_order_item_meta_end', array( self::class, 'plain_end' ), 10, 4 );
+		add_filter( 'woocommerce_display_item_meta', array( self::class, 'plain_meta' ), 10, 3 );
+	}
+
+	/**
+	 * @param mixed $item_id
+	 * @param mixed $item
+	 * @param mixed $order
+	 * @param mixed $plain_text
+	 */
+	public static function plain_start( $item_id = 0, $item = null, $order = null, $plain_text = false ): void {
+		self::$plain = (bool) $plain_text && $item instanceof \WC_Order_Item_Product && '' !== (string) $item->get_meta( Groups::ITEM_GROUP );
+	}
+
+	/** Ends plain_start(). */
+	public static function plain_end( ...$args ): void {
+		self::$plain = false;
+	}
+
+	/**
+	 * A gift line's meta in a plain-text e-mail.
+	 *
+	 * The visible key "{kit}: Caixa" is stored escaped, because wp-admin and the
+	 * HTML e-mails print keys as markup; WooCommerce's plain-text template then
+	 * strips tags without decoding, and "D'Ávila & Cia" came out as
+	 * "D&#039;Ávila &amp; Cia". Here, and only there, the harmless entities are
+	 * decoded back. `&lt;` / `&gt;` stay encoded: decoded, strip_tags() would cut
+	 * a name at "<3".
+	 *
+	 * @param mixed $html
+	 * @return mixed
+	 */
+	public static function plain_meta( $html, $item = null, $args = array() ) {
+		return self::$plain && is_string( $html ) ? self::decode_plain( $html ) : $html;
+	}
+
+	/** The decoding plain_meta() applies. */
+	public static function decode_plain( string $text ): string {
+		return strtr(
+			$text,
+			array(
+				'&amp;'  => '&',
+				'&#039;' => "'",
+				'&#39;'  => "'",
+				'&quot;' => '"',
+				'&#034;' => '"',
+			)
+		);
+	}
+
+	/**
+	 * Each gift in the order, by number.
+	 *
+	 * @return array<int, array{name:string, candles:array, box:array, ribbons:array, cards:array}>
+	 *         Lists of [ name, quantity, message ]; `name` is the kit's name, or ''.
+	 */
+	public static function groups( \WC_Order $order ): array {
+		$groups = array();
+		$keys   = array(
+			Groups::ROLE_CANDLE => 'candles',
+			Groups::ROLE_BOX    => 'box',
+			Groups::ROLE_RIBBON => 'ribbons',
+			Groups::ROLE_CARD   => 'cards',
+		);
+
+		foreach ( $order->get_items() as $item ) {
+			if ( ! $item instanceof \WC_Order_Item_Product ) {
+				continue;
+			}
+
+			$id   = (string) $item->get_meta( Groups::ITEM_GROUP );
+			$role = (string) $item->get_meta( Groups::ITEM_ROLE );
+
+			// A candle marked as a gift but in no gift goes out in the standard packaging too.
+			if ( '' === $id && 'yes' === $item->get_meta( \Galaxie\Woo\Modules\GiftWrap\Flag::ITEM_META ) ) {
+				$role = Groups::ROLE_CANDLE;
+			} elseif ( '' === $id || ! isset( $keys[ $role ] ) ) {
+				continue;
+			}
+
+			// 0: no box, "Fora das caixas (embalagem padrão)".
+			$number = '' === $id ? 0 : max( 0, (int) $item->get_meta( Groups::ITEM_NUMBER ) );
+
+			if ( ! isset( $groups[ $number ] ) ) {
+				$groups[ $number ] = array( 'name' => '' ) + array_fill_keys( array_values( $keys ), array() );
+			}
+
+			// A kit's name, on every line of it.
+			if ( '' === $groups[ $number ]['name'] && '' !== $id ) {
+				$groups[ $number ]['name'] = (string) $item->get_meta( Groups::ITEM_NAME );
+			}
+
+			$groups[ $number ][ $keys[ $role ] ][] = array(
+				'name'     => wp_strip_all_tags( $item->get_name() ),
+				'quantity' => (int) $item->get_quantity(),
+				'message'  => (string) $item->get_meta( Groups::ITEM_MESSAGE ),
+			);
+		}
+
+		ksort( $groups );
+
+		// Boxes in number order, then what goes outside them.
+		if ( isset( $groups[0] ) ) {
+			$loose = $groups[0];
+			unset( $groups[0] );
+			$groups[0] = $loose;
+		}
+
+		return $groups;
+	}
+
+	/**
+	 * @param mixed $screen_id
+	 * @param mixed $post_or_order
+	 */
+	public static function meta_box( $screen_id = '', $post_or_order = null ): void {
+		if ( ! in_array( (string) $screen_id, self::SCREENS, true ) ) {
+			return;
+		}
+
+		$order = self::order( $post_or_order );
+
+		if ( ! $order || ! self::groups( $order ) ) {
+			return;
+		}
+
+		add_meta_box(
+			'galaxie-gift-packing',
+			__( 'Montagem dos presentes', 'galaxie-woo' ),
+			array( self::class, 'render_meta_box' ),
+			(string) $screen_id,
+			'normal',
+			'default'
+		);
+	}
+
+	/** @param mixed $post_or_order */
+	public static function render_meta_box( $post_or_order ): void {
+		$order = self::order( $post_or_order );
+
+		if ( $order ) {
+			echo self::html( self::groups( $order ), false ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in html().
+		}
+	}
+
+	/**
+	 * Below the order table: in the store's new-order e-mail and in every
+	 * e-mail to the customer. Other store e-mails (cancelled, failed) are about
+	 * something other than packing.
+	 *
+	 * @param mixed $order
+	 * @param mixed $sent_to_admin
+	 * @param mixed $plain_text
+	 * @param mixed $email
+	 */
+	public static function email( $order, $sent_to_admin = false, $plain_text = false, $email = null ): void {
+		if ( ! $order instanceof \WC_Order ) {
+			return;
+		}
+
+		if ( $email instanceof \WC_Email && ! $email->is_customer_email() && 'new_order' !== $email->id ) {
+			return;
+		}
+
+		$groups = self::groups( $order );
+
+		if ( ! $groups ) {
+			return;
+		}
+
+		if ( $plain_text ) {
+			// A plain-text e-mail prints what it is given: entities would show as
+			// typed and stripping tags would cut a message at "<3". Product names
+			// are already stripped in groups(); messages are cleaned text.
+			echo self::text( $groups ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- plain-text e-mail body.
+			return;
+		}
+
+		echo self::html( $groups, true ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in html().
+	}
+
+	/**
+	 * @param array $groups From groups().
+	 * @param bool  $email  Inline styles for mail clients; wp-admin's table classes otherwise.
+	 */
+	public static function html( array $groups, bool $email ): string {
+		$table = $email ? ' cellspacing="0" cellpadding="6" border="1" style="width:100%;border-collapse:collapse;margin:0 0 16px"' : ' class="widefat striped" style="margin:0 0 12px"';
+		$th    = $email ? ' style="text-align:left;vertical-align:top;width:30%"' : ' style="width:25%"';
+		$out   = $email ? '<h2>' . esc_html__( 'Montagem dos presentes', 'galaxie-woo' ) . '</h2>' : '';
+
+		foreach ( $groups as $number => $gift ) {
+			$title = Groups::label( (int) $number, (string) ( $gift['name'] ?? '' ) );
+			$out  .= $email ? '<h3>' . esc_html( $title ) . '</h3>' : '<h4 style="margin:8px 0">' . esc_html( $title ) . '</h4>';
+			$out .= '<table' . $table . '><tbody>';
+
+			foreach ( self::rows( $gift ) as $row ) {
+				$out .= '<tr><th scope="row"' . $th . '>' . esc_html( $row[0] ) . '</th><td>' . implode( '<br>', array_map( 'esc_html', $row[1] ) ) . '</td></tr>';
+			}
+
+			$out .= '</tbody></table>';
+		}
+
+		return $out;
+	}
+
+	/** @param array $groups From groups(). */
+	public static function text( array $groups ): string {
+		$out = "\n" . strtoupper( __( 'Montagem dos presentes', 'galaxie-woo' ) ) . "\n\n";
+
+		foreach ( $groups as $number => $gift ) {
+			$out .= Groups::label( (int) $number, (string) ( $gift['name'] ?? '' ) ) . "\n";
+
+			foreach ( self::rows( $gift ) as $row ) {
+				$out .= '  ' . $row[0] . ': ' . implode( '; ', $row[1] ) . "\n";
+			}
+
+			$out .= "\n";
+		}
+
+		return $out;
+	}
+
+	/**
+	 * Label and lines for one gift; the box row says so when there is none.
+	 *
+	 * @param array $gift One entry of groups().
+	 * @return array<int, array{0:string, 1:string[]}>
+	 */
+	private static function rows( array $gift ): array {
+		$line = static function ( array $entry ): string {
+			/* translators: 1: quantity, 2: product name. */
+			return sprintf( __( '%1$d × %2$s', 'galaxie-woo' ), $entry['quantity'], $entry['name'] );
+		};
+
+		$rows = array(
+			array( \Galaxie\Woo\Modules\GiftWrap\Module::noun( true, true ), array_map( $line, $gift['candles'] ) ),
+			array( __( 'Caixa', 'galaxie-woo' ), $gift['box'] ? array_map( static fn( array $e ): string => $e['name'], $gift['box'] ) : array( __( 'Sem caixa', 'galaxie-woo' ) ) ),
+		);
+
+		if ( $gift['ribbons'] ) {
+			$rows[] = array( __( 'Fitas', 'galaxie-woo' ), array_map( $line, $gift['ribbons'] ) );
+		}
+
+		if ( $gift['cards'] ) {
+			$rows[] = array(
+				__( 'Cartões', 'galaxie-woo' ),
+				array_map(
+					static function ( array $entry ) use ( $line ): string {
+						return '' === $entry['message']
+							? $line( $entry ) . ' — ' . __( 'sem mensagem', 'galaxie-woo' )
+							/* translators: 1: "1 × Cartão", 2: the shopper's message. */
+							: sprintf( __( '%1$s — “%2$s”', 'galaxie-woo' ), $line( $entry ), $entry['message'] );
+					},
+					$gift['cards']
+				),
+			);
+		}
+
+		return $rows;
+	}
+
+	/** @param mixed $post_or_order */
+	private static function order( $post_or_order ): ?\WC_Order {
+		if ( $post_or_order instanceof \WC_Order ) {
+			return $post_or_order;
+		}
+
+		$order = $post_or_order instanceof \WP_Post ? wc_get_order( $post_or_order->ID ) : null;
+
+		return $order instanceof \WC_Order ? $order : null;
+	}
+}

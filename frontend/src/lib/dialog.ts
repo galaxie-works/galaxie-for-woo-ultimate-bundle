@@ -15,7 +15,19 @@ interface Opening {
   key?: string
   /** What the built-in dialog says when the widget has none. */
   fallback: string
+  /** Placeholders to fill in whichever message wins, e.g. `{ kit: 'Kit 1' }`. */
+  fill?: Record<string, string>
   cancel: boolean
+}
+
+/**
+ * `{kit}` in the message the merchant wrote. Kept here rather than imported so
+ * a dialog stays a dialog: the caller knows the values, not the sentence.
+ */
+function fill(text: string, values: Record<string, string> | undefined): string {
+  if (!values) return text
+
+  return Object.entries(values).reduce((out, [name, value]) => out.split(`{${name}}`).join(value), text)
 }
 
 let generic: HTMLDialogElement | null = null
@@ -67,7 +79,7 @@ function open(scope: Element | null, name: string, options: Opening): Promise<bo
   const message = dialog.querySelector<HTMLElement>('.galaxie-dialog-message')
   if (message) {
     message.dataset.original ??= message.textContent ?? ''
-    message.textContent = options.text || extraText(dialog, options.key) || message.dataset.original || options.fallback
+    message.textContent = fill(options.text || extraText(dialog, options.key) || message.dataset.original || options.fallback, options.fill)
   }
 
   const cancel = dialog.querySelector<HTMLElement>('.galaxie-dialog-cancel')
@@ -93,12 +105,18 @@ function open(scope: Element | null, name: string, options: Opening): Promise<bo
   })
 }
 
-/** Resolves true only when the confirm button is pressed; Escape, the overlay and cancel all say no. */
-export function ask(scope: Element | null, name: string, fallback: string): Promise<boolean> {
-  return open(scope, name, { fallback, cancel: true })
+/**
+ * Resolves true only when the confirm button is pressed; Escape, the overlay and
+ * cancel all say no. A string is the fallback for a widget with no dialog of its
+ * own; the object form also replaces or fills the message the widget carries.
+ */
+export function ask(scope: Element | null, name: string, message: string | { text?: string; key?: string; fallback: string; fill?: Record<string, string> }): Promise<boolean> {
+  const options = typeof message === 'string' ? { fallback: message } : message
+
+  return open(scope, name, { ...options, cancel: true })
 }
 
 /** A notice with a single button. */
-export function tell(scope: Element | null, name: string, message: { text?: string; key?: string; fallback: string }): Promise<void> {
+export function tell(scope: Element | null, name: string, message: { text?: string; key?: string; fallback: string; fill?: Record<string, string> }): Promise<void> {
   return open(scope, name, { ...message, cancel: false }).then(() => undefined)
 }

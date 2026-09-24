@@ -238,30 +238,14 @@ final class FreeShippingProgressWidget extends Widget_Base {
 			array( 'label' => __( 'Bar', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE, 'condition' => array( 'show_bar' => 'yes' ) )
 		);
 
-		PixfortControls::palette_control( $this, 'progress_track', __( 'Track', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-free-progress-track', 'background-color' );
-		PixfortControls::palette_control( $this, 'progress_fill', __( 'Fill', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-free-progress-fill', 'background-color' );
-		PixfortControls::palette_control( $this, 'progress_fill_done', __( 'Fill once reached', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-free-progress.is-achieved .galaxie-free-progress-fill', 'background-color' );
-
-		$this->add_responsive_control(
-			'progress_bar_height',
-			array(
-				'label'      => __( 'Height', 'galaxie-woo' ),
-				'type'       => Controls_Manager::SLIDER,
-				'size_units' => array( 'px' ),
-				'range'      => array( 'px' => array( 'min' => 2, 'max' => 32 ) ),
-				'selectors'  => array( '{{WRAPPER}} .galaxie-free-progress-track' => 'height: {{SIZE}}{{UNIT}};' ),
-			)
-		);
-
-		$this->add_responsive_control(
-			'progress_bar_radius',
-			array(
-				'label'      => __( 'Border radius', 'galaxie-woo' ),
-				'type'       => Controls_Manager::SLIDER,
-				'size_units' => array( 'px' ),
-				'range'      => array( 'px' => array( 'min' => 0, 'max' => 20 ) ),
-				'selectors'  => array( '{{WRAPPER}} .galaxie-free-progress-track, {{WRAPPER}} .galaxie-free-progress-fill' => 'border-radius: {{SIZE}}{{UNIT}};' ),
-			)
+		// The shared bar, under the ids this widget already used: the Kit Progress
+		// and the Kit Builder moved onto them rather than the other way round.
+		PixfortControls::progress(
+			$this,
+			'progress',
+			'{{WRAPPER}} .galaxie-free-progress-track',
+			'{{WRAPPER}} .galaxie-free-progress-fill',
+			'{{WRAPPER}} .galaxie-free-progress.is-achieved .galaxie-free-progress-fill'
 		);
 
 		$this->end_controls_section();

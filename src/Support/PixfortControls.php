@@ -141,6 +141,25 @@ final class PixfortControls {
 			) );
 		}
 
+		// The space a button keeps around itself, which pixfort's own set has no
+		// control for: its padding is the label's, and a button standing alone on
+		// a screen — the welcome step's, say — had no way to be moved off what
+		// sits above it. Written on the button and on whatever wraps it, because
+		// a widget that prints its own <button> around pixfort's element is the
+		// element that takes part in the layout.
+		self::add_responsive( $target, $condition, $prefix . '_margin', array(
+			'label'      => __( 'Space around the button', 'galaxie-woo' ),
+			'type'       => Controls_Manager::DIMENSIONS,
+			'size_units' => array( 'px', 'rem', 'em' ),
+			// `!important` because pixfort prints Bootstrap's `m-0` on its own
+			// button element, and `.m-0{margin:0!important}` beats anything
+			// Elementor generates. Without it this control moved nothing, which
+			// is exactly how it was first shipped.
+			'selectors'  => array(
+				self::button_selector( $prefix, $scope ) => 'margin: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}} !important;',
+			),
+		) );
+
 		self::add( $target, $condition, $prefix . '_remove_padding', array(
 			'label'        => __( 'Remove padding', 'galaxie-woo' ),
 			'type'         => Controls_Manager::SWITCHER,
@@ -317,7 +336,7 @@ final class PixfortControls {
 			'default'     => '',
 		) );
 
-		self::button_hover( $target, $prefix, $condition, $scope );
+		self::button_hover( $target, $prefix, $condition, $scope, $defaults );
 	}
 
 	/**
@@ -570,7 +589,9 @@ final class PixfortControls {
 		return '{{WRAPPER}}' === $scope ? $scope . ' .' . self::button_class( $prefix ) : $scope . ' .btn';
 	}
 
-	private static function button_hover( object $target, string $prefix, array $condition, string $scope ): void {
+	private static function button_hover( object $target, string $prefix, array $condition, string $scope, array $defaults = array() ): void {
+		$d = static fn( string $key, $fallback ) => $defaults[ $key ] ?? $fallback;
+
 		// The button's own hover, not the scope's: with `{{WRAPPER}}` as the scope,
 		// `{{WRAPPER}}:hover .btn` paints every button in the widget the moment the
 		// pointer enters any part of it, and a second button loses the style when
@@ -591,8 +612,8 @@ final class PixfortControls {
 			'separator' => 'before',
 		) );
 
-		self::palette_control( $target, $prefix . '_hover_bg', __( 'Hover background', 'galaxie-woo' ), $hovered, 'background-color', $condition );
-		self::palette_control( $target, $prefix . '_hover_color', __( 'Hover text color', 'galaxie-woo' ), $hovered, 'color', $condition );
+		self::palette_control( $target, $prefix . '_hover_bg', __( 'Hover background', 'galaxie-woo' ), $hovered, 'background-color', $condition, '', (string) $d( 'hover_bg', '' ) );
+		self::palette_control( $target, $prefix . '_hover_color', __( 'Hover text color', 'galaxie-woo' ), $hovered, 'color', $condition, '', (string) $d( 'hover_color', '' ) );
 		self::palette_control(
 			$target,
 			$prefix . '_hover_border',
@@ -600,7 +621,8 @@ final class PixfortControls {
 			$hovered,
 			'border-color',
 			$condition,
-			' border-style: solid !important;'
+			' border-style: solid !important;',
+			(string) $d( 'hover_border', '' )
 		);
 
 		self::add( $target, $condition, $prefix . '_hover_lift', array(
@@ -1407,7 +1429,7 @@ final class PixfortControls {
 	 *
 	 * @param array<string,mixed> $condition
 	 */
-	public static function palette_control( object $target, string $id, string $label, string $selector, string $property, array $condition = array(), string $extra = '' ): void {
+	public static function palette_control( object $target, string $id, string $label, string $selector, string $property, array $condition = array(), string $extra = '', string $default = '' ): void {
 		if ( ! self::available() ) {
 			self::add( $target, $condition, $id . '_fallback', array(
 				'label'     => $label,
@@ -1455,7 +1477,9 @@ final class PixfortControls {
 			'label'                => $label,
 			'type'                 => Controls_Manager::SELECT,
 			'groups'               => $colors,
-			'default'              => '',
+			// A palette entry the caller asks for, e.g. a delete button that
+			// fills red on hover. Anything not in pixfort's list is ignored.
+			'default'              => isset( $dictionary[ $default ] ) ? $default : '',
 			'selectors_dictionary' => $dictionary,
 			'selectors'            => array( $selector => '{{VALUE}}' ),
 		) );
@@ -1549,6 +1573,23 @@ final class PixfortControls {
 	}
 
 	/** @return array<string,string> */
+	/**
+	 * The four sides of a DIMENSIONS control, all the same: what a default
+	 * padding or margin looks like to Elementor.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private static function dimensions( float $px ): array {
+		return array(
+			'unit'     => 'px',
+			'top'      => $px,
+			'right'    => $px,
+			'bottom'   => $px,
+			'left'     => $px,
+			'isLinked' => true,
+		);
+	}
+
 	private static function shadow_options( string $none, string $noun ): array {
 		return array(
 			''  => $none,
@@ -1683,8 +1724,10 @@ final class PixfortControls {
 	 *
 	 * @param array<string,mixed> $defaults
 	 * @param array<string,mixed> $condition
+	 * @param string[]            $skip      Unprefixed ids not to register, as
+	 *                                       {@see button()} and {@see text()} take.
 	 */
-	public static function quantity( object $target, string $prefix, string $field, string $input, array $defaults = array(), array $condition = array(), string $wrapper = '' ): void {
+	public static function quantity( object $target, string $prefix, string $field, string $input, array $defaults = array(), array $condition = array(), string $wrapper = '', array $skip = array() ): void {
 		$d   = static fn( string $key, $fallback ) => $defaults[ $key ] ?? $fallback;
 		$box = '' !== $wrapper ? $wrapper : $field;
 
@@ -1692,24 +1735,34 @@ final class PixfortControls {
 		// rather than here, which is exactly why the cart's Quantity panel was
 		// not the buy box's Quantity panel however often the rest was shared.
 		// The ids are unchanged, so a buy box already set to Dropdown stays one.
-		self::add( $target, $condition, $prefix . '_style', array(
-			'label'   => __( 'Style', 'galaxie-woo' ),
-			'type'    => Controls_Manager::SELECT,
-			'options' => array(
-				'input'  => __( 'Number input (+/-)', 'galaxie-woo' ),
-				'select' => __( 'Dropdown', 'galaxie-woo' ),
-			),
-			'default' => $d( 'style', 'input' ),
-		) );
+		//
+		// `style` and `max` are skippable together: they are the two controls a
+		// spinner whose number is not a native input cannot honour — the kit's
+		// quantity is a <span> the script writes, so there is no field to turn
+		// into a dropdown and no list to cap. Registering them there would be
+		// two controls that move nothing.
+		if ( ! in_array( 'style', $skip, true ) ) {
+			self::add( $target, $condition, $prefix . '_style', array(
+				'label'   => __( 'Style', 'galaxie-woo' ),
+				'type'    => Controls_Manager::SELECT,
+				'options' => array(
+					'input'  => __( 'Number input (+/-)', 'galaxie-woo' ),
+					'select' => __( 'Dropdown', 'galaxie-woo' ),
+				),
+				'default' => $d( 'style', 'input' ),
+			) );
+		}
 
-		self::add( $target, $condition, $prefix . '_max', array(
-			'label'     => __( 'Dropdown goes up to', 'galaxie-woo' ),
-			'type'      => Controls_Manager::NUMBER,
-			'min'       => 1,
-			'max'       => 50,
-			'default'   => $d( 'max', 5 ),
-			'condition' => array( $prefix . '_style' => 'select' ),
-		) );
+		if ( ! in_array( 'max', $skip, true ) ) {
+			self::add( $target, $condition, $prefix . '_max', array(
+				'label'     => __( 'Dropdown goes up to', 'galaxie-woo' ),
+				'type'      => Controls_Manager::NUMBER,
+				'min'       => 1,
+				'max'       => 50,
+				'default'   => $d( 'max', 5 ),
+				'condition' => array( $prefix . '_style' => 'select' ),
+			) );
+		}
 
 		// On the wrapper, which is made a flex row here rather than in the
 		// stylesheet so the control works wherever the set is used without
@@ -1812,6 +1865,52 @@ final class PixfortControls {
 	}
 
 	/**
+	 * A progress bar: a track, the part that is filled, and the colour it turns
+	 * once the thing being counted is reached.
+	 *
+	 * Three widgets drew the same bar with three vocabularies — `fill_track` /
+	 * `fill_bar` in one, `progress_track` / `progress_fill` in the other two —
+	 * and only one of them could be rounded. A merchant restyling "the bar"
+	 * therefore found a different panel depending on which widget they had
+	 * clicked. The Free Shipping ids are the ones kept, because two of the three
+	 * already used them.
+	 *
+	 * No height default: the stylesheet gives every bar its 8px, and a default
+	 * here would be a second answer to the same question.
+	 *
+	 * @param string              $track    Selector for the track.
+	 * @param string              $fill     Selector for the filled part.
+	 * @param string              $done     Selector for the filled part once reached.
+	 * @param array<string,mixed> $defaults `done_label` names the last control:
+	 *                                      "reached" and "full" are the same
+	 *                                      state under two widgets' words.
+	 * @param array<string,mixed> $condition
+	 */
+	public static function progress( object $target, string $prefix, string $track, string $fill, string $done, array $defaults = array(), array $condition = array() ): void {
+		self::palette_control( $target, $prefix . '_track', __( 'Track', 'galaxie-woo' ), $track, 'background-color', $condition );
+		self::palette_control( $target, $prefix . '_fill', __( 'Fill', 'galaxie-woo' ), $fill, 'background-color', $condition );
+		self::palette_control( $target, $prefix . '_fill_done', (string) ( $defaults['done_label'] ?? __( 'Fill once reached', 'galaxie-woo' ) ), $done, 'background-color', $condition );
+
+		self::add_responsive( $target, $condition, $prefix . '_bar_height', array(
+			'label'      => __( 'Height', 'galaxie-woo' ),
+			'type'       => Controls_Manager::SLIDER,
+			'size_units' => array( 'px' ),
+			'range'      => array( 'px' => array( 'min' => 2, 'max' => 32 ) ),
+			'selectors'  => array( $track => 'height: {{SIZE}}{{UNIT}};' ),
+		) );
+
+		// Track and fill together: the fill inherits the track's radius in the
+		// stylesheet, and a rounded track with square ends reads as a bug.
+		self::add_responsive( $target, $condition, $prefix . '_bar_radius', array(
+			'label'      => __( 'Border radius', 'galaxie-woo' ),
+			'type'       => Controls_Manager::SLIDER,
+			'size_units' => array( 'px' ),
+			'range'      => array( 'px' => array( 'min' => 0, 'max' => 20 ) ),
+			'selectors'  => array( $track . ', ' . $fill => 'border-radius: {{SIZE}}{{UNIT}};' ),
+		) );
+	}
+
+	/**
 	 * The box set every pixfort container shares — background, corner radius,
 	 * shadow, padding, border — for markup that is ours rather than pixfort's.
 	 *
@@ -1831,7 +1930,7 @@ final class PixfortControls {
 	public static function surface( object $target, string $prefix, string $selector, array $defaults = array(), array $condition = array(), bool $padding = true ): void {
 		$d = static fn( string $key, $fallback ) => $defaults[ $key ] ?? $fallback;
 
-		self::palette_control( $target, $prefix . '_bg', __( 'Background', 'galaxie-woo' ), $selector, 'background-color', $condition );
+		self::palette_control( $target, $prefix . '_bg', __( 'Background', 'galaxie-woo' ), $selector, 'background-color', $condition, '', (string) $d( 'bg', '' ) );
 
 		// A badge-shaped box (a tag, a tab, a status) gets the badge list, which
 		// is the one with Pill in it; any other box gets the container scale.
@@ -1883,12 +1982,14 @@ final class PixfortControls {
 		// tracks 80px narrower than the lines below it, and nothing under it
 		// lines up. Where that matters the caller pads the cells instead.
 		if ( $padding ) {
+			$pad = $d( 'padding', null );
+
 			self::add_responsive( $target, $condition, $prefix . '_padding', array(
 				'label'      => __( 'Padding', 'galaxie-woo' ),
 				'type'       => Controls_Manager::DIMENSIONS,
 				'size_units' => array( 'px', 'rem', 'em' ),
 				'selectors'  => array( $selector => 'padding: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};' ),
-			) );
+			) + ( null === $pad ? array() : array( 'default' => self::dimensions( (float) $pad ) ) ) );
 		}
 
 		// Same trap as the quantity box: pixfort's containers ship with no
@@ -1903,7 +2004,8 @@ final class PixfortControls {
 			$selector,
 			'border-color',
 			$condition,
-			' border-style: solid; border-width: 1px;'
+			' border-style: solid; border-width: 1px;',
+			(string) $d( 'border_color', '' )
 		);
 
 		self::add_responsive( $target, $condition, $prefix . '_border_width', array(

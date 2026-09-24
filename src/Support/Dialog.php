@@ -37,11 +37,59 @@ final class Dialog {
 	 *   yes:string,
 	 *   no?:string|null,
 	 *   yes_defaults?:array<string,string>,
+	 *   no_defaults?:array<string,string>,
 	 *   extra?:array<string,array{0:string,1:string}>
 	 * } $args `no` null makes it a notice with a single button; `extra` adds
 	 *         more messages the script picks by key. A question's confirm
-	 *         button is red unless `yes_defaults` says otherwise.
+	 *         button wears the shop's delete look ({@see self::DESTRUCTIVE})
+	 *         unless `yes_defaults` says otherwise.
 	 */
+	/**
+	 * What a "yes, delete it" button looks like, everywhere one is asked for:
+	 * a red outline that fills red on hover, with a bin before the label. Set
+	 * once here so a merchant does not dress every dialog in the shop by hand;
+	 * a dialog whose yes is not destructive passes its own `yes_defaults`.
+	 */
+	/**
+	 * The "no, leave it" button beside it: the page's own background, the
+	 * heading's colour, and a grey fill on hover. Quiet, but not a link — it
+	 * is half of a choice.
+	 */
+	public const CANCEL = array(
+		'style'       => '',
+		'color'       => 'dynamic-background',
+		'text_color'  => 'dynamic-heading',
+		'size'        => 'normal',
+		'hover_bg'    => 'dynamic-gray-100',
+		'hover_color' => 'dynamic-heading',
+	);
+
+	/**
+	 * The box every dialog starts in: the page's background, extra-large
+	 * corners, a large shadow, a hairline of Dynamic Gray 300, 20px of padding
+	 * and 20px between its parts.
+	 */
+	public const BOX = array(
+		'bg'           => 'dynamic-background',
+		'rounded'      => 'rounded-10',
+		'shadow'       => '3',
+		'border_color' => 'dynamic-gray-300',
+		'padding'      => 20,
+	);
+
+	/** How far the title, the message and the buttons stand apart, in px. */
+	public const BOX_GAP = 20;
+
+	public const DESTRUCTIVE = array(
+		'style'       => 'outline',
+		'color'       => 'red',
+		'text_color'  => 'red',
+		'size'        => 'normal',
+		'icon'        => 'Line/pixfort-icon-trash-can-3',
+		'hover_bg'    => 'red',
+		'hover_color' => 'dynamic-heading',
+	);
+
 	public static function controls( object $widget, string $prefix, array $args ): void {
 		// Applied to every section, so a dialog another widget styles can leave
 		// this panel altogether.
@@ -77,8 +125,8 @@ final class Dialog {
 		$buttons = array( 'yes' => array( $named( __( 'confirm button', 'galaxie-woo' ) ), $args['yes'], array( 'size' => 'sm' ) ) );
 
 		if ( null !== ( $args['no'] ?? null ) ) {
-			$buttons['yes'][2] = $args['yes_defaults'] ?? array( 'color' => 'red', 'text_color' => 'white', 'size' => 'sm' );
-			$buttons['no']     = array( $named( __( 'cancel button', 'galaxie-woo' ) ), $args['no'], array( 'style' => 'link', 'size' => 'sm' ) );
+			$buttons['yes'][2] = $args['yes_defaults'] ?? self::DESTRUCTIVE;
+			$buttons['no']     = array( $named( __( 'cancel button', 'galaxie-woo' ) ), $args['no'], $args['no_defaults'] ?? self::CANCEL );
 		} else {
 			$buttons['yes'][0] = $named( __( 'button', 'galaxie-woo' ) );
 		}
@@ -93,7 +141,7 @@ final class Dialog {
 
 		$widget->start_controls_section( $prefix . '_box_style', array( 'label' => $named( __( 'box', 'galaxie-woo' ) ), 'tab' => Controls_Manager::TAB_STYLE ) + $when );
 
-		PixfortControls::surface( $widget, $prefix . '_box', $box, array( 'rounded' => 'rounded-xl', 'shadow' => '4' ) );
+		PixfortControls::surface( $widget, $prefix . '_box', $box, self::BOX );
 
 		$widget->add_responsive_control(
 			$prefix . '_width',
@@ -132,6 +180,7 @@ final class Dialog {
 				'type'       => Controls_Manager::SLIDER,
 				'size_units' => array( 'px' ),
 				'range'      => array( 'px' => array( 'min' => 0, 'max' => 48 ) ),
+				'default'    => array( 'unit' => 'px', 'size' => self::BOX_GAP ),
 				'selectors'  => array( $box => 'gap: {{SIZE}}{{UNIT}};' ),
 			)
 		);
