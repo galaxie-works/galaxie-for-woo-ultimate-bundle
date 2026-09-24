@@ -58,8 +58,17 @@ final class AccountCommunicationWidget extends Widget_Base {
 		$this->start_controls_section( 'comm_section', array( 'label' => __( 'Communication', 'galaxie-woo' ) ) );
 
 		$this->add_control( 'comm_heading', array( 'label' => __( 'Heading', 'galaxie-woo' ), 'type' => Controls_Manager::TEXT, 'label_block' => true, 'default' => __( 'Comunicação', 'galaxie-woo' ) ) );
-		$this->add_control( 'comm_title', array( 'label' => __( 'Option title', 'galaxie-woo' ), 'type' => Controls_Manager::TEXT, 'label_block' => true, 'default' => __( 'Novidades e ofertas por e-mail', 'galaxie-woo' ) ) );
-		$this->add_control( 'comm_text', array( 'label' => __( 'Option description', 'galaxie-woo' ), 'type' => Controls_Manager::TEXTAREA, 'rows' => 2, 'default' => __( 'Lançamentos, rituais e promoções, de vez em quando. Você pode sair quando quiser.', 'galaxie-woo' ) ) );
+		// The wording of every switch — the consent's included — is written once
+		// under Galaxie → FluentCRM. It used to be typed here as well, which
+		// meant two places to change one sentence.
+		$this->add_control(
+			'comm_wording_note',
+			array(
+				'type'            => Controls_Manager::RAW_HTML,
+				'raw'             => esc_html__( 'The titles and the lines under them are written in wp-admin → Galaxie → FluentCRM: the consent switch has its own two fields there, and the rest are the Communications rows.', 'galaxie-woo' ),
+				'content_classes' => 'elementor-descriptor',
+			)
+		);
 		$this->add_control(
 			'comm_compact',
 			array(
@@ -235,7 +244,7 @@ final class AccountCommunicationWidget extends Widget_Base {
 		$place = esc_attr( in_array( $s['comm_switch_place'] ?? 'end', array( 'start', 'below' ), true ) ? (string) $s['comm_switch_place'] : 'end' );
 
 		if ( 'yes' === ( $s['comm_show_newsletter'] ?? 'yes' ) ) {
-			$this->newsletter( $s, $txt, $id, $on, $place );
+				$this->newsletter( $s, $txt, $id, $on, $place );
 		}
 
 		$this->communications( $s, $txt, $place );
@@ -254,12 +263,21 @@ final class AccountCommunicationWidget extends Widget_Base {
 	 * @param string              $place Where the switch sits.
 	 */
 	private function newsletter( array $s, callable $txt, string $id, bool $on, string $place ): void {
+		// A wording typed into this widget before the settings had these two
+		// fields still wins over the default: nothing a merchant wrote is lost.
+		$wording = FluentCRMModule::newsletter_wording(
+			array(
+				'title' => (string) ( $s['comm_title'] ?? '' ),
+				'text'  => (string) ( $s['comm_text'] ?? '' ),
+			)
+		);
+
 		printf(
 			'<label class="galaxie-comm-option card is-switch-%6$s %1$s" for="%2$s"><span class="galaxie-comm-copy">%3$s%4$s</span><span class="galaxie-switch"><input type="checkbox" id="%2$s" name="opt_in" value="1"%5$s /><span class="galaxie-switch-track" aria-hidden="true"></span></span></label>',
 			esc_attr( PixfortControls::surface_classes( $s, 'comm_option' ) ),
 			esc_attr( $id ),
-			$txt( 'comm_title_text', 'galaxie-comm-title', (string) ( $s['comm_title'] ?? '' ) ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pixfort's own element around escaped text.
-			'yes' === ( $s['comm_compact'] ?? '' ) ? '' : $txt( 'comm_desc_text', 'galaxie-comm-text', (string) ( $s['comm_text'] ?? '' ) ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pixfort's own element around escaped text.
+			$txt( 'comm_title_text', 'galaxie-comm-title', $wording['title'] ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pixfort's own element around escaped text.
+			'yes' === ( $s['comm_compact'] ?? '' ) ? '' : $txt( 'comm_desc_text', 'galaxie-comm-text', $wording['text'] ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pixfort's own element around escaped text.
 			checked( $on, true, false ),
 			esc_attr( $place )
 		);
