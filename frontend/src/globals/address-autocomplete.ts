@@ -8,11 +8,26 @@
  *
  * Nothing here validates an address. Places fills the fields; WooCommerce still
  * decides what the shipping costs, and a shopper can always type over it.
+ *
+ * The checkout island's address forms use the same search through
+ * attachPlaces() / whenPlacesReady() (islands/checkout/PlacesSearch.tsx).
  */
 
-interface PlacesConfig {
+export interface PlacesConfig {
   country: string
   placeholder: string
+}
+
+/** What a picked place means as an address, the way every field here reads it. */
+export interface PlacedAddress {
+  /** "Route, number". */
+  address_1: string
+  /** The neighbourhood: WooCommerce has no field of its own for it. */
+  neighbourhood: string
+  city: string
+  /** Two letters (UF). */
+  state: string
+  postcode: string
 }
 
 interface AddressComponent {
@@ -57,11 +72,30 @@ function set(field: HTMLInputElement | HTMLSelectElement | null, value: string):
   if ($) $(field).trigger('change')
 }
 
-function attach(input: HTMLInputElement, scope: ParentNode, config: PlacesConfig): void {
+function parsePlace(place: Place): PlacedAddress {
+  const number = pick(place, 'street_number')
+  const route = pick(place, 'route')
+
+  return {
+    address_1: [route, number].filter(Boolean).join(', '),
+    neighbourhood: pick(place, 'sublocality_level_1') || pick(place, 'sublocality') || pick(place, 'neighborhood'),
+    city: pick(place, 'administrative_area_level_2') || pick(place, 'locality'),
+    state: pick(place, 'administrative_area_level_1').toUpperCase().slice(0, 2),
+    postcode: pick(place, 'postal_code'),
+  }
+}
+
+/**
+ * Places search on `input`: `onPlace` hears each picked address, already
+ * read into the fields an address form has. For forms that are not
+ * WooCommerce's own — the checkout island's — which fill their state from it.
+ * Returns false when the Maps script is not there (yet); see whenPlacesReady().
+ */
+export function attachPlaces(input: HTMLInputElement, config: PlacesConfig, onPlace: (address: PlacedAddress) => void): boolean {
   const google = (window as unknown as { google?: MapsGlobal }).google
   const Autocomplete = google?.maps?.places?.Autocomplete
 
-  if (!Autocomplete) return
+  if (!Autocomplete) return false
 
   const autocomplete = new Autocomplete(input, {
     fields: ['address_components'],
@@ -71,38 +105,33 @@ function attach(input: HTMLInputElement, scope: ParentNode, config: PlacesConfig
 
   autocomplete.addListener('place_changed', () => {
     const place = autocomplete.getPlace()
-    if (!place.address_components) return
+    if (place.address_components) onPlace(parsePlace(place))
+  })
 
-    const number = pick(place, 'street_number')
-    const route = pick(place, 'route')
-    const neighbourhood =
-      pick(place, 'sublocality_level_1') || pick(place, 'sublocality') || pick(place, 'neighborhood')
-    const city = pick(place, 'administrative_area_level_2') || pick(place, 'locality')
-    const state = pick(place, 'administrative_area_level_1')
-    const postcode = pick(place, 'postal_code')
+  return true
+}
 
+function attach(input: HTMLInputElement, scope: ParentNode, config: PlacesConfig): void {
+  attachPlaces(input, config, (address) => {
     const q = <T extends HTMLElement>(selector: string): T | null => scope.querySelector<T>(selector)
 
     // The calculator's fields and checkout's are different ids for the same
     // five answers, so both are filled and whichever exists wins.
-    set(q<HTMLInputElement>('#calc_shipping_postcode'), postcode)
-    set(q<HTMLInputElement>('#calc_shipping_city'), city)
-    set(q<HTMLSelectElement>('#calc_shipping_state'), state.toUpperCase().slice(0, 2))
+    set(q<HTMLInputElement>('#calc_shipping_postcode'), address.postcode)
+    set(q<HTMLInputElement>('#calc_shipping_city'), address.city)
+    set(q<HTMLSelectElement>('#calc_shipping_state'), address.state)
 
-    set(q<HTMLInputElement>('#billing_postcode, #shipping_postcode'), postcode)
-    set(q<HTMLInputElement>('#billing_city, #shipping_city'), city)
-    set(q<HTMLSelectElement>('#billing_state, #shipping_state'), state.toUpperCase().slice(0, 2))
-    set(
-      q<HTMLInputElement>('#billing_address_1, #shipping_address_1'),
-      [route, number].filter(Boolean).join(', ')
-    )
-    set(q<HTMLInputElement>('#billing_address_2, #shipping_address_2'), neighbourhood)
+    set(q<HTMLInputElement>('#billing_postcode, #shipping_postcode'), address.postcode)
+    set(q<HTMLInputElement>('#billing_city, #shipping_city'), address.city)
+    set(q<HTMLSelectElement>('#billing_state, #shipping_state'), address.state)
+    set(q<HTMLInputElement>('#billing_address_1, #shipping_address_1'), address.address_1)
+    set(q<HTMLInputElement>('#billing_address_2, #shipping_address_2'), address.neighbourhood)
 
     // A street picked without a number usually comes back from Google with
     // no postal code, and every carrier quotes by CEP. This key cannot
     // geocode (REQUEST_DENIED on the test store), so the one thing left is to
     // put the shopper on the field that still needs them.
-    if (!postcode) {
+    if (!address.postcode) {
       const cep = q<HTMLInputElement>('#calc_shipping_postcode') ?? q<HTMLInputElement>('#billing_postcode, #shipping_postcode')
       cep?.focus()
     }
@@ -169,28 +198,39 @@ function mountAll(config: PlacesConfig): void {
   }
 }
 
+const placesReady = (): boolean => Boolean((window as unknown as { google?: MapsGlobal }).google?.maps?.places?.Autocomplete)
+
+/**
+ * Runs `run` once Places exists. The Maps script loads with `loading=async`,
+ * so `google.maps` may not exist the instant this runs even though it is
+ * declared as a dependency. Polling briefly is what the original did, and
+ * assuming otherwise is what broke it. Returns a cancel function.
+ */
+export function whenPlacesReady(run: () => void): () => void {
+  if (placesReady()) {
+    run()
+    return () => {}
+  }
+
+  const wait = window.setInterval(() => {
+    if (!placesReady()) return
+    window.clearInterval(wait)
+    run()
+  }, 200)
+  const stop = window.setTimeout(() => window.clearInterval(wait), 10000)
+
+  return () => {
+    window.clearInterval(wait)
+    window.clearTimeout(stop)
+  }
+}
+
 export function bootAddressAutocomplete(config?: PlacesConfig): void {
   if (!config) return
 
-  const ready = (): boolean =>
-    Boolean((window as unknown as { google?: MapsGlobal }).google?.maps?.places?.Autocomplete)
-
   const run = (): void => mountAll(config)
 
-  // The Maps script loads with `loading=async`, so `google.maps` may not exist
-  // the instant this runs even though it is declared as a dependency. Polling
-  // briefly is what the original did, and assuming otherwise is what broke it.
-  if (ready()) {
-    run()
-  } else {
-    const wait = window.setInterval(() => {
-      if (!ready()) return
-      window.clearInterval(wait)
-      run()
-    }, 200)
-
-    window.setTimeout(() => window.clearInterval(wait), 10000)
-  }
+  whenPlacesReady(run)
 
   // WooCommerce redraws the calculator and the checkout fields on every update,
   // taking the search box with them. Re-mounting is idempotent — the anchor
@@ -200,7 +240,7 @@ export function bootAddressAutocomplete(config?: PlacesConfig): void {
 
   if ($) {
     $(document.body).on('updated_wc_div updated_cart_totals updated_checkout', () => {
-      if (ready()) run()
+      if (placesReady()) run()
     })
   }
 }

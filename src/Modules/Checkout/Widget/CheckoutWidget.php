@@ -771,6 +771,7 @@ final class CheckoutWidget extends AbstractIslandWidget {
 			'addCard'         => $from( 'add_card', __( 'Adicionar cartão', 'galaxie-woo' ) ),
 			'saveCard'        => $from( 'save_card', __( 'Salvar cartão', 'galaxie-woo' ) ),
 			'needCard'        => $from( 'need_card', __( 'Adicione ou escolha um cartão para finalizar o pedido.', 'galaxie-woo' ) ),
+			'addressSearch'   => __( 'Buscar endereço', 'galaxie-woo' ),
 			'addressNickname' => __( 'Apelido (opcional)', 'galaxie-woo' ),
 			'addressNicknameHint' => __( 'Ex.: Casa, Trabalho', 'galaxie-woo' ),
 			'cardNumber'      => __( 'Número do cartão', 'galaxie-woo' ),

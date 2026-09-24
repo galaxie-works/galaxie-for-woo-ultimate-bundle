@@ -1,9 +1,11 @@
 import * as React from 'react'
 
+import type { PlacedAddress } from '@/globals/address-autocomplete'
 import { cn } from '@/lib/cn'
 import { CoField, PixButton, useFieldClass, useUi } from '@/lib/pix'
 import { post } from '@/lib/wp'
 import { Input } from '@/ui/input'
+import { PlacesSearch } from './PlacesSearch'
 import { ShippingChoice } from './ShippingChoice'
 import type { AddressBookData, AddressBookEntry, AddressValues, CheckoutText, CheckoutUi, ProfileValues } from './types'
 
@@ -144,6 +146,22 @@ function AddressBookStep({
   }
 
   const set = (key: keyof Draft, value: string) => setDraft((prev) => ({ ...prev, [key]: value }))
+
+  // A picked place fills the form; the neighbourhood goes where the cart's
+  // search puts it (the complement), unless something is typed there already.
+  // Without a CEP (a street picked without its number) the CEP field is next.
+  function fromPlace(place: PlacedAddress) {
+    setDraft((prev) => ({
+      ...prev,
+      address_1: place.address_1 || prev.address_1,
+      address_2: prev.address_2 || place.neighbourhood,
+      city: place.city || prev.city,
+      state: place.state || prev.state,
+      postcode: place.postcode || prev.postcode,
+    }))
+    if (!place.postcode) document.getElementById(`${id}-cep`)?.focus()
+  }
+
   const showQuoted = quoted && '' !== digits(quoted.postcode) && !quotedEntry && entries.length > 0 && !formOpen
   const addressChosen = !formOpen && '' !== selected
 
@@ -181,6 +199,7 @@ function AddressBookStep({
 
       {formOpen ? (
         <form noValidate onSubmit={save} className="gx-co-form">
+          <PlacesSearch label={text.addressSearch} onPlace={fromPlace} />
           <div className="gx-co-grid-2">
             <CoField label={text.postcode} htmlFor={`${id}-cep`}>
               <Input unstyled id={`${id}-cep`} required inputMode="numeric" autoComplete="postal-code" placeholder="00000-000" className={field} value={draft.postcode} onChange={(e) => set('postcode', e.target.value)} />
