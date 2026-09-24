@@ -14,36 +14,51 @@
 @import 'tw-animate-css';
 
 /*
- * Design tokens. Each maps to the active pixfort theme's CSS variable
- * (`--pix-*`, confirmed live on staging) with a shadcn "new-york" neutral value
- * as the fallback — so components look native inside pixfort, and still render
- * correctly on any other theme (or none) via the fallback. Defined on
- * `.galaxie-ui`, NOT `:root`, so we never touch the host page's own tokens.
+ * Design tokens. Each maps to the active pixfort theme's CSS variable with a
+ * shadcn "new-york" neutral as the fallback, and is defined on `.galaxie-ui`,
+ * NOT `:root`, so we never touch the host page's own tokens.
  *
- * High-confidence mappings are wired (surface/text/primary/ring). The rest stay
- * neutral until the visual pass on staging pins the right pixfort var for each
- * (e.g. secondary/muted/border, and mapping shadows to --pix-box-shadow*).
+ * Surface and text follow pixfort's *dynamic* variables, the ones its dark
+ * mode (`html.pix-dark`) swaps. The first cut used `--pix-white` for the
+ * surface; pixfort never swaps that one, so in dark mode the checkout's tabs
+ * came out as white slabs on a black page.
+ *
+ * The neutrals (muted, border, input…) used to be fixed light greys, which
+ * nearly vanish on white and glare on black. They are now mixed from the text
+ * colour, so they stay the same *contrast* on either background, and any
+ * widget that repaints `--foreground` from its style panel repaints them too.
  */
 .galaxie-ui {
   --radius: 0.625rem;
-  --background: var(--pix-white, oklch(1 0 0));
-  --foreground: var(--pix-body-default, oklch(0.145 0 0));
-  --card: var(--pix-white, oklch(1 0 0));
-  --card-foreground: var(--pix-body-default, oklch(0.145 0 0));
-  --popover: var(--pix-white, oklch(1 0 0));
-  --popover-foreground: var(--pix-body-default, oklch(0.145 0 0));
+  --background: var(--pix-dynamic-background, oklch(1 0 0));
+  --foreground: var(--pix-heading-default, oklch(0.145 0 0));
+  --card: color-mix(in srgb, var(--foreground) 3%, var(--background));
+  --card-foreground: var(--foreground);
+  --popover: var(--background);
+  --popover-foreground: var(--foreground);
   --primary: var(--pix-primary, oklch(0.205 0 0));
   --primary-foreground: var(--pix-btn-color, oklch(0.985 0 0));
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+  --secondary: color-mix(in srgb, var(--foreground) 6%, transparent);
+  --secondary-foreground: var(--foreground);
+  --muted: color-mix(in srgb, var(--foreground) 6%, transparent);
+  --muted-foreground: var(--pix-body-default, color-mix(in srgb, var(--foreground) 62%, transparent));
+  --accent: color-mix(in srgb, var(--foreground) 8%, transparent);
+  --accent-foreground: var(--foreground);
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
+  --border: color-mix(in srgb, var(--foreground) 14%, transparent);
+  --input: color-mix(in srgb, var(--foreground) 22%, transparent);
   --ring: var(--pix-primary, oklch(0.708 0 0));
+}
+
+/* pixfort paints its primary (#2d3626 on this store) at the same value in
+   dark mode, where a dark-green button on a black page nearly disappears.
+   Its secondary is the light accent it pairs with on dark sections. A
+   widget's own palette control still wins: it writes the token on the
+   widget wrapper, which is more specific than this. */
+html.pix-dark .galaxie-ui {
+  --primary: var(--pix-secondary, var(--pix-primary, oklch(0.922 0 0)));
+  --primary-foreground: var(--pix-black, oklch(0.145 0 0));
+  --ring: var(--pix-secondary, var(--pix-primary, oklch(0.556 0 0)));
 }
 
 @theme inline {
@@ -79,11 +94,59 @@
   box-sizing: border-box;
 }
 
+/* The page's font, not a system stack: pixfort sets Manrope on the body and
+   the island used to replace it with -apple-system/Segoe UI, so every island
+   read as a different site. */
 .galaxie-ui {
-  font-family: var(--font-sans, ui-sans-serif, system-ui, -apple-system, sans-serif);
+  font-family: inherit;
   color: var(--foreground);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+}
+
+/* Without Tailwind's preflight a <button> keeps the browser's own chrome — a
+   2px outset border, a grey face, the system font — under our utilities,
+   which only ever *add* a border or a background. This is the slice of
+   preflight a button needs, in the base layer so any utility still wins.
+
+   Scoped to React islands and their dialogs, not every `.galaxie-ui`: the
+   PHP widgets that carry the class (buy box, quantity discounts, spotlight)
+   print pixfort's own components, whose spacing and list styles lean on the
+   browser defaults this would strip. */
+@layer base {
+  :is([data-galaxie-island], .galaxie-ui[role='dialog']) :is(button, input, select, textarea) {
+    font: inherit;
+    letter-spacing: inherit;
+    color: inherit;
+    margin: 0;
+  }
+  :is([data-galaxie-island], .galaxie-ui[role='dialog']) button {
+    appearance: none;
+    background: transparent;
+    border: 0 solid;
+    padding: 0;
+    cursor: pointer;
+    text-transform: none;
+  }
+  :is([data-galaxie-island], .galaxie-ui[role='dialog']) button:disabled {
+    cursor: default;
+  }
+  :is([data-galaxie-island], .galaxie-ui[role='dialog']) :is(input, select, textarea) {
+    border: 0 solid;
+    background-color: transparent;
+  }
+  :is([data-galaxie-island], .galaxie-ui[role='dialog']) :is(ol, ul) {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  :is([data-galaxie-island], .galaxie-ui[role='dialog']) :is(h1, h2, h3, h4, p) {
+    margin: 0;
+  }
+  :is([data-galaxie-island], .galaxie-ui[role='dialog']) img {
+    display: block;
+    max-width: 100%;
+  }
 }
 
 /* Interest-pill selection burst (My Account). One short run per particle,
@@ -2963,4 +3026,211 @@ address.galaxie-order-body {
   flex-direction: column;
   align-items: flex-start;
   gap: 14px;
+}
+
+/* ── Galaxie Checkout ─────────────────────────────────────────────────────
+   Two columns (steps, order summary) from 820px of the widget's own width up,
+   one below it. A container query, not a media query: the widget can sit in
+   a narrow Elementor column on a wide screen, and it is the column that has
+   to decide. The widget's Layout controls write the custom properties. */
+.gx-co {
+  --gx-co-gap: 48px;
+  --gx-co-summary-width: 380px;
+  --gx-co-sticky-top: 24px;
+  --gx-co-control-h: 44px;
+  container-type: inline-size;
+}
+.gx-co-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+}
+/* On a phone the summary comes first, folded into a bar with the total. */
+.gx-co-aside {
+  order: -1;
+}
+@container (min-width: 820px) {
+  .gx-co-grid {
+    grid-template-columns: minmax(0, 1fr) var(--gx-co-summary-width);
+    gap: var(--gx-co-gap);
+    align-items: start;
+  }
+  .gx-co-aside {
+    order: 0;
+  }
+  .gx-co--left .gx-co-grid {
+    grid-template-columns: var(--gx-co-summary-width) minmax(0, 1fr);
+  }
+  .gx-co--left .gx-co-aside {
+    order: -1;
+  }
+  .gx-co--sticky .gx-co-aside {
+    position: sticky;
+    top: var(--gx-co-sticky-top);
+  }
+  .gx-co-summary-bar {
+    display: none !important;
+  }
+  .gx-co-summary-body[hidden] {
+    display: block;
+  }
+}
+
+/* One height for every field and button, from the "Field and button height"
+   control — inputs at 36px next to 40px buttons looked like two forms. */
+.gx-co [data-slot='input'],
+.gx-co [data-slot='button'],
+.gx-co .iti input,
+.gx-co #place_order {
+  height: var(--gx-co-control-h);
+}
+.gx-co [data-slot='input'] {
+  font-size: 15px;
+}
+.gx-co [data-slot='button'] {
+  font-weight: 600;
+}
+
+/* WooCommerce's own shipping list, moved into the delivery step. Each rate
+   becomes a selectable row; the checked one takes the primary colour. The
+   radio stays the real control WooCommerce's checkout.js listens to. */
+.gx-co .galaxie-shipping-mount ul#shipping_method {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.gx-co .galaxie-shipping-mount ul#shipping_method li {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) - 2px);
+  color: var(--foreground);
+  font-size: 14px;
+  line-height: 1.4;
+  text-indent: 0;
+  transition: border-color 0.15s, background-color 0.15s;
+}
+.gx-co .galaxie-shipping-mount ul#shipping_method li:has(input:checked) {
+  border-color: var(--primary);
+  background: var(--muted);
+}
+.gx-co .galaxie-shipping-mount ul#shipping_method input[type='radio'] {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--primary);
+}
+.gx-co .galaxie-shipping-mount ul#shipping_method label {
+  flex: 1;
+  margin: 0;
+  cursor: pointer;
+  color: inherit;
+  font-weight: 500;
+}
+/* The whole row is the click target, not just the words. */
+.gx-co .galaxie-shipping-mount ul#shipping_method label::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+}
+.gx-co .galaxie-shipping-mount ul#shipping_method .amount {
+  float: right;
+  margin-left: 12px;
+  font-weight: 600;
+}
+
+/* WooCommerce's payment block, moved into the payment step. WooCommerce and
+   themes paint it as a grey panel with an arrow bubble per method: fine on
+   white, a light slab on a dark page. It takes the island's tokens instead. */
+.gx-co #payment {
+  background: transparent;
+  border-radius: 0;
+  color: var(--foreground);
+}
+.gx-co #payment ul.payment_methods {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 16px;
+  padding: 0;
+  border: 0;
+  list-style: none;
+}
+.gx-co #payment ul.payment_methods li {
+  margin: 0;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) - 2px);
+  line-height: 1.4;
+}
+.gx-co #payment ul.payment_methods li:has(> input:checked) {
+  border-color: var(--primary);
+}
+.gx-co #payment ul.payment_methods li > input[type='radio'] {
+  margin-right: 8px;
+  accent-color: var(--primary);
+}
+.gx-co #payment ul.payment_methods li label {
+  color: var(--foreground);
+  font-weight: 500;
+  cursor: pointer;
+}
+.gx-co #payment div.payment_box {
+  margin: 12px 0 0;
+  padding: 12px 14px;
+  background: var(--muted);
+  color: var(--muted-foreground);
+  border-radius: calc(var(--radius) - 4px);
+  font-size: 14px;
+}
+.gx-co #payment div.payment_box::before {
+  display: none;
+}
+.gx-co #payment div.form-row {
+  margin: 0;
+  padding: 0;
+}
+.gx-co #payment .woocommerce-terms-and-conditions-wrapper,
+.gx-co #payment .woocommerce-privacy-policy-text {
+  margin-bottom: 16px;
+  color: var(--muted-foreground);
+  font-size: 13px;
+}
+.gx-co #payment .woocommerce-info,
+.gx-co #payment .woocommerce-notice {
+  margin: 0 0 16px;
+  padding: 14px 16px;
+  border: 1px dashed var(--border);
+  border-radius: calc(var(--radius) - 2px);
+  background: transparent;
+  color: var(--muted-foreground);
+  font-size: 14px;
+}
+.gx-co #payment .woocommerce-info::before {
+  display: none;
+}
+.gx-co #place_order {
+  float: none;
+  width: 100%;
+  margin: 0;
+  padding: 0 24px;
+  border: 0;
+  border-radius: calc(var(--radius) - 2px);
+  background: var(--primary);
+  color: var(--primary-foreground);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: normal;
+  text-transform: none;
+  box-shadow: none;
+  cursor: pointer;
+}
+.gx-co #place_order:hover {
+  background: color-mix(in srgb, var(--primary) 88%, var(--foreground));
 }

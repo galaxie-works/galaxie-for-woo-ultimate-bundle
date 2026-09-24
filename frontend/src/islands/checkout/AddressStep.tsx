@@ -3,7 +3,7 @@ import * as React from 'react'
 import { Button } from '@/ui/button'
 import { Field } from '@/ui/field'
 import { Input } from '@/ui/input'
-import type { AddressValues } from './types'
+import type { AddressValues, CheckoutText } from './types'
 import type { AddressErrors } from './validation'
 
 interface AddressStepProps {
@@ -17,10 +17,18 @@ interface AddressStepProps {
   editing: boolean
   busy: boolean
   errors: AddressErrors
+  text: CheckoutText
   shippingMountRef: React.RefObject<HTMLDivElement | null>
   onEdit: () => void
   onSave: (values: AddressValues) => void
   onContinue: () => void
+  /** Editor preview: a sample carrier list stands in for WooCommerce's. */
+  preview: boolean
+}
+
+export function formatAddress(values: Partial<AddressValues>): string {
+  const cityLine = [values.city, values.state].filter(Boolean).join(' - ')
+  return [values.address_1, values.address_2, cityLine, values.postcode].filter(Boolean).join(', ')
 }
 
 /**
@@ -37,10 +45,12 @@ function AddressStep({
   editing,
   busy,
   errors,
+  text,
   shippingMountRef,
   onEdit,
   onSave,
   onContinue,
+  preview,
 }: AddressStepProps) {
   const [values, setValues] = React.useState<AddressValues>({
     address_1: initial.address_1 ?? '',
@@ -57,76 +67,106 @@ function AddressStep({
 
   function handleSave(e: React.FormEvent) {
     e.preventDefault()
+    if (preview) return
     onSave(values)
   }
 
-  const summary = [values.address_1, values.address_2, values.city, values.state, values.postcode]
-    .filter(Boolean)
-    .join(', ')
+  const showSummary = !editing && saved
 
   return (
-    <div className="mx-auto flex max-w-sm flex-col gap-4">
-      {!editing && saved ? (
-        <div className="flex flex-col gap-4">
-          <div className="rounded-md border border-border p-3">
-            <p className="text-sm">{summary}</p>
-            <button type="button" onClick={onEdit} className="mt-2 text-sm text-muted-foreground underline underline-offset-2">
-              Edit address
-            </button>
-          </div>
-
-          <div>
-            <p className="mb-2 text-sm font-medium">Shipping method</p>
-            <div ref={shippingMountRef} className="galaxie-shipping-mount" />
-          </div>
-
-          <Button type="button" onClick={onContinue} disabled={busy}>
-            Continue to payment
-          </Button>
+    <div className="flex flex-col gap-5">
+      {showSummary ? (
+        <div className="flex items-start justify-between gap-4 rounded-md border border-border p-4">
+          <p className="text-sm text-foreground">{formatAddress(values)}</p>
+          <button type="button" onClick={onEdit} className="shrink-0 text-sm font-medium text-foreground underline decoration-border underline-offset-4 hover:decoration-foreground">
+            {text.edit}
+          </button>
         </div>
       ) : (
         // `noValidate` for the same reason as the profile step: our messages
         // carry WooCommerce's verdict too, the browser's bubble does not.
         <form noValidate onSubmit={handleSave} className="flex flex-col gap-4">
-          <Field label="Address" error={errors.address_1}>
+          <Field label={text.postcode} error={errors.postcode} className="@[420px]:max-w-48">
             <Input
               required
+              inputMode="numeric"
+              autoComplete="postal-code"
+              placeholder="00000-000"
+              aria-invalid={!!errors.postcode}
+              value={values.postcode}
+              onChange={(e) => set('postcode', e.target.value)}
+            />
+          </Field>
+          <Field label={text.address1} error={errors.address_1}>
+            <Input
+              required
+              autoComplete="address-line1"
               aria-invalid={!!errors.address_1}
               value={values.address_1}
               onChange={(e) => set('address_1', e.target.value)}
             />
           </Field>
-          <Field label="Complement" hint="Apartment, suite, etc. (optional)">
-            <Input value={values.address_2} onChange={(e) => set('address_2', e.target.value)} />
+          <Field label={text.address2} hint={text.address2Hint}>
+            <Input autoComplete="address-line2" value={values.address_2} onChange={(e) => set('address_2', e.target.value)} />
           </Field>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="City" error={errors.city}>
-              <Input required aria-invalid={!!errors.city} value={values.city} onChange={(e) => set('city', e.target.value)} />
+          <div className="grid grid-cols-[minmax(0,1fr)_5.5rem] gap-4">
+            <Field label={text.city} error={errors.city}>
+              <Input
+                required
+                autoComplete="address-level2"
+                aria-invalid={!!errors.city}
+                value={values.city}
+                onChange={(e) => set('city', e.target.value)}
+              />
             </Field>
-            <Field label="State" error={errors.state}>
+            <Field label={text.state} error={errors.state}>
               <Input
                 required
                 maxLength={2}
+                autoComplete="address-level1"
                 aria-invalid={!!errors.state}
                 value={values.state}
                 onChange={(e) => set('state', e.target.value.toUpperCase())}
               />
             </Field>
           </div>
-          <Field label="Postcode" error={errors.postcode}>
-            <Input
-              required
-              inputMode="numeric"
-              aria-invalid={!!errors.postcode}
-              value={values.postcode}
-              onChange={(e) => set('postcode', e.target.value)}
-            />
-          </Field>
-          <Button type="submit" disabled={busy}>
-            Save address
+          <Button type="submit" size="lg" disabled={busy}>
+            {text.addressButton}
           </Button>
         </form>
       )}
+
+      {/* Mounted even while the form shows: WooCommerce's list is moved in
+          here on every recalculation and must always have somewhere to land. */}
+      <div hidden={!showSummary} className="flex flex-col gap-3">
+        <h3 className="text-sm font-semibold text-foreground">{text.shippingHeading}</h3>
+        {preview ? <SampleShipping /> : <div ref={shippingMountRef} className="galaxie-shipping-mount" />}
+        <Button type="button" size="lg" onClick={onContinue} disabled={busy} className="mt-2">
+          {text.paymentButton}
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+/** The shape WooCommerce's own list takes once moved in, so the editor styles the real thing. */
+function SampleShipping() {
+  const rates = [
+    { id: 'sedex', label: 'SEDEX (2 a 4 dias úteis)', price: 'R$ 14,90' },
+    { id: 'pac', label: 'PAC (5 a 8 dias úteis)', price: 'R$ 9,67' },
+  ]
+  return (
+    <div className="galaxie-shipping-mount">
+      <ul id="shipping_method" className="woocommerce-shipping-methods">
+        {rates.map((rate, i) => (
+          <li key={rate.id}>
+            <input type="radio" name="gx_sample_shipping" id={`gx-sample-${rate.id}`} className="shipping_method" defaultChecked={0 === i} />
+            <label htmlFor={`gx-sample-${rate.id}`}>
+              {rate.label}: <span className="woocommerce-Price-amount amount">{rate.price}</span>
+            </label>
+          </li>
+        ))}
+      </ul>
     </div>
   )
 }

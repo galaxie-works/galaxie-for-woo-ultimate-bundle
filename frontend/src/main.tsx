@@ -1,6 +1,6 @@
 import '@/styles/index.css'
 
-import { mountIslands, registerIsland } from '@/runtime'
+import { bootElementorIslands, mountIslands, registerIsland } from '@/runtime'
 import { Demo } from '@/islands/demo'
 import { Checkout } from '@/islands/checkout'
 import { MyAccount } from '@/islands/my-account'
@@ -45,6 +45,7 @@ interface GalaxieConfig {
 
 function boot(): void {
   mountIslands()
+  bootElementorIslands()
 
   const config: GalaxieConfig =
     (window as unknown as { __GALAXIE_WOO__?: GalaxieConfig }).__GALAXIE_WOO__ ?? {}

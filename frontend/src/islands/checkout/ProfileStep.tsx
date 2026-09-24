@@ -4,17 +4,18 @@ import { Button } from '@/ui/button'
 import { Field } from '@/ui/field'
 import { Input } from '@/ui/input'
 import { PhoneInput } from '@/ui/phone-input'
-import type { ProfileValues } from './types'
+import type { CheckoutText, ProfileValues } from './types'
 import { BAD_PHONE, type ProfileErrors } from './validation'
 
 interface ProfileStepProps {
   initial: Partial<ProfileValues>
   busy: boolean
   errors: ProfileErrors
+  text: CheckoutText
   onSave: (values: ProfileValues) => void
 }
 
-function ProfileStep({ initial, busy, errors, onSave }: ProfileStepProps) {
+function ProfileStep({ initial, busy, errors, text, onSave }: ProfileStepProps) {
   const [values, setValues] = React.useState<ProfileValues>({
     first_name: initial.first_name ?? '',
     last_name: initial.last_name ?? '',
@@ -48,10 +49,10 @@ function ProfileStep({ initial, busy, errors, onSave }: ProfileStepProps) {
         setPhoneError(undefined)
         onSave(values)
       }}
-      className="mx-auto flex max-w-sm flex-col gap-4"
+      className="flex flex-col gap-4"
     >
-      <div className="grid grid-cols-2 gap-3">
-        <Field label="First name" error={errors.first_name}>
+      <div className="grid grid-cols-1 gap-4 @[420px]:grid-cols-2">
+        <Field label={text.firstName} error={errors.first_name}>
           <Input
             required
             aria-invalid={!!errors.first_name}
@@ -59,7 +60,7 @@ function ProfileStep({ initial, busy, errors, onSave }: ProfileStepProps) {
             onChange={(e) => set('first_name', e.target.value)}
           />
         </Field>
-        <Field label="Last name" error={errors.last_name}>
+        <Field label={text.lastName} error={errors.last_name}>
           <Input
             required
             aria-invalid={!!errors.last_name}
@@ -67,9 +68,7 @@ function ProfileStep({ initial, busy, errors, onSave }: ProfileStepProps) {
             onChange={(e) => set('last_name', e.target.value)}
           />
         </Field>
-      </div>
-      <div className="grid grid-cols-2 gap-3">
-        <Field label="Date of birth" error={errors.birthdate}>
+        <Field label={text.birthdate} error={errors.birthdate}>
           <Input
             type="date"
             required
@@ -78,17 +77,18 @@ function ProfileStep({ initial, busy, errors, onSave }: ProfileStepProps) {
             onChange={(e) => set('birthdate', e.target.value)}
           />
         </Field>
-        <Field label="CPF" error={errors.cpf}>
+        <Field label={text.cpf} error={errors.cpf}>
           <Input
             required
             aria-invalid={!!errors.cpf}
             value={values.cpf}
+            inputMode="numeric"
             onChange={(e) => set('cpf', e.target.value)}
             placeholder="000.000.000-00"
           />
         </Field>
       </div>
-      <Field label="Phone" error={phoneError ?? errors.phone}>
+      <Field label={text.phone} error={phoneError ?? errors.phone}>
         <PhoneInput
           required
           aria-invalid={!!(phoneError ?? errors.phone)}
@@ -99,8 +99,8 @@ function ProfileStep({ initial, busy, errors, onSave }: ProfileStepProps) {
           }}
         />
       </Field>
-      <Button type="submit" disabled={busy}>
-        Continue
+      <Button type="submit" size="lg" disabled={busy}>
+        {text.profileButton}
       </Button>
     </form>
   )
