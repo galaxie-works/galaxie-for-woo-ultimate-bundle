@@ -1,9 +1,8 @@
 import * as React from 'react'
 
-import { Button } from '@/ui/button'
-import { Field } from '@/ui/field'
 import { Input } from '@/ui/input'
 import { PhoneInput } from '@/ui/phone-input'
+import { CoField, PixButton, useFieldClass, useUi } from './pix'
 import type { CheckoutText, ProfileValues } from './types'
 import { BAD_PHONE, type ProfileErrors } from './validation'
 
@@ -16,6 +15,9 @@ interface ProfileStepProps {
 }
 
 function ProfileStep({ initial, busy, errors, text, onSave }: ProfileStepProps) {
+  const { buttons } = useUi()
+  const field = useFieldClass()
+  const id = React.useId()
   const [values, setValues] = React.useState<ProfileValues>({
     first_name: initial.first_name ?? '',
     last_name: initial.last_name ?? '',
@@ -49,48 +51,65 @@ function ProfileStep({ initial, busy, errors, text, onSave }: ProfileStepProps) 
         setPhoneError(undefined)
         onSave(values)
       }}
-      className="flex flex-col gap-4"
+      className="gx-co-form"
     >
-      <div className="grid grid-cols-1 gap-4 @[420px]:grid-cols-2">
-        <Field label={text.firstName} error={errors.first_name}>
+      <div className="gx-co-grid-2">
+        <CoField label={text.firstName} htmlFor={`${id}-fn`} error={errors.first_name}>
           <Input
+            unstyled
+            id={`${id}-fn`}
             required
+            autoComplete="given-name"
+            className={field}
             aria-invalid={!!errors.first_name}
             value={values.first_name}
             onChange={(e) => set('first_name', e.target.value)}
           />
-        </Field>
-        <Field label={text.lastName} error={errors.last_name}>
+        </CoField>
+        <CoField label={text.lastName} htmlFor={`${id}-ln`} error={errors.last_name}>
           <Input
+            unstyled
+            id={`${id}-ln`}
             required
+            autoComplete="family-name"
+            className={field}
             aria-invalid={!!errors.last_name}
             value={values.last_name}
             onChange={(e) => set('last_name', e.target.value)}
           />
-        </Field>
-        <Field label={text.birthdate} error={errors.birthdate}>
+        </CoField>
+        <CoField label={text.birthdate} htmlFor={`${id}-bd`} error={errors.birthdate}>
           <Input
+            unstyled
+            id={`${id}-bd`}
             type="date"
             required
+            className={field}
             aria-invalid={!!errors.birthdate}
             value={values.birthdate}
             onChange={(e) => set('birthdate', e.target.value)}
           />
-        </Field>
-        <Field label={text.cpf} error={errors.cpf}>
+        </CoField>
+        <CoField label={text.cpf} htmlFor={`${id}-cpf`} error={errors.cpf}>
           <Input
+            unstyled
+            id={`${id}-cpf`}
             required
+            inputMode="numeric"
+            className={field}
             aria-invalid={!!errors.cpf}
             value={values.cpf}
-            inputMode="numeric"
             onChange={(e) => set('cpf', e.target.value)}
             placeholder="000.000.000-00"
           />
-        </Field>
+        </CoField>
       </div>
-      <Field label={text.phone} error={phoneError ?? errors.phone}>
+      <CoField label={text.phone} htmlFor={`${id}-ph`} error={phoneError ?? errors.phone}>
         <PhoneInput
+          unstyled
+          id={`${id}-ph`}
           required
+          className={field}
           aria-invalid={!!(phoneError ?? errors.phone)}
           value={values.phone}
           onChange={(phone, valid) => {
@@ -98,10 +117,8 @@ function ProfileStep({ initial, busy, errors, text, onSave }: ProfileStepProps) 
             setPhoneValid(valid)
           }}
         />
-      </Field>
-      <Button type="submit" size="lg" disabled={busy}>
-        {text.profileButton}
-      </Button>
+      </CoField>
+      <PixButton button={buttons.profileButton} type="submit" disabled={busy} />
     </form>
   )
 }

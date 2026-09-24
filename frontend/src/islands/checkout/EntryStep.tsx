@@ -1,13 +1,11 @@
 import * as React from 'react'
 
-import { Button } from '@/ui/button'
-import { Field } from '@/ui/field'
+import { cn } from '@/lib/cn'
+import { post } from '@/lib/wp'
 import { Input } from '@/ui/input'
 import { OtpInput } from '@/ui/otp-input'
 import { PhoneInput } from '@/ui/phone-input'
-import { Switch } from '@/ui/switch'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/ui/tabs'
-import { post } from '@/lib/wp'
+import { CoField, PixAlert, PixButton, useFieldClass, useUi } from './pix'
 import type { CheckoutText, ProfileValues } from './types'
 import { BAD_PHONE } from './validation'
 
@@ -26,6 +24,7 @@ interface EntryStepProps {
 }
 
 type Stage = 'request' | 'verify'
+type Tab = 'otp' | 'register'
 
 /**
  * Passwordless sign-in / registration. Talks directly to the PasswordlessAuth
@@ -34,9 +33,15 @@ type Stage = 'request' | 'verify'
  * transition: the widget re-renders server-side signed in, with fresh
  * profile/address props, and the step machine's initial-step logic (see
  * index.tsx) lands on the right next step.
+ *
+ * The two tabs are the Wishlist's list tabs (a pill with an `is-current`
+ * state), the fields pixfort's `.form-control`, the opt-in the Communication
+ * widget's switch — each styled from the widget's own Style tab.
  */
 function EntryStep({ authCfg, text, genericError, onVerified, preview }: EntryStepProps) {
-  const [tab, setTab] = React.useState<'otp' | 'register'>('otp')
+  const { cls, buttons } = useUi()
+  const field = useFieldClass()
+  const [tab, setTab] = React.useState<Tab>('otp')
   const [stage, setStage] = React.useState<Stage>('request')
   const [email, setEmail] = React.useState('')
   const [code, setCode] = React.useState('')
@@ -54,15 +59,16 @@ function EntryStep({ authCfg, text, genericError, onVerified, preview }: EntrySt
   })
   // The flag field's verdict on the (optional) phone; null until it can tell.
   const [phoneValid, setPhoneValid] = React.useState<boolean | null>(null)
+  const id = React.useId()
 
-  function switchTab(next: 'otp' | 'register') {
+  function switchTab(next: Tab) {
     setTab(next)
     setStage('request')
     setError(null)
     setCode('')
   }
 
-  async function sendCode(e: React.FormEvent) {
+  async function sendCode(e: React.FormEvent | React.MouseEvent) {
     e.preventDefault()
     if (preview || !authCfg) return
     if ('register' === tab && '' !== reg.phone && false === phoneValid) {
@@ -113,127 +119,124 @@ function EntryStep({ authCfg, text, genericError, onVerified, preview }: EntrySt
 
   if ('verify' === stage) {
     return (
-      <form onSubmit={verifyCode} className="flex flex-col gap-4">
-        <p className="text-sm text-muted-foreground">
+      <form onSubmit={verifyCode} className="gx-co-form">
+        <p className={cn('gx-co-body', cls.body)}>
           {text.codeHint.split('%s').map((part, i, all) => (
             <React.Fragment key={i}>
               {part}
-              {i < all.length - 1 && <strong className="font-semibold text-foreground">{email}</strong>}
+              {i < all.length - 1 && <strong>{email}</strong>}
             </React.Fragment>
           ))}
         </p>
-        {error && (
-          <p role="alert" className="text-sm text-destructive">
-            {error}
-          </p>
-        )}
-        <OtpInput value={code} onChange={setCode} autoFocus />
-        <Button type="submit" size="lg" disabled={busy || 6 !== code.length}>
-          {text.confirmCode}
-        </Button>
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
-          <button type="button" onClick={sendCode} disabled={busy} className="text-muted-foreground underline underline-offset-4 hover:text-foreground">
-            {text.resendCode}
-          </button>
-          <button
-            type="button"
+        {error && <PixAlert message={error} />}
+        <OtpInput value={code} onChange={setCode} autoFocus cellClassName={cn(field, 'gx-co-otp')} />
+        <PixButton button={buttons.confirmCode} type="submit" disabled={busy || 6 !== code.length} />
+        <div className="gx-co-links">
+          <PixButton button={buttons.resendCode} onClick={sendCode} disabled={busy} />
+          <PixButton
+            button={buttons.changeEmail}
             onClick={() => {
               setStage('request')
               setError(null)
             }}
-            className="text-muted-foreground underline underline-offset-4 hover:text-foreground"
-          >
-            {text.changeEmail}
-          </button>
+          />
         </div>
       </form>
     )
   }
 
   const emailField = (
-    <Field label={text.email}>
-      <Input type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-    </Field>
+    <CoField label={text.email} htmlFor={`${id}-email`}>
+      <Input
+        unstyled
+        id={`${id}-email`}
+        type="email"
+        required
+        autoComplete="email"
+        className={field}
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+      />
+    </CoField>
   )
 
   return (
-    <div className="flex flex-col gap-5">
-      {text.entryIntro && <p className="text-sm text-muted-foreground">{text.entryIntro}</p>}
+    <div className="gx-co-form">
+      {text.entryIntro && <p className={cn('gx-co-body', cls.body)}>{text.entryIntro}</p>}
 
-      <Tabs value={tab} onValueChange={(v) => switchTab(v as 'otp' | 'register')} className="gap-5">
-        <TabsList className="h-11 w-full">
-          <TabsTrigger value="otp" className="h-full whitespace-normal leading-tight">
-            {text.tabLogin}
-          </TabsTrigger>
-          <TabsTrigger value="register" className="h-full whitespace-normal leading-tight">
-            {text.tabRegister}
-          </TabsTrigger>
-        </TabsList>
+      <div role="tablist" className="gx-co-tabs">
+        {(
+          [
+            ['otp', text.tabLogin],
+            ['register', text.tabRegister],
+          ] as const
+        ).map(([value, label]) => (
+          <button
+            key={value}
+            type="button"
+            role="tab"
+            aria-selected={tab === value}
+            onClick={() => switchTab(value)}
+            className={cn('gx-co-tab', tab === value && 'is-current', cls.tabText, cls.tab)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
 
-        {error && (
-          <p role="alert" className="text-sm text-destructive">
-            {error}
-          </p>
-        )}
+      {error && <PixAlert message={error} />}
 
-        <TabsContent value="otp">
-          <form onSubmit={sendCode} className="flex flex-col gap-4">
-            {emailField}
-            <Button type="submit" size="lg" disabled={busy}>
-              {text.sendCode}
-            </Button>
-          </form>
-        </TabsContent>
+      {'otp' === tab ? (
+        <form role="tabpanel" onSubmit={sendCode} className="gx-co-form">
+          {emailField}
+          <PixButton button={buttons.sendCode} type="submit" disabled={busy} />
+        </form>
+      ) : (
+        <form role="tabpanel" onSubmit={sendCode} className="gx-co-form">
+          {emailField}
+          <div className="gx-co-grid-2">
+            <CoField label={text.firstName} htmlFor={`${id}-fn`}>
+              <Input unstyled id={`${id}-fn`} required autoComplete="given-name" className={field} value={reg.first_name} onChange={(e) => setReg({ ...reg, first_name: e.target.value })} />
+            </CoField>
+            <CoField label={text.lastName} htmlFor={`${id}-ln`}>
+              <Input unstyled id={`${id}-ln`} required autoComplete="family-name" className={field} value={reg.last_name} onChange={(e) => setReg({ ...reg, last_name: e.target.value })} />
+            </CoField>
+            <CoField label={text.birthdate} htmlFor={`${id}-bd`}>
+              <Input unstyled id={`${id}-bd`} type="date" className={field} value={reg.birthdate} onChange={(e) => setReg({ ...reg, birthdate: e.target.value })} />
+            </CoField>
+            <CoField label={text.cpf} htmlFor={`${id}-cpf`}>
+              <Input unstyled id={`${id}-cpf`} inputMode="numeric" className={field} value={reg.cpf} onChange={(e) => setReg({ ...reg, cpf: e.target.value })} placeholder="000.000.000-00" />
+            </CoField>
+          </div>
+          <CoField label={text.phone} htmlFor={`${id}-ph`}>
+            <PhoneInput
+              unstyled
+              id={`${id}-ph`}
+              className={field}
+              value={reg.phone}
+              onChange={(phone, valid) => {
+                setReg((prev) => ({ ...prev, phone }))
+                setPhoneValid(valid)
+              }}
+            />
+          </CoField>
 
-        <TabsContent value="register">
-          <form onSubmit={sendCode} className="flex flex-col gap-4">
-            {emailField}
-            <div className="grid grid-cols-1 gap-4 @[420px]:grid-cols-2">
-              <Field label={text.firstName}>
-                <Input required autoComplete="given-name" value={reg.first_name} onChange={(e) => setReg({ ...reg, first_name: e.target.value })} />
-              </Field>
-              <Field label={text.lastName}>
-                <Input required autoComplete="family-name" value={reg.last_name} onChange={(e) => setReg({ ...reg, last_name: e.target.value })} />
-              </Field>
-              <Field label={text.birthdate}>
-                <Input type="date" value={reg.birthdate} onChange={(e) => setReg({ ...reg, birthdate: e.target.value })} />
-              </Field>
-              <Field label={text.cpf}>
-                <Input inputMode="numeric" value={reg.cpf} onChange={(e) => setReg({ ...reg, cpf: e.target.value })} placeholder="000.000.000-00" />
-              </Field>
-            </div>
-            <Field label={text.phone}>
-              <PhoneInput
-                value={reg.phone}
-                onChange={(phone, valid) => {
-                  setReg((prev) => ({ ...prev, phone }))
-                  setPhoneValid(valid)
-                }}
-              />
-            </Field>
+          <label className={cn('gx-co-option card', cls.option)}>
+            <span className={cn('gx-co-body', cls.body)}>{text.marketing}</span>
+            <span className="galaxie-switch">
+              <input type="checkbox" checked={reg.marketing} onChange={(e) => setReg({ ...reg, marketing: e.target.checked })} />
+              <span className="galaxie-switch-track" aria-hidden="true" />
+            </span>
+          </label>
 
-            <label className="flex items-center justify-between gap-3 rounded-md border border-border p-3 text-sm text-foreground">
-              <span>{text.marketing}</span>
-              <Switch checked={reg.marketing} onCheckedChange={(v) => setReg({ ...reg, marketing: v })} />
-            </label>
+          <label className="gx-co-check">
+            <input type="checkbox" required checked={reg.terms} onChange={(e) => setReg({ ...reg, terms: e.target.checked })} />
+            <span className={cn('gx-co-small', cls.small)}>{text.terms}</span>
+          </label>
 
-            <label className="flex items-start gap-2.5 text-sm text-muted-foreground">
-              <input
-                type="checkbox"
-                required
-                checked={reg.terms}
-                onChange={(e) => setReg({ ...reg, terms: e.target.checked })}
-                className="mt-0.5 size-4 shrink-0 accent-[var(--primary)]"
-              />
-              <span>{text.terms}</span>
-            </label>
-
-            <Button type="submit" size="lg" disabled={busy}>
-              {text.registerButton}
-            </Button>
-          </form>
-        </TabsContent>
-      </Tabs>
+          <PixButton button={buttons.registerButton} type="submit" disabled={busy} />
+        </form>
+      )}
     </div>
   )
 }

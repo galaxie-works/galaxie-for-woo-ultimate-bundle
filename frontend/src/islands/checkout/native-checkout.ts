@@ -194,3 +194,78 @@ export function onCheckoutUpdated(handler: () => void): () => void {
   $(document.body).on('updated_checkout.galaxie', handler)
   return () => $(document.body).off('updated_checkout.galaxie', handler)
 }
+
+/** The panel classes the decorators below put on WooCommerce's markup. */
+export interface NativeDecor {
+  rate: string
+  rateName: string
+  method: string
+  methodName: string
+  methodBox: string
+  /** pixfort's place-order button markup, `marker` standing for the label. */
+  placeOrder: { html: string; full: boolean }
+  marker: string
+}
+
+function addClasses(el: Element | null, classes: string): void {
+  if (!el || !classes) return
+  el.classList.add(...classes.split(/\s+/).filter(Boolean))
+}
+
+/**
+ * Puts the widget's "Delivery: shipping options" classes on WooCommerce's
+ * own rate list. That list is WooCommerce's markup, re-printed on every
+ * recalculation, so it cannot carry our classes by itself — the same
+ * position the account widgets are in with WooCommerce's address fields,
+ * where the classes are injected rather than the markup rewritten.
+ */
+export function decorateShipping(mount: HTMLElement | null, decor: NativeDecor): void {
+  mount?.querySelectorAll('#shipping_method > li').forEach((li) => {
+    addClasses(li, decor.rate)
+    addClasses(li.querySelector('label'), decor.rateName)
+  })
+}
+
+/**
+ * The same for the payment block, plus the place-order button: WooCommerce's
+ * `<button id="place_order">` stays the element WooCommerce and the gateways
+ * drive (its id, name, value and type are untouched), and pixfort's button
+ * is drawn inside it, as every other button of the plugin is. Its label is
+ * WooCommerce's, read back from the button, because gateways rename it.
+ *
+ * Idempotent, and meant to be called again whenever WooCommerce redraws: it
+ * replaces the whole `#payment` fragment on every `updated_checkout`, and
+ * swaps the button's text on its own when the shopper changes gateway.
+ */
+export function decoratePayment(mount: HTMLElement | null, decor: NativeDecor): void {
+  if (!mount) return
+
+  mount.querySelectorAll('li.wc_payment_method').forEach((li) => {
+    addClasses(li, decor.method)
+    addClasses(li.querySelector(':scope > label'), decor.methodName)
+    addClasses(li.querySelector('.payment_box'), decor.methodBox)
+  })
+
+  const button = mount.querySelector<HTMLButtonElement>('#place_order')
+  if (!button || button.querySelector('.btn')) return
+
+  const label = (button.textContent ?? '').trim() || button.dataset.value || button.value
+  const safe = label.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] ?? c)
+  button.classList.remove('button', 'alt')
+  button.classList.add('galaxie-account-submit', 'gx-co-btn')
+  button.classList.toggle('is-full', decor.placeOrder.full)
+  button.innerHTML = decor.placeOrder.html.split(decor.marker).join(safe)
+}
+
+/**
+ * Re-runs `decoratePayment` whenever WooCommerce touches the block: a
+ * `MutationObserver` rather than WooCommerce's events, because the gateway
+ * switch rewrites the button with `.text()` and announces nothing.
+ */
+export function watchPayment(mount: HTMLElement | null, decor: NativeDecor): () => void {
+  if (!mount) return () => {}
+  decoratePayment(mount, decor)
+  const observer = new MutationObserver(() => decoratePayment(mount, decor))
+  observer.observe(mount, { childList: true, subtree: true })
+  return () => observer.disconnect()
+}

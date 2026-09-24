@@ -220,24 +220,6 @@ html.pix-dark .galaxie-ui {
   --pix-bg-color: var(--accent);
 }
 
-/* pixfort sizes and fonts every h1–h6 (48px for an h2) outside any layer, so
-   the island's text-* utilities never reached its headings. Inside an island
-   a heading takes the size its utilities give it; the widgets' typography
-   controls, being more specific, still win over this. */
-[data-galaxie-island] :is(h1, h2, h3, h4) {
-  font-size: inherit;
-  line-height: inherit;
-  font-weight: inherit;
-  letter-spacing: inherit;
-  text-transform: none;
-}
-[data-galaxie-island] .gx-co-step-title,
-[data-galaxie-island] .gx-co-summary-title {
-  font-size: 1rem;
-  line-height: 1.3;
-  font-weight: 600;
-}
-
 /* Interest-pill selection burst (My Account). One short run per particle,
    randomized via inline custom properties set at spawn time in JS. Skipped
    entirely under prefers-reduced-motion — see InterestsTab. */
@@ -3121,12 +3103,19 @@ address.galaxie-order-body {
    Two columns (steps, order summary) from 820px of the widget's own width up,
    one below it. A container query, not a media query: the widget can sit in
    a narrow Elementor column on a wide screen, and it is the column that has
-   to decide. The widget's Layout controls write the custom properties. */
+   to decide. The widget's Layout controls write the custom properties.
+
+   Everything a panel control paints — colour, radius, shadow, type — comes
+   from pixfort's classes and Elementor's generated rules, both outside any
+   cascade layer. What is here is structure (grid, gaps, sizes) and a
+   neutral first look, in the components layer so that any of those wins.
+   No border-radius is set on a part the panel shapes: its corners are the
+   pixfort class the "Rounded corners" control prints, and a radius here
+   would make "None" there do nothing. */
 .gx-co {
   --gx-co-gap: 48px;
   --gx-co-summary-width: 380px;
   --gx-co-sticky-top: 24px;
-  --gx-co-control-h: 44px;
   /* Named: the columns' own @container wrappers are nearer to the summary
      bar than this is, and an unnamed query asked them instead. */
   container: gx-co / inline-size;
@@ -3175,161 +3164,430 @@ address.galaxie-order-body {
   }
 }
 
-/* One height for every field and button, from the "Field and button height"
-   control — inputs at 36px next to 40px buttons looked like two forms. */
-.gx-co [data-slot='input'],
-.gx-co [data-slot='button'],
-.gx-co .iti input,
-.gx-co #place_order {
-  height: var(--gx-co-control-h);
-}
-.gx-co [data-slot='input'] {
-  font-size: 15px;
-}
-.gx-co [data-slot='button'] {
-  font-weight: 600;
+@layer components {
+  /* Steps */
+  .gx-co-main {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
+  }
+  .gx-co-step {
+    padding: 18px 20px;
+    border: 1px solid var(--border);
+    transition: background-color 0.2s, border-color 0.2s;
+  }
+  .gx-co-step.is-current {
+    padding: 22px 24px;
+  }
+  .gx-co-step-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .gx-co-step-dot {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border: 1px solid var(--border);
+    color: var(--muted-foreground);
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1;
+  }
+  .gx-co-step.is-current .gx-co-step-dot {
+    border-color: transparent;
+    background-color: var(--primary);
+    color: var(--primary-foreground);
+  }
+  .gx-co-step.is-done .gx-co-step-dot {
+    border-color: transparent;
+    background-color: color-mix(in srgb, var(--primary) 15%, transparent);
+    color: var(--foreground);
+  }
+  .gx-co-step-title {
+    flex: 1;
+    margin: 0;
+    color: var(--foreground);
+  }
+  .gx-co-step.is-upcoming .gx-co-step-title {
+    opacity: 0.55;
+  }
+  .gx-co-step-summary {
+    margin-top: 8px;
+    padding-left: 40px;
+  }
+  .gx-co-step-body {
+    margin-top: 20px;
+  }
+
+  /* Forms */
+  .gx-co-form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .gx-co-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+  }
+  .gx-co-label {
+    margin: 0;
+    color: var(--foreground);
+  }
+  .gx-co-error {
+    color: var(--destructive);
+  }
+  .gx-co-grid-2 {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+  .gx-co-grid-city {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 5.5rem;
+    gap: 16px;
+  }
+  @container (min-width: 420px) {
+    .gx-co-grid-2 {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .gx-co-field--cep {
+      max-width: 12rem;
+    }
+  }
+  .gx-co .form-control {
+    width: 100%;
+  }
+  .gx-co .form-control[aria-invalid='true'] {
+    border-color: var(--destructive);
+  }
+  .gx-co .iti {
+    display: block;
+    width: 100%;
+  }
+  .gx-co-otp {
+    width: 3rem !important;
+    height: 3.25rem;
+    padding: 0 !important;
+    text-align: center;
+    font-size: 1.25rem;
+  }
+
+  /* Sign-in tabs: two pills side by side on a shared track. */
+  .gx-co-tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+    padding: 4px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+  }
+  .gx-co-tab {
+    padding: 10px 12px;
+    border: 1px solid transparent;
+    color: var(--muted-foreground);
+    line-height: 1.2;
+    text-align: center;
+    cursor: pointer;
+    transition: background-color 0.15s, color 0.15s;
+  }
+  .gx-co-tab.is-current {
+    background-color: var(--primary);
+    color: var(--primary-foreground);
+  }
+
+  /* Option rows: the opt-in switch, the address recap. */
+  .gx-co-option {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin: 0;
+    padding: 14px 16px;
+    border: 1px solid var(--border);
+    background-color: transparent;
+    cursor: pointer;
+  }
+  .gx-co-recap {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px 16px;
+    border: 1px solid var(--border);
+  }
+  .gx-co-recap p {
+    margin: 0;
+  }
+  .gx-co-check {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin: 0;
+    cursor: pointer;
+  }
+  .gx-co-check input {
+    flex: none;
+    width: 16px;
+    height: 16px;
+    margin-top: 2px;
+    accent-color: var(--primary);
+  }
+  .gx-co-links {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 20px;
+  }
+
+  /* Buttons: pixfort's .btn inside our element (.galaxie-account-submit).
+     Full width reaches the wrapper too, or the .btn stretches inside a
+     button that does not. */
+  .gx-co-btn.is-full,
+  .gx-co-btn.is-full > .btn,
+  .gx-co-btn.is-full > div,
+  .gx-co-btn.is-full > div > .btn {
+    display: flex;
+    width: 100%;
+  }
+  .gx-co-btn .btn {
+    justify-content: center;
+  }
+
+  /* Order summary */
+  .gx-co-summary-box {
+    display: block;
+    border: 1px solid var(--border);
+    overflow: hidden;
+  }
+  .gx-co-summary-bar {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 20px;
+    color: var(--foreground);
+    text-align: left;
+  }
+  .gx-co-summary-body {
+    padding: 22px 24px;
+  }
+  .gx-co-summary-title {
+    margin: 0 0 16px;
+    color: var(--foreground);
+  }
+  .gx-co-items {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .gx-co-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .gx-co-thumb-wrap {
+    position: relative;
+    flex: none;
+  }
+  .gx-co-thumb {
+    display: block;
+    width: 56px;
+    height: 56px;
+    object-fit: cover;
+  }
+  .gx-co-qty {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 5px;
+    background-color: var(--foreground);
+    color: var(--background);
+    line-height: 1;
+  }
+  .gx-co-item-text {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-width: 0;
+  }
+  .gx-co-item-name {
+    color: var(--foreground);
+  }
+  .gx-co-item-price {
+    white-space: nowrap;
+    color: var(--foreground);
+  }
+  .gx-co-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 20px 0 0;
+    padding-top: 16px;
+  }
+  .gx-co-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+  }
+  .gx-co-row-note {
+    display: block;
+  }
+  .gx-co-row-value {
+    margin: 0;
+    white-space: nowrap;
+    text-align: right;
+    color: var(--foreground);
+  }
+  .gx-co-row--total {
+    margin-top: 16px;
+    padding-top: 16px;
+  }
+  .gx-co-total-label,
+  .gx-co-total {
+    color: var(--foreground);
+  }
+  .gx-co-divider {
+    border-top: 1px solid var(--border);
+  }
+
+  /* WooCommerce's shipping list, moved into the delivery step and decorated
+     with the "Delivery: shipping options" classes (decorateShipping). */
+  .gx-co .galaxie-shipping-mount ul#shipping_method {
+    display: grid;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .gx-co .galaxie-shipping-mount ul#shipping_method li {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 0;
+    padding: 14px 16px;
+    border: 1px solid var(--border);
+    color: var(--foreground);
+    line-height: 1.4;
+    text-indent: 0;
+    transition: border-color 0.15s, background-color 0.15s;
+  }
+  .gx-co .galaxie-shipping-mount ul#shipping_method li:has(input:checked) {
+    border-color: var(--primary);
+  }
+  .gx-co .galaxie-shipping-mount ul#shipping_method input[type='radio'] {
+    flex: none;
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    accent-color: var(--primary);
+  }
+  .gx-co .galaxie-shipping-mount ul#shipping_method label {
+    flex: 1;
+    margin: 0;
+    color: inherit;
+    cursor: pointer;
+  }
+  /* The whole row is the click target, not just the words. */
+  .gx-co .galaxie-shipping-mount ul#shipping_method label::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+  }
+  .gx-co .galaxie-shipping-mount ul#shipping_method .amount {
+    float: right;
+    margin-left: 12px;
+  }
+
+  /* WooCommerce's payment block, moved into the payment step and decorated
+     with the "Payment: methods" classes (decoratePayment). WooCommerce and
+     themes paint it as a grey panel with an arrow bubble per method: fine on
+     white, a light slab on a dark page. */
+  .gx-co #payment {
+    background: transparent;
+    border-radius: 0;
+    color: var(--foreground);
+  }
+  .gx-co #payment ul.payment_methods {
+    display: grid;
+    gap: 8px;
+    margin: 0 0 16px;
+    padding: 0;
+    border: 0;
+    list-style: none;
+  }
+  .gx-co #payment ul.payment_methods li {
+    margin: 0;
+    padding: 14px 16px;
+    border: 1px solid var(--border);
+    line-height: 1.4;
+  }
+  .gx-co #payment ul.payment_methods li:has(> input:checked) {
+    border-color: var(--primary);
+  }
+  .gx-co #payment ul.payment_methods li > input[type='radio'] {
+    margin-right: 8px;
+    accent-color: var(--primary);
+  }
+  .gx-co #payment ul.payment_methods li > label {
+    color: var(--foreground);
+    cursor: pointer;
+  }
+  .gx-co #payment div.payment_box {
+    margin: 12px 0 0;
+    padding: 12px 14px;
+    background: var(--muted);
+    color: var(--muted-foreground);
+  }
+  .gx-co #payment div.payment_box::before {
+    display: none;
+  }
+  .gx-co #payment div.form-row {
+    margin: 0;
+    padding: 0;
+  }
+  .gx-co #payment .woocommerce-terms-and-conditions-wrapper,
+  .gx-co #payment .woocommerce-privacy-policy-text {
+    margin-bottom: 16px;
+    color: var(--muted-foreground);
+    font-size: 13px;
+  }
+  .gx-co #payment .woocommerce-info,
+  .gx-co #payment .woocommerce-notice {
+    margin: 0 0 16px;
+    padding: 14px 16px;
+    border: 1px dashed var(--border);
+    background: transparent;
+    color: var(--muted-foreground);
+  }
+  .gx-co #payment .woocommerce-info::before {
+    display: none;
+  }
 }
 
-/* WooCommerce's own shipping list, moved into the delivery step. Each rate
-   becomes a selectable row; the checked one takes the primary colour. The
-   radio stays the real control WooCommerce's checkout.js listens to. */
-.gx-co .galaxie-shipping-mount ul#shipping_method {
-  display: grid;
-  gap: 8px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.gx-co .galaxie-shipping-mount ul#shipping_method li {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin: 0;
-  padding: 14px 16px;
-  border: 1px solid var(--border);
-  border-radius: calc(var(--radius) - 2px);
-  color: var(--foreground);
-  font-size: 14px;
-  line-height: 1.4;
-  text-indent: 0;
-  transition: border-color 0.15s, background-color 0.15s;
-}
-.gx-co .galaxie-shipping-mount ul#shipping_method li:has(input:checked) {
-  border-color: var(--primary);
-  background: var(--muted);
-}
-.gx-co .galaxie-shipping-mount ul#shipping_method input[type='radio'] {
-  flex-shrink: 0;
-  width: 16px;
-  height: 16px;
-  margin: 0;
-  accent-color: var(--primary);
-}
-.gx-co .galaxie-shipping-mount ul#shipping_method label {
-  flex: 1;
-  margin: 0;
-  cursor: pointer;
-  color: inherit;
-  font-weight: 500;
-}
-/* The whole row is the click target, not just the words. */
-.gx-co .galaxie-shipping-mount ul#shipping_method label::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-}
-.gx-co .galaxie-shipping-mount ul#shipping_method .amount {
-  float: right;
-  margin-left: 12px;
-  font-weight: 600;
-}
-
-/* WooCommerce's payment block, moved into the payment step. WooCommerce and
-   themes paint it as a grey panel with an arrow bubble per method: fine on
-   white, a light slab on a dark page. It takes the island's tokens instead. */
-.gx-co #payment {
-  background: transparent;
-  border-radius: 0;
-  color: var(--foreground);
-}
-.gx-co #payment ul.payment_methods {
-  display: grid;
-  gap: 8px;
-  margin: 0 0 16px;
-  padding: 0;
-  border: 0;
-  list-style: none;
-}
-.gx-co #payment ul.payment_methods li {
-  margin: 0;
-  padding: 14px 16px;
-  border: 1px solid var(--border);
-  border-radius: calc(var(--radius) - 2px);
-  line-height: 1.4;
-}
-.gx-co #payment ul.payment_methods li:has(> input:checked) {
-  border-color: var(--primary);
-}
-.gx-co #payment ul.payment_methods li > input[type='radio'] {
-  margin-right: 8px;
-  accent-color: var(--primary);
-}
-.gx-co #payment ul.payment_methods li label {
-  color: var(--foreground);
-  font-weight: 500;
-  cursor: pointer;
-}
-.gx-co #payment div.payment_box {
-  margin: 12px 0 0;
-  padding: 12px 14px;
-  background: var(--muted);
-  color: var(--muted-foreground);
-  border-radius: calc(var(--radius) - 4px);
-  font-size: 14px;
-}
-.gx-co #payment div.payment_box::before {
-  display: none;
-}
-.gx-co #payment div.form-row {
-  margin: 0;
-  padding: 0;
-}
-.gx-co #payment .woocommerce-terms-and-conditions-wrapper,
-.gx-co #payment .woocommerce-privacy-policy-text {
-  margin-bottom: 16px;
-  color: var(--muted-foreground);
-  font-size: 13px;
-}
-.gx-co #payment .woocommerce-info,
-.gx-co #payment .woocommerce-notice {
-  margin: 0 0 16px;
-  padding: 14px 16px;
-  border: 1px dashed var(--border);
-  border-radius: calc(var(--radius) - 2px);
-  background: transparent;
-  color: var(--muted-foreground);
-  font-size: 14px;
-}
-.gx-co #payment .woocommerce-info::before {
-  display: none;
-}
-.gx-co #place_order {
+/* WooCommerce's place-order <button> once decorated: only the hit area, the
+   pixfort .btn inside is the button. Outside the layer — the theme styles
+   `#place_order` and `button` outside any layer too. */
+.gx-co #place_order.galaxie-account-submit {
   float: none;
-  width: 100%;
+  height: auto;
   margin: 0;
-  padding: 0 24px;
+  padding: 0;
   border: 0;
-  border-radius: calc(var(--radius) - 2px);
-  background: var(--primary);
-  color: var(--primary-foreground);
-  font-size: 15px;
-  font-weight: 600;
-  letter-spacing: normal;
-  text-transform: none;
+  background: none;
   box-shadow: none;
-  cursor: pointer;
-}
-.gx-co #place_order:hover {
-  background: color-mix(in srgb, var(--primary) 88%, var(--foreground));
 }
