@@ -243,7 +243,16 @@ final class Module implements ModuleContract, ProvidesBootData, ProvidesElemento
 		$word = trim( wp_strip_all_tags( (string) self::setting( $key ) ) );
 		$word = '' !== $word ? $word : self::DEFAULTS[ $key ];
 
-		return $capital ? mb_strtoupper( mb_substr( $word, 0, 1 ) ) . mb_substr( $word, 1 ) : $word;
+		if ( ! $capital ) {
+			return $word;
+		}
+
+		// WordPress polyfills mb_substr but not mb_strtoupper: a host without
+		// mbstring must not take the cart down over a capital letter.
+		$first = mb_substr( $word, 0, 1 );
+		$first = function_exists( 'mb_strtoupper' ) ? mb_strtoupper( $first ) : ucfirst( $first );
+
+		return $first . mb_substr( $word, 1 );
 	}
 
 	/**
@@ -353,7 +362,7 @@ final class Module implements ModuleContract, ProvidesBootData, ProvidesElemento
 	 */
 	private static function sizes_found(): string {
 		$attribute = self::size_attribute();
-		$sizes     = \Galaxie\Woo\Support\GiftPacking::store_sizes( $attribute );
+		$sizes     = \Galaxie\Woo\Support\GiftPacking::store_sizes( $attribute, self::accessory_categories() );
 
 		if ( ! $sizes ) {
 			/* translators: %s: attribute taxonomy, e.g. pa_peso. */
@@ -390,6 +399,16 @@ final class Module implements ModuleContract, ProvidesBootData, ProvidesElemento
 	 * @param string $kind `box`, `ribbon` or `card`.
 	 * @return int[]
 	 */
+	/**
+	 * Every category a kit is packed *in*: boxes, ribbons and cards. What the
+	 * packing engine must not offer as something to put inside one.
+	 *
+	 * @return int[]
+	 */
+	public static function accessory_categories(): array {
+		return array_values( array_unique( array_merge( self::categories( 'box' ), self::categories( 'ribbon' ), self::categories( 'card' ) ) ) );
+	}
+
 	public static function categories( string $kind ): array {
 		$saved = self::setting( $kind . '_categories' );
 

@@ -22,6 +22,7 @@ interface Texts {
   message?: string
   more?: string
   box?: string
+  total?: string
   previous?: string
 }
 
@@ -129,10 +130,9 @@ function paint(root: HTMLElement, kit: KitView | null): void {
   // The label is what the merchant typed; the server sent the money.
   const total = root.querySelector<HTMLElement>('[data-kit-total]')
   if (total) {
-    total.dataset.label ??= (total.textContent ?? '').split(':')[0].trim()
-    const label = total.dataset.label ?? ''
-    total.hidden = '' === label
-    if ('' !== label) total.textContent = `${label}: ${kit.totalText}`
+    const label = (t.total ?? '').trim()
+    total.hidden = label === ''
+    if (label !== '') total.textContent = `${label}: ${kit.totalText}`
   }
 
   state.querySelectorAll<HTMLElement>('[data-kit-when="full"]').forEach((part) => {

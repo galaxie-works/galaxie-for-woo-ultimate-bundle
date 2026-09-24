@@ -229,7 +229,7 @@ final class BoxFields {
 			return __( 'Preencha comprimento, largura e altura internos e salve para ver o que cabe.', 'galaxie-woo' );
 		}
 
-		$sizes = GiftPacking::store_sizes( $this->attribute );
+		$sizes = GiftPacking::store_sizes( $this->attribute, Module::accessory_categories() );
 
 		if ( ! $sizes ) {
 			/* translators: %s: attribute taxonomy, e.g. pa_peso */

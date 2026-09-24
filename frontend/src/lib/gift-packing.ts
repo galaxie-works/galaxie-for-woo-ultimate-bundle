@@ -207,9 +207,14 @@ export function fitsKnown(box: Box, candles: Candle[], options: PackingOptions =
 
   if (answer === true || !options.stacking) return answer
 
-  // Stacking: the columns' yes is a yes; their no leaves the floor's answer.
-  // See GiftPacking::fits_known().
-  return stacksFit(candles, orientation, gap, bx, by, bz) ? true : answer
+  // Stacking: the columns' yes is a yes, a search that could not finish is
+  // "not known", and a finished no leaves the floor's answer. See
+  // GiftPacking::fits_known().
+  const stacked = stacksFit(candles, orientation, gap, bx, by, bz)
+
+  if (stacked === true) return true
+
+  return stacked === null ? null : answer
 }
 
 /** The exact one-layer search. See GiftPacking::floor_fits(). */
@@ -847,11 +852,11 @@ function shapesOf(candle: Candle, orientation: Orientation, gap: number, bx: num
 }
 
 /**
- * Whether the items fit when identical ones may stand in columns. Only
- * identical items stack: it can miss a fit, never invent one. See
- * GiftPacking::stacks_fit().
+ * Whether the items fit when identical ones may stand in columns; null when
+ * the search ran out of ways, work or time. Only identical items stack: it can
+ * miss a fit, never invent one. See GiftPacking::stacks_fit().
  */
-function stacksFit(candles: Candle[], orientation: Orientation, gap: number, bx: number, by: number, bz: number): boolean {
+function stacksFit(candles: Candle[], orientation: Orientation, gap: number, bx: number, by: number, bz: number): boolean | null {
   const groups = new Map<string, { candle: Candle; n: number }>()
 
   for (const candle of candles) {
@@ -880,23 +885,30 @@ function stacksFit(candles: Candle[], orientation: Orientation, gap: number, bx:
 
     combos = next
 
-    if (combos.length > STACK_COMBOS) return false
+    // Too many ways to try: nothing was ruled out, so nothing is known.
+    if (combos.length > STACK_COMBOS) return null
   }
+
+  let unknown = false
 
   for (const combo of combos) {
     if (!combo.some((option) => option[2])) continue
 
-    if (late()) return false
+    if (late()) return null
 
     const pieces: [number, number][][] = []
     for (const [shape, count] of combo) {
       for (let i = 0; i < count; i++) pieces.push([shape])
     }
 
-    if (floorFits(pieces, bx, by) === true) return true
+    const answer = floorFits(pieces, bx, by)
+
+    if (answer === true) return true
+
+    unknown = unknown || answer === null
   }
 
-  return false
+  return unknown ? null : false
 }
 
 /** Byte order, like PHP's SORT_STRING (keys are ASCII). */

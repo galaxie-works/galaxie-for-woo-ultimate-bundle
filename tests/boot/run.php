@@ -514,6 +514,18 @@ function galaxie_boot_kit( array $booted, array $scenario, callable $hooked ): s
 		$widget->settings = array( 'editor_state' => 'kit' );
 		$card             = $widget->render_for_test();
 
+		// The total's label travels in the texts, not in the markup: live the
+		// node is printed empty, and a label read back from it would be gone.
+		if ( ! preg_match( '/data-texts="([^"]*)"/', $card, $found ) || false === strpos( html_entity_decode( $found[1] ), '"total":"Total do kit"' ) ) {
+			throw new RuntimeException( 'Kit: the account card does not send its total label' );
+		}
+
+		$accessories = \Galaxie\Woo\Modules\GiftWrap\Module::accessory_categories();
+
+		if ( array( 125 ) !== $accessories ) {
+			throw new RuntimeException( 'Kit: the accessory categories are ' . implode( ',', $accessories ) );
+		}
+
 		foreach ( array( 'data-kit-tpl="item"', 'data-kit-action="continue"', 'data-kit-action="discard"', 'data-dialog="account_kit_discard"', 'data-dialog="account_kit_restore"' ) as $part ) {
 			if ( false === strpos( $card, $part ) ) {
 				throw new RuntimeException( "Kit: the account card is missing {$part}" );

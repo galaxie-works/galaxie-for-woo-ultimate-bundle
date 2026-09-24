@@ -200,10 +200,18 @@ final class GiftPacking {
 			return $answer;
 		}
 
-		// Stacking on: a yes from the columns is a yes. Their no is the floor's
-		// answer, which is exact for one layer; a mixed stack (a small item on
-		// a big one) is not modelled, so with stacking a "no" can be short.
-		return self::stacks_fit( $candles, $orientation, $gap, $bx, $by, $bz ) ? true : $answer;
+		// Stacking on: a yes from the columns is a yes, and a column search that
+		// could not finish is "not known", never a refusal — the floor's no is
+		// exact for one layer only. A finished no leaves the floor's answer;
+		// a mixed stack (a small item on a big one) is not modelled, so even
+		// that no can fall short of what fits.
+		$stacked = self::stacks_fit( $candles, $orientation, $gap, $bx, $by, $bz );
+
+		if ( true === $stacked ) {
+			return true;
+		}
+
+		return null === $stacked ? null : $answer;
 	}
 
 	/**
@@ -699,6 +707,14 @@ final class GiftPacking {
 	public const ITEM_PREFIX = 'item-';
 
 	/**
+	 * Most products that are their own size {@see self::store_sizes()} counts.
+	 * Every size is a dimension of the "what still fits" search, so a store
+	 * that measured hundreds of them would answer "não sei" to every sentence
+	 * instead of answering slowly. Oldest first, so the answer is stable.
+	 */
+	public const ITEM_SIZES_MAX = 40;
+
+	/**
 	 * A box array from a gift box variation's `_galaxie_box_*` meta.
 	 *
 	 * @param \WC_Product $product Box variation.
@@ -746,9 +762,17 @@ final class GiftPacking {
 	 * @param string $attribute Size attribute, e.g. `pa_peso`.
 	 * @return array<int, array> Candle arrays plus `label` (the term name).
 	 */
-	public static function store_sizes( string $attribute = 'pa_peso' ): array {
-		if ( isset( self::$sizes[ $attribute ] ) ) {
-			return self::$sizes[ $attribute ];
+	public static function store_sizes( string $attribute = 'pa_peso', array $skip_categories = array() ): array {
+		// Gift boxes, ribbons and cards are what a kit is packed *in*, never
+		// what goes in it: with the size attribute they never turned up here,
+		// but a measured card would, and the kit refuses to add one.
+		$skip = array_values( array_unique( array_filter( array_map( 'absint', $skip_categories ) ) ) );
+		sort( $skip );
+
+		$key = $skip ? $attribute . '|' . implode( ',', $skip ) : $attribute;
+
+		if ( isset( self::$sizes[ $key ] ) ) {
+			return self::$sizes[ $key ];
 		}
 
 		$stored = get_transient( self::SIZES_TRANSIENT );
@@ -757,8 +781,8 @@ final class GiftPacking {
 		// An empty entry is not an answer to keep: it means the store looked like
 		// it had no candle size at all, which is worth asking again rather than
 		// serving for a day. (One written before this rule is dropped here.)
-		if ( ! empty( $stored[ $attribute ] ) && is_array( $stored[ $attribute ] ) ) {
-			return self::$sizes[ $attribute ] = $stored[ $attribute ];
+		if ( ! empty( $stored[ $key ] ) && is_array( $stored[ $key ] ) ) {
+			return self::$sizes[ $key ] = $stored[ $key ];
 		}
 
 		$terms = taxonomy_exists( $attribute ) ? get_terms(
@@ -831,23 +855,38 @@ final class GiftPacking {
 
 		// Products that are their own size (no size attribute value, gift
 		// measures filled): one size each, named after the product.
-		$items = get_posts(
-			array(
-				'post_type'      => array( 'product', 'product_variation' ),
-				'post_status'    => array( 'publish', 'private' ),
-				'posts_per_page' => 500,
-				'fields'         => 'ids',
-				'no_found_rows'  => true,
-				'meta_query'     => array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query
-					array(
-						'key'     => self::GIFT_KEYS[0],
-						'value'   => 0,
-						'compare' => '>',
-						'type'    => 'DECIMAL(10,3)',
-					),
+		$query = array(
+			'post_type'      => array( 'product', 'product_variation' ),
+			'post_status'    => array( 'publish', 'private' ),
+			'posts_per_page' => self::ITEM_SIZES_MAX * 2, // Variations of one product share a parent; some rows drop below.
+			'orderby'        => 'ID',
+			'order'          => 'ASC',
+			'fields'         => 'ids',
+			'no_found_rows'  => true,
+			'meta_query'     => array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query
+				array(
+					'key'     => self::GIFT_KEYS[0],
+					'value'   => 0,
+					'compare' => '>',
+					'type'    => 'DECIMAL(10,3)',
 				),
-			)
+			),
 		);
+
+		if ( $skip ) {
+			$query['tax_query'] = array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_tax_query
+				array(
+					'taxonomy'         => 'product_cat',
+					'field'            => 'term_id',
+					'terms'            => $skip,
+					'operator'         => 'NOT IN',
+					'include_children' => true,
+				),
+			);
+		}
+
+		$items = get_posts( $query );
+		$taken = 0;
 
 		foreach ( (array) $items as $id ) {
 			$product = wc_get_product( (int) $id );
@@ -862,12 +901,22 @@ final class GiftPacking {
 				continue;
 			}
 
+			// A variation's category is its parent's, and tax_query above only
+			// filtered the posts it was asked about.
+			if ( $skip && $parent !== $product->get_id() && has_term( $skip, 'product_cat', $parent ) ) {
+				continue;
+			}
+
 			$item = self::candle_from_product( $product, $attribute );
 
 			if ( $item && str_starts_with( $item['size'], self::ITEM_PREFIX ) ) {
 				unset( $item['price'] );
 				$item['label'] = wp_strip_all_tags( $product->get_name() );
 				$sizes[]       = $item;
+
+				if ( ++$taken >= self::ITEM_SIZES_MAX ) {
+					break;
+				}
 			}
 		}
 
@@ -876,14 +925,14 @@ final class GiftPacking {
 		// into "a caixa está completa" — and that is a state to re-check on the
 		// next request, not to keep. It stays in the per-request cache only.
 		if ( $sizes ) {
-			$stored[ $attribute ] = $sizes;
+			$stored[ $key ] = $sizes;
 		} else {
-			unset( $stored[ $attribute ] );
+			unset( $stored[ $key ] );
 		}
 
 		set_transient( self::SIZES_TRANSIENT, $stored, DAY_IN_SECONDS );
 
-		return self::$sizes[ $attribute ] = $sizes;
+		return self::$sizes[ $key ] = $sizes;
 	}
 
 	/**
@@ -897,7 +946,7 @@ final class GiftPacking {
 	 *
 	 * @return array<string,int|bool|string>
 	 */
-	public static function size_report( string $attribute = 'pa_peso' ): array {
+	public static function size_report( string $attribute = 'pa_peso', array $skip_categories = array() ): array {
 		$report = array(
 			'attribute' => $attribute,
 			'taxonomy'  => taxonomy_exists( $attribute ),
@@ -905,7 +954,7 @@ final class GiftPacking {
 			'matched'   => 0,
 			'published' => 0,
 			'measured'  => 0,
-			'sizes'     => count( self::store_sizes( $attribute ) ),
+			'sizes'     => count( self::store_sizes( $attribute, $skip_categories ) ),
 		);
 
 		if ( ! $report['taxonomy'] ) {
@@ -1566,8 +1615,9 @@ final class GiftPacking {
 	 * @param int    $bx          Box length in units.
 	 * @param int    $by          Box width in units.
 	 * @param int    $bz          Usable box height in units.
+	 * @return bool|null Null when the search ran out of ways, work or time.
 	 */
-	private static function stacks_fit( array $candles, string $orientation, int $gap, int $bx, int $by, int $bz ): bool {
+	private static function stacks_fit( array $candles, string $orientation, int $gap, int $bx, int $by, int $bz ): ?bool {
 		$groups = array();
 
 		foreach ( $candles as $candle ) {
@@ -1603,10 +1653,13 @@ final class GiftPacking {
 
 			$combos = $next;
 
+			// Too many ways to try: nothing was ruled out, so nothing is known.
 			if ( count( $combos ) > self::STACK_COMBOS ) {
-				return false;
+				return null;
 			}
 		}
+
+		$unknown = false;
 
 		foreach ( $combos as $combo ) {
 			// Nothing in it stacks: the one-layer search already answered.
@@ -1615,7 +1668,7 @@ final class GiftPacking {
 			}
 
 			if ( self::late() ) {
-				return false;
+				return null;
 			}
 
 			$pieces = array();
@@ -1625,12 +1678,16 @@ final class GiftPacking {
 				}
 			}
 
-			if ( true === self::floor_fits( $pieces, $bx, $by ) ) {
+			$answer = self::floor_fits( $pieces, $bx, $by );
+
+			if ( true === $answer ) {
 				return true;
 			}
+
+			$unknown = $unknown || null === $answer;
 		}
 
-		return false;
+		return $unknown ? null : false;
 	}
 
 	/**

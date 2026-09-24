@@ -120,7 +120,7 @@ final class WooCatalog implements Catalog {
 	}
 
 	public function sizes(): array {
-		return array_values( GiftPacking::store_sizes( Module::size_attribute() ) );
+		return array_values( GiftPacking::store_sizes( Module::size_attribute(), Module::accessory_categories() ) );
 	}
 
 	public function options(): array {

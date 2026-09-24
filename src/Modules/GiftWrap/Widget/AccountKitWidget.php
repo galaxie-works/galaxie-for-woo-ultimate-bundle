@@ -441,6 +441,10 @@ final class AccountKitWidget extends Widget_Base {
 			'message'  => (string) ( $settings['message'] ?? '' ),
 			'more'     => (string) ( $settings['items_more'] ?? '' ),
 			'box'      => (string) ( $settings['box_label'] ?? '' ),
+			// The label travels here, not in the markup: live it is printed
+			// empty (a cached page says nothing of the visitor's kit), and a
+			// label read back out of an empty node is no label at all.
+			'total'    => (string) ( $settings['total_label'] ?? '' ),
 			'previous' => (string) ( $settings['previous_text'] ?? '' ),
 		);
 
