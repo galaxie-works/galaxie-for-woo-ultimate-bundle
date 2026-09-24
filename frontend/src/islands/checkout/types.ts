@@ -180,5 +180,5 @@ export interface CheckoutProps {
    * requests. `payment` is a sample of WooCommerce's payment block (saved
    * cards, new card, Pix, boleto) in the live block's own markup.
    */
-  preview: { step: StepId; payment: string } | null
+  preview: { step: StepId; firstPurchase: boolean; payment: string } | null
 }
