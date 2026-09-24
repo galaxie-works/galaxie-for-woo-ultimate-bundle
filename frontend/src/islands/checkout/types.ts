@@ -74,6 +74,7 @@ export interface CheckoutText extends LoginText {
   marketing: string
   terms: string
   addAddress: string
+  addressSearch: string
   /** Contains `%s`, replaced by the CEP. */
   quotedNotice: string
   useQuoted: string

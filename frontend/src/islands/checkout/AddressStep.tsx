@@ -5,6 +5,7 @@ import { Input } from '@/ui/input'
 import { CoField, PixButton, useFieldClass, useUi } from '@/lib/pix'
 import type { AddressValues, CheckoutText, CheckoutUi } from './types'
 import type { AddressErrors } from './validation'
+import { PlacesSearch } from './PlacesSearch'
 import { ShippingChoice } from './ShippingChoice'
 
 interface AddressStepProps {
@@ -88,6 +89,20 @@ function AddressStep({
         // `noValidate` for the same reason as the profile step: our messages
         // carry WooCommerce's verdict too, the browser's bubble does not.
         <form noValidate onSubmit={handleSave} className="gx-co-form">
+          <PlacesSearch
+            label={text.addressSearch}
+            onPlace={(place) => {
+              setValues((prev) => ({
+                ...prev,
+                address_1: place.address_1 || prev.address_1,
+                address_2: prev.address_2 || place.neighbourhood,
+                city: place.city || prev.city,
+                state: place.state || prev.state,
+                postcode: place.postcode || prev.postcode,
+              }))
+              if (!place.postcode) document.getElementById(`${id}-cep`)?.focus()
+            }}
+          />
           <CoField label={text.postcode} htmlFor={`${id}-cep`} error={errors.postcode} className="gx-co-field--cep">
             <Input
               unstyled
