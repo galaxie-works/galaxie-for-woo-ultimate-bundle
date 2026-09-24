@@ -162,10 +162,10 @@ function EntryStep({ authCfg, text, genericError, onVerified, preview }: EntrySt
 
       <Tabs value={tab} onValueChange={(v) => switchTab(v as 'otp' | 'register')} className="gap-5">
         <TabsList className="h-11 w-full">
-          <TabsTrigger value="otp" className="h-full">
+          <TabsTrigger value="otp" className="h-full whitespace-normal leading-tight">
             {text.tabLogin}
           </TabsTrigger>
-          <TabsTrigger value="register" className="h-full">
+          <TabsTrigger value="register" className="h-full whitespace-normal leading-tight">
             {text.tabRegister}
           </TabsTrigger>
         </TabsList>
