@@ -1,3 +1,6 @@
+import type { PixButtonData, PixUi } from '@/lib/pix'
+import type { LoginText } from '@/islands/login/OtpLogin'
+
 export type StepId = 'entry' | 'profile' | 'address' | 'payment'
 
 export const STEP_ORDER: StepId[] = ['entry', 'profile', 'address', 'payment']
@@ -46,7 +49,7 @@ export interface OrderSummaryData {
 }
 
 /** Every string the island prints, from the widget's Content tab or PHP translations. */
-export interface CheckoutText {
+export interface CheckoutText extends LoginText {
   stepEntry: string
   stepProfile: string
   stepAddress: string
@@ -97,20 +100,13 @@ export interface CheckoutLayout {
   summaryOpenMobile: boolean
 }
 
-/** A button as pixfort's own Button element drew it, label included. */
-export interface PixButtonData {
-  html: string
-  /** The panel's "Full width button": the wrapping <button> must stretch too. */
-  full: boolean
-}
-
 /**
  * pixfort's parts, as the widget's Style tab configured them (PHP
  * `CheckoutWidget::ui()`): class strings for texts, boxes and pills, and
  * finished button / alert markup. Every key of `cls` is a string, possibly
  * empty when a control is left at Default.
  */
-export interface CheckoutUi {
+export interface CheckoutUi extends PixUi {
   cls: {
     stepTitle: string
     body: string
@@ -155,10 +151,6 @@ export interface CheckoutUi {
     | 'logout',
     PixButtonData
   >
-  /** pixfort's Alert with `marker` where the message goes. */
-  alert: string
-  /** Stands in for a label pixfort drew before the island knew it. */
-  marker: string
 }
 
 export interface CheckoutProps {

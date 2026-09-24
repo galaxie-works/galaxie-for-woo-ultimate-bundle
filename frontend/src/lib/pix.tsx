@@ -1,10 +1,30 @@
 import * as React from 'react'
 
 import { cn } from '@/lib/cn'
-import type { CheckoutUi, PixButtonData } from './types'
+/** A button as pixfort's own Button element drew it, label included. */
+export interface PixButtonData {
+  html: string
+  /** The panel's "Full width button": the wrapping <button> must stretch too. */
+  full: boolean
+}
 
 /**
- * pixfort's parts inside the checkout island.
+ * pixfort's parts as a widget's Style tab configured them, built in PHP:
+ * class strings (text_classes / surface_classes) and finished button / alert
+ * markup. Each island narrows this with its own keys (see checkout's
+ * `CheckoutUi`, login's `LoginUi`).
+ */
+export interface PixUi {
+  cls: Record<string, string>
+  buttons: Record<string, PixButtonData>
+  /** pixfort's Alert with `marker` where the message goes. */
+  alert: string
+  /** Stands in for a label pixfort drew before the island knew it. */
+  marker: string
+}
+
+/**
+ * pixfort's parts inside a React island (the checkout, the login).
  *
  * Every other widget of the plugin is styled through pixfort's own control
  * sets, and those controls are classes and markup pixfort prints. The island
@@ -13,14 +33,15 @@ import type { CheckoutUi, PixButtonData } from './types'
  * alert as pixfort's finished markup to put inside them.
  */
 
-const UiContext = React.createContext<CheckoutUi | null>(null)
+const UiContext = React.createContext<PixUi | null>(null)
 
 export const UiProvider = UiContext.Provider
 
-export function useUi(): CheckoutUi {
+/** The nearest island's parts, typed as that island declares them. */
+export function useUi<T extends PixUi = PixUi>(): T {
   const ui = React.useContext(UiContext)
-  if (!ui) throw new Error('Checkout pixfort parts used outside the island')
-  return ui
+  if (!ui) throw new Error('pixfort parts used outside a UiProvider')
+  return ui as T
 }
 
 export function escapeHtml(text: string): string {
@@ -96,7 +117,7 @@ export function CoField({
   )
 }
 
-/** The class a text input carries: pixfort's `.form-control` plus the "Fields" box classes. */
+/** The class a text input carries: pixfort's `.form-control` plus the "Fields" box classes (`cls.field`). */
 export function useFieldClass(): string {
   const { cls } = useUi()
   return cn('form-control gx-co-input', cls.field)

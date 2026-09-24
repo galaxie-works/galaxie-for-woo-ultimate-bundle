@@ -2,7 +2,8 @@ import * as React from 'react'
 import { Check } from 'lucide-react'
 
 import { cn } from '@/lib/cn'
-import { PixButton, useUi } from './pix'
+import { PixButton, useUi } from '@/lib/pix'
+import type { CheckoutUi } from './types'
 
 export type StepStatus = 'active' | 'done' | 'upcoming'
 
@@ -37,7 +38,7 @@ interface StepSectionProps {
  * those nodes must survive every step change.
  */
 function StepSection({ index, title, status, summary, onEdit, children }: StepSectionProps) {
-  const { cls, buttons } = useUi()
+  const { cls, buttons } = useUi<CheckoutUi>()
   const active = 'active' === status
   const done = 'done' === status
 

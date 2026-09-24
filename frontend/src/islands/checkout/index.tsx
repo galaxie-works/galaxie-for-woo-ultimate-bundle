@@ -3,7 +3,7 @@ import * as React from 'react'
 import { cn } from '@/lib/cn'
 import { getGalaxieConfig, post } from '@/lib/wp'
 import { AddressStep, formatAddress } from './AddressStep'
-import { EntryStep } from './EntryStep'
+import { OtpLogin } from '@/islands/login/OtpLogin'
 import {
   fillNativeBilling,
   hasChosenShippingMethod,
@@ -18,7 +18,7 @@ import {
 } from './native-checkout'
 import { OrderSummary, readSummaryFragment } from './OrderSummary'
 import { PaymentStep } from './PaymentStep'
-import { PixAlert, PixLink, UiProvider } from './pix'
+import { PixAlert, PixLink, UiProvider } from '@/lib/pix'
 import { ProfileStep } from './ProfileStep'
 import { StepSection, type StepStatus } from './StepSection'
 import {
@@ -268,7 +268,7 @@ function Checkout(props: CheckoutProps) {
                 </span>
               }
             >
-              <EntryStep
+              <OtpLogin
                 authCfg={cfg.auth}
                 text={text}
                 genericError={props.i18n.genericError}

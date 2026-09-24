@@ -5,29 +5,70 @@ import { post } from '@/lib/wp'
 import { Input } from '@/ui/input'
 import { OtpInput } from '@/ui/otp-input'
 import { PhoneInput } from '@/ui/phone-input'
-import { CoField, PixAlert, PixButton, useFieldClass, useUi } from './pix'
-import type { CheckoutText, ProfileValues } from './types'
-import { BAD_PHONE } from './validation'
+import { CoField, PixAlert, PixButton, useFieldClass, useUi, type PixButtonData, type PixUi } from '@/lib/pix'
+import type { ProfileValues } from '@/islands/checkout/types'
+import { BAD_PHONE } from '@/islands/checkout/validation'
 
 interface AjaxEndpoint {
   ajaxUrl: string
   nonce: string
 }
 
-interface EntryStepProps {
+/** Every string the login prints. The checkout's own text set extends this one. */
+export interface LoginText {
+  entryIntro: string
+  tabLogin: string
+  tabRegister: string
+  email: string
+  sendCode: string
+  registerButton: string
+  /** Contains `%s`, replaced by the e-mail address. */
+  codeHint: string
+  confirmCode: string
+  resendCode: string
+  changeEmail: string
+  firstName: string
+  lastName: string
+  birthdate: string
+  cpf: string
+  phone: string
+  marketing: string
+  terms: string
+}
+
+/**
+ * The pixfort parts the login draws, which the host's `UiProvider` must
+ * carry (PHP builds them; see `CheckoutWidget::ui()` for the checkout's).
+ * Empty strings are fine: a control left at Default prints no class.
+ */
+export interface LoginUi extends PixUi {
+  cls: Record<'body' | 'small' | 'label' | 'hint' | 'error' | 'tab' | 'tabText' | 'option' | 'field', string>
+  buttons: Record<'sendCode' | 'registerButton' | 'confirmCode' | 'resendCode' | 'changeEmail', PixButtonData>
+}
+
+interface OtpLoginProps {
   authCfg?: AjaxEndpoint
-  text: CheckoutText
+  text: LoginText
   genericError: string
   onVerified: () => void
   /** Editor preview: the forms render but never submit. */
-  preview: boolean
+  preview?: boolean
 }
 
 type Stage = 'request' | 'verify'
 type Tab = 'otp' | 'register'
 
 /**
- * Passwordless sign-in / registration. Talks directly to the PasswordlessAuth
+ * Passwordless sign-in / registration, shared: the checkout's first step,
+ * and any page that needs the same sign-in (a "Galaxie Login" widget for the
+ * signed-out account screen, a /login page).
+ *
+ * It takes everything through props and the nearest `UiProvider` — no
+ * checkout state — so a host needs only: a `UiProvider` whose value satisfies
+ * `LoginUi`, a wrapper with the `gx-co` class (the layout rules in
+ * index.css are scoped to it), `authCfg` from the PasswordlessAuth boot data,
+ * and what to do once the code is verified (the checkout reloads).
+ * Talks directly to the PasswordlessAuth
  * module's AJAX actions (galaxie_auth_send_otp / galaxie_auth_verify_otp).
  * On a verified code, reloads the page rather than managing a client-side
  * transition: the widget re-renders server-side signed in, with fresh
@@ -38,8 +79,8 @@ type Tab = 'otp' | 'register'
  * state), the fields pixfort's `.form-control`, the opt-in the Communication
  * widget's switch — each styled from the widget's own Style tab.
  */
-function EntryStep({ authCfg, text, genericError, onVerified, preview }: EntryStepProps) {
-  const { cls, buttons } = useUi()
+function OtpLogin({ authCfg, text, genericError, onVerified, preview = false }: OtpLoginProps) {
+  const { cls, buttons } = useUi<LoginUi>()
   const field = useFieldClass()
   const [tab, setTab] = React.useState<Tab>('otp')
   const [stage, setStage] = React.useState<Stage>('request')
@@ -241,4 +282,4 @@ function EntryStep({ authCfg, text, genericError, onVerified, preview }: EntrySt
   )
 }
 
-export { EntryStep }
+export { OtpLogin }
