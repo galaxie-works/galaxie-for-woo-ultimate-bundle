@@ -129,9 +129,51 @@ final class AccountWishlistWidget extends Widget_Base {
 			)
 		);
 
+		$this->add_control(
+			'wl_mode',
+			array(
+				'label'       => __( 'Show', 'galaxie-woo' ),
+				'type'        => Controls_Manager::SELECT,
+				'options'     => array(
+					'full'    => __( 'The whole screen: lists, sharing, everything', 'galaxie-woo' ),
+					'compact' => __( 'A few saved products, for a dashboard', 'galaxie-woo' ),
+				),
+				'default'     => 'full',
+				'description' => __( 'The short version shows the default list only: its first products and a link to the full screen. No tabs, no renaming, no sharing.', 'galaxie-woo' ),
+				'separator'   => 'before',
+			)
+		);
+
+		$compact = array( 'wl_mode' => 'compact' );
+
+		$this->add_control(
+			'wl_max',
+			array(
+				'label'     => __( 'How many', 'galaxie-woo' ),
+				'type'      => Controls_Manager::NUMBER,
+				'min'       => 1,
+				'max'       => 12,
+				'default'   => 4,
+				'condition' => $compact,
+			)
+		);
+
+		$this->add_control(
+			'wl_hide_empty',
+			array(
+				'label'       => __( 'Hide the widget when nothing is saved', 'galaxie-woo' ),
+				'type'        => Controls_Manager::SWITCHER,
+				'return_value' => 'yes',
+				'default'     => 'yes',
+				'description' => __( 'A dashboard has better things to say than an empty list.', 'galaxie-woo' ),
+				'condition'   => $compact,
+			)
+		);
+
 		$this->end_controls_section();
 
 		$buttons = array(
+			'wl_all'            => array( __( 'Short list: link to the full list', 'galaxie-woo' ), array( 'text' => __( 'Ver lista completa', 'galaxie-woo' ), 'style' => 'link', 'size' => 'sm', 'icon' => 'Line/pixfort-icon-arrow-right-1', 'icon_position' => 'after' ) ),
 			'wl_buy'            => array( __( 'Card: buy button', 'galaxie-woo' ), array( 'text' => __( 'Comprar', 'galaxie-woo' ), 'size' => 'sm' ) ),
 			'wl_options'        => array( __( 'Card: choose options button', 'galaxie-woo' ), array( 'text' => __( 'Escolher opções', 'galaxie-woo' ), 'style' => 'outline', 'size' => 'sm' ) ),
 			'wl_remove'         => array( __( 'Card: remove button', 'galaxie-woo' ), array( 'text' => __( 'Remover', 'galaxie-woo' ), 'style' => 'link', 'size' => 'sm', 'icon' => 'Line/pixfort-icon-cross-circle-1' ) ),
@@ -239,7 +281,10 @@ final class AccountWishlistWidget extends Widget_Base {
 			$this->end_controls_section();
 		}
 
-		$this->start_controls_section( 'wl_empty_style', array( 'label' => __( 'List: empty state', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
+		// 'wl_empty_style' would be this section and the one text_sections() makes
+		// for the 'wl_empty' text: one id, and the editor keeps whichever came
+		// last. Section ids are not saved with the widget, so this one is renamed.
+		$this->start_controls_section( 'wl_empty_state_style', array( 'label' => __( 'List: empty state', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
 		PixfortControls::surface( $this, 'wl_empty_box', '{{WRAPPER}} .galaxie-wishlist-empty-box' );
 		$this->add_responsive_control( 'wl_empty_icon_size', array( 'label' => __( 'Icon size', 'galaxie-woo' ), 'type' => Controls_Manager::SLIDER, 'size_units' => array( 'px' ), 'range' => array( 'px' => array( 'min' => 16, 'max' => 120 ) ), 'separator' => 'before', 'selectors' => array( '{{WRAPPER}} .galaxie-wishlist-empty-icon .pixfort-icon' => 'width: {{SIZE}}{{UNIT}}; height: {{SIZE}}{{UNIT}};' ) ) );
 		PixfortControls::icon_color( $this, 'wl_empty_icon_color', __( 'Icon color', 'galaxie-woo' ), '{{WRAPPER}} .galaxie-wishlist-empty-icon' );
@@ -326,8 +371,21 @@ final class AccountWishlistWidget extends Widget_Base {
 			$products = wc_get_products( array( 'status' => 'publish', 'limit' => 3, 'orderby' => 'date' ) );
 		}
 
-		$text = static fn( string $prefix, string $class, string $html, string $tag = 'div' ): string => sprintf( '<%1$s class="%2$s %3$s">%4$s</%1$s>', $tag, esc_attr( $class ), esc_attr( PixfortControls::text_classes( $s, $prefix ) ), $html );
-		$base = AccountEndpoints::url( 'galaxie-wishlist' );
+		$text    = static fn( string $prefix, string $class, string $html, string $tag = 'div' ): string => sprintf( '<%1$s class="%2$s %3$s">%4$s</%1$s>', $tag, esc_attr( $class ), esc_attr( PixfortControls::text_classes( $s, $prefix ) ), $html );
+		$base    = AccountEndpoints::url( 'galaxie-wishlist' );
+		$compact = 'compact' === ( $s['wl_mode'] ?? 'full' );
+
+		// The dashboard's version: the default list, a few of it, and the way
+		// to the rest. Everything that changes a list — tabs, renaming,
+		// sharing, deleting — belongs on the screen that owns it.
+		if ( $compact ) {
+			if ( ! $products && 'yes' === ( $s['wl_hide_empty'] ?? 'yes' ) && ! $editing ) {
+				return;
+			}
+
+			$this->render_compact( $s, $products, (string) ( $current['id'] ?? '' ), $text, $base );
+			return;
+		}
 
 		printf(
 			'<div class="galaxie-account-wishlist" data-list-id="%1$s" data-msg-class="%2$s" data-copied="%3$s">',
@@ -399,6 +457,57 @@ final class AccountWishlistWidget extends Widget_Base {
 
 		echo Dialog::render( $s, 'wl_remove_confirm' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built from escaped parts.
 		echo Dialog::render( $s, 'wl_delete_confirm' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built from escaped parts.
+
+		echo '</div>';
+	}
+
+	/**
+	 * The short list: a heading, the first few cards and a link to the screen.
+	 *
+	 * @param array<string,mixed> $s        Widget settings.
+	 * @param \WC_Product[]       $products The list's products, newest first.
+	 * @param string              $list_id  The list the cards act on.
+	 * @param callable            $text     The text helper render() builds.
+	 * @param string              $base     The wishlist screen's address.
+	 */
+	private function render_compact( array $s, array $products, string $list_id, callable $text, string $base ): void {
+		$max  = max( 1, min( 12, (int) ( $s['wl_max'] ?? 4 ) ) );
+		$link = trim( (string) ( $s['wl_all_text'] ?? '' ) );
+
+		printf( '<div class="galaxie-account-wishlist is-compact" data-list-id="%s">', esc_attr( $list_id ) );
+
+		$heading = trim( (string) ( $s['wl_heading'] ?? '' ) );
+
+		if ( '' !== $heading ) {
+			printf( '<div class="galaxie-wishlist-heading">%s</div>', PixfortControls::render_text( $s, 'wl_heading_text', esc_html( $heading ) ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pixfort's own element around escaped text.
+		}
+
+		echo '<div class="galaxie-account-message" role="status" aria-live="polite" hidden></div>';
+
+		if ( ! $products ) {
+			printf(
+				'<div class="galaxie-wishlist-empty-box %1$s">%2$s%3$s</div>',
+				esc_attr( PixfortControls::surface_classes( $s, 'wl_empty_box' ) ),
+				$text( 'wl_empty', 'galaxie-wishlist-empty', esc_html( (string) ( $s['wl_empty_label'] ?? '' ) ), 'p' ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped inside.
+				AccountParts::link_button( $s, 'wl_shop', (string) ( $s['wl_shop_text'] ?? '' ), (string) wc_get_page_permalink( 'shop' ) ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built from escaped parts.
+			);
+		} else {
+			echo '<div class="galaxie-wishlist-grid">';
+
+			foreach ( array_slice( $products, 0, $max ) as $product ) {
+				echo $this->card( $s, $product, $list_id, $text ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built from escaped parts.
+			}
+
+			echo '</div>';
+		}
+
+		if ( '' !== $link ) {
+			printf( '<div class="galaxie-wishlist-more">%s</div>', AccountParts::link_button( $s, 'wl_all', $link, $base ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built from escaped parts.
+		}
+
+		// Removing a product is the one change the short list allows, and it
+		// asks first like the screen does.
+		echo Dialog::render( $s, 'wl_remove_confirm' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built from escaped parts.
 
 		echo '</div>';
 	}

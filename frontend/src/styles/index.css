@@ -3395,6 +3395,42 @@ address.galaxie-order-body {
   }
 }
 
+/* The dashboard's short list: the same cards, in a column that is usually
+   narrower than the screen's, and the link to the rest under them. */
+.galaxie-account-wishlist.is-compact {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.galaxie-account-wishlist.is-compact .galaxie-wishlist-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (max-width: 767px) {
+  .galaxie-account-wishlist.is-compact .galaxie-wishlist-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.galaxie-wishlist-more,
+.galaxie-interests-more,
+.galaxie-payment-methods.is-compact .galaxie-pm-toolbar {
+  display: flex;
+  justify-content: flex-start;
+}
+
+/* The dashboard's line of interests: read-only, so it sits like a sentence. */
+.galaxie-interests-summary {
+  margin: 0;
+}
+
+.galaxie-payment-methods.is-compact {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
 .galaxie-wishlist-item {
   display: flex;
   flex-direction: column;

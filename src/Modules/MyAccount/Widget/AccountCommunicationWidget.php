@@ -53,6 +53,17 @@ final class AccountCommunicationWidget extends Widget_Base {
 		$this->add_control( 'comm_heading', array( 'label' => __( 'Heading', 'galaxie-woo' ), 'type' => Controls_Manager::TEXT, 'label_block' => true, 'default' => __( 'Comunicação', 'galaxie-woo' ) ) );
 		$this->add_control( 'comm_title', array( 'label' => __( 'Option title', 'galaxie-woo' ), 'type' => Controls_Manager::TEXT, 'label_block' => true, 'default' => __( 'Novidades e ofertas por e-mail', 'galaxie-woo' ) ) );
 		$this->add_control( 'comm_text', array( 'label' => __( 'Option description', 'galaxie-woo' ), 'type' => Controls_Manager::TEXTAREA, 'rows' => 2, 'default' => __( 'Lançamentos, rituais e promoções, de vez em quando. Você pode sair quando quiser.', 'galaxie-woo' ) ) );
+		$this->add_control(
+			'comm_compact',
+			array(
+				'label'        => __( 'Short version (no description)', 'galaxie-woo' ),
+				'type'         => Controls_Manager::SWITCHER,
+				'return_value' => 'yes',
+				'default'      => '',
+				'description'  => __( 'For a dashboard: the switch and its title, without the sentence under it.', 'galaxie-woo' ),
+			)
+		);
+
 		$this->add_control( 'comm_on_text', array( 'label' => __( 'Message when turned on', 'galaxie-woo' ), 'type' => Controls_Manager::TEXT, 'label_block' => true, 'default' => __( 'Pronto, você vai receber nossas novidades.', 'galaxie-woo' ), 'separator' => 'before' ) );
 		$this->add_control( 'comm_off_text', array( 'label' => __( 'Message when turned off', 'galaxie-woo' ), 'type' => Controls_Manager::TEXT, 'label_block' => true, 'default' => __( 'Tudo certo, não enviaremos mais e-mails de novidades.', 'galaxie-woo' ) ) );
 
@@ -114,7 +125,7 @@ final class AccountCommunicationWidget extends Widget_Base {
 			esc_attr( PixfortControls::surface_classes( $s, 'comm_option' ) ),
 			esc_attr( $id ),
 			$txt( 'comm_title_text', 'galaxie-comm-title', (string) ( $s['comm_title'] ?? '' ) ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pixfort's own element around escaped text.
-			$txt( 'comm_desc_text', 'galaxie-comm-text', (string) ( $s['comm_text'] ?? '' ) ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pixfort's own element around escaped text.
+			'yes' === ( $s['comm_compact'] ?? '' ) ? '' : $txt( 'comm_desc_text', 'galaxie-comm-text', (string) ( $s['comm_text'] ?? '' ) ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pixfort's own element around escaped text.
 			checked( $on, true, false )
 		);
 	}

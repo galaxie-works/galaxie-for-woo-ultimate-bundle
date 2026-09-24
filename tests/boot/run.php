@@ -154,6 +154,29 @@ function galaxie_boot_kit( array $booted, array $scenario, callable $hooked ): s
 		$parts[] = 'launcher';
 	}
 
+	// The account widgets a dashboard borrows: each has a short version, and
+	// each starts at the full one, so a screen that already uses them is
+	// untouched by the new control.
+	$short = array(
+		'\Galaxie\Woo\Modules\Wishlist\Widget\AccountWishlistWidget'          => array( 'wl_mode', 'full' ),
+		'\Galaxie\Woo\Modules\MyAccount\Widget\AccountPaymentMethodsWidget'  => array( 'pm_mode', 'full' ),
+		'\Galaxie\Woo\Modules\MyAccount\Widget\AccountInterestsWidget'       => array( 'interests_mode', 'full' ),
+		'\Galaxie\Woo\Modules\MyAccount\Widget\AccountCommunicationWidget'   => array( 'comm_compact', '' ),
+	);
+
+	foreach ( $short as $class => list( $id, $starts ) ) {
+		if ( ! class_exists( $class ) ) {
+			throw new RuntimeException( "Account: {$class} is not loaded" );
+		}
+
+		$widget = new $class();
+		$widget->register_for_test();
+
+		if ( ! isset( $widget->controls[ $id ] ) || $starts !== ( $widget->controls[ $id ]['default'] ?? null ) ) {
+			throw new RuntimeException( "Account: {$id} is missing or does not start at '{$starts}'" );
+		}
+	}
+
 	// Widgets: controls, a live render and every editor screen.
 	$widgets = array(
 		\Galaxie\Woo\Modules\GiftWrap\Widget\KitBuilderWidget::class  => array( 'data-galaxie-kit-builder', array( 'welcome', 'name', 'box', 'card', 'continue', 'summary' ), 'editor_screen' ),
