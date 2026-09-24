@@ -59,13 +59,29 @@ final class AccountOrdersWidget extends Widget_Base {
 		$this->add_control(
 			'orders_source',
 			array(
-				'label'   => __( 'Show', 'galaxie-woo' ),
-				'type'    => Controls_Manager::SELECT,
-				'options' => array(
-					'all'    => __( 'Every order, in pages', 'galaxie-woo' ),
-					'recent' => __( 'The most recent only', 'galaxie-woo' ),
+				'label'       => __( 'Show', 'galaxie-woo' ),
+				'type'        => Controls_Manager::SELECT,
+				'options'     => array(
+					'all'     => __( 'Every order, in pages', 'galaxie-woo' ),
+					'recent'  => __( 'The most recent only', 'galaxie-woo' ),
+					'waiting' => __( 'Only the ones waiting for the customer', 'galaxie-woo' ),
 				),
-				'default' => 'all',
+				'default'     => 'all',
+				'description' => __( 'Waiting: not yet paid, payment failed, or on hold — the orders the customer can still do something about. On a dashboard it says so before the list of recent orders does.', 'galaxie-woo' ),
+			)
+		);
+
+		// A list of what is waiting has nothing to say when nothing is: the
+		// dashboard would otherwise carry "Você ainda não fez pedidos" under a
+		// heading about payment, beside the recent orders that contradict it.
+		$this->add_control(
+			'orders_hide_empty',
+			array(
+				'label'        => __( 'Hide the widget when there is none', 'galaxie-woo' ),
+				'type'         => Controls_Manager::SWITCHER,
+				'return_value' => 'yes',
+				'default'      => 'yes',
+				'condition'    => array( 'orders_source' => 'waiting' ),
 			)
 		);
 
@@ -252,28 +268,38 @@ final class AccountOrdersWidget extends Widget_Base {
 		$this->end_controls_section();
 	}
 
+	/**
+	 * Statuses in which the order is waiting for the customer: it is not paid
+	 * yet, the payment failed, or the shop is holding it until one arrives.
+	 */
+	public const WAITING = array( 'wc-pending', 'wc-failed', 'wc-on-hold' );
+
 	/** @return array{orders:\WC_Order[],pages:int,page:int} */
 	private function query( array $settings ): array {
-		$recent   = 'recent' === ( $settings['orders_source'] ?? 'all' );
+		$source   = (string) ( $settings['orders_source'] ?? 'all' );
+		$paged    = 'all' === $source;
 		$per_page = max( 1, min( 50, (int) ( $settings['orders_per_page'] ?? 10 ) ) );
 		$current  = AccountEndpoints::current();
-		$page     = ! $recent && 'orders' === $current['key'] ? max( 1, absint( $current['value'] ) ) : 1;
+		$page     = $paged && 'orders' === $current['key'] ? max( 1, absint( $current['value'] ) ) : 1;
 
-		$result = wc_get_orders(
-			apply_filters(
-				'woocommerce_my_account_my_orders_query',
-				array(
-					'customer' => get_current_user_id(),
-					'page'     => $page,
-					'paginate' => true,
-					'limit'    => $per_page,
-				)
-			)
+		$args = array(
+			'customer' => get_current_user_id(),
+			'page'     => $page,
+			'paginate' => true,
+			'limit'    => $per_page,
 		);
+
+		if ( 'waiting' === $source ) {
+			$args['status'] = self::WAITING;
+		}
+
+		// WooCommerce's own filter, so a plugin that narrows My Account's list
+		// keeps narrowing it here; the status stays ours if it does not say.
+		$result = wc_get_orders( apply_filters( 'woocommerce_my_account_my_orders_query', $args ) );
 
 		return array(
 			'orders' => array_filter( (array) ( $result->orders ?? array() ), static fn( $o ) => $o instanceof \WC_Order ),
-			'pages'  => $recent ? 1 : (int) ( $result->max_num_pages ?? 1 ),
+			'pages'  => $paged ? (int) ( $result->max_num_pages ?? 1 ) : 1,
 			'page'   => $page,
 		);
 	}
@@ -299,6 +325,11 @@ final class AccountOrdersWidget extends Widget_Base {
 
 		echo AccountParts::cancelled_alert( $s ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped inside, and pixfort's own alert.
 		echo Dialog::render( $s, 'cancel_confirm' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built from escaped parts.
+
+		if ( ! $data['orders'] && 'waiting' === ( $s['orders_source'] ?? 'all' ) && 'yes' === ( $s['orders_hide_empty'] ?? 'yes' ) && ! AccountParts::editing() ) {
+			echo '</div>';
+			return;
+		}
 
 		if ( ! $data['orders'] ) {
 			printf(
