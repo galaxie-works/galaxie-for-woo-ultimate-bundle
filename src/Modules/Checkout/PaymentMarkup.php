@@ -57,18 +57,42 @@ final class PaymentMarkup {
 		$expires = sprintf( '%02d/%s', (int) $token->get_expiry_month(), substr( (string) $token->get_expiry_year(), -2 ) );
 		$state   = self::expiry_state( $expires );
 
+		// Which row is chosen is not ours to decide: it is whatever the markup
+		// we are replacing says (core, the gateway, or a filter before us).
+		// Deciding it from is_default() here put a shopper back on the default
+		// card whenever the order review was redrawn. An expired card cannot
+		// be the chosen one, since its radio is disabled.
+		$checked = (bool) preg_match( '/\schecked(?:=|\s|\/|>)/i', (string) $html );
+
 		return self::option(
 			$gateway->id,
 			(string) $token->get_id(),
 			self::label( (string) $token->get_card_type(), (string) $token->get_last4(), $expires, $token->is_default(), $state ),
-			$token->is_default() && 'expired' !== $state,
+			$checked && 'expired' !== $state,
 			'expired' === $state
 		);
 	}
 
-	/** @param string $label Core's "Use a new payment method". */
+	/**
+	 * "Usar outro cartão" for a card gateway only: a gateway that saves bank
+	 * accounts or wallets keeps its own "new payment method" wording.
+	 *
+	 * @param string              $label   Core's "Use a new payment method".
+	 * @param \WC_Payment_Gateway $gateway
+	 */
 	public static function new_label( $label, $gateway ): string {
-		return self::on_checkout() ? __( 'Usar outro cartão', 'galaxie-woo' ) : (string) $label;
+		return self::on_checkout() && self::is_card_gateway( $gateway ) ? __( 'Usar outro cartão', 'galaxie-woo' ) : (string) $label;
+	}
+
+	/**
+	 * WooCommerce's card-form gateways, and Stripe's card gateway (`stripe`),
+	 * which in its Payment Element version does not extend the card class.
+	 *
+	 * @param mixed $gateway
+	 */
+	private static function is_card_gateway( $gateway ): bool {
+		return $gateway instanceof \WC_Payment_Gateway_CC
+			|| ( $gateway instanceof \WC_Payment_Gateway && 'stripe' === $gateway->id );
 	}
 
 	/**
