@@ -7,14 +7,18 @@ import { EntryStep } from './EntryStep'
 import {
   fillNativeBilling,
   hasChosenShippingMethod,
+  decorateShipping,
   onCheckoutUpdated,
   relocatePayment,
   relocateShippingMethod,
   validateNativeFields,
   waitForCheckoutUpdate,
+  watchPayment,
+  type NativeDecor,
 } from './native-checkout'
 import { OrderSummary, readSummaryFragment } from './OrderSummary'
 import { PaymentStep } from './PaymentStep'
+import { PixAlert, PixLink, UiProvider } from './pix'
 import { ProfileStep } from './ProfileStep'
 import { StepSection, type StepStatus } from './StepSection'
 import {
@@ -54,8 +58,20 @@ function initialStep(props: CheckoutProps): StepId {
  */
 function Checkout(props: CheckoutProps) {
   const cfg = getGalaxieConfig()
-  const { text, layout } = props
+  const { text, layout, ui } = props
   const preview = null !== props.preview
+  const decor = React.useMemo<NativeDecor>(
+    () => ({
+      rate: ui.cls.rate,
+      rateName: ui.cls.rateName,
+      method: ui.cls.method,
+      methodName: ui.cls.methodName,
+      methodBox: ui.cls.methodBox,
+      placeOrder: ui.buttons.placeOrder,
+      marker: ui.marker,
+    }),
+    [ui]
+  )
 
   const [step, setStep] = React.useState<StepId>(() => initialStep(props))
   const [profileValues, setProfileValues] = React.useState<Partial<ProfileValues>>(props.profile.values)
@@ -98,6 +114,7 @@ function Checkout(props: CheckoutProps) {
     if (preview) return
     function run() {
       if (relocateShippingMethod(shippingMountRef.current)) {
+        decorateShipping(shippingMountRef.current, decor)
         setShippingEverSeen(true)
       }
       const summary = readSummaryFragment()
@@ -105,7 +122,7 @@ function Checkout(props: CheckoutProps) {
     }
     run()
     return onCheckoutUpdated(run)
-  }, [preview])
+  }, [preview, decor])
 
   // Already have an address on file (e.g. a returning session) — kick off a
   // rate calculation immediately so shipping options are ready without
@@ -119,10 +136,10 @@ function Checkout(props: CheckoutProps) {
   }, [])
 
   React.useEffect(() => {
-    if (!preview && 'payment' === step) {
-      relocatePayment(paymentMountRef.current)
-    }
-  }, [preview, step])
+    if (preview || 'payment' !== step) return
+    relocatePayment(paymentMountRef.current)
+    return watchPayment(paymentMountRef.current, decor)
+  }, [preview, step, decor])
 
   function goTo(next: StepId) {
     if (preview) return
@@ -228,110 +245,92 @@ function Checkout(props: CheckoutProps) {
   const addressLine = formatAddress(addressValues)
 
   return (
-    <div
-      className={cn(
-        'gx-co',
-        'left' === layout.summaryPosition && 'gx-co--left',
-        layout.summarySticky && 'gx-co--sticky'
-      )}
-    >
-      <div className="gx-co-grid">
-        <div className="gx-co-main flex min-w-0 flex-col gap-3 @container">
-          {notice && (
-            <p role="alert" className="rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-              {notice}
-            </p>
-          )}
+    <UiProvider value={ui}>
+      <div
+        className={cn(
+          'gx-co',
+          'left' === layout.summaryPosition && 'gx-co--left',
+          layout.summarySticky && 'gx-co--sticky'
+        )}
+      >
+        <div className="gx-co-grid">
+          <div className="gx-co-main @container">
+            {notice && <PixAlert message={notice} />}
 
-          <StepSection
-            index={1}
-            title={text.stepEntry}
-            status={status('entry')}
-            editLabel={text.edit}
-            className={layout.stepClass}
-            summary={
-              <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                <span className="text-foreground">{props.userEmail}</span>
-                {props.logoutUrl && (
-                  <a href={props.logoutUrl} className="underline underline-offset-4 hover:text-foreground">
-                    {text.logout}
-                  </a>
-                )}
-              </span>
-            }
-          >
-            <EntryStep
-              authCfg={cfg.auth}
-              text={text}
-              genericError={props.i18n.genericError}
-              onVerified={() => window.location.reload()}
-              preview={preview}
-            />
-          </StepSection>
+            <StepSection
+              index={1}
+              title={text.stepEntry}
+              status={status('entry')}
+              summary={
+                <span className="gx-co-links">
+                  <span>{props.userEmail}</span>
+                  {props.logoutUrl && <PixLink button={ui.buttons.logout} href={props.logoutUrl} />}
+                </span>
+              }
+            >
+              <EntryStep
+                authCfg={cfg.auth}
+                text={text}
+                genericError={props.i18n.genericError}
+                onVerified={() => window.location.reload()}
+                preview={preview}
+              />
+            </StepSection>
 
-          <StepSection
-            index={2}
-            title={text.stepProfile}
-            status={status('profile')}
-            editLabel={text.edit}
-            onEdit={() => goTo('profile')}
-            className={layout.stepClass}
-            summary={[fullName, profileValues.phone].filter(Boolean).join(' · ')}
-          >
-            <ProfileStep initial={profileValues} busy={busy} errors={profileErrors} text={text} onSave={handleProfileSave} />
-          </StepSection>
+            <StepSection
+              index={2}
+              title={text.stepProfile}
+              status={status('profile')}
+              onEdit={() => goTo('profile')}
+              summary={[fullName, profileValues.phone].filter(Boolean).join(' · ')}
+            >
+              <ProfileStep initial={profileValues} busy={busy} errors={profileErrors} text={text} onSave={handleProfileSave} />
+            </StepSection>
 
-          <StepSection
-            index={3}
-            title={text.stepAddress}
-            status={status('address')}
-            editLabel={text.edit}
-            onEdit={() => goTo('address')}
-            className={layout.stepClass}
-            summary={
-              <>
-                <span className="block text-foreground">{addressLine}</span>
-                {shippingNote && <span className="block">{shippingNote}</span>}
-              </>
-            }
-          >
-            <AddressStep
-              initial={addressValues}
-              saved={addressSaved}
-              editing={addressEditing}
-              busy={busy}
-              errors={addressErrors}
-              text={text}
-              shippingMountRef={shippingMountRef}
-              onEdit={() => setAddressEditing(true)}
-              onSave={handleAddressSave}
-              onContinue={handleContinueToPayment}
-              preview={preview}
-            />
-          </StepSection>
+            <StepSection
+              index={3}
+              title={text.stepAddress}
+              status={status('address')}
+              onEdit={() => goTo('address')}
+              summary={
+                <>
+                  <span className="block">{addressLine}</span>
+                  {shippingNote && <span className="block">{shippingNote}</span>}
+                </>
+              }
+            >
+              <AddressStep
+                initial={addressValues}
+                saved={addressSaved}
+                editing={addressEditing}
+                busy={busy}
+                errors={addressErrors}
+                text={text}
+                shippingMountRef={shippingMountRef}
+                onEdit={() => setAddressEditing(true)}
+                onSave={handleAddressSave}
+                onContinue={handleContinueToPayment}
+                preview={preview}
+              />
+            </StepSection>
 
-          <StepSection index={4} title={text.stepPayment} status={status('payment')} editLabel={text.edit} className={layout.stepClass}>
-            <PaymentStep
-              addressSummary={addressLine}
-              text={text}
-              onBack={() => goTo('address')}
-              paymentMountRef={paymentMountRef}
-              preview={preview}
-            />
-          </StepSection>
+            <StepSection index={4} title={text.stepPayment} status={status('payment')}>
+              <PaymentStep
+                addressSummary={addressLine}
+                text={text}
+                onBack={() => goTo('address')}
+                paymentMountRef={paymentMountRef}
+                preview={preview}
+              />
+            </StepSection>
+          </div>
+
+          <aside className="gx-co-aside min-w-0 @container">
+            <OrderSummary initial={props.summary} text={text} openOnPhones={layout.summaryOpenMobile} live={!preview} />
+          </aside>
         </div>
-
-        <aside className="gx-co-aside min-w-0 @container">
-          <OrderSummary
-            initial={props.summary}
-            text={text}
-            openOnPhones={layout.summaryOpenMobile}
-            className={layout.summaryClass}
-            live={!preview}
-          />
-        </aside>
       </div>
-    </div>
+    </UiProvider>
   )
 }
 

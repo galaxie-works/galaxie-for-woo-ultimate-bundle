@@ -95,9 +95,70 @@ export interface CheckoutLayout {
   summaryPosition: 'left' | 'right'
   summarySticky: boolean
   summaryOpenMobile: boolean
-  /** pixfort classes from the widget's surface controls (radius, shadow…). */
-  summaryClass: string
-  stepClass: string
+}
+
+/** A button as pixfort's own Button element drew it, label included. */
+export interface PixButtonData {
+  html: string
+  /** The panel's "Full width button": the wrapping <button> must stretch too. */
+  full: boolean
+}
+
+/**
+ * pixfort's parts, as the widget's Style tab configured them (PHP
+ * `CheckoutWidget::ui()`): class strings for texts, boxes and pills, and
+ * finished button / alert markup. Every key of `cls` is a string, possibly
+ * empty when a control is left at Default.
+ */
+export interface CheckoutUi {
+  cls: {
+    stepTitle: string
+    body: string
+    small: string
+    label: string
+    hint: string
+    error: string
+    tabText: string
+    rateName: string
+    methodName: string
+    sumTitle: string
+    itemName: string
+    itemMeta: string
+    itemPrice: string
+    rowLabel: string
+    rowValue: string
+    totalLabel: string
+    totalValue: string
+    stepBox: string
+    stepDot: string
+    tab: string
+    field: string
+    option: string
+    rate: string
+    method: string
+    methodBox: string
+    summaryBox: string
+    thumb: string
+    qty: string
+  }
+  buttons: Record<
+    | 'sendCode'
+    | 'registerButton'
+    | 'confirmCode'
+    | 'profileButton'
+    | 'addressButton'
+    | 'paymentButton'
+    | 'placeOrder'
+    | 'edit'
+    | 'resendCode'
+    | 'changeEmail'
+    | 'logout',
+    PixButtonData
+  >
+  /** pixfort's Alert with `marker` where the message goes. */
+  alert: string
+  /** Stands in for a label pixfort drew before the island knew it. */
+  marker: string
 }
 
 export interface CheckoutProps {
@@ -113,6 +174,7 @@ export interface CheckoutProps {
   summary: OrderSummaryData
   layout: CheckoutLayout
   text: CheckoutText
+  ui: CheckoutUi
   i18n: {
     genericError: string
     noShipping: string
