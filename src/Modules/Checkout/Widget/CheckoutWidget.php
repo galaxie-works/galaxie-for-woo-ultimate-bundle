@@ -175,7 +175,6 @@ final class CheckoutWidget extends AbstractIslandWidget {
 		$this->text_control( 'address_button', __( 'Save address button', 'galaxie-woo' ), __( 'Salvar endereço', 'galaxie-woo' ) );
 		$this->text_control( 'shipping_heading', __( 'Shipping options heading', 'galaxie-woo' ), __( 'Forma de envio', 'galaxie-woo' ) );
 		$this->text_control( 'payment_button', __( 'Continue to payment button', 'galaxie-woo' ), __( 'Ir para o pagamento', 'galaxie-woo' ) );
-		$this->text_control( 'delivering_to', __( '"Delivering to" label', 'galaxie-woo' ), __( 'Entregar em', 'galaxie-woo' ) );
 
 		$this->end_controls_section();
 
@@ -548,7 +547,6 @@ final class CheckoutWidget extends AbstractIslandWidget {
 			'addressButton'   => $from( 'address_button', __( 'Salvar endereço', 'galaxie-woo' ) ),
 			'shippingHeading' => $from( 'shipping_heading', __( 'Forma de envio', 'galaxie-woo' ) ),
 			'paymentButton'   => $from( 'payment_button', __( 'Ir para o pagamento', 'galaxie-woo' ) ),
-			'deliveringTo'    => $from( 'delivering_to', __( 'Entregar em', 'galaxie-woo' ) ),
 			'entryIntro'      => $from( 'entry_intro', '' ),
 			'tabLogin'        => $from( 'tab_login', __( 'Já sou cliente', 'galaxie-woo' ) ),
 			'tabRegister'     => $from( 'tab_register', __( 'Primeira compra', 'galaxie-woo' ) ),

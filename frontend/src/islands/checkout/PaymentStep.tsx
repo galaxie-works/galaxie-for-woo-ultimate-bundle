@@ -1,14 +1,11 @@
 import * as React from 'react'
 
 import { cn } from '@/lib/cn'
-import { PixButton, useFieldClass, useUi } from '@/lib/pix'
+import { useFieldClass, useUi } from '@/lib/pix'
 import { decoratePayment, type NativeDecor } from './native-checkout'
-import type { CheckoutText, CheckoutUi } from './types'
+import type { CheckoutUi } from './types'
 
 interface PaymentStepProps {
-  addressSummary: string
-  text: CheckoutText
-  onBack: () => void
   paymentMountRef: React.RefObject<HTMLDivElement | null>
   /** Read by the parent to give Stripe's card form the checkout fields' look. */
   stripeProbeRef: React.RefObject<HTMLDivElement | null>
@@ -21,16 +18,17 @@ interface PaymentStepProps {
  * The native #payment block (payment methods, saved cards, the gateway's
  * fields, place-order button) is moved into `paymentMountRef` by the parent
  * (see native-checkout.ts relocatePayment and decoratePayment). This
- * component provides the mount point, the "delivering to" recap, and the
- * probe Stripe's appearance is read from.
+ * component provides the mount point and the probe Stripe's appearance is
+ * read from. No address recap: the folded delivery step right above already
+ * shows the address, with its own "Change".
  *
  * In the editor the mount holds PHP's sample of the same block, decorated by
  * the same code, so every control of the payment sections has something real
  * to act on; a few lines of script stand in for WooCommerce's own (switching
  * methods, showing the new-card fields only for a new card).
  */
-function PaymentStep({ addressSummary, text, onBack, paymentMountRef, stripeProbeRef, decor, sample }: PaymentStepProps) {
-  const { cls, buttons } = useUi<CheckoutUi>()
+function PaymentStep({ paymentMountRef, stripeProbeRef, decor, sample }: PaymentStepProps) {
+  const { cls } = useUi<CheckoutUi>()
   const field = useFieldClass()
   const sampleRef = React.useRef<HTMLDivElement>(null)
 
@@ -43,13 +41,6 @@ function PaymentStep({ addressSummary, text, onBack, paymentMountRef, stripeProb
 
   return (
     <div className="gx-co-form">
-      <div className={cn('gx-co-recap', cls.option)}>
-        <p className={cn('gx-co-body', cls.body)}>
-          {text.deliveringTo}: {addressSummary}
-        </p>
-        <PixButton button={buttons.edit} onClick={onBack} />
-      </div>
-
       {null !== sample ? (
         <div ref={sampleRef} className="galaxie-payment-mount" dangerouslySetInnerHTML={{ __html: sample }} />
       ) : (

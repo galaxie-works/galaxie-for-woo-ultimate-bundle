@@ -60,7 +60,6 @@ export interface CheckoutText extends LoginText {
   addressButton: string
   shippingHeading: string
   paymentButton: string
-  deliveringTo: string
   entryIntro: string
   tabLogin: string
   tabRegister: string

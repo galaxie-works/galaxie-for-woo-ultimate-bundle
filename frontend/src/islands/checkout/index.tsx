@@ -330,9 +330,6 @@ function Checkout(props: CheckoutProps) {
 
             <StepSection index={4} title={text.stepPayment} status={status('payment')}>
               <PaymentStep
-                addressSummary={addressLine}
-                text={text}
-                onBack={() => goTo('address')}
                 paymentMountRef={paymentMountRef}
                 stripeProbeRef={stripeProbeRef}
                 decor={decor}

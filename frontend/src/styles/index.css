@@ -4444,6 +4444,23 @@ address.galaxie-order-body {
   text-align: left;
   transition: border-color 0.15s, background-color 0.15s;
 }
+/* WooCommerce clears each row with ::before/::after `display: table` holding
+   a space — an empty line above the radio in a flex-free row — and the theme
+   gives list items their marker back (the dot left of each method). */
+.gx-co .galaxie-payment-mount #payment ul.payment_methods > li,
+.gx-co .galaxie-payment-mount #payment .wc-saved-payment-methods > li {
+  list-style: none;
+}
+.gx-co .galaxie-payment-mount #payment ul.payment_methods > li::before,
+.gx-co .galaxie-payment-mount #payment ul.payment_methods > li::after,
+.gx-co .galaxie-payment-mount #payment .wc-saved-payment-methods > li::before,
+.gx-co .galaxie-payment-mount #payment .wc-saved-payment-methods > li::after {
+  content: none;
+  display: none;
+}
+.gx-co .galaxie-payment-mount #payment ul.payment_methods > li::marker {
+  content: none;
+}
 .gx-co .galaxie-payment-mount #payment ul.payment_methods > li:has(> input:checked) {
   border-color: var(--primary);
 }
