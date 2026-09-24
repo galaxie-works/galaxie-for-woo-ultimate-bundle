@@ -73,6 +73,7 @@ function Checkout(props: CheckoutProps) {
       tokenExpiry: ui.cls.tokenExpiry,
       tokenBadge: ui.cls.tokenBadge,
       small: ui.cls.small,
+      label: ui.cls.label,
       placeOrder: ui.buttons.placeOrder,
       marker: ui.marker,
     }),

@@ -209,6 +209,8 @@ export interface NativeDecor {
   tokenBadge: string
   /** Small print: gateway descriptions, the save-card checkbox. */
   small: string
+  /** Field labels: the editor sample's stand-ins for Stripe's field labels. */
+  label: string
   /** pixfort's place-order button markup, `marker` standing for the label. */
   placeOrder: { html: string; full: boolean }
   marker: string
@@ -256,6 +258,7 @@ export function decoratePayment(mount: HTMLElement | null, decor: NativeDecor): 
   mount.querySelectorAll('.gx-co-card-number').forEach((el) => addClasses(el, decor.tokenNumber))
   mount.querySelectorAll('.gx-co-card-expiry').forEach((el) => addClasses(el, decor.tokenExpiry))
   mount.querySelectorAll('.gx-co-card-badge').forEach((el) => addClasses(el, decor.tokenBadge))
+  mount.querySelectorAll('.gx-co-sample-label').forEach((el) => addClasses(el, decor.label))
 
   const button = mount.querySelector<HTMLButtonElement>('#place_order')
   if (!button || button.querySelector('.btn')) return
