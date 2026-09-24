@@ -221,7 +221,7 @@ function EntryStep({ authCfg, text, genericError, onVerified, preview }: EntrySt
             />
           </CoField>
 
-          <label className={cn('gx-co-option card', cls.option)}>
+          <label className={cn('gx-co-option', cls.option)}>
             <span className={cn('gx-co-body', cls.body)}>{text.marketing}</span>
             <span className="galaxie-switch">
               <input type="checkbox" checked={reg.marketing} onChange={(e) => setReg({ ...reg, marketing: e.target.checked })} />
