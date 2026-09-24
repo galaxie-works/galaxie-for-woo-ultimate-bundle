@@ -50,17 +50,6 @@
   --ring: var(--pix-primary, oklch(0.708 0 0));
 }
 
-/* pixfort paints its primary (#2d3626 on this store) at the same value in
-   dark mode, where a dark-green button on a black page nearly disappears.
-   Its secondary is the light accent it pairs with on dark sections. A
-   widget's own palette control still wins: it writes the token on the
-   widget wrapper, which is more specific than this. */
-html.pix-dark .galaxie-ui {
-  --primary: var(--pix-secondary, var(--pix-primary, oklch(0.922 0 0)));
-  --primary-foreground: var(--pix-black, oklch(0.145 0 0));
-  --ring: var(--pix-secondary, var(--pix-primary, oklch(0.556 0 0)));
-}
-
 @theme inline {
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -4439,6 +4428,29 @@ address.galaxie-order-body {
   .gx-co #payment .woocommerce-info::before {
     display: none;
   }
+}
+
+/* pixfort styles `label` by tag, outside any layer (inline-block, a bottom
+   margin), which undid the flex rows above: the opt-in text ran into its
+   switch and the terms into their checkbox. The layout of the checkout's
+   own labels is restated here, outside the layer; nothing a panel control
+   sets is in these rules. */
+.gx-co .gx-co-label {
+  display: block;
+  margin: 0;
+}
+.gx-co .gx-co-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 0;
+}
+.gx-co .gx-co-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0;
 }
 
 /* WooCommerce's place-order <button> once decorated: only the hit area, the
