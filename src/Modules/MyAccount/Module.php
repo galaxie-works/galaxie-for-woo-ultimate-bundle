@@ -490,8 +490,7 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 		$opt_in = ! empty( $_POST['opt_in'] );
 		update_user_meta( $user_id, ProfileFields::MARKETING_OPT_IN, $opt_in ? 'yes' : 'no' );
 
-		$fluent_settings = \Galaxie\Woo\Core\Plugin::instance()->settings()->module_settings( 'fluentcrm' );
-		$list_id         = (int) ( $fluent_settings['newsletter_list_id'] ?? 0 );
+		$list_id = \Galaxie\Woo\Modules\FluentCRM\Module::consent_list_id();
 		if ( $list_id > 0 ) {
 			if ( $opt_in ) {
 				FluentCRMApi::attach_lists( $user->user_email, array( $list_id ) );
