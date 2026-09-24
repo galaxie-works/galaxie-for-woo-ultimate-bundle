@@ -64,6 +64,22 @@ final class AccountCommunicationWidget extends Widget_Base {
 			)
 		);
 
+		$this->add_control(
+			'comm_switch_place',
+			array(
+				'label'       => __( 'The switch sits', 'galaxie-woo' ),
+				'type'        => Controls_Manager::SELECT,
+				'options'     => array(
+					'end'   => __( 'After the text, same line', 'galaxie-woo' ),
+					'start' => __( 'Before the text, same line', 'galaxie-woo' ),
+					'below' => __( 'Under the text', 'galaxie-woo' ),
+				),
+				'default'     => 'end',
+				'description' => __( 'On a narrow screen the same line wraps on its own, whichever is chosen.', 'galaxie-woo' ),
+				'separator'   => 'before',
+			)
+		);
+
 		$this->add_control( 'comm_on_text', array( 'label' => __( 'Message when turned on', 'galaxie-woo' ), 'type' => Controls_Manager::TEXT, 'label_block' => true, 'default' => __( 'Pronto, você vai receber nossas novidades.', 'galaxie-woo' ), 'separator' => 'before' ) );
 		$this->add_control( 'comm_off_text', array( 'label' => __( 'Message when turned off', 'galaxie-woo' ), 'type' => Controls_Manager::TEXT, 'label_block' => true, 'default' => __( 'Tudo certo, não enviaremos mais e-mails de novidades.', 'galaxie-woo' ) ) );
 
@@ -75,6 +91,52 @@ final class AccountCommunicationWidget extends Widget_Base {
 
 		$this->start_controls_section( 'comm_option_style', array( 'label' => __( 'Option card', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
 		PixfortControls::surface( $this, 'comm_option', '{{WRAPPER}} .galaxie-comm-option', array( 'rounded' => 'rounded-lg' ) );
+
+		$this->add_responsive_control(
+			'comm_option_align',
+			array(
+				'label'     => __( 'Text alignment', 'galaxie-woo' ),
+				'type'      => Controls_Manager::CHOOSE,
+				'options'   => array(
+					'flex-start' => array( 'title' => __( 'Left', 'galaxie-woo' ), 'icon' => 'eicon-text-align-left' ),
+					'center'     => array( 'title' => __( 'Center', 'galaxie-woo' ), 'icon' => 'eicon-text-align-center' ),
+					'flex-end'   => array( 'title' => __( 'Right', 'galaxie-woo' ), 'icon' => 'eicon-text-align-right' ),
+				),
+				'separator' => 'before',
+				'selectors' => array(
+					'{{WRAPPER}} .galaxie-comm-copy'        => 'align-items: {{VALUE}}; text-align: {{VALUE}};',
+					'{{WRAPPER}} .galaxie-account-message'  => 'text-align: {{VALUE}};',
+				),
+				'selectors_dictionary' => array( 'flex-start' => 'left', 'center' => 'center', 'flex-end' => 'right' ),
+			)
+		);
+
+		$this->add_responsive_control(
+			'comm_option_gap',
+			array(
+				'label'      => __( 'Space between the text and the switch', 'galaxie-woo' ),
+				'type'       => Controls_Manager::SLIDER,
+				'size_units' => array( 'px', 'rem' ),
+				'range'      => array( 'px' => array( 'min' => 0, 'max' => 64 ) ),
+				'selectors'  => array( '{{WRAPPER}} .galaxie-comm-option' => 'gap: {{SIZE}}{{UNIT}};' ),
+			)
+		);
+
+		$this->add_responsive_control(
+			'comm_switch_self',
+			array(
+				'label'     => __( 'The switch, under the text, sits', 'galaxie-woo' ),
+				'type'      => Controls_Manager::CHOOSE,
+				'options'   => array(
+					'flex-start' => array( 'title' => __( 'Left', 'galaxie-woo' ), 'icon' => 'eicon-h-align-left' ),
+					'center'     => array( 'title' => __( 'Center', 'galaxie-woo' ), 'icon' => 'eicon-h-align-center' ),
+					'flex-end'   => array( 'title' => __( 'Right', 'galaxie-woo' ), 'icon' => 'eicon-h-align-right' ),
+				),
+				'condition' => array( 'comm_switch_place' => 'below' ),
+				'selectors' => array( '{{WRAPPER}} .galaxie-comm-option' => '--galaxie-comm-switch-self: {{VALUE}};' ),
+			)
+		);
+
 		$this->end_controls_section();
 
 		$texts = array(
@@ -121,12 +183,13 @@ final class AccountCommunicationWidget extends Widget_Base {
 		);
 
 		printf(
-			'<label class="galaxie-comm-option card %1$s" for="%2$s"><span class="galaxie-comm-copy">%3$s%4$s</span><span class="galaxie-switch"><input type="checkbox" id="%2$s" name="opt_in" value="1"%5$s /><span class="galaxie-switch-track" aria-hidden="true"></span></span></label><div class="galaxie-account-message" role="status" aria-live="polite" hidden></div></div>',
+			'<label class="galaxie-comm-option card is-switch-%6$s %1$s" for="%2$s"><span class="galaxie-comm-copy">%3$s%4$s</span><span class="galaxie-switch"><input type="checkbox" id="%2$s" name="opt_in" value="1"%5$s /><span class="galaxie-switch-track" aria-hidden="true"></span></span></label><div class="galaxie-account-message" role="status" aria-live="polite" hidden></div></div>',
 			esc_attr( PixfortControls::surface_classes( $s, 'comm_option' ) ),
 			esc_attr( $id ),
 			$txt( 'comm_title_text', 'galaxie-comm-title', (string) ( $s['comm_title'] ?? '' ) ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pixfort's own element around escaped text.
 			'yes' === ( $s['comm_compact'] ?? '' ) ? '' : $txt( 'comm_desc_text', 'galaxie-comm-text', (string) ( $s['comm_text'] ?? '' ) ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pixfort's own element around escaped text.
-			checked( $on, true, false )
+			checked( $on, true, false ),
+			esc_attr( in_array( $s['comm_switch_place'] ?? 'end', array( 'start', 'below' ), true ) ? (string) $s['comm_switch_place'] : 'end' )
 		);
 	}
 }
