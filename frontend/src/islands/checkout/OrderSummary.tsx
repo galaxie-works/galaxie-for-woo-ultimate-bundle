@@ -57,7 +57,7 @@ function OrderSummary({ initial, text, openOnPhones, live }: OrderSummaryProps) 
   }, [live])
 
   return (
-    <div className={cn('gx-co-summary-box card', cls.summaryBox)}>
+    <div className={cn('gx-co-summary-box', cls.summaryBox)}>
       <button type="button" aria-expanded={open} aria-controls={bodyId} onClick={() => setOpen((v) => !v)} className="gx-co-summary-bar">
         <ShoppingBag className="size-4 shrink-0" aria-hidden="true" />
         <span className={cn('gx-co-body flex-1', cls.body)}>{open ? text.summaryHide : text.summaryShow}</span>
@@ -88,17 +88,17 @@ function OrderSummary({ initial, text, openOnPhones, live }: OrderSummaryProps) 
           ))}
         </ul>
 
-        <dl className="gx-co-rows gx-co-divider">
+        <div className="gx-co-rows gx-co-divider">
           {data.rows.map((row) => (
             <div key={row.id} className="gx-co-row">
-              <dt className={cn('gx-co-row-label', cls.rowLabel)}>
+              <span className={cn('gx-co-row-label', cls.rowLabel)}>
                 {row.label}
                 {row.note && <span className={cn('gx-co-row-note gx-co-small', cls.small)}>{row.note}</span>}
-              </dt>
-              <dd className={cn('gx-co-row-value', cls.rowValue)}>{row.value}</dd>
+              </span>
+              <span className={cn('gx-co-row-value', cls.rowValue)}>{row.value}</span>
             </div>
           ))}
-        </dl>
+        </div>
 
         <div className="gx-co-row gx-co-row--total gx-co-divider">
           <span className={cn('gx-co-total-label', cls.totalLabel)}>{text.summaryTotal}</span>
