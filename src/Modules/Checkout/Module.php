@@ -41,6 +41,7 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 		add_filter( 'woocommerce_package_rates', array( $this, 'filter_shipping_rates' ), 100, 2 );
 
 		add_filter( 'woocommerce_update_order_review_fragments', array( $this, 'summary_fragment' ) );
+		PaymentMarkup::hooks();
 
 		add_action( 'wp_ajax_galaxie_save_profile', array( $this, 'ajax_save_profile' ) );
 		add_action( 'wp_ajax_galaxie_save_address', array( $this, 'ajax_save_address' ) );

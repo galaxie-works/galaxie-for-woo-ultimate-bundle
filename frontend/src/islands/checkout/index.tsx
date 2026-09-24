@@ -7,6 +7,7 @@ import { OtpLogin } from '@/islands/login/OtpLogin'
 import {
   fillNativeBilling,
   hasChosenShippingMethod,
+  applyStripeAppearance,
   decorateShipping,
   onCheckoutUpdated,
   relocatePayment,
@@ -67,6 +68,11 @@ function Checkout(props: CheckoutProps) {
       method: ui.cls.method,
       methodName: ui.cls.methodName,
       methodBox: ui.cls.methodBox,
+      token: ui.cls.token,
+      tokenNumber: ui.cls.tokenNumber,
+      tokenExpiry: ui.cls.tokenExpiry,
+      tokenBadge: ui.cls.tokenBadge,
+      small: ui.cls.small,
       placeOrder: ui.buttons.placeOrder,
       marker: ui.marker,
     }),
@@ -87,6 +93,13 @@ function Checkout(props: CheckoutProps) {
 
   const shippingMountRef = React.useRef<HTMLDivElement>(null)
   const paymentMountRef = React.useRef<HTMLDivElement>(null)
+  const stripeProbeRef = React.useRef<HTMLDivElement>(null)
+
+  // Before Stripe mounts its card form (after the first updated_checkout):
+  // hand it the checkout fields' look. See applyStripeAppearance().
+  React.useEffect(() => {
+    if (!preview) applyStripeAppearance(stripeProbeRef.current)
+  }, [preview])
 
   // Mirror what we know into the native (hidden) fields, so the real form —
   // the one WooCommerce actually submits — always carries valid data by the
@@ -320,7 +333,9 @@ function Checkout(props: CheckoutProps) {
                 text={text}
                 onBack={() => goTo('address')}
                 paymentMountRef={paymentMountRef}
-                preview={preview}
+                stripeProbeRef={stripeProbeRef}
+                decor={decor}
+                sample={props.preview?.payment ?? null}
               />
             </StepSection>
           </div>

@@ -11,6 +11,7 @@ use Elementor\Controls_Manager;
 use Galaxie\Woo\Elementor\AbstractIslandWidget;
 use Galaxie\Woo\Modules\Checkout\Module;
 use Galaxie\Woo\Modules\Checkout\OrderSummary;
+use Galaxie\Woo\Modules\Checkout\PaymentMarkup;
 use Galaxie\Woo\Support\CustomerProfile;
 use Galaxie\Woo\Support\PixfortControls;
 
@@ -60,6 +61,9 @@ final class CheckoutWidget extends AbstractIslandWidget {
 		'co_tab_text'    => array( 'Texts: sign-in tabs', '.gx-co-tab', array( 'size' => 'text-sm', 'bold' => 'font-weight-bold' ), 'text' ),
 		'co_rate_name'   => array( 'Texts: shipping option', '.galaxie-shipping-mount #shipping_method label', array( 'size' => 'text-sm', 'bold' => 'font-weight-bold' ), 'text' ),
 		'co_method_name' => array( 'Texts: payment method', '#payment ul.payment_methods li > label', array( 'size' => 'text-sm', 'bold' => 'font-weight-bold' ), 'text' ),
+		'co_token_number'     => array( 'Texts: saved card number', '.gx-co-card-number', array( 'bold' => 'font-weight-bold' ), 'text' ),
+		'co_token_expiry'     => array( 'Texts: saved card expiry', '.gx-co-card-expiry', array( 'size' => 'text-xs', 'bold' => '' ), 'text' ),
+		'co_token_badge_text' => array( 'Texts: saved card badges', '.gx-co-card-badge', array( 'size' => 'text-xs', 'bold' => 'font-weight-bold' ), 'text' ),
 		'co_sum_title'   => array( 'Order summary: title', '.gx-co-summary-title', array( 'size' => 'text-18', 'bold' => 'font-weight-bold' ), 'text' ),
 		'co_item_name'   => array( 'Order summary: product name', '.gx-co-item-name', array( 'size' => 'text-sm', 'bold' => 'font-weight-bold' ), 'text' ),
 		'co_item_meta'   => array( 'Order summary: product details', '.gx-co-item-meta', array( 'size' => 'text-xs', 'bold' => '' ), 'text' ),
@@ -378,6 +382,34 @@ final class CheckoutWidget extends AbstractIslandWidget {
 		$this->end_controls_section();
 		$this->text_sections( array( 'co_method_name' ) );
 
+		// Saved cards: the Payment Methods widget's parts (brand icon, number,
+		// expiry, badges with a colour per state) as selectable rows. The new
+		// card's own fields are Stripe's, inside Stripe's frame; they take
+		// their look from the "Fields" section above (see stripeAppearance()).
+		$token = '{{WRAPPER}} .gx-co #payment .wc-saved-payment-methods li';
+		$this->start_controls_section( 'co_token_style', $style( __( 'Payment: saved cards', 'galaxie-woo' ) ) );
+		PixfortControls::surface( $this, 'co_token', $token, array( 'rounded' => 'rounded-lg' ) );
+		$this->add_control( 'co_token_selected_heading', array( 'label' => __( 'Chosen card', 'galaxie-woo' ), 'type' => Controls_Manager::HEADING, 'separator' => 'before' ) );
+		PixfortControls::palette_control( $this, 'co_token_selected_bg', __( 'Background', 'galaxie-woo' ), $token . ':has(input:checked)', 'background-color' );
+		PixfortControls::palette_control( $this, 'co_token_selected_border', __( 'Border color', 'galaxie-woo' ), $token . ':has(input:checked)', 'border-color', array(), ' border-style: solid;' );
+		PixfortControls::palette_control( $this, 'co_token_radio', __( 'Radio', 'galaxie-woo' ), $token . ' input[type="radio"]', 'accent-color' );
+		$this->add_control( 'co_token_icon_heading', array( 'label' => __( 'Brand icon', 'galaxie-woo' ), 'type' => Controls_Manager::HEADING, 'separator' => 'before' ) );
+		PixfortControls::icon_color( $this, 'co_token_icon', __( 'Color', 'galaxie-woo' ), '{{WRAPPER}} .gx-co-card-brand' );
+		$this->add_control( 'co_token_badge_heading', array( 'label' => __( 'Badges', 'galaxie-woo' ), 'type' => Controls_Manager::HEADING, 'separator' => 'before' ) );
+		PixfortControls::surface( $this, 'co_token_badge', '{{WRAPPER}} .gx-co-card-badge', array( 'rounded' => 'badge-pill', 'radius_set' => 'badge' ), array(), false );
+		foreach ( array(
+			'default'  => __( 'Default card', 'galaxie-woo' ),
+			'expiring' => __( 'Expiring soon', 'galaxie-woo' ),
+			'expired'  => __( 'Expired', 'galaxie-woo' ),
+		) as $state => $label ) {
+			$badge = '{{WRAPPER}} .gx-co-card-badge.is-' . $state;
+			$this->add_control( 'co_token_badge_' . $state . '_heading', array( 'label' => $label, 'type' => Controls_Manager::HEADING ) );
+			PixfortControls::palette_control( $this, 'co_token_badge_' . $state . '_bg', __( 'Background', 'galaxie-woo' ), $badge, 'background-color' );
+			PixfortControls::palette_control( $this, 'co_token_badge_' . $state . '_color', __( 'Text color', 'galaxie-woo' ), $badge, 'color' );
+		}
+		$this->end_controls_section();
+		$this->text_sections( array( 'co_token_number', 'co_token_expiry', 'co_token_badge_text' ) );
+
 		$this->start_controls_section( 'summary_box_style', $style( __( 'Order summary: box', 'galaxie-woo' ) ) );
 		PixfortControls::surface( $this, 'summary_box', '{{WRAPPER}} .gx-co-summary-box', array( 'rounded' => 'rounded-lg' ) );
 		PixfortControls::palette_control( $this, 'co_divider', __( 'Divider color', 'galaxie-woo' ), '{{WRAPPER}} .gx-co-divider', 'border-top-color', array(), ' border-top-style: solid;' );
@@ -468,6 +500,8 @@ final class CheckoutWidget extends AbstractIslandWidget {
 			'summaryBox' => $sc( 'summary_box' ),
 			'thumb'      => PixfortControls::thumb_classes( $settings, 'co_thumb' ),
 			'qty'        => trim( $tc( 'co_qty_text' ) . ' ' . $sc( 'co_qty' ) ),
+			'token'      => $sc( 'co_token' ),
+			'tokenBadge' => trim( $tc( 'co_token_badge_text' ) . ' ' . $sc( 'co_token_badge' ) ),
 		);
 
 		$button = static fn( string $prefix, string $label ): array => array(
@@ -547,7 +581,10 @@ final class CheckoutWidget extends AbstractIslandWidget {
 
 		if ( $preview ) {
 			$step             = (string) ( $settings['preview_step'] ?? 'entry' );
-			$props['preview'] = array( 'step' => in_array( $step, self::STEPS, true ) ? $step : 'entry' );
+			$props['preview'] = array(
+				'step'    => in_array( $step, self::STEPS, true ) ? $step : 'entry',
+				'payment' => PaymentMarkup::sample(),
+			);
 			$props['userEmail'] = 'cliente@exemplo.com.br';
 			$props['profile']   = array(
 				'complete' => true,

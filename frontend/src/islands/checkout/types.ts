@@ -136,6 +136,11 @@ export interface CheckoutUi extends PixUi {
     summaryBox: string
     thumb: string
     qty: string
+    token: string
+    tokenBadge: string
+    tokenNumber: string
+    tokenExpiry: string
+    tokenBadgeText: string
   }
   buttons: Record<
     | 'sendCode'
@@ -171,6 +176,10 @@ export interface CheckoutProps {
     genericError: string
     noShipping: string
   }
-  /** Set only in the Elementor editor: sample data, one fixed step, no requests. */
-  preview: { step: StepId } | null
+  /**
+   * Set only in the Elementor editor: sample data, one fixed step, no
+   * requests. `payment` is a sample of WooCommerce's payment block (saved
+   * cards, new card, Pix, boleto) in the live block's own markup.
+   */
+  preview: { step: StepId; payment: string } | null
 }
