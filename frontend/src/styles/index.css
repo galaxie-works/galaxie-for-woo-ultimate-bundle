@@ -3370,10 +3370,22 @@ address.galaxie-order-body {
   gap: 12px;
 }
 
+/* galaxie.css is printed before the pixfort theme's stylesheet, so a rule of
+   one class loses to pixfort's `.card` whatever it says — which is how the
+   switch ended up under the text with everything centred. Naming the wrapper
+   and the card together outranks it without !important. */
+.galaxie-account-communication .galaxie-comm-option.card {
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+
+.galaxie-account-communication .galaxie-comm-option.card.is-switch-below {
+  flex-direction: column;
+  align-items: stretch;
+}
+
 .galaxie-comm-option {
   display: flex;
-  /* pixfort's own `.card` is a column, and it was winning here: the switch
-     ended up under the text with everything centred, whatever this said. */
   flex-direction: row;
   flex-wrap: wrap;
   align-items: center;

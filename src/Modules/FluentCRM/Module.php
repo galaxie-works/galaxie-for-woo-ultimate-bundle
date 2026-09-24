@@ -1400,9 +1400,60 @@ final class Module implements ModuleContract, ProvidesSettings {
 		return __( 'FluentCRM', 'galaxie-woo' );
 	}
 
+	/** The consent switch's wording when the merchant has not written its own. */
+	public const NEWSLETTER_TITLE = 'Novidades e ofertas por e-mail';
+
+	/** @see self::NEWSLETTER_TITLE */
+	public const NEWSLETTER_TEXT = 'Lançamentos, rituais e promoções, de vez em quando. Você pode sair quando quiser.';
+
+	/**
+	 * How the newsletter consent reads on the screen. It is one row among the
+	 * communications, so it is written where they are — the widget only decides
+	 * whether to show it.
+	 *
+	 * A wording typed into the widget before this existed still wins over the
+	 * default, so nothing a merchant wrote is lost; `$legacy` is what the widget
+	 * carries.
+	 *
+	 * @param array{title?:string, text?:string} $legacy The widget's own saved wording.
+	 * @return array{title:string, text:string}
+	 */
+	public static function newsletter_wording( array $legacy = array() ): array {
+		$settings = Plugin::instance()->settings()->module_settings( 'fluentcrm' );
+		$pick     = static function ( string $key, string $old, string $fallback ) use ( $settings, $legacy ): string {
+			$typed = trim( (string) ( $settings[ $key ] ?? '' ) );
+
+			if ( '' !== $typed ) {
+				return $typed;
+			}
+
+			$kept = trim( (string) ( $legacy[ $old ] ?? '' ) );
+
+			return '' !== $kept ? $kept : $fallback;
+		};
+
+		return array(
+			'title' => $pick( 'newsletter_title', 'title', __( self::NEWSLETTER_TITLE, 'galaxie-woo' ) ), // phpcs:ignore WordPress.WP.I18n.NonSingularStringLiteralText -- the constant is the literal.
+			'text'  => $pick( 'newsletter_text', 'text', __( self::NEWSLETTER_TEXT, 'galaxie-woo' ) ), // phpcs:ignore WordPress.WP.I18n.NonSingularStringLiteralText -- the constant is the literal.
+		);
+	}
+
 	/** @return Field[] Just the Interests on/off — everything else on this tab is custom-rendered. */
 	public function settings_fields(): array {
 		return array(
+			new Field(
+				key: 'newsletter_title',
+				label: __( 'Newsletter consent: title', 'galaxie-woo' ),
+				type: Field::TYPE_TEXT,
+				description: __( 'How the consent switch reads in My Account → Comunicação. The list it writes to is "List: newsletter opt-in" below.', 'galaxie-woo' ),
+				default: self::NEWSLETTER_TITLE
+			),
+			new Field(
+				key: 'newsletter_text',
+				label: __( 'Newsletter consent: line under it', 'galaxie-woo' ),
+				type: Field::TYPE_TEXT,
+				default: self::NEWSLETTER_TEXT
+			),
 			new Field(
 				key: 'interests_enabled',
 				label: __( 'User interests', 'galaxie-woo' ),
