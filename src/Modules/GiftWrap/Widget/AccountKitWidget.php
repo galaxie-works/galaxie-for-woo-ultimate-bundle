@@ -316,11 +316,14 @@ final class AccountKitWidget extends Widget_Base {
 			$this,
 			'account_kit_restore',
 			array(
-				'label' => __( 'Recover kept kit dialog', 'galaxie-woo' ),
-				'title' => __( 'Recuperar kit', 'galaxie-woo' ),
-				'text'  => __( 'Isso troca o kit que você está montando pelo kit guardado. Tudo bem?', 'galaxie-woo' ),
-				'yes'   => __( 'Sim, recuperar', 'galaxie-woo' ),
-				'no'    => __( 'Cancelar', 'galaxie-woo' ),
+				'label'        => __( 'Recover kept kit dialog', 'galaxie-woo' ),
+				'title'        => __( 'Recuperar kit', 'galaxie-woo' ),
+				'text'         => __( 'Isso troca o kit que você está montando pelo kit guardado. Tudo bem?', 'galaxie-woo' ),
+				'yes'          => __( 'Sim, recuperar', 'galaxie-woo' ),
+				'no'           => __( 'Cancelar', 'galaxie-woo' ),
+				// Taking a kit back is not destructive: the primary button, as
+				// the same dialog in the Kit Builder already does.
+				'yes_defaults' => array( 'color' => 'primary', 'size' => 'sm' ),
 			)
 		);
 
