@@ -1183,7 +1183,18 @@ button.galaxie-kit-qty-step:disabled {
 
 .galaxie-account-kit-icon {
   display: inline-flex;
+  align-items: center;
   flex: none;
+  /* Its own box: without this the icon keeps the row's line-height and sits a
+     little above the heading it belongs to. */
+  line-height: 1;
+}
+
+/* pixfort's text element carries a paragraph margin under it (the controls
+   above default it away, but a merchant may want it back): the heading row
+   centres boxes, not letters, so the margin must not push the words up. */
+.galaxie-account-kit-head .galaxie-account-kit-heading > * {
+  margin-bottom: 0;
 }
 
 .galaxie-account-kit-heading {
