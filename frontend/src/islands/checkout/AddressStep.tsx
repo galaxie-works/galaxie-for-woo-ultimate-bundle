@@ -2,8 +2,8 @@ import * as React from 'react'
 
 import { cn } from '@/lib/cn'
 import { Input } from '@/ui/input'
-import { CoField, PixButton, useFieldClass, useUi } from './pix'
-import type { AddressValues, CheckoutText } from './types'
+import { CoField, PixButton, useFieldClass, useUi } from '@/lib/pix'
+import type { AddressValues, CheckoutText, CheckoutUi } from './types'
 import type { AddressErrors } from './validation'
 
 interface AddressStepProps {
@@ -52,7 +52,7 @@ function AddressStep({
   onContinue,
   preview,
 }: AddressStepProps) {
-  const { cls, buttons } = useUi()
+  const { cls, buttons } = useUi<CheckoutUi>()
   const field = useFieldClass()
   const id = React.useId()
   const [values, setValues] = React.useState<AddressValues>({
@@ -165,7 +165,7 @@ function AddressStep({
  * native-checkout.ts `decorateShipping`), so the editor styles the real thing.
  */
 function SampleShipping() {
-  const { cls } = useUi()
+  const { cls } = useUi<CheckoutUi>()
   const rates = [
     { id: 'sedex', label: 'SEDEX (2 a 4 dias úteis)', price: 'R$ 14,90' },
     { id: 'pac', label: 'PAC (5 a 8 dias úteis)', price: 'R$ 9,67' },

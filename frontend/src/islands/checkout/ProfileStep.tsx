@@ -2,8 +2,8 @@ import * as React from 'react'
 
 import { Input } from '@/ui/input'
 import { PhoneInput } from '@/ui/phone-input'
-import { CoField, PixButton, useFieldClass, useUi } from './pix'
-import type { CheckoutText, ProfileValues } from './types'
+import { CoField, PixButton, useFieldClass, useUi } from '@/lib/pix'
+import type { CheckoutText, CheckoutUi, ProfileValues } from './types'
 import { BAD_PHONE, type ProfileErrors } from './validation'
 
 interface ProfileStepProps {
@@ -15,7 +15,7 @@ interface ProfileStepProps {
 }
 
 function ProfileStep({ initial, busy, errors, text, onSave }: ProfileStepProps) {
-  const { buttons } = useUi()
+  const { buttons } = useUi<CheckoutUi>()
   const field = useFieldClass()
   const id = React.useId()
   const [values, setValues] = React.useState<ProfileValues>({

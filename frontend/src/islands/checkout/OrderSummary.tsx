@@ -3,8 +3,8 @@ import { ChevronDown, ShoppingBag } from 'lucide-react'
 
 import { cn } from '@/lib/cn'
 import { onCheckoutUpdated } from './native-checkout'
-import { useUi } from './pix'
-import type { CheckoutText, OrderSummaryData } from './types'
+import { useUi } from '@/lib/pix'
+import type { CheckoutText, CheckoutUi, OrderSummaryData } from './types'
 
 /** The node PHP prints and WooCommerce's order-review fragments replace (see Checkout\Module::summary_fragment). */
 const FRAGMENT_ID = 'galaxie-checkout-summary'
@@ -43,7 +43,7 @@ interface OrderSummaryProps {
  * gone and the body is always shown (see `.gx-co` in index.css).
  */
 function OrderSummary({ initial, text, openOnPhones, live }: OrderSummaryProps) {
-  const { cls } = useUi()
+  const { cls } = useUi<CheckoutUi>()
   const [data, setData] = React.useState(initial)
   const [open, setOpen] = React.useState(openOnPhones)
   const bodyId = React.useId()

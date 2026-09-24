@@ -1,8 +1,8 @@
 import * as React from 'react'
 
 import { cn } from '@/lib/cn'
-import { PixButton, useUi } from './pix'
-import type { CheckoutText } from './types'
+import { PixButton, useUi } from '@/lib/pix'
+import type { CheckoutText, CheckoutUi } from './types'
 
 interface PaymentStepProps {
   addressSummary: string
@@ -20,7 +20,7 @@ interface PaymentStepProps {
  * "delivering to" recap.
  */
 function PaymentStep({ addressSummary, text, onBack, paymentMountRef, preview }: PaymentStepProps) {
-  const { cls, buttons, marker } = useUi()
+  const { cls, buttons, marker } = useUi<CheckoutUi>()
 
   return (
     <div className="gx-co-form">

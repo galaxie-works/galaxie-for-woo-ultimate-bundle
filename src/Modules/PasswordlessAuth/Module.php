@@ -9,6 +9,8 @@ namespace Galaxie\Woo\Modules\PasswordlessAuth;
 
 use Galaxie\Woo\Core\Module as ModuleContract;
 use Galaxie\Woo\Core\ProvidesBootData;
+use Galaxie\Woo\Core\ProvidesElementorWidgets;
+use Galaxie\Woo\Modules\PasswordlessAuth\Widget\LoginWidget;
 use Galaxie\Woo\Support\Cpf;
 use Galaxie\Woo\Support\ProfileFields;
 
@@ -27,7 +29,7 @@ defined( 'ABSPATH' ) || exit;
  * whatever consumes them, and so this module is directly testable (via
  * fetch() in a browser console) before the Checkout widget exists.
  */
-final class Module implements ModuleContract, ProvidesBootData {
+final class Module implements ModuleContract, ProvidesBootData, ProvidesElementorWidgets {
 
 	private const OTP_TTL              = 10 * MINUTE_IN_SECONDS;
 	private const OTP_MAX_ATTEMPTS     = 5;
@@ -51,6 +53,11 @@ final class Module implements ModuleContract, ProvidesBootData {
 
 	public function default_enabled(): bool {
 		return true;
+	}
+
+	/** @return array<int,class-string> */
+	public function elementor_widgets(): array {
+		return array( LoginWidget::class );
 	}
 
 	public function boot(): void {

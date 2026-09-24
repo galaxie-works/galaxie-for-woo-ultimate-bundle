@@ -3,6 +3,7 @@ import '@/styles/index.css'
 import { bootElementorIslands, mountIslands, registerIsland } from '@/runtime'
 import { Demo } from '@/islands/demo'
 import { Checkout } from '@/islands/checkout'
+import { Login } from '@/islands/login'
 import { MyAccount } from '@/islands/my-account'
 import { bootToastNotices } from '@/globals/toast-notices'
 import { bootVariationSwatches } from '@/globals/variation-swatches'
@@ -29,6 +30,7 @@ import { bootGiftCheckout, type GiftCheckoutConfig } from '@/globals/gift-checko
 // Each module registers its island(s) here as they are ported.
 registerIsland('demo', Demo)
 registerIsland('checkout', Checkout)
+registerIsland('login', Login)
 registerIsland('my-account', MyAccount)
 
 interface GalaxieConfig {
