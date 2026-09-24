@@ -115,6 +115,39 @@ function PaymentStep({ text, paymentMountRef, stripeProbeRef, decor, sample, own
     }
   }, [sample, decor, ownCards, paymentMountRef, onNeedCard, container])
 
+  // The saved card the shopper picked, put back after every redraw.
+  // WooCommerce replaces the whole payment block on each `updated_checkout`
+  // and the new copy arrives with its own preselection (the account's
+  // default), which would silently move the order to another card.
+  React.useEffect(() => {
+    const el = paymentMountRef.current
+    if (null !== sample || !el) return
+
+    const TOKEN = 'input[name^="wc-"][name$="-payment-token"]'
+    let chosen: { name: string; value: string } | null = null
+
+    const remember = (event: Event) => {
+      const input = event.target as HTMLInputElement | null
+      if (input?.matches?.(TOKEN) && input.checked) chosen = { name: input.name, value: input.value }
+    }
+    const restore = () => {
+      if (!chosen) return
+      const input = el.querySelector<HTMLInputElement>(`${TOKEN}[name="${CSS.escape(chosen.name)}"][value="${CSS.escape(chosen.value)}"]`)
+      if (input && !input.checked && !input.disabled) {
+        input.checked = true
+        input.dispatchEvent(new Event('change', { bubbles: true }))
+      }
+    }
+
+    el.addEventListener('change', remember)
+    const observer = new MutationObserver(restore)
+    observer.observe(el, { childList: true, subtree: true })
+    return () => {
+      el.removeEventListener('change', remember)
+      observer.disconnect()
+    }
+  }, [sample, paymentMountRef])
+
   return (
     <div className="gx-co-form">
       {null !== sample ? (
