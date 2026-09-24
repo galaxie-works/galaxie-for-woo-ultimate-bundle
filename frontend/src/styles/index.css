@@ -3375,8 +3375,11 @@ address.galaxie-order-body {
    switch ended up under the text with everything centred. Naming the wrapper
    and the card together outranks it without !important. */
 .galaxie-account-communication .galaxie-comm-option.card {
+  display: flex;
   flex-direction: row;
   flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .galaxie-account-communication .galaxie-comm-option.card.is-switch-below {
