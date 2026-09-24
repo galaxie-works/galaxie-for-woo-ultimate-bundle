@@ -143,7 +143,7 @@ final class Module implements ModuleContract, ProvidesSettings {
 		}
 
 		if ( 'yes' === get_user_meta( $user_id, \Galaxie\Woo\Support\ProfileFields::MARKETING_OPT_IN, true ) ) {
-			$list_id = (int) ( $settings['newsletter_list_id'] ?? 0 );
+			$list_id = self::consent_list_id();
 			if ( $list_id > 0 ) {
 				FluentCRMApi::attach_lists( $user->user_email, array( $list_id ) );
 			}
@@ -523,7 +523,7 @@ final class Module implements ModuleContract, ProvidesSettings {
 		// field *and* the newsletter list. A row on that same list is the same
 		// switch twice, contradicting itself the moment one of them moves, so
 		// the screen that shows the consent leaves that row out.
-		$consent = $consent_shown ? (int) ( $settings['newsletter_list_id'] ?? 0 ) : 0;
+		$consent = $consent_shown ? self::consent_list_id() : 0;
 
 		foreach ( (array) ( $settings['communication_options'] ?? array() ) as $row ) {
 			$row     = (array) $row;
@@ -1407,6 +1407,42 @@ final class Module implements ModuleContract, ProvidesSettings {
 		return __( 'FluentCRM', 'galaxie-woo' );
 	}
 
+	/**
+	 * The list the consent writes to: the communication the merchant named as
+	 * the one asked at checkout and at signup, or — for a shop that set the
+	 * mapping before communications existed — "List: newsletter opt-in".
+	 *
+	 * Everything that answers for the consent asks this: the signup sync, My
+	 * Account's switch, and the rule that keeps the same list from being
+	 * offered twice on one screen.
+	 */
+	public static function consent_list_id(): int {
+		$settings = Plugin::instance()->settings()->module_settings( 'fluentcrm' );
+		$chosen   = (int) ( $settings['consent_communication'] ?? 0 );
+
+		// Only a communication that still exists: a row deleted in the builder
+		// must not keep the consent pointing at a list nobody can see.
+		if ( $chosen > 0 && in_array( $chosen, array_column( self::communications(), 'list_id' ), true ) ) {
+			return $chosen;
+		}
+
+		return (int) ( $settings['newsletter_list_id'] ?? 0 );
+	}
+
+	/** The communication the consent stands for, or null when it stands alone. */
+	private static function consent_communication(): ?array {
+		$settings = Plugin::instance()->settings()->module_settings( 'fluentcrm' );
+		$chosen   = (int) ( $settings['consent_communication'] ?? 0 );
+
+		foreach ( self::communications() as $row ) {
+			if ( $chosen > 0 && $row['list_id'] === $chosen ) {
+				return $row;
+			}
+		}
+
+		return null;
+	}
+
 	/** The consent switch's wording when the merchant has not written its own. */
 	public const NEWSLETTER_TITLE = 'Novidades e ofertas por e-mail';
 
@@ -1426,6 +1462,17 @@ final class Module implements ModuleContract, ProvidesSettings {
 	 * @return array{title:string, text:string}
 	 */
 	public static function newsletter_wording( array $legacy = array() ): array {
+		// The consent may *be* one of the communications. Then that row is the
+		// one place its wording is written, and these fields are not asked.
+		$row = self::consent_communication();
+
+		if ( $row ) {
+			return array(
+				'title' => $row['title'],
+				'text'  => $row['text'],
+			);
+		}
+
 		$settings = Plugin::instance()->settings()->module_settings( 'fluentcrm' );
 		$pick     = static function ( string $key, string $old, string $fallback ) use ( $settings, $legacy ): string {
 			$typed = trim( (string) ( $settings[ $key ] ?? '' ) );
@@ -1445,14 +1492,37 @@ final class Module implements ModuleContract, ProvidesSettings {
 		);
 	}
 
+	/**
+	 * The communications the consent may stand for.
+	 *
+	 * @return array<string,string>
+	 */
+	private static function consent_options(): array {
+		$options = array( '' => __( 'Its own list ("List: newsletter opt-in")', 'galaxie-woo' ) );
+
+		foreach ( self::communications() as $row ) {
+			$options[ (string) $row['list_id'] ] = $row['title'];
+		}
+
+		return $options;
+	}
+
 	/** @return Field[] Just the Interests on/off — everything else on this tab is custom-rendered. */
 	public function settings_fields(): array {
 		return array(
 			new Field(
+				key: 'consent_communication',
+				label: __( 'The consent asked at checkout and signup is', 'galaxie-woo' ),
+				type: Field::TYPE_SELECT,
+				description: __( 'Pick the communication that checkbox stands for: saying yes there joins that list, and the switch in My Account reads that row\'s title and line. Leave it on "its own list" for a shop that maps only "List: newsletter opt-in" below.', 'galaxie-woo' ),
+				default: '',
+				options: self::consent_options()
+			),
+			new Field(
 				key: 'newsletter_title',
 				label: __( 'Newsletter consent: title', 'galaxie-woo' ),
 				type: Field::TYPE_TEXT,
-				description: __( 'How the consent switch reads in My Account → Comunicação. The list it writes to is "List: newsletter opt-in" below.', 'galaxie-woo' ),
+				description: __( 'How the consent switch reads in My Account → Comunicação, when it stands on its own list. With a communication picked above, that row\'s title and line are used instead and these two are ignored.', 'galaxie-woo' ),
 				default: self::NEWSLETTER_TITLE
 			),
 			new Field(

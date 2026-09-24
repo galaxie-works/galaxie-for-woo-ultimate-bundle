@@ -227,6 +227,45 @@ function galaxie_boot_kit( array $booted, array $scenario, callable $hooked ): s
 		throw new RuntimeException( 'Communications: without the consent switch every row should be offered' );
 	}
 
+	// The consent may stand for one of the communications: then that row's list
+	// is what checkout and signup write to, and its wording is the switch's.
+	$with = static function ( array $fluent ) use ( $saved ): void {
+		$GLOBALS['galaxie_boot']['options']['galaxie_woo_settings'] = array_merge( (array) $saved, array( 'fluentcrm' => $fluent ) );
+	};
+
+	$with(
+		array(
+			'communication_options' => $rows,
+			'newsletter_list_id'    => 7,
+			'consent_communication' => 9,
+		)
+	);
+
+	if ( 9 !== $fcrm::consent_list_id() ) {
+		throw new RuntimeException( 'Consent: the chosen communication is not the list it writes to' );
+	}
+
+	if ( array( 'title' => 'Avisos de estoque', 'text' => '' ) !== $fcrm::newsletter_wording( array( 'title' => 'Antigo' ) ) ) {
+		throw new RuntimeException( 'Consent: the switch does not read the chosen row' );
+	}
+
+	if ( array( 7 ) !== $only( $fcrm::communications( true ) ) ) {
+		throw new RuntimeException( 'Consent: the row it stands for is offered twice' );
+	}
+
+	// A row deleted in the builder must not keep the consent pointing at it.
+	$with(
+		array(
+			'communication_options' => array( $rows[0] ),
+			'newsletter_list_id'    => 7,
+			'consent_communication' => 9,
+		)
+	);
+
+	if ( 7 !== $fcrm::consent_list_id() ) {
+		throw new RuntimeException( 'Consent: a deleted communication still holds it' );
+	}
+
 	$GLOBALS['galaxie_boot']['options']['galaxie_woo_settings'] = $saved;
 
 	$comm = new \Galaxie\Woo\Modules\MyAccount\Widget\AccountCommunicationWidget();
