@@ -124,6 +124,20 @@ final class CheckoutWidget extends AbstractIslandWidget {
 		);
 
 		$this->add_control(
+			'preview_customer',
+			array(
+				'label'       => __( 'Preview customer', 'galaxie-woo' ),
+				'description' => __( 'Only in the editor. First purchase: the sign-in opens on "Primeira compra", your details and delivery start empty, and payment has no saved cards.', 'galaxie-woo' ),
+				'type'        => Controls_Manager::SELECT,
+				'default'     => 'returning',
+				'options'     => array(
+					'returning' => __( 'Has bought before', 'galaxie-woo' ),
+					'new'       => __( 'First purchase', 'galaxie-woo' ),
+				),
+			)
+		);
+
+		$this->add_control(
 			'summary_position',
 			array(
 				'label'     => __( 'Order summary', 'galaxie-woo' ),
@@ -494,10 +508,14 @@ final class CheckoutWidget extends AbstractIslandWidget {
 		);
 
 		if ( $preview ) {
-			$step             = (string) ( $settings['preview_step'] ?? 'entry' );
+			$step  = (string) ( $settings['preview_step'] ?? 'entry' );
+			$step  = in_array( $step, self::STEPS, true ) ? $step : 'entry';
+			$first = 'new' === ( $settings['preview_customer'] ?? 'returning' );
+
 			$props['preview'] = array(
-				'step'    => in_array( $step, self::STEPS, true ) ? $step : 'entry',
-				'payment' => PaymentMarkup::sample(),
+				'step'          => $step,
+				'firstPurchase' => $first,
+				'payment'       => PaymentMarkup::sample( ! $first ),
 			);
 			$props['userEmail'] = 'cliente@exemplo.com.br';
 			$props['profile']   = array(
@@ -520,6 +538,16 @@ final class CheckoutWidget extends AbstractIslandWidget {
 				'postcode'    => '05435-000',
 				'country'     => 'BR',
 			);
+
+			// A first purchase shows the step being previewed in the state a
+			// new customer meets it: nothing on file yet. The steps before it
+			// keep the sample, because by then that customer has filled them.
+			if ( $first && 'profile' === $step ) {
+				$props['profile'] = array( 'complete' => false, 'missing' => array(), 'values' => array() );
+			}
+			if ( $first && 'address' === $step ) {
+				$props['address'] = array( 'has_address' => false );
+			}
 		}
 
 		return $props;

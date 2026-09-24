@@ -114,8 +114,12 @@ final class PaymentMarkup {
 	 * sample card fields, the save checkbox, and a Pix and a boleto method
 	 * below — every state the Style tab has a control for. Same markup as the
 	 * live block, so the island decorates it with the same code.
+	 *
+	 * Without `$saved` (a first purchase) there is no saved-card list, and
+	 * the card fields and "save this card" show on their own, as they do for
+	 * a customer with nothing on file.
 	 */
-	public static function sample(): string {
+	public static function sample( bool $saved = true ): string {
 		$soon  = gmdate( 'm/y', strtotime( '+1 month' ) );
 		$cards = self::option( 'stripe', '101', self::label( 'visa', '4242', '12/30', true, '' ), true, false )
 			. self::option( 'stripe', '102', self::label( 'mastercard', '4444', $soon, false, 'expiring' ), false, false )
@@ -137,7 +141,7 @@ final class PaymentMarkup {
 			$checked ? '' : ' style="display:none;"'
 		);
 
-		$card_box = '<fieldset><ul class="woocommerce-SavedPaymentMethods wc-saved-payment-methods" data-count="2">' . $cards . '</ul>'
+		$card_box = '<fieldset>' . ( $saved ? '<ul class="woocommerce-SavedPaymentMethods wc-saved-payment-methods" data-count="2">' . $cards . '</ul>' : '' )
 			. '<fieldset id="wc-stripe-upe-form" class="wc-upe-form wc-payment-form gx-co-sample-card">'
 			. $field( __( 'Número do cartão', 'galaxie-woo' ), '1234 1234 1234 1234', 'is-number' )
 			. $field( __( 'Validade', 'galaxie-woo' ), 'MM / AA', 'is-expiry' )

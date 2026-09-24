@@ -68,7 +68,10 @@ function previewBehaviour(root: HTMLElement): () => void {
       const on = !!li.querySelector<HTMLInputElement>(':scope > input:checked')
       if (box) box.style.display = on ? '' : 'none'
     })
-    const fresh = !!root.querySelector<HTMLInputElement>('.woocommerce-SavedPaymentMethods-new input:checked')
+    // No saved cards at all (a first purchase): the fields are the only way to pay.
+    const fresh =
+      !root.querySelector('.wc-saved-payment-methods') ||
+      !!root.querySelector<HTMLInputElement>('.woocommerce-SavedPaymentMethods-new input:checked')
     root.querySelectorAll<HTMLElement>('.wc-upe-form, .woocommerce-SavedPaymentMethods-saveNew').forEach((el) => {
       el.style.display = fresh ? '' : 'none'
     })

@@ -287,6 +287,7 @@ function Checkout(props: CheckoutProps) {
                 text={text}
                 genericError={props.i18n.genericError}
                 onVerified={() => window.location.reload()}
+              initialTab={props.preview?.firstPurchase ? 'register' : 'otp'}
                 preview={preview}
               />
             </StepSection>

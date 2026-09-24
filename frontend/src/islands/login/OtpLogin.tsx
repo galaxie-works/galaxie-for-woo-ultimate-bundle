@@ -53,6 +53,8 @@ interface OtpLoginProps {
   onVerified: () => void
   /** Editor preview: the forms render but never submit. */
   preview?: boolean
+  /** Which tab opens first: the checkout's editor preview opens "register" for a first purchase. */
+  initialTab?: Tab
 }
 
 type Stage = 'request' | 'verify'
@@ -79,10 +81,10 @@ type Tab = 'otp' | 'register'
  * state), the fields pixfort's `.form-control`, the opt-in the Communication
  * widget's switch — each styled from the widget's own Style tab.
  */
-function OtpLogin({ authCfg, text, genericError, onVerified, preview = false }: OtpLoginProps) {
+function OtpLogin({ authCfg, text, genericError, onVerified, preview = false, initialTab = 'otp' }: OtpLoginProps) {
   const { cls, buttons } = useUi<LoginUi>()
   const field = useFieldClass()
-  const [tab, setTab] = React.useState<Tab>('otp')
+  const [tab, setTab] = React.useState<Tab>(initialTab)
   const [stage, setStage] = React.useState<Stage>('request')
   const [email, setEmail] = React.useState('')
   const [code, setCode] = React.useState('')
