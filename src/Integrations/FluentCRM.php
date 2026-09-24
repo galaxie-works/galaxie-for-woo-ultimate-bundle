@@ -57,6 +57,36 @@ final class FluentCRM {
 		}
 	}
 
+	/**
+	 * The lists a contact belongs to, by id. Same shape and the same trap as
+	 * {@see self::contact_tag_ids()}: `lists` is a Collection, so it is walked.
+	 *
+	 * @return int[]
+	 */
+	public static function contact_list_ids( string $email ): array {
+		if ( ! self::is_active() || '' === $email ) {
+			return array();
+		}
+
+		try {
+			$contact = \FluentCrmApi( 'contacts' )->getContact( $email );
+
+			if ( ! $contact ) {
+				return array();
+			}
+
+			$ids = array();
+
+			foreach ( $contact->lists ?? array() as $list ) {
+				$ids[] = (int) ( is_object( $list ) ? ( $list->id ?? 0 ) : ( $list['id'] ?? 0 ) );
+			}
+
+			return array_values( array_filter( $ids ) );
+		} catch ( \Throwable $e ) {
+			return array();
+		}
+	}
+
 	/** @param int[] $tag_ids */
 	public static function attach_tags( string $email, array $tag_ids ): void {
 		self::with_contact( $email, static fn( $contact ) => $contact->attachTags( $tag_ids ) );

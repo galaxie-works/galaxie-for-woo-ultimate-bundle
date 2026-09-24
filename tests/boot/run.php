@@ -177,6 +177,44 @@ function galaxie_boot_kit( array $booted, array $scenario, callable $hooked ): s
 		}
 	}
 
+	// Communications: what the merchant writes under FluentCRM is what the
+	// widget offers, and a row that could not be shown or answered is dropped.
+	$fcrm = '\Galaxie\Woo\Modules\FluentCRM\Module';
+
+	$kept = $fcrm::sanitize_communications(
+		array(
+			array( 'title' => 'Novidades', 'text' => 'De vez em quando', 'list_id' => '3' ),
+			array( 'title' => '', 'text' => 'Sem título', 'list_id' => '4' ),
+			array( 'title' => 'Sem lista', 'text' => '', 'list_id' => '0' ),
+			array( 'title' => 'Repetida', 'text' => '', 'list_id' => 3 ),
+		)
+	);
+
+	if ( array( array( 'list_id' => 3, 'title' => 'Novidades', 'text' => 'De vez em quando' ) ) !== $kept ) {
+		throw new RuntimeException( 'Communications: sanitising kept ' . wp_json_encode( $kept ) );
+	}
+
+	if ( array() !== $fcrm::communications() ) {
+		throw new RuntimeException( 'Communications: none are configured, so none should be offered' );
+	}
+
+	$comm = new \Galaxie\Woo\Modules\MyAccount\Widget\AccountCommunicationWidget();
+	$comm->register_for_test();
+
+	foreach ( array( 'comm_show_newsletter' => 'yes', 'comm_switch_place' => 'end' ) as $id => $starts ) {
+		if ( $starts !== ( $comm->controls[ $id ]['default'] ?? null ) ) {
+			throw new RuntimeException( "Communications: {$id} does not start at '{$starts}'" );
+		}
+	}
+
+	if ( ! isset( $comm->controls['comm_options'] ) ) {
+		throw new RuntimeException( 'Communications: the widget cannot pick which to show' );
+	}
+
+	if ( ! $hooked( 'wp_ajax_galaxie_myaccount_toggle_communication', 'Galaxie\Woo\Modules\MyAccount\Module', 'ajax_toggle_communication' ) ) {
+		throw new RuntimeException( 'Communications: nothing answers the toggle' );
+	}
+
 	// Widgets: controls, a live render and every editor screen.
 	$widgets = array(
 		\Galaxie\Woo\Modules\GiftWrap\Widget\KitBuilderWidget::class  => array( 'data-galaxie-kit-builder', array( 'welcome', 'name', 'box', 'card', 'continue', 'summary' ), 'editor_screen' ),

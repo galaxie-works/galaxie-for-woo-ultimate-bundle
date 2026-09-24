@@ -9,6 +9,8 @@ namespace Galaxie\Woo\Modules\MyAccount\Widget;
 
 use Elementor\Controls_Manager;
 use Elementor\Widget_Base;
+use Galaxie\Woo\Integrations\FluentCRM as FluentCRMApi;
+use Galaxie\Woo\Modules\FluentCRM\Module as FluentCRMModule;
 use Galaxie\Woo\Support\AccountParts;
 use Galaxie\Woo\Support\Assets;
 use Galaxie\Woo\Support\PixfortControls;
@@ -17,11 +19,16 @@ use Galaxie\Woo\Support\ProfileFields;
 defined( 'ABSPATH' ) || exit;
 
 /**
- * The newsletter consent as a switch, saved the moment it moves.
+ * The newsletter consent as a switch, saved the moment it moves, and whatever
+ * other communications the merchant wrote under Galaxie → FluentCRM.
  *
  * `galaxie_myaccount_save_communication` stores the consent on the customer and,
  * when a newsletter list is set under Galaxie → FluentCRM, adds or removes them
- * from it, so an unsubscribe here is an unsubscribe there.
+ * from it, so an unsubscribe here is an unsubscribe there. The other switches
+ * are a FluentCRM list each, nothing else: what the customer sees is the
+ * contact's membership, and `galaxie_myaccount_toggle_communication` joins or
+ * leaves the list. Nothing of them is stored on our side, so a list emptied in
+ * FluentCRM shows as off here the moment it is.
  */
 final class AccountCommunicationWidget extends Widget_Base {
 
@@ -61,6 +68,34 @@ final class AccountCommunicationWidget extends Widget_Base {
 				'return_value' => 'yes',
 				'default'      => '',
 				'description'  => __( 'For a dashboard: the switch and its title, without the sentence under it.', 'galaxie-woo' ),
+			)
+		);
+
+		$this->add_control(
+			'comm_show_newsletter',
+			array(
+				'label'        => __( 'The newsletter consent', 'galaxie-woo' ),
+				'type'         => Controls_Manager::SWITCHER,
+				'return_value' => 'yes',
+				'default'      => 'yes',
+				'description'  => __( 'The consent the customer gave at checkout or signup, which is also a field on their profile. The communications below are FluentCRM lists only.', 'galaxie-woo' ),
+				'separator'    => 'before',
+			)
+		);
+
+		$this->add_control(
+			'comm_options',
+			array(
+				'label'       => __( 'Communications to show', 'galaxie-woo' ),
+				'type'        => Controls_Manager::SELECT2,
+				'multiple'    => true,
+				'label_block' => true,
+				'options'     => self::option_labels(),
+				'default'     => array(),
+				'description' => self::option_labels()
+					? __( 'Empty shows every one of them. They are written under Galaxie → FluentCRM → Communications.', 'galaxie-woo' )
+					: __( 'None are set yet. Write them under Galaxie → FluentCRM → Communications: a title, a line and the list each one joins.', 'galaxie-woo' ),
+				'separator'   => 'before',
 			)
 		);
 
@@ -161,6 +196,21 @@ final class AccountCommunicationWidget extends Widget_Base {
 		$this->end_controls_section();
 	}
 
+	/**
+	 * The configured communications, by list id, for the picker above.
+	 *
+	 * @return array<int,string>
+	 */
+	private static function option_labels(): array {
+		$labels = array();
+
+		foreach ( FluentCRMModule::communications() as $row ) {
+			$labels[ $row['list_id'] ] = $row['title'];
+		}
+
+		return $labels;
+	}
+
 	protected function render(): void {
 		if ( ! is_user_logged_in() && ! AccountParts::editing() ) {
 			return;
@@ -182,14 +232,77 @@ final class AccountCommunicationWidget extends Widget_Base {
 			$txt( 'comm_heading_text', 'galaxie-comm-heading', (string) ( $s['comm_heading'] ?? '' ) ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pixfort's own element around escaped text.
 		);
 
+		$place = esc_attr( in_array( $s['comm_switch_place'] ?? 'end', array( 'start', 'below' ), true ) ? (string) $s['comm_switch_place'] : 'end' );
+
+		if ( 'yes' === ( $s['comm_show_newsletter'] ?? 'yes' ) ) {
+			$this->newsletter( $s, $txt, $id, $on, $place );
+		}
+
+		$this->communications( $s, $txt, $place );
+
+		echo '<div class="galaxie-account-message" role="status" aria-live="polite" hidden></div></div>';
+	}
+
+	/**
+	 * The consent switch the store has always had: a customer field, and a
+	 * FluentCRM list beside it when one is mapped.
+	 *
+	 * @param array<string,mixed> $s     Widget settings.
+	 * @param callable            $txt   The text helper render() builds.
+	 * @param string              $id    The input's id.
+	 * @param bool                $on    Whether consent is given.
+	 * @param string              $place Where the switch sits.
+	 */
+	private function newsletter( array $s, callable $txt, string $id, bool $on, string $place ): void {
 		printf(
-			'<label class="galaxie-comm-option card is-switch-%6$s %1$s" for="%2$s"><span class="galaxie-comm-copy">%3$s%4$s</span><span class="galaxie-switch"><input type="checkbox" id="%2$s" name="opt_in" value="1"%5$s /><span class="galaxie-switch-track" aria-hidden="true"></span></span></label><div class="galaxie-account-message" role="status" aria-live="polite" hidden></div></div>',
+			'<label class="galaxie-comm-option card is-switch-%6$s %1$s" for="%2$s"><span class="galaxie-comm-copy">%3$s%4$s</span><span class="galaxie-switch"><input type="checkbox" id="%2$s" name="opt_in" value="1"%5$s /><span class="galaxie-switch-track" aria-hidden="true"></span></span></label>',
 			esc_attr( PixfortControls::surface_classes( $s, 'comm_option' ) ),
 			esc_attr( $id ),
 			$txt( 'comm_title_text', 'galaxie-comm-title', (string) ( $s['comm_title'] ?? '' ) ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pixfort's own element around escaped text.
 			'yes' === ( $s['comm_compact'] ?? '' ) ? '' : $txt( 'comm_desc_text', 'galaxie-comm-text', (string) ( $s['comm_text'] ?? '' ) ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pixfort's own element around escaped text.
 			checked( $on, true, false ),
-			esc_attr( in_array( $s['comm_switch_place'] ?? 'end', array( 'start', 'below' ), true ) ? (string) $s['comm_switch_place'] : 'end' )
+			esc_attr( $place )
 		);
+	}
+
+	/**
+	 * One switch per communication the merchant wrote, showing whether the
+	 * contact is on that list. In the editor they are all drawn off, because
+	 * there is no contact to ask.
+	 *
+	 * @param array<string,mixed> $s     Widget settings.
+	 * @param callable            $txt   The text helper render() builds.
+	 * @param string              $place Where the switch sits.
+	 */
+	private function communications( array $s, callable $txt, string $place ): void {
+		$rows = FluentCRMModule::communications();
+
+		if ( ! $rows ) {
+			return;
+		}
+
+		$wanted = array_map( 'absint', (array) ( $s['comm_options'] ?? array() ) );
+		$on     = AccountParts::editing() ? array() : FluentCRMApi::contact_list_ids( (string) wp_get_current_user()->user_email );
+
+		foreach ( $rows as $i => $row ) {
+			if ( $wanted && ! in_array( $row['list_id'], $wanted, true ) ) {
+				continue;
+			}
+
+			$id = 'galaxie-comm-' . $this->get_id() . '-' . $row['list_id'];
+
+			printf(
+				'<label class="galaxie-comm-option card is-switch-%7$s %1$s" for="%2$s" data-list="%6$d"><span class="galaxie-comm-copy">%3$s%4$s</span><span class="galaxie-switch"><input type="checkbox" id="%2$s" name="communication" value="%6$d"%5$s /><span class="galaxie-switch-track" aria-hidden="true"></span></span></label>',
+				esc_attr( PixfortControls::surface_classes( $s, 'comm_option' ) ),
+				esc_attr( $id ),
+				$txt( 'comm_title_text', 'galaxie-comm-title', $row['title'] ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pixfort's own element around escaped text.
+				'yes' === ( $s['comm_compact'] ?? '' ) ? '' : $txt( 'comm_desc_text', 'galaxie-comm-text', $row['text'] ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pixfort's own element around escaped text.
+				checked( in_array( $row['list_id'], $on, true ), true, false ),
+				(int) $row['list_id'],
+				esc_attr( $place )
+			);
+
+			unset( $i );
+		}
 	}
 }

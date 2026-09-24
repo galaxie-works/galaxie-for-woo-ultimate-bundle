@@ -243,6 +243,7 @@ final class Module implements ModuleContract, ProvidesSettings {
 		add_action( 'user_register', array( $this, 'mark_registered' ) );
 		add_action( 'galaxie_woo/customer_registered', array( $this, 'mark_registered' ), 1 );
 		add_action( 'galaxie_woo/interest_changed', array( $this, 'remember_interest' ), 10, 3 );
+		add_action( 'galaxie_woo/communication_changed', array( $this, 'remember_communication' ), 10, 3 );
 		add_action( 'woocommerce_new_payment_token', array( $this, 'remember_card_added' ), 10, 2 );
 		add_action( 'woocommerce_payment_token_deleted', array( $this, 'remember_card_deleted' ), 10, 2 );
 		add_action( 'woocommerce_payment_token_set_default', array( $this, 'remember_card_default' ), 10, 2 );
@@ -504,6 +505,55 @@ final class Module implements ModuleContract, ProvidesSettings {
 		}
 
 		return $check;
+	}
+
+	/**
+	 * The communications a customer may turn on and off: a title, a line of
+	 * explanation and the FluentCRM list the answer is written to. Rows with no
+	 * list are not communications — there would be nowhere to write the answer.
+	 *
+	 * @return array<int, array{list_id:int, title:string, text:string}>
+	 */
+	public static function communications(): array {
+		$settings = Plugin::instance()->settings()->module_settings( 'fluentcrm' );
+		$out      = array();
+
+		foreach ( (array) ( $settings['communication_options'] ?? array() ) as $row ) {
+			$row     = (array) $row;
+			$list_id = (int) ( $row['list_id'] ?? 0 );
+			$title   = trim( (string) ( $row['title'] ?? '' ) );
+
+			if ( $list_id <= 0 || '' === $title ) {
+				continue;
+			}
+
+			$out[] = array(
+				'list_id' => $list_id,
+				'title'   => $title,
+				'text'    => trim( (string) ( $row['text'] ?? '' ) ),
+			);
+		}
+
+		return $out;
+	}
+
+	/**
+	 * @param mixed $user_id
+	 * @param mixed $list_id
+	 * @param mixed $selected
+	 */
+	public function remember_communication( $user_id, $list_id, $selected ): void {
+		$label = '#' . (int) $list_id;
+
+		foreach ( self::communications() as $row ) {
+			if ( $row['list_id'] === (int) $list_id ) {
+				$label = $row['title'];
+				break;
+			}
+		}
+
+		$this->event_log[ (int) $user_id ][] = ( $selected ? __( 'Comunicação ligada', 'galaxie-woo' ) : __( 'Comunicação desligada', 'galaxie-woo' ) ) . ': ' . $label;
+		$this->queue_profile_sync( $user_id );
 	}
 
 	/**
@@ -1414,6 +1464,7 @@ final class Module implements ModuleContract, ProvidesSettings {
 		$this->select_row( 'order_refunded_tag_id', __( 'Tag: order refunded', 'galaxie-woo' ), $tags, $values );
 		$this->select_row( 'order_failed_tag_id', __( 'Tag: order failed', 'galaxie-woo' ), $tags, $values );
 
+		$this->render_communications_builder( $lists, $values );
 		$this->render_interests_builder( $tags, $values );
 	}
 
@@ -1421,6 +1472,107 @@ final class Module implements ModuleContract, ProvidesSettings {
 	 * @param array<int,string>   $tags   tag id => title, for the autocomplete suggestions.
 	 * @param array<string,mixed> $values currently saved settings.
 	 */
+	/**
+	 * The communications builder: a title, a line under it and the list the
+	 * answer is written to. The widget shows whichever of these the merchant
+	 * picks, and a customer turning one on joins that list.
+	 *
+	 * @param array<int,string>   $lists  List id => title, from discover().
+	 * @param array<string,mixed> $values The tab's saved values.
+	 */
+	private function render_communications_builder( array $lists, array $values ): void {
+		$rows = array_values( (array) ( $values['communication_options'] ?? array() ) );
+		?>
+		<h3><?php esc_html_e( 'Communications', 'galaxie-woo' ); ?></h3>
+		<p class="description">
+			<?php esc_html_e( 'What a customer may turn on and off in My Account → Comunicação. Each row is a title, a line of explanation and the FluentCRM list the answer is written to: turning it on joins the list, turning it off leaves it. Which of them a screen shows is chosen on the Galaxie Account Communication widget.', 'galaxie-woo' ); ?>
+		</p>
+
+		<div id="gxf-comms-rows">
+			<?php foreach ( $rows as $i => $row ) : ?>
+				<?php $this->render_communication_row( (int) $i, (array) $row, $lists ); ?>
+			<?php endforeach; ?>
+		</div>
+
+		<p>
+			<button type="button" class="button" id="gxf-comms-add"><?php esc_html_e( '+ Add communication', 'galaxie-woo' ); ?></button>
+			<?php // Says the builder was drawn: an empty list posts no rows, and without this a save with FluentCRM unreadable would read as "all removed". ?>
+			<input type="hidden" name="fields[communications_present]" value="1" />
+		</p>
+
+		<template id="gxf-comm-row-template">
+			<?php $this->render_communication_row( '__INDEX__', array(), $lists ); ?>
+		</template>
+
+		<script>
+		(function () {
+			var rows = document.getElementById( 'gxf-comms-rows' );
+			var tpl = document.getElementById( 'gxf-comm-row-template' );
+			var addBtn = document.getElementById( 'gxf-comms-add' );
+			var nextIndex = rows.children.length;
+
+			function wireRow( row ) {
+				var removeBtn = row.querySelector( '[data-role="remove"]' );
+				if ( removeBtn ) {
+					removeBtn.addEventListener( 'click', function () {
+						row.remove();
+					} );
+				}
+			}
+
+			Array.prototype.forEach.call( rows.children, wireRow );
+
+			addBtn.addEventListener( 'click', function () {
+				var html = tpl.innerHTML.split( '__INDEX__' ).join( String( nextIndex++ ) );
+				var holder = document.createElement( 'div' );
+				holder.innerHTML = html;
+				var row = holder.firstElementChild;
+				rows.appendChild( row );
+				wireRow( row );
+			} );
+		})();
+		</script>
+		<?php
+	}
+
+	/**
+	 * One communication row.
+	 *
+	 * @param int|string          $index Row index, or __INDEX__ for the template.
+	 * @param array<string,mixed> $row   Saved values.
+	 * @param array<int,string>   $lists List id => title.
+	 */
+	private function render_communication_row( $index, array $row, array $lists ): void {
+		$prefix = "fields[communications][{$index}]";
+		?>
+		<div class="gxf-comm-row" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:8px;">
+			<input
+				type="text"
+				name="<?php echo esc_attr( "{$prefix}[title]" ); ?>"
+				value="<?php echo esc_attr( (string) ( $row['title'] ?? '' ) ); ?>"
+				placeholder="<?php esc_attr_e( 'Title, e.g. Novidades e ofertas', 'galaxie-woo' ); ?>"
+				style="width:220px;"
+			/>
+			<input
+				type="text"
+				name="<?php echo esc_attr( "{$prefix}[text]" ); ?>"
+				value="<?php echo esc_attr( (string) ( $row['text'] ?? '' ) ); ?>"
+				placeholder="<?php esc_attr_e( 'The line under it (optional)', 'galaxie-woo' ); ?>"
+				style="flex:1 1 320px;min-width:220px;"
+			/>
+			<select name="<?php echo esc_attr( "{$prefix}[list_id]" ); ?>" style="width:220px;">
+				<option value=""><?php esc_html_e( '— pick a list —', 'galaxie-woo' ); ?></option>
+				<?php foreach ( $lists as $id => $title ) : ?>
+					<option value="<?php echo esc_attr( (string) $id ); ?>" <?php selected( (int) ( $row['list_id'] ?? 0 ), (int) $id ); ?>>
+						<?php echo esc_html( $title ); ?>
+					</option>
+				<?php endforeach; ?>
+			</select>
+			<button type="button" class="button-link-delete" data-role="remove"><?php esc_html_e( 'Remove', 'galaxie-woo' ); ?></button>
+		</div>
+		<?php
+	}
+
 	private function render_interests_builder( array $tags, array $values ): void {
 		$options = array_values( (array) ( $values['interest_options'] ?? array() ) );
 		?>
@@ -1724,6 +1876,16 @@ final class Module implements ModuleContract, ProvidesSettings {
 			$sanitized[ $key ] = '' === $raw ? '' : absint( $raw );
 		}
 
+		// The communications builder says it was drawn too; without it the rows
+		// stay exactly as they were.
+		if ( empty( $submitted['communications_present'] ) ) {
+			if ( array_key_exists( 'communication_options', $current ) ) {
+				$sanitized['communication_options'] = $current['communication_options'];
+			}
+		} else {
+			$sanitized['communication_options'] = self::sanitize_communications( (array) ( $submitted['communications'] ?? array() ) );
+		}
+
 		// Same for the interests builder, which says it was drawn: without it,
 		// keep the list and push nothing into FluentCRM.
 		if ( empty( $submitted['interests_present'] ) ) {
@@ -1753,6 +1915,41 @@ final class Module implements ModuleContract, ProvidesSettings {
 		}
 
 		return $sanitized;
+	}
+
+	/**
+	 * Communication rows as they are kept: a list, a title and a line. A row
+	 * without both a list and a title is dropped — it could not be shown, and
+	 * an answer to it would have nowhere to go.
+	 *
+	 * @param array<int,array<string,mixed>> $rows
+	 * @return array<int,array{list_id:int,title:string,text:string}>
+	 */
+	public static function sanitize_communications( array $rows ): array {
+		$out  = array();
+		$seen = array();
+
+		foreach ( $rows as $row ) {
+			$row     = (array) $row;
+			$list_id = absint( $row['list_id'] ?? 0 );
+			$title   = sanitize_text_field( (string) ( $row['title'] ?? '' ) );
+
+			// One row per list: two switches writing the same list would
+			// contradict each other the moment one of them moved.
+			if ( $list_id <= 0 || '' === trim( $title ) || isset( $seen[ $list_id ] ) ) {
+				continue;
+			}
+
+			$seen[ $list_id ] = true;
+
+			$out[] = array(
+				'list_id' => $list_id,
+				'title'   => $title,
+				'text'    => sanitize_text_field( (string) ( $row['text'] ?? '' ) ),
+			);
+		}
+
+		return $out;
 	}
 
 	/**
