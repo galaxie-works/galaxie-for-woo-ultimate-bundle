@@ -30,17 +30,7 @@ interface PaymentStepProps {
 }
 
 /** The card method's box in WooCommerce's block — where our form goes. */
-function cardSlot(root: HTMLElement): HTMLElement | null {
-  const box = root.querySelector<HTMLElement>('li.payment_method_stripe .payment_box')
-  if (!box) return null
-  let slot = box.querySelector<HTMLElement>(':scope > .gx-co-add-card')
-  if (!slot) {
-    slot = document.createElement('div')
-    slot.className = 'gx-co-add-card'
-    box.appendChild(slot)
-  }
-  return slot
-}
+const cardBox = (root: HTMLElement) => root.querySelector<HTMLElement>('li.payment_method_stripe .payment_box')
 
 const hasTokens = (root: HTMLElement | null) => !!root?.querySelector('.wc-saved-payment-methods .woocommerce-SavedPaymentMethods-token')
 
@@ -52,8 +42,11 @@ const hasTokens = (root: HTMLElement | null) => !!root?.querySelector('.wc-saved
  * from, and — in the card method's box — the plugin's own "Adicionar cartão".
  *
  * WooCommerce replaces the whole block on every `updated_checkout`, so the
- * box our form lives in is found again after each redraw (an observer on the
- * mount) and the form is portalled into it.
+ * form is portalled into a container this component owns for its whole life,
+ * and that container is moved into the card box again after each redraw (an
+ * observer on the mount). Portalling into a node found inside WooCommerce's
+ * markup instead left the form in a box WooCommerce had already thrown away:
+ * mounted, rendered, and nowhere on the page.
  *
  * In the editor the mount holds PHP's sample of the same block, decorated by
  * the same code, so every control of the payment sections has something real
@@ -64,19 +57,36 @@ function PaymentStep({ text, paymentMountRef, stripeProbeRef, decor, sample, own
   const { cls } = useUi<CheckoutUi>()
   const field = useFieldClass()
   const sampleRef = React.useRef<HTMLDivElement>(null)
-  const [slot, setSlot] = React.useState<HTMLElement | null>(null)
+  const [container] = React.useState(() => {
+    const div = document.createElement('div')
+    div.className = 'gx-co-add-card'
+    return div
+  })
+  const [inBox, setInBox] = React.useState(false)
   const [saved, setSaved] = React.useState(false)
 
   React.useEffect(() => {
     const el = null !== sample ? sampleRef.current : paymentMountRef.current
     if (!el) return
-    if (null !== sample) decoratePayment(el, decor)
+
+    // The editor's sample is written here, once per sample, not through
+    // `dangerouslySetInnerHTML`: React wrote it again after the decorator had
+    // run, and the panel's classes (and the card form) were gone from it.
+    if (null !== sample) {
+      el.innerHTML = sample
+      decoratePayment(el, decor)
+    }
     const off = null !== sample ? previewBehaviour(el) : () => {}
 
     if (!ownCards) return off
 
     const find = () => {
-      setSlot(cardSlot(el))
+      // The sample has no WooCommerce redrawing it, but a redraw is a redraw:
+      // decorating is idempotent, so the panel's classes simply stay on.
+      if (null !== sample) decoratePayment(el, decor)
+      const box = cardBox(el)
+      if (box && container.parentElement !== box) box.appendChild(container)
+      setInBox(!!box)
       setSaved(hasTokens(el))
     }
     find()
@@ -103,18 +113,18 @@ function PaymentStep({ text, paymentMountRef, stripeProbeRef, decor, sample, own
       observer.disconnect()
       el.removeEventListener('click', guard, true)
     }
-  }, [sample, decor, ownCards, paymentMountRef, onNeedCard])
+  }, [sample, decor, ownCards, paymentMountRef, onNeedCard, container])
 
   return (
     <div className="gx-co-form">
       {null !== sample ? (
-        <div ref={sampleRef} className="galaxie-payment-mount" dangerouslySetInnerHTML={{ __html: sample }} />
+        <div ref={sampleRef} className="galaxie-payment-mount" />
       ) : (
         <div ref={paymentMountRef} className="galaxie-payment-mount" />
       )}
 
       {ownCards &&
-        slot &&
+        inBox &&
         createPortal(
           <AddCard
             config={null !== sample ? null : stripeCards}
@@ -125,7 +135,7 @@ function PaymentStep({ text, paymentMountRef, stripeProbeRef, decor, sample, own
               setSaved(hasTokens(null !== sample ? sampleRef.current : paymentMountRef.current))
             }}
           />,
-          slot
+          container
         )}
 
       <div ref={stripeProbeRef} className="gx-co-stripe-probe" hidden aria-hidden="true">
