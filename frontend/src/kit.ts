@@ -1,8 +1,8 @@
 /**
  * The kit entry (`assets/dist/galaxie-kit.js`), loaded on every storefront page
  * once "Popup do kit" is set (PHP Kit\Launcher): the kit store, the launcher
- * badge, the Kit Progress widget, the Buy Box kit button and the cart's
- * "Editar kit". The Kit Builder's code is a chunk kit-open.ts loads when the
+ * badge, the Kit Progress widget, the account dashboard's kit card, the Buy
+ * Box kit button and the cart's "Editar kit". The Kit Builder's code is a chunk kit-open.ts loads when the
  * popup opens. It imports no CSS: the launcher's badge style is printed by the
  * server, and the widgets load `galaxie.css` with the main entry.
  *
@@ -15,6 +15,7 @@ import { bootKitOpen } from '@/globals/kit-open'
 import { bootKitBuyBox } from '@/globals/kit-buy-box'
 import { bootKitLauncher } from '@/globals/kit-launcher'
 import { bootKitProgress } from '@/globals/kit-progress'
+import { bootAccountKit } from '@/globals/account-kit'
 import { bootKitCart } from '@/globals/kit-cart'
 
 function boot(): void {
@@ -26,6 +27,7 @@ function boot(): void {
   bootKitBuyBox()
   bootKitLauncher()
   bootKitProgress()
+  bootAccountKit()
   bootKitCart()
 }
 

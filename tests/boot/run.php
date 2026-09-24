@@ -158,6 +158,7 @@ function galaxie_boot_kit( array $booted, array $scenario, callable $hooked ): s
 	$widgets = array(
 		\Galaxie\Woo\Modules\GiftWrap\Widget\KitBuilderWidget::class  => array( 'data-galaxie-kit-builder', array( 'welcome', 'name', 'box', 'card', 'continue', 'summary' ), 'editor_screen' ),
 		\Galaxie\Woo\Modules\GiftWrap\Widget\KitProgressWidget::class => array( 'data-galaxie-kit-progress', array( 'kit', 'full', 'invite' ), 'editor_state' ),
+		\Galaxie\Woo\Modules\GiftWrap\Widget\AccountKitWidget::class   => array( 'data-galaxie-account-kit', array( 'kit', 'full', 'previous', 'invite' ), 'editor_state' ),
 	);
 
 	foreach ( $widgets as $class => list( $marker, $states, $key ) ) {
@@ -499,7 +500,28 @@ function galaxie_boot_kit( array $booted, array $scenario, callable $hooked ): s
 			}
 		}
 
-		// One control for every field label, whichever screen the field is on:
+		// The account dashboard offers the kit card, which is Gift Wrap's: with the
+	// module off nothing is registered under that name and the screen draws the
+	// rest as before.
+	if ( \Galaxie\Woo\Modules\GiftWrap\Widget\AccountKitWidget::class === $class ) {
+		$defaults = ( new ReflectionClass( \Galaxie\Woo\Support\AccountEndpoints::class ) )->getConstant( 'DEFAULT_WIDGETS' );
+		$names    = array_map( static fn( array $row ): string => (string) $row[0], $defaults['dashboard'] ?? array() );
+
+		if ( ! in_array( 'galaxie-account-kit', $names, true ) ) {
+			throw new RuntimeException( 'Kit: the account dashboard does not offer the kit card' );
+		}
+
+		$widget->settings = array( 'editor_state' => 'kit' );
+		$card             = $widget->render_for_test();
+
+		foreach ( array( 'data-kit-tpl="item"', 'data-kit-action="continue"', 'data-kit-action="discard"', 'data-dialog="account_kit_discard"', 'data-dialog="account_kit_restore"' ) as $part ) {
+			if ( false === strpos( $card, $part ) ) {
+				throw new RuntimeException( "Kit: the account card is missing {$part}" );
+			}
+		}
+	}
+
+	// One control for every field label, whichever screen the field is on:
 		// "Nome do kit" used to answer to the shared small set and the summary's
 		// own labels to a different control.
 		if ( 'editor_screen' === $key ) {

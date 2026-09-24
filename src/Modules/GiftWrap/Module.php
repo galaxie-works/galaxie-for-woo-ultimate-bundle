@@ -13,6 +13,7 @@ use Galaxie\Woo\Core\Plugin;
 use Galaxie\Woo\Core\ProvidesBootData;
 use Galaxie\Woo\Core\ProvidesElementorWidgets;
 use Galaxie\Woo\Core\ProvidesSettings;
+use Galaxie\Woo\Modules\GiftWrap\Widget\AccountKitWidget;
 use Galaxie\Woo\Modules\GiftWrap\Widget\KitBuilderWidget;
 use Galaxie\Woo\Modules\GiftWrap\Widget\KitProgressWidget;
 
@@ -145,7 +146,7 @@ final class Module implements ModuleContract, ProvidesBootData, ProvidesElemento
 	}
 
 	public function elementor_widgets(): array {
-		return array( KitBuilderWidget::class, KitProgressWidget::class );
+		return array( KitBuilderWidget::class, KitProgressWidget::class, AccountKitWidget::class );
 	}
 
 	/**
