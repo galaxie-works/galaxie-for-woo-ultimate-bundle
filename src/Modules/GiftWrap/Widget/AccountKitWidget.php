@@ -358,15 +358,15 @@ final class AccountKitWidget extends Widget_Base {
 
 		$this->start_controls_section( 'account_kit_text_style', $style( __( 'Heading and lines', 'galaxie-woo' ) ) );
 		$this->heading( 'heading_style', __( 'Heading', 'galaxie-woo' ) );
-		PixfortControls::text( $this, 'heading', array( 'size' => 'text-lg', 'bold' => 'bold' ), array(), '{{WRAPPER}} .galaxie-account-kit-heading', 'text', array( 'inline', 'position' ) );
+		PixfortControls::text( $this, 'heading', array( 'size' => 'text-lg', 'bold' => 'bold', 'remove_pb_padding' => 'm-0' ), array(), '{{WRAPPER}} .galaxie-account-kit-heading', 'text', array( 'inline', 'position' ) );
 		$this->heading( 'line_style', __( 'The line under it, and the invitation', 'galaxie-woo' ) );
-		PixfortControls::text( $this, 'line', array(), array(), '{{WRAPPER}} .galaxie-account-kit-line-text', 'text', array( 'inline', 'position' ) );
+		PixfortControls::text( $this, 'line', array( 'remove_pb_padding' => 'm-0' ), array(), '{{WRAPPER}} .galaxie-account-kit-line-text', 'text', array( 'inline', 'position' ) );
 		$this->heading( 'meta_style', __( 'Box, total and the kept kit', 'galaxie-woo' ) );
-		PixfortControls::text( $this, 'meta', array( 'size' => 'text-sm' ), array(), '{{WRAPPER}} .galaxie-account-kit-meta', 'text', array( 'inline', 'position' ) );
+		PixfortControls::text( $this, 'meta', array( 'size' => 'text-sm', 'remove_pb_padding' => 'm-0' ), array(), '{{WRAPPER}} .galaxie-account-kit-meta', 'text', array( 'inline', 'position' ) );
 		$this->end_controls_section();
 
 		$this->start_controls_section( 'account_kit_items_style', $style( __( 'What is in the kit', 'galaxie-woo' ) ) );
-		PixfortControls::text( $this, 'item', array( 'size' => 'text-sm' ), array(), '{{WRAPPER}} .galaxie-account-kit-item-name', 'text', array( 'inline', 'position' ) );
+		PixfortControls::text( $this, 'item', array( 'size' => 'text-sm', 'remove_pb_padding' => 'm-0' ), array(), '{{WRAPPER}} .galaxie-account-kit-item-name', 'text', array( 'inline', 'position' ) );
 		PixfortControls::thumb( $this, 'item_thumb', '{{WRAPPER}} .galaxie-account-kit-thumb' );
 		$this->add_responsive_control(
 			'items_gap',
