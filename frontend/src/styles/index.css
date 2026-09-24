@@ -798,7 +798,9 @@ form.galaxie-buybox .galaxie-kit-button[aria-disabled="true"] {
 
 .galaxie-kit-builder [hidden],
 .galaxie-kit-progress [hidden],
-.galaxie-kit-progress[hidden] {
+.galaxie-kit-progress[hidden],
+.galaxie-account-kit [hidden],
+.galaxie-account-kit[hidden] {
   display: none !important;
 }
 
@@ -883,6 +885,7 @@ form.galaxie-buybox .galaxie-kit-button[aria-disabled="true"] {
 /* Nothing settled behind the bar: striped rather than empty, because a bar at
    zero reads as "plenty of room" and that is exactly what is not known. */
 .galaxie-kit-fill.is-unknown .galaxie-kit-fill-bar,
+.galaxie-account-kit.is-unknown .galaxie-account-kit-fill,
 .galaxie-kit-progress.is-unknown .galaxie-kit-progress-fill {
   background-image: repeating-linear-gradient(
     45deg,
@@ -1159,6 +1162,96 @@ button.galaxie-kit-qty-step:disabled {
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
+}
+
+/* Galaxie Account Kit: the dashboard's card. Its parts stack; only the
+   buttons, the items and the kept-kit offer lay out in a row, so a narrow
+   column (a sidebar, a phone) never has to scroll sideways. */
+.galaxie-account-kit,
+.galaxie-account-kit-state,
+.galaxie-account-kit-invite {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.galaxie-account-kit-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.galaxie-account-kit-icon {
+  display: inline-flex;
+  flex: none;
+}
+
+.galaxie-account-kit-heading {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.galaxie-account-kit-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.galaxie-account-kit-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.galaxie-account-kit-thumb {
+  width: 40px;
+  height: 40px;
+  flex: none;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+/* One the shop stopped selling: still listed, because it is why the kit
+   cannot go to the cart, but never mistaken for one that can. */
+.galaxie-account-kit-item.is-gone {
+  opacity: 0.55;
+  text-decoration: line-through;
+}
+
+.galaxie-account-kit-track {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.galaxie-account-kit-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--pix-primary, currentColor);
+  transition: width 0.25s ease;
+}
+
+.galaxie-account-kit-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+
+.galaxie-account-kit-actions,
+.galaxie-account-kit-previous {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+/* Pushed away from the buttons above it: it is a different kit. */
+.galaxie-account-kit-previous {
+  justify-content: space-between;
+  padding-top: 12px;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
 }
 
 /* A gift's accessory in the cart: its quantity is the gift's. */

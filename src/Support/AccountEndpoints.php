@@ -81,6 +81,10 @@ final class AccountEndpoints {
 	private const DEFAULT_WIDGETS = array(
 		'dashboard'             => array(
 			array( 'galaxie-account-user', array() ),
+			// Gift Wrap's card: a kit left half-built is the one thing on this
+			// screen the customer can lose. With the module off the widget is
+			// not registered and render_widget() draws nothing.
+			array( 'galaxie-account-kit', array() ),
 			array( 'galaxie-account-orders', array( 'orders_source' => 'recent', 'orders_per_page' => 3, 'orders_heading' => 'Pedidos recentes' ) ),
 		),
 		'orders'                => array( array( 'galaxie-account-orders', array() ) ),
