@@ -3162,6 +3162,10 @@ address.galaxie-order-body {
 
 .galaxie-comm-option {
   display: flex;
+  /* pixfort's own `.card` is a column, and it was winning here: the switch
+     ended up under the text with everything centred, whatever this said. */
+  flex-direction: row;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 20px;
@@ -3171,10 +3175,27 @@ address.galaxie-order-body {
   cursor: pointer;
 }
 
+/* The switch before the text: the same row read the other way round. */
+.galaxie-comm-option.is-switch-start .galaxie-switch {
+  order: -1;
+}
+
+.galaxie-comm-option.is-switch-below {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.galaxie-comm-option.is-switch-below .galaxie-switch {
+  align-self: var(--galaxie-comm-switch-self, flex-start);
+}
+
 .galaxie-comm-copy {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  /* Takes the room the switch does not, so the text wraps instead of the row. */
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .galaxie-switch {
