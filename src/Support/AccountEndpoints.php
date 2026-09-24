@@ -85,7 +85,12 @@ final class AccountEndpoints {
 			// screen the customer can lose. With the module off the widget is
 			// not registered and render_widget() draws nothing.
 			array( 'galaxie-account-kit', array() ),
+			// What is waiting for payment first: it is the only thing on this
+			// screen the customer can still act on. Nothing waiting, no widget.
+			array( 'galaxie-account-orders', array( 'orders_source' => 'waiting', 'orders_per_page' => 3, 'orders_heading' => 'Esperando pagamento' ) ),
 			array( 'galaxie-account-orders', array( 'orders_source' => 'recent', 'orders_per_page' => 3, 'orders_heading' => 'Pedidos recentes' ) ),
+			// Where the orders go, and the way to change it before the next one.
+			array( 'galaxie-account-addresses', array( 'addr_which' => 'shipping', 'addr_intro' => '', 'addr_columns' => '1' ) ),
 		),
 		'orders'                => array( array( 'galaxie-account-orders', array() ) ),
 		'view-order'            => array( array( 'galaxie-account-order', array() ) ),

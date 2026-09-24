@@ -36,6 +36,14 @@ final class CandleFields {
 		'height' => '_galaxie_gift_height',
 	);
 
+	/**
+	 * What the simple product's fields are posted as. The variation panel
+	 * posts the same meta keys as arrays (`_galaxie_gift_length[0]`), and one
+	 * name cannot be both: the Shipping tab renders on a variable product too
+	 * (hidden, but submitted), so its inputs answer to a name of their own.
+	 */
+	public const SIMPLE_FIELD = '_galaxie_gift_simple_';
+
 	private const NONCE = 'galaxie_gift_candle_fields';
 
 	private const NONCE_FIELD = 'galaxie_gift_candle_nonce';
@@ -171,7 +179,7 @@ final class CandleFields {
 
 			woocommerce_wp_text_input(
 				array(
-					'id'                => self::META[ $field ],
+					'id'                => self::SIMPLE_FIELD . $field,
 					'value'             => $value > 0 ? wc_format_localized_decimal( $value ) : '',
 					'label'             => $label,
 					'type'              => 'number',
@@ -198,12 +206,14 @@ final class CandleFields {
 			return;
 		}
 
-		foreach ( self::META as $key ) {
-			if ( ! isset( $_POST[ $key ] ) || is_array( $_POST[ $key ] ) ) {
+		foreach ( self::META as $field => $key ) {
+			$posted = self::SIMPLE_FIELD . $field;
+
+			if ( ! isset( $_POST[ $posted ] ) || is_array( $_POST[ $posted ] ) ) {
 				continue;
 			}
 
-			$value = self::clean( wc_clean( wp_unslash( $_POST[ $key ] ) ) ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- wc_clean.
+			$value = self::clean( wc_clean( wp_unslash( $_POST[ $posted ] ) ) ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- wc_clean.
 
 			'' !== $value ? $product->update_meta_data( $key, $value ) : $product->delete_meta_data( $key );
 		}

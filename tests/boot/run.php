@@ -507,12 +507,36 @@ function galaxie_boot_kit( array $booted, array $scenario, callable $hooked ): s
 		$defaults = ( new ReflectionClass( \Galaxie\Woo\Support\AccountEndpoints::class ) )->getConstant( 'DEFAULT_WIDGETS' );
 		$names    = array_map( static fn( array $row ): string => (string) $row[0], $defaults['dashboard'] ?? array() );
 
-		if ( ! in_array( 'galaxie-account-kit', $names, true ) ) {
-			throw new RuntimeException( 'Kit: the account dashboard does not offer the kit card' );
+		if ( array( 'galaxie-account-user', 'galaxie-account-kit', 'galaxie-account-orders', 'galaxie-account-orders', 'galaxie-account-addresses' ) !== $names ) {
+			throw new RuntimeException( 'Account: the dashboard is ' . implode( ', ', $names ) );
+		}
+
+		// The first orders widget is what is waiting for the customer, and it
+		// draws nothing when nothing is; the second is the recent list.
+		$sources = array_map( static fn( array $row ): string => (string) ( $row[1]['orders_source'] ?? '' ), $defaults['dashboard'] );
+
+		if ( array( '', '', 'waiting', 'recent', '' ) !== $sources ) {
+			throw new RuntimeException( 'Account: the dashboard order sources are ' . implode( ', ', $sources ) );
+		}
+
+		if ( array( 'wc-pending', 'wc-failed', 'wc-on-hold' ) !== \Galaxie\Woo\Modules\MyAccount\Widget\AccountOrdersWidget::WAITING ) {
+			throw new RuntimeException( 'Account: the waiting statuses changed' );
 		}
 
 		$widget->settings = array( 'editor_state' => 'kit' );
 		$card             = $widget->render_for_test();
+
+		// The total's label travels in the texts, not in the markup: live the
+		// node is printed empty, and a label read back from it would be gone.
+		if ( ! preg_match( '/data-texts="([^"]*)"/', $card, $found ) || false === strpos( html_entity_decode( $found[1] ), '"total":"Total do kit"' ) ) {
+			throw new RuntimeException( 'Kit: the account card does not send its total label' );
+		}
+
+		$accessories = \Galaxie\Woo\Modules\GiftWrap\Module::accessory_categories();
+
+		if ( array( 125 ) !== $accessories ) {
+			throw new RuntimeException( 'Kit: the accessory categories are ' . implode( ',', $accessories ) );
+		}
 
 		foreach ( array( 'data-kit-tpl="item"', 'data-kit-action="continue"', 'data-kit-action="discard"', 'data-dialog="account_kit_discard"', 'data-dialog="account_kit_restore"' ) as $part ) {
 			if ( false === strpos( $card, $part ) ) {
