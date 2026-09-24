@@ -1,4 +1,5 @@
 import type { PixButtonData, PixUi } from '@/lib/pix'
+import type { StripeConfig } from '@/lib/stripe-cards'
 import type { LoginText } from '@/islands/login/OtpLogin'
 
 export type StepId = 'entry' | 'profile' | 'address' | 'payment'
@@ -72,6 +73,20 @@ export interface CheckoutText extends LoginText {
   changeEmail: string
   marketing: string
   terms: string
+  addAddress: string
+  /** Contains `%s`, replaced by the CEP. */
+  quotedNotice: string
+  useQuoted: string
+  defaultBadge: string
+  cancel: string
+  addCard: string
+  saveCard: string
+  needCard: string
+  addressNickname: string
+  addressNicknameHint: string
+  cardNumber: string
+  cardExpiry: string
+  cardCvc: string
   summaryTitle: string
   summaryTotal: string
   summaryShow: string
@@ -136,6 +151,9 @@ export interface CheckoutUi extends PixUi {
     thumb: string
     qty: string
     token: string
+    address: string
+    addrName: string
+    addrText: string
     tokenBadge: string
     tokenNumber: string
     tokenExpiry: string
@@ -152,7 +170,12 @@ export interface CheckoutUi extends PixUi {
     | 'edit'
     | 'resendCode'
     | 'changeEmail'
-    | 'logout',
+    | 'logout'
+    | 'addAddress'
+    | 'useQuoted'
+    | 'cancel'
+    | 'addCard'
+    | 'saveCard',
     PixButtonData
   >
 }
@@ -171,6 +194,15 @@ export interface CheckoutProps {
   layout: CheckoutLayout
   text: CheckoutText
   ui: CheckoutUi
+  /**
+   * The customer's Address Book (PHP `AddressBook::for_js()` plus its own
+   * nonce); null when that module is off, and the step keeps its single form.
+   */
+  addressBook: AddressBookData | null
+  /** The CEP quoted on the cart (WooCommerce's session), if one was typed. */
+  quoted: { postcode: string; city: string; state: string } | null
+  /** PHP `StripeCards::client_config()`: null when cards cannot be added here. */
+  stripeCards: StripeConfig | null
   i18n: {
     genericError: string
     noShipping: string
@@ -181,4 +213,22 @@ export interface CheckoutProps {
    * cards, new card, Pix, boleto) in the live block's own markup.
    */
   preview: { step: StepId; firstPurchase: boolean; payment: string } | null
+}
+
+/** One Address Book entry, as `AddressBook::for_js()` describes it. */
+export interface AddressBookEntry {
+  id: string
+  label: string
+  /** WooCommerce's formatted address, escaped, lines joined with <br/>. */
+  formatted: string
+  values: Partial<AddressValues> & { first_name?: string; last_name?: string; phone?: string }
+  /** This entry is the account's default shipping / billing address. */
+  shipping: boolean
+  billing: boolean
+}
+
+export interface AddressBookData {
+  ajaxUrl: string
+  nonce: string
+  entries: AddressBookEntry[]
 }

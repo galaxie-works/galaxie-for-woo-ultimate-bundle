@@ -5,6 +5,7 @@ import { Input } from '@/ui/input'
 import { CoField, PixButton, useFieldClass, useUi } from '@/lib/pix'
 import type { AddressValues, CheckoutText, CheckoutUi } from './types'
 import type { AddressErrors } from './validation'
+import { ShippingChoice } from './ShippingChoice'
 
 interface AddressStepProps {
   initial: Partial<AddressValues>
@@ -147,41 +148,14 @@ function AddressStep({
         </form>
       )}
 
-      {/* Mounted even while the form shows: WooCommerce's list is moved in
-          here on every recalculation and must always have somewhere to land. */}
-      <div hidden={!showSummary} className="gx-co-form">
-        <div role="heading" aria-level={3} className={cn('gx-co-label', cls.label)}>
-          {text.shippingHeading}
-        </div>
-        {preview ? <SampleShipping /> : <div ref={shippingMountRef} className="galaxie-shipping-mount" />}
-        <PixButton button={buttons.paymentButton} onClick={onContinue} disabled={busy} />
-      </div>
-    </div>
-  )
-}
-
-/**
- * The shape WooCommerce's own list takes once moved in and decorated (see
- * native-checkout.ts `decorateShipping`), so the editor styles the real thing.
- */
-function SampleShipping() {
-  const { cls } = useUi<CheckoutUi>()
-  const rates = [
-    { id: 'sedex', label: 'SEDEX (2 a 4 dias úteis)', price: 'R$ 14,90' },
-    { id: 'pac', label: 'PAC (5 a 8 dias úteis)', price: 'R$ 9,67' },
-  ]
-  return (
-    <div className="galaxie-shipping-mount">
-      <ul id="shipping_method" className="woocommerce-shipping-methods">
-        {rates.map((rate, i) => (
-          <li key={rate.id} className={cls.rate}>
-            <input type="radio" name="gx_sample_shipping" id={`gx-sample-${rate.id}`} className="shipping_method" defaultChecked={0 === i} />
-            <label htmlFor={`gx-sample-${rate.id}`} className={cls.rateName}>
-              {rate.label}: <span className="woocommerce-Price-amount amount">{rate.price}</span>
-            </label>
-          </li>
-        ))}
-      </ul>
+      <ShippingChoice
+        text={text}
+        shippingMountRef={shippingMountRef}
+        busy={busy}
+        shown={showSummary}
+        onContinue={onContinue}
+        preview={preview}
+      />
     </div>
   )
 }
