@@ -3977,6 +3977,14 @@ address.galaxie-order-body {
   /* Named: the columns' own @container wrappers are nearer to the summary
      bar than this is, and an unnamed query asked them instead. */
   container: gx-co / inline-size;
+  width: 100%;
+}
+/* A size container has no width of its own to offer, and in an Elementor
+   row (a flex line that sizes widgets to their content) that left the whole
+   checkout 0px wide on phones. The widget takes the row's width instead;
+   `:where` keeps this below Elementor's own "Width" control. */
+:where(.e-con, .e-con-inner) > .elementor-widget-galaxie-checkout {
+  width: 100%;
 }
 .gx-co-grid {
   display: grid;
