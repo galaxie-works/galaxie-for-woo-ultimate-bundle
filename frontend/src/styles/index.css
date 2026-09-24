@@ -4417,8 +4417,16 @@ address.galaxie-order-body {
   padding: 0;
   border: 0;
   border-radius: 0;
-  background: transparent;
   color: var(--foreground);
+}
+/* pixfort's WooCommerce sheet also paints the block's own class with
+   !important (a white 80% panel with an inset shadow), which only a more
+   specific !important can answer. */
+.gx-co .galaxie-payment-mount #payment.woocommerce-checkout-payment,
+.gx-co .galaxie-payment-mount #payment {
+  margin: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
 }
 .gx-co .galaxie-payment-mount #payment ul.payment_methods {
   display: grid;
