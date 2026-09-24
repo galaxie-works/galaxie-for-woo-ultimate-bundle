@@ -25,6 +25,13 @@ final class Widgets {
 		add_action( 'elementor/elements/categories_registered', array( $this, 'register_category' ) );
 		add_action( 'elementor/widgets/register', array( $this, 'register_widgets' ) );
 
+		// The island bundle, in the editor's preview frame from the start. A
+		// widget enqueues it from its own render(), which only works when the
+		// page is loaded with the widget already on it; a widget dragged in
+		// later is rendered over AJAX, long after the frame printed its
+		// scripts, and was left as an empty mount.
+		add_action( 'elementor/preview/enqueue_scripts', array( \Galaxie\Woo\Support\Assets::class, 'enqueue' ) );
+
 		// Registered through a closure on purpose. Naming the class here would
 		// autoload it during `plugins_loaded`, and a class that extends an
 		// Elementor base has no business being loaded before Elementor is up —

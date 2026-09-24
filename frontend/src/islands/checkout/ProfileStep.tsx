@@ -1,20 +1,23 @@
 import * as React from 'react'
 
-import { Button } from '@/ui/button'
-import { Field } from '@/ui/field'
 import { Input } from '@/ui/input'
 import { PhoneInput } from '@/ui/phone-input'
-import type { ProfileValues } from './types'
+import { CoField, PixButton, useFieldClass, useUi } from '@/lib/pix'
+import type { CheckoutText, CheckoutUi, ProfileValues } from './types'
 import { BAD_PHONE, type ProfileErrors } from './validation'
 
 interface ProfileStepProps {
   initial: Partial<ProfileValues>
   busy: boolean
   errors: ProfileErrors
+  text: CheckoutText
   onSave: (values: ProfileValues) => void
 }
 
-function ProfileStep({ initial, busy, errors, onSave }: ProfileStepProps) {
+function ProfileStep({ initial, busy, errors, text, onSave }: ProfileStepProps) {
+  const { buttons } = useUi<CheckoutUi>()
+  const field = useFieldClass()
+  const id = React.useId()
   const [values, setValues] = React.useState<ProfileValues>({
     first_name: initial.first_name ?? '',
     last_name: initial.last_name ?? '',
@@ -48,49 +51,65 @@ function ProfileStep({ initial, busy, errors, onSave }: ProfileStepProps) {
         setPhoneError(undefined)
         onSave(values)
       }}
-      className="mx-auto flex max-w-sm flex-col gap-4"
+      className="gx-co-form"
     >
-      <div className="grid grid-cols-2 gap-3">
-        <Field label="First name" error={errors.first_name}>
+      <div className="gx-co-grid-2">
+        <CoField label={text.firstName} htmlFor={`${id}-fn`} error={errors.first_name}>
           <Input
+            unstyled
+            id={`${id}-fn`}
             required
+            autoComplete="given-name"
+            className={field}
             aria-invalid={!!errors.first_name}
             value={values.first_name}
             onChange={(e) => set('first_name', e.target.value)}
           />
-        </Field>
-        <Field label="Last name" error={errors.last_name}>
+        </CoField>
+        <CoField label={text.lastName} htmlFor={`${id}-ln`} error={errors.last_name}>
           <Input
+            unstyled
+            id={`${id}-ln`}
             required
+            autoComplete="family-name"
+            className={field}
             aria-invalid={!!errors.last_name}
             value={values.last_name}
             onChange={(e) => set('last_name', e.target.value)}
           />
-        </Field>
-      </div>
-      <div className="grid grid-cols-2 gap-3">
-        <Field label="Date of birth" error={errors.birthdate}>
+        </CoField>
+        <CoField label={text.birthdate} htmlFor={`${id}-bd`} error={errors.birthdate}>
           <Input
+            unstyled
+            id={`${id}-bd`}
             type="date"
             required
+            className={field}
             aria-invalid={!!errors.birthdate}
             value={values.birthdate}
             onChange={(e) => set('birthdate', e.target.value)}
           />
-        </Field>
-        <Field label="CPF" error={errors.cpf}>
+        </CoField>
+        <CoField label={text.cpf} htmlFor={`${id}-cpf`} error={errors.cpf}>
           <Input
+            unstyled
+            id={`${id}-cpf`}
             required
+            inputMode="numeric"
+            className={field}
             aria-invalid={!!errors.cpf}
             value={values.cpf}
             onChange={(e) => set('cpf', e.target.value)}
             placeholder="000.000.000-00"
           />
-        </Field>
+        </CoField>
       </div>
-      <Field label="Phone" error={phoneError ?? errors.phone}>
+      <CoField label={text.phone} htmlFor={`${id}-ph`} error={phoneError ?? errors.phone}>
         <PhoneInput
+          unstyled
+          id={`${id}-ph`}
           required
+          className={field}
           aria-invalid={!!(phoneError ?? errors.phone)}
           value={values.phone}
           onChange={(phone, valid) => {
@@ -98,10 +117,8 @@ function ProfileStep({ initial, busy, errors, onSave }: ProfileStepProps) {
             setPhoneValid(valid)
           }}
         />
-      </Field>
-      <Button type="submit" disabled={busy}>
-        Continue
-      </Button>
+      </CoField>
+      <PixButton button={buttons.profileButton} type="submit" disabled={busy} />
     </form>
   )
 }

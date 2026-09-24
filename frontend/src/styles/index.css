@@ -14,35 +14,39 @@
 @import 'tw-animate-css';
 
 /*
- * Design tokens. Each maps to the active pixfort theme's CSS variable
- * (`--pix-*`, confirmed live on staging) with a shadcn "new-york" neutral value
- * as the fallback — so components look native inside pixfort, and still render
- * correctly on any other theme (or none) via the fallback. Defined on
- * `.galaxie-ui`, NOT `:root`, so we never touch the host page's own tokens.
+ * Design tokens. Each maps to the active pixfort theme's CSS variable with a
+ * shadcn "new-york" neutral as the fallback, and is defined on `.galaxie-ui`,
+ * NOT `:root`, so we never touch the host page's own tokens.
  *
- * High-confidence mappings are wired (surface/text/primary/ring). The rest stay
- * neutral until the visual pass on staging pins the right pixfort var for each
- * (e.g. secondary/muted/border, and mapping shadows to --pix-box-shadow*).
+ * Surface and text follow pixfort's *dynamic* variables, the ones its dark
+ * mode (`html.pix-dark`) swaps. The first cut used `--pix-white` for the
+ * surface; pixfort never swaps that one, so in dark mode the checkout's tabs
+ * came out as white slabs on a black page.
+ *
+ * The neutrals (muted, border, input…) used to be fixed light greys, which
+ * nearly vanish on white and glare on black. They are now mixed from the text
+ * colour, so they stay the same *contrast* on either background, and any
+ * widget that repaints `--foreground` from its style panel repaints them too.
  */
 .galaxie-ui {
   --radius: 0.625rem;
-  --background: var(--pix-white, oklch(1 0 0));
-  --foreground: var(--pix-body-default, oklch(0.145 0 0));
-  --card: var(--pix-white, oklch(1 0 0));
-  --card-foreground: var(--pix-body-default, oklch(0.145 0 0));
-  --popover: var(--pix-white, oklch(1 0 0));
-  --popover-foreground: var(--pix-body-default, oklch(0.145 0 0));
+  --background: var(--pix-dynamic-background, oklch(1 0 0));
+  --foreground: var(--pix-heading-default, oklch(0.145 0 0));
+  --card: color-mix(in srgb, var(--foreground) 3%, var(--background));
+  --card-foreground: var(--foreground);
+  --popover: var(--background);
+  --popover-foreground: var(--foreground);
   --primary: var(--pix-primary, oklch(0.205 0 0));
   --primary-foreground: var(--pix-btn-color, oklch(0.985 0 0));
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+  --secondary: color-mix(in srgb, var(--foreground) 6%, transparent);
+  --secondary-foreground: var(--foreground);
+  --muted: color-mix(in srgb, var(--foreground) 6%, transparent);
+  --muted-foreground: var(--pix-body-default, color-mix(in srgb, var(--foreground) 62%, transparent));
+  --accent: color-mix(in srgb, var(--foreground) 8%, transparent);
+  --accent-foreground: var(--foreground);
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
+  --border: color-mix(in srgb, var(--foreground) 14%, transparent);
+  --input: color-mix(in srgb, var(--foreground) 22%, transparent);
   --ring: var(--pix-primary, oklch(0.708 0 0));
 }
 
@@ -79,11 +83,130 @@
   box-sizing: border-box;
 }
 
+/* The page's font, not a system stack: pixfort sets Manrope on the body and
+   the island used to replace it with -apple-system/Segoe UI, so every island
+   read as a different site. */
 .galaxie-ui {
-  font-family: var(--font-sans, ui-sans-serif, system-ui, -apple-system, sans-serif);
+  font-family: inherit;
   color: var(--foreground);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+}
+
+/* Without Tailwind's preflight a <button> keeps the browser's own chrome — a
+   2px outset border, a grey face, the system font — under our utilities,
+   which only ever *add* a border or a background. This is the slice of
+   preflight a button needs, in the base layer so any utility still wins.
+
+   Scoped to React islands and their dialogs, not every `.galaxie-ui`: the
+   PHP widgets that carry the class (buy box, quantity discounts, spotlight)
+   print pixfort's own components, whose spacing and list styles lean on the
+   browser defaults this would strip. */
+@layer base {
+  :is([data-galaxie-island], .galaxie-ui[role='dialog']) :is(button, input, select, textarea) {
+    font: inherit;
+    letter-spacing: inherit;
+    color: inherit;
+    margin: 0;
+  }
+  :is([data-galaxie-island], .galaxie-ui[role='dialog']) button {
+    appearance: none;
+    background: transparent;
+    border: 0 solid;
+    padding: 0;
+    cursor: pointer;
+    text-transform: none;
+  }
+  :is([data-galaxie-island], .galaxie-ui[role='dialog']) button:disabled {
+    cursor: default;
+  }
+  :is([data-galaxie-island], .galaxie-ui[role='dialog']) :is(input, select, textarea) {
+    border: 0 solid;
+    background-color: transparent;
+  }
+  :is([data-galaxie-island], .galaxie-ui[role='dialog']) :is(ol, ul) {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  :is([data-galaxie-island], .galaxie-ui[role='dialog']) :is(h1, h2, h3, h4, p) {
+    margin: 0;
+  }
+  :is([data-galaxie-island], .galaxie-ui[role='dialog']) img {
+    display: block;
+    max-width: 100%;
+  }
+}
+
+/* pixfort paints every element whose class list has a word starting "bg-":
+
+     [class*=" bg-"] { background-color: var(--pix-bg-color) !important; }
+
+   That catches Tailwind's background utilities too, so inside an island every
+   `bg-primary`, `bg-card`, `bg-muted` came out in whatever --pix-bg-color
+   happened to inherit (the store's dark green), and no hover ever showed: an
+   !important from outside any layer beats every utility we have. Rather than
+   fight the rule, feed it: each background utility in use also sets the
+   variable pixfort reads, so pixfort's own declaration paints our colour.
+   Scoped like the base reset — the PHP widgets that carry .galaxie-ui use
+   pixfort's real bg-* classes and must keep pixfort's values. A new bg-*
+   utility in an island needs its line here. */
+:is([data-galaxie-island], .galaxie-ui[role='dialog']) :is(.bg-primary),
+.galaxie-ui[role='dialog'].bg-primary {
+  --pix-bg-color: var(--primary);
+}
+:is([data-galaxie-island], .galaxie-ui[role='dialog']) .bg-primary\/15 {
+  --pix-bg-color: color-mix(in oklab, var(--primary) 15%, transparent);
+}
+:is([data-galaxie-island], .galaxie-ui[role='dialog']) .bg-secondary {
+  --pix-bg-color: var(--secondary);
+}
+:is([data-galaxie-island], .galaxie-ui[role='dialog']) .bg-muted {
+  --pix-bg-color: var(--muted);
+}
+:is([data-galaxie-island], .galaxie-ui[role='dialog']) .bg-card {
+  --pix-bg-color: var(--card);
+}
+:is([data-galaxie-island], .galaxie-ui[role='dialog']) .bg-popover,
+.galaxie-ui[role='dialog'].bg-popover {
+  --pix-bg-color: var(--popover);
+}
+:is([data-galaxie-island], .galaxie-ui[role='dialog']) .bg-background,
+.galaxie-ui[role='dialog'].bg-background {
+  --pix-bg-color: var(--background);
+}
+:is([data-galaxie-island], .galaxie-ui[role='dialog']) .bg-foreground {
+  --pix-bg-color: var(--foreground);
+}
+:is([data-galaxie-island], .galaxie-ui[role='dialog']) .bg-transparent {
+  --pix-bg-color: transparent;
+}
+:is([data-galaxie-island], .galaxie-ui[role='dialog']) .bg-destructive {
+  --pix-bg-color: var(--destructive);
+}
+:is([data-galaxie-island], .galaxie-ui[role='dialog']) .bg-destructive\/5 {
+  --pix-bg-color: color-mix(in oklab, var(--destructive) 5%, transparent);
+}
+:is([data-galaxie-island], .galaxie-ui[role='dialog']) .bg-destructive\/10 {
+  --pix-bg-color: color-mix(in oklab, var(--destructive) 10%, transparent);
+}
+.galaxie-ui.bg-black\/50 {
+  --pix-bg-color: color-mix(in oklab, #000 50%, transparent);
+}
+/* Hover, for the elements pixfort has pinned: the variable moves, pixfort's
+   rule follows. */
+:is([data-galaxie-island], .galaxie-ui[role='dialog']) .bg-primary.hover\:bg-primary\/90:hover:not(:disabled) {
+  --pix-bg-color: color-mix(in oklab, var(--primary) 90%, transparent);
+}
+:is([data-galaxie-island], .galaxie-ui[role='dialog']) .bg-secondary.hover\:bg-secondary\/80:hover:not(:disabled) {
+  --pix-bg-color: color-mix(in oklab, var(--secondary) 80%, transparent);
+}
+:is([data-galaxie-island], .galaxie-ui[role='dialog']) .bg-destructive.hover\:bg-destructive\/90:hover:not(:disabled) {
+  --pix-bg-color: color-mix(in oklab, var(--destructive) 90%, transparent);
+}
+:is([data-galaxie-island], .galaxie-ui[role='dialog']) .bg-background.hover\:bg-accent:hover:not(:disabled),
+:is([data-galaxie-island], .galaxie-ui[role='dialog']) .bg-transparent.hover\:bg-accent:hover:not(:disabled) {
+  --pix-bg-color: var(--accent);
 }
 
 /* Interest-pill selection burst (My Account). One short run per particle,
@@ -2964,3 +3087,839 @@ address.galaxie-order-body {
   align-items: flex-start;
   gap: 14px;
 }
+
+/* ── Galaxie Checkout ─────────────────────────────────────────────────────
+   Two columns (steps, order summary) from 820px of the widget's own width up,
+   one below it. A container query, not a media query: the widget can sit in
+   a narrow Elementor column on a wide screen, and it is the column that has
+   to decide. The widget's Layout controls write the custom properties.
+
+   Everything a panel control paints — colour, radius, shadow, type — comes
+   from pixfort's classes and Elementor's generated rules, both outside any
+   cascade layer. What is here is structure (grid, gaps, sizes) and a
+   neutral first look, in the components layer so that any of those wins.
+   No border-radius is set on a part the panel shapes: its corners are the
+   pixfort class the "Rounded corners" control prints, and a radius here
+   would make "None" there do nothing. */
+.gx-co {
+  --gx-co-gap: 48px;
+  --gx-co-summary-width: 380px;
+  --gx-co-sticky-top: 24px;
+  /* Named: the columns' own @container wrappers are nearer to the summary
+     bar than this is, and an unnamed query asked them instead. */
+  container: gx-co / inline-size;
+  width: 100%;
+}
+/* A size container has no width of its own to offer, and in an Elementor
+   row (a flex line that sizes widgets to their content) that left the whole
+   checkout 0px wide on phones. The widget takes the row's width instead;
+   `:where` keeps this below Elementor's own "Width" control. */
+:where(.e-con, .e-con-inner) > .elementor-widget-galaxie-checkout {
+  width: 100%;
+}
+.gx-co-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+}
+/* On a phone the summary comes first, folded into a bar with the total. */
+.gx-co-aside {
+  order: -1;
+}
+@container gx-co (min-width: 820px) {
+  .gx-co-grid {
+    grid-template-columns: minmax(0, 1fr) var(--gx-co-summary-width);
+    gap: var(--gx-co-gap);
+    align-items: start;
+  }
+  .gx-co-aside {
+    order: 0;
+  }
+  .gx-co--left .gx-co-grid {
+    grid-template-columns: var(--gx-co-summary-width) minmax(0, 1fr);
+  }
+  .gx-co--left .gx-co-aside {
+    order: -1;
+  }
+  .gx-co--sticky .gx-co-aside {
+    position: sticky;
+    top: var(--gx-co-sticky-top);
+  }
+  .gx-co-summary-bar {
+    display: none !important;
+  }
+  .gx-co-summary-body[hidden] {
+    display: block;
+  }
+}
+
+@layer components {
+  /* Steps */
+  .gx-co-main {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
+  }
+  .gx-co-step {
+    padding: 18px 20px;
+    border: 1px solid var(--border);
+    transition: background-color 0.2s, border-color 0.2s;
+  }
+  .gx-co-step.is-current {
+    padding: 22px 24px;
+  }
+  .gx-co-step-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .gx-co-step-dot {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border: 1px solid var(--border);
+    color: var(--muted-foreground);
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1;
+  }
+  .gx-co-step.is-current .gx-co-step-dot {
+    border-color: transparent;
+    background-color: var(--primary);
+    color: var(--primary-foreground);
+  }
+  .gx-co-step.is-done .gx-co-step-dot {
+    border-color: transparent;
+    background-color: color-mix(in srgb, var(--primary) 15%, transparent);
+    color: var(--foreground);
+  }
+  .gx-co-step-title {
+    flex: 1;
+    margin: 0;
+    color: var(--foreground);
+  }
+  .gx-co-step.is-upcoming .gx-co-step-title {
+    opacity: 0.55;
+  }
+  .gx-co-step-summary {
+    margin-top: 8px;
+    padding-left: 40px;
+  }
+  .gx-co-step-body {
+    margin-top: 20px;
+  }
+
+  /* Forms */
+  .gx-co-form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .gx-co-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+  }
+  .gx-co-label {
+    margin: 0;
+    color: var(--foreground);
+  }
+  .gx-co-error {
+    color: var(--destructive);
+  }
+  .gx-co-grid-2 {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+  .gx-co-grid-city {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 5.5rem;
+    gap: 16px;
+  }
+  @container (min-width: 420px) {
+    .gx-co-grid-2 {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .gx-co-field--cep {
+      max-width: 12rem;
+    }
+  }
+  .gx-co .form-control {
+    width: 100%;
+  }
+  .gx-co .form-control[aria-invalid='true'] {
+    border-color: var(--destructive);
+  }
+  .gx-co .iti {
+    display: block;
+    width: 100%;
+  }
+  .gx-co-otp {
+    width: 3rem !important;
+    height: 3.25rem;
+    padding: 0 !important;
+    text-align: center;
+    font-size: 1.25rem;
+  }
+
+  /* Sign-in tabs: two pills side by side on a shared track. */
+  .gx-co-tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+    padding: 4px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+  }
+  .gx-co-tab {
+    padding: 10px 12px;
+    border: 1px solid transparent;
+    color: var(--muted-foreground);
+    line-height: 1.2;
+    text-align: center;
+    cursor: pointer;
+    transition: background-color 0.15s, color 0.15s;
+  }
+  .gx-co-tab.is-current {
+    background-color: var(--primary);
+    color: var(--primary-foreground);
+  }
+
+  /* Option rows: the opt-in switch, the address recap. */
+  .gx-co-option {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin: 0;
+    padding: 14px 16px;
+    border: 1px solid var(--border);
+    background-color: transparent;
+    cursor: pointer;
+  }
+  .gx-co-recap {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px 16px;
+    border: 1px solid var(--border);
+  }
+  .gx-co-recap p {
+    margin: 0;
+  }
+  .gx-co-check {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin: 0;
+    cursor: pointer;
+  }
+  .gx-co-check input {
+    flex: none;
+    width: 16px;
+    height: 16px;
+    margin-top: 2px;
+    accent-color: var(--primary);
+  }
+  .gx-co-links {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 20px;
+  }
+
+  /* Buttons: pixfort's .btn inside our element (.galaxie-account-submit).
+     Full width reaches the wrapper too, or the .btn stretches inside a
+     button that does not. */
+  .gx-co-btn.is-full,
+  .gx-co-btn.is-full > .btn,
+  .gx-co-btn.is-full > div,
+  .gx-co-btn.is-full > div > .btn {
+    display: flex;
+    width: 100%;
+  }
+  .gx-co-btn .btn {
+    justify-content: center;
+  }
+
+  /* Order summary */
+  .gx-co-summary-box {
+    display: block;
+    border: 1px solid var(--border);
+    overflow: hidden;
+  }
+  .gx-co-summary-bar {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 20px;
+    color: var(--foreground);
+    text-align: left;
+  }
+  .gx-co-summary-body {
+    padding: 22px 24px;
+  }
+  .gx-co-summary-title {
+    margin: 0 0 16px;
+    color: var(--foreground);
+  }
+  .gx-co-items {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .gx-co-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .gx-co-thumb-wrap {
+    position: relative;
+    flex: none;
+  }
+  .gx-co-thumb {
+    display: block;
+    width: 56px;
+    height: 56px;
+    object-fit: cover;
+  }
+  .gx-co-qty {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 5px;
+    background-color: var(--foreground);
+    color: var(--background);
+    line-height: 1;
+  }
+  .gx-co-item-text {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-width: 0;
+  }
+  .gx-co-item-name {
+    color: var(--foreground);
+  }
+  .gx-co-item-price {
+    white-space: nowrap;
+    color: var(--foreground);
+  }
+  .gx-co-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 20px 0 0;
+    padding-top: 16px;
+  }
+  .gx-co-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+  }
+  .gx-co-row-note {
+    display: block;
+  }
+  .gx-co-row-value {
+    margin: 0;
+    white-space: nowrap;
+    text-align: right;
+    color: var(--foreground);
+  }
+  .gx-co-row--total {
+    margin-top: 16px;
+    padding-top: 16px;
+  }
+  .gx-co-total-label,
+  .gx-co-total {
+    color: var(--foreground);
+  }
+  .gx-co-divider {
+    border-top: 1px solid var(--border);
+  }
+
+  /* WooCommerce's shipping list, moved into the delivery step and decorated
+     with the "Delivery: shipping options" classes (decorateShipping). */
+  .gx-co .galaxie-shipping-mount ul#shipping_method {
+    display: grid;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .gx-co .galaxie-shipping-mount ul#shipping_method li {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 0;
+    padding: 14px 16px;
+    border: 1px solid var(--border);
+    color: var(--foreground);
+    line-height: 1.4;
+    text-indent: 0;
+    transition: border-color 0.15s, background-color 0.15s;
+  }
+  .gx-co .galaxie-shipping-mount ul#shipping_method li:has(input:checked) {
+    border-color: var(--primary);
+  }
+  .gx-co .galaxie-shipping-mount ul#shipping_method input[type='radio'] {
+    flex: none;
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    accent-color: var(--primary);
+  }
+  .gx-co .galaxie-shipping-mount ul#shipping_method label {
+    flex: 1;
+    margin: 0;
+    color: inherit;
+    cursor: pointer;
+  }
+  /* The whole row is the click target, not just the words. */
+  .gx-co .galaxie-shipping-mount ul#shipping_method label::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+  }
+  .gx-co .galaxie-shipping-mount ul#shipping_method .amount {
+    float: right;
+    margin-left: 12px;
+  }
+
+}
+
+/* pixfort styles `label` by tag, outside any layer (inline-block, a bottom
+   margin), which undid the flex rows above: the opt-in text ran into its
+   switch and the terms into their checkbox. The layout of the checkout's
+   own labels is restated here, outside the layer; nothing a panel control
+   sets is in these rules. */
+.gx-co .gx-co-label {
+  display: block;
+  margin: 0;
+}
+.gx-co .gx-co-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 0;
+}
+.gx-co .gx-co-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0;
+}
+
+/* WooCommerce's place-order <button> once decorated: only the hit area, the
+   pixfort .btn inside is the button. Outside the layer — the theme styles
+   `#place_order` and `button` outside any layer too. */
+.gx-co .galaxie-payment-mount #payment #place_order.galaxie-account-submit {
+  float: none;
+  height: auto;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+}
+
+/* ── Checkout: WooCommerce's payment block ─────────────────────────────────
+   Moved into the payment step and decorated with the panel's classes
+   (native-checkout.ts decoratePayment). WooCommerce and pixfort's WooCommerce
+   sheet paint it as a tinted panel — pixfort's "secondary", a tint of the
+   store's primary, which is the gold slab on this store — with an arrow
+   bubble per method and bold half-black text inside it. All of that is
+   outside any layer with an id in the selector (`.woocommerce-checkout
+   #payment div.payment_box`), so these rules are too, one class more
+   specific. They set structure and a neutral look only: the panel's surface
+   controls write !important colours, and text colour and size are left to
+   the inherited value or the text classes the decorator adds. */
+.gx-co .galaxie-payment-mount #payment {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  color: var(--foreground);
+}
+/* pixfort's WooCommerce sheet also paints the block's own class with
+   !important (a white 80% panel with an inset shadow), which only a more
+   specific !important can answer. */
+.gx-co .galaxie-payment-mount #payment.woocommerce-checkout-payment,
+.gx-co .galaxie-payment-mount #payment {
+  margin: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+.gx-co .galaxie-payment-mount #payment ul.payment_methods {
+  display: grid;
+  gap: 10px;
+  margin: 0 0 20px;
+  padding: 0;
+  border: 0;
+  list-style: none;
+}
+.gx-co .galaxie-payment-mount #payment ul.payment_methods > li {
+  margin: 0;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  line-height: 1.4;
+  text-align: left;
+  transition: border-color 0.15s, background-color 0.15s;
+}
+/* WooCommerce clears each row with ::before/::after `display: table` holding
+   a space — an empty line above the radio in a flex-free row — and the theme
+   gives list items their marker back (the dot left of each method). */
+.gx-co .galaxie-payment-mount #payment ul.payment_methods > li,
+.gx-co .galaxie-payment-mount #payment .wc-saved-payment-methods > li {
+  list-style: none;
+}
+.gx-co .galaxie-payment-mount #payment ul.payment_methods > li::before,
+.gx-co .galaxie-payment-mount #payment ul.payment_methods > li::after,
+.gx-co .galaxie-payment-mount #payment .wc-saved-payment-methods > li::before,
+.gx-co .galaxie-payment-mount #payment .wc-saved-payment-methods > li::after {
+  content: none;
+  display: none;
+}
+.gx-co .galaxie-payment-mount #payment ul.payment_methods > li::marker {
+  content: none;
+}
+.gx-co .galaxie-payment-mount #payment ul.payment_methods > li:has(> input:checked) {
+  border-color: var(--primary);
+}
+.gx-co .galaxie-payment-mount #payment ul.payment_methods > li > input[type='radio'] {
+  margin: 0 10px 0 0 !important;
+  vertical-align: middle;
+  accent-color: var(--primary);
+}
+.gx-co .galaxie-payment-mount #payment ul.payment_methods > li > label {
+  display: inline;
+  margin: 0;
+  color: inherit;
+  cursor: pointer;
+}
+.gx-co .galaxie-payment-mount #payment ul.payment_methods > li > label img {
+  display: inline-block;
+  max-height: 22px;
+  margin: 0 0 0 8px;
+  vertical-align: middle;
+}
+
+/* The method's box: its description, and for a card the saved cards and
+   Stripe's fields. A plain area under the method, not a speech bubble. */
+.gx-co .galaxie-payment-mount #payment div.payment_box {
+  width: 100%;
+  margin: 14px 0 0;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font-size: inherit;
+  line-height: 1.5;
+}
+.gx-co .galaxie-payment-mount #payment div.payment_box::before {
+  display: none;
+}
+.gx-co .galaxie-payment-mount #payment div.payment_box p {
+  margin: 0 0 12px;
+  color: inherit;
+  font-weight: inherit;
+  font-size: inherit;
+}
+.gx-co .galaxie-payment-mount #payment div.payment_box p:last-child {
+  margin-bottom: 0;
+}
+.gx-co .galaxie-payment-mount #payment div.payment_box fieldset {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+/* Saved cards (Checkout\PaymentMarkup): one selectable row per card. */
+.gx-co .galaxie-payment-mount #payment .wc-saved-payment-methods {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 14px;
+  padding: 0;
+  list-style: none;
+}
+.gx-co .galaxie-payment-mount #payment .wc-saved-payment-methods > li {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  transition: border-color 0.15s, background-color 0.15s;
+}
+.gx-co .galaxie-payment-mount #payment .wc-saved-payment-methods > li:has(input:checked) {
+  border-color: var(--primary);
+}
+.gx-co .galaxie-payment-mount #payment .wc-saved-payment-methods > li.is-expired {
+  opacity: 0.55;
+}
+.gx-co .galaxie-payment-mount #payment .wc-saved-payment-methods input[type='radio'] {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin: 0 !important;
+  accent-color: var(--primary);
+}
+.gx-co .galaxie-payment-mount #payment .wc-saved-payment-methods label {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  margin: 0;
+  color: inherit;
+  cursor: pointer;
+}
+/* The whole row is the click target. */
+.gx-co .galaxie-payment-mount #payment .wc-saved-payment-methods label::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+}
+.gx-co .galaxie-payment-mount #payment .wc-saved-payment-methods li.is-expired label {
+  cursor: not-allowed;
+}
+.gx-co .gx-co-card-brand {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 28px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+.gx-co .gx-co-card-brand .pixfort-icon {
+  width: 26px;
+  height: 26px;
+}
+.gx-co .gx-co-card-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.3;
+}
+.gx-co .gx-co-card-expiry {
+  opacity: 0.75;
+}
+.gx-co .gx-co-card-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.gx-co .gx-co-card-badge {
+  padding: 3px 8px;
+  line-height: 1.2;
+  white-space: nowrap;
+  background-color: var(--muted);
+}
+.gx-co .gx-co-card-badge.is-expiring {
+  background-color: color-mix(in srgb, #f59e0b 22%, transparent);
+}
+.gx-co .gx-co-card-badge.is-expired {
+  background-color: color-mix(in srgb, var(--destructive) 18%, transparent);
+}
+
+/* Stripe's new-card form and the "save this card" line. */
+.gx-co .galaxie-payment-mount #payment .wc-upe-form,
+.gx-co .galaxie-payment-mount #payment .wc-payment-form {
+  margin: 0 0 12px;
+  padding: 0;
+  border: 0;
+}
+.gx-co .galaxie-payment-mount #payment .woocommerce-SavedPaymentMethods-saveNew {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+}
+.gx-co .galaxie-payment-mount #payment .woocommerce-SavedPaymentMethods-saveNew input {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin: 0 !important;
+  accent-color: var(--primary);
+}
+.gx-co .galaxie-payment-mount #payment .woocommerce-SavedPaymentMethods-saveNew label {
+  margin: 0;
+  color: inherit;
+  cursor: pointer;
+}
+
+/* The editor sample's stand-in for Stripe's fields (Checkout\PaymentMarkup::sample). */
+.gx-co .gx-co-sample-card {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.gx-co .gx-co-sample-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.gx-co .gx-co-sample-field.is-number {
+  grid-column: 1 / -1;
+}
+.gx-co .gx-co-sample-input {
+  display: flex;
+  align-items: center;
+  opacity: 0.6;
+}
+
+/* Terms, privacy text and "no methods available" notices. */
+.gx-co .galaxie-payment-mount #payment div.form-row,
+.gx-co .galaxie-payment-mount #payment .place-order {
+  margin: 0;
+  padding: 0;
+}
+.gx-co .galaxie-payment-mount #payment .woocommerce-terms-and-conditions-wrapper {
+  margin: 0 0 16px;
+  opacity: 0.8;
+  font-size: 13px;
+}
+.gx-co .galaxie-payment-mount #payment .woocommerce-privacy-policy-text p {
+  margin: 0;
+}
+.gx-co .galaxie-payment-mount #payment .woocommerce-info,
+.gx-co .galaxie-payment-mount #payment .woocommerce-notice {
+  margin: 0 0 16px;
+  padding: 14px 16px;
+  border: 1px dashed var(--border);
+  background: transparent;
+  color: inherit;
+}
+.gx-co .galaxie-payment-mount #payment .woocommerce-info::before {
+  display: none;
+}
+
+/* Stripe's appearance probe: never shown, only measured. */
+.gx-co .gx-co-stripe-accent {
+  background-color: var(--primary);
+}
+
+/* ── Checkout: reused Address Book and card form ───────────────────────────
+   Saved addresses are rows like the saved cards and the shipping options; the
+   card form is My Account's (lib/stripe-cards.ts), with the checkout's own
+   field boxes. Two classes deep, outside the layer: pixfort styles `li` and
+   `label` by tag outside any layer too. */
+.gx-co .gx-co-addresses {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.gx-co .gx-co-address {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 0;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  list-style: none;
+  transition: border-color 0.15s, background-color 0.15s;
+}
+.gx-co .gx-co-address:has(input:checked) {
+  border-color: var(--primary);
+}
+.gx-co .gx-co-address input[type='radio'] {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin: 3px 0 0;
+  accent-color: var(--primary);
+}
+.gx-co .gx-co-address label {
+  display: flex;
+  flex: 1;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  margin: 0;
+  color: inherit;
+  cursor: pointer;
+}
+/* The whole row is the click target. */
+.gx-co .gx-co-address label::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+}
+.gx-co .gx-co-address-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.gx-co .gx-co-address-name {
+  color: var(--foreground);
+}
+
+/* The gateway's own new-card row, form and "save" line give way to the
+   plugin's card form (PaymentStep / AddCard). WooCommerce's
+   tokenization script sets inline display on them, hence !important. */
+.gx-co--own-cards .galaxie-payment-mount #payment li.payment_method_stripe .woocommerce-SavedPaymentMethods-new,
+.gx-co--own-cards .galaxie-payment-mount #payment li.payment_method_stripe .wc-upe-form,
+.gx-co--own-cards .galaxie-payment-mount #payment li.payment_method_stripe .wc-payment-form,
+.gx-co--own-cards .galaxie-payment-mount #payment li.payment_method_stripe .woocommerce-SavedPaymentMethods-saveNew {
+  display: none !important;
+}
+.gx-co .gx-co-add-card {
+  margin-top: 4px;
+}
+.gx-co .gx-co-add-card-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.gx-co .gx-co-add-card-form.is-busy {
+  opacity: 0.7;
+  pointer-events: none;
+}
+.gx-co .gx-co-card-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.gx-co .gx-co-card-fields .is-number {
+  grid-column: 1 / -1;
+}
+.gx-co .gx-co-card-box {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 44px;
+  cursor: text;
+}
+.gx-co .gx-co-card-box > div {
+  width: 100%;
+}
+.gx-co .gx-co-card-sample {
+  opacity: 0.55;
+}
+
