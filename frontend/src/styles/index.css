@@ -3819,3 +3819,107 @@ address.galaxie-order-body {
 .gx-co .gx-co-stripe-accent {
   background-color: var(--primary);
 }
+
+/* ── Checkout: reused Address Book and card form ───────────────────────────
+   Saved addresses are rows like the saved cards and the shipping options; the
+   card form is My Account's (lib/stripe-cards.ts), with the checkout's own
+   field boxes. Two classes deep, outside the layer: pixfort styles `li` and
+   `label` by tag outside any layer too. */
+.gx-co .gx-co-addresses {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.gx-co .gx-co-address {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 0;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  list-style: none;
+  transition: border-color 0.15s, background-color 0.15s;
+}
+.gx-co .gx-co-address:has(input:checked) {
+  border-color: var(--primary);
+}
+.gx-co .gx-co-address input[type='radio'] {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin: 3px 0 0;
+  accent-color: var(--primary);
+}
+.gx-co .gx-co-address label {
+  display: flex;
+  flex: 1;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  margin: 0;
+  color: inherit;
+  cursor: pointer;
+}
+/* The whole row is the click target. */
+.gx-co .gx-co-address label::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+}
+.gx-co .gx-co-address-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.gx-co .gx-co-address-name {
+  color: var(--foreground);
+}
+
+/* The gateway's own new-card row, form and "save" line give way to the
+   plugin's card form (PaymentStep / AddCard). WooCommerce's
+   tokenization script sets inline display on them, hence !important. */
+.gx-co--own-cards .galaxie-payment-mount #payment li.payment_method_stripe .woocommerce-SavedPaymentMethods-new,
+.gx-co--own-cards .galaxie-payment-mount #payment li.payment_method_stripe .wc-upe-form,
+.gx-co--own-cards .galaxie-payment-mount #payment li.payment_method_stripe .wc-payment-form,
+.gx-co--own-cards .galaxie-payment-mount #payment li.payment_method_stripe .woocommerce-SavedPaymentMethods-saveNew {
+  display: none !important;
+}
+.gx-co .gx-co-add-card {
+  margin-top: 4px;
+}
+.gx-co .gx-co-add-card-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.gx-co .gx-co-add-card-form.is-busy {
+  opacity: 0.7;
+  pointer-events: none;
+}
+.gx-co .gx-co-card-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.gx-co .gx-co-card-fields .is-number {
+  grid-column: 1 / -1;
+}
+.gx-co .gx-co-card-box {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 44px;
+  cursor: text;
+}
+.gx-co .gx-co-card-box > div {
+  width: 100%;
+}
+.gx-co .gx-co-card-sample {
+  opacity: 0.55;
+}
+
