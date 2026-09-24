@@ -102,6 +102,7 @@ final class AccountCommunicationWidget extends Widget_Base {
 				'options'     => self::option_labels(),
 				'default'     => array(),
 				'description' => self::option_labels()
+					// phpcs:ignore Generic.Files.LineLength.TooLong -- one sentence.
 					? __( 'Empty shows every one of them. They are written under Galaxie → FluentCRM → Communications.', 'galaxie-woo' )
 					: __( 'None are set yet. Write them under Galaxie → FluentCRM → Communications: a title, a line and the list each one joins.', 'galaxie-woo' ),
 				'separator'   => 'before',
@@ -293,7 +294,9 @@ final class AccountCommunicationWidget extends Widget_Base {
 	 * @param string              $place Where the switch sits.
 	 */
 	private function communications( array $s, callable $txt, string $place ): void {
-		$rows = FluentCRMModule::communications();
+		// With the consent switch on the screen, its own list is already
+		// answered for; a row on it would be the same question twice.
+		$rows = FluentCRMModule::communications( 'yes' === ( $s['comm_show_newsletter'] ?? 'yes' ) );
 
 		if ( ! $rows ) {
 			return;

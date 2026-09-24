@@ -512,18 +512,25 @@ final class Module implements ModuleContract, ProvidesSettings {
 	 * explanation and the FluentCRM list the answer is written to. Rows with no
 	 * list are not communications — there would be nowhere to write the answer.
 	 *
+	 * @param bool $consent_shown Whether the consent switch is on the same screen.
 	 * @return array<int, array{list_id:int, title:string, text:string}>
 	 */
-	public static function communications(): array {
+	public static function communications( bool $consent_shown = false ): array {
 		$settings = Plugin::instance()->settings()->module_settings( 'fluentcrm' );
 		$out      = array();
+
+		// The consent switch is already one of these: it writes the customer's
+		// field *and* the newsletter list. A row on that same list is the same
+		// switch twice, contradicting itself the moment one of them moves, so
+		// the screen that shows the consent leaves that row out.
+		$consent = $consent_shown ? (int) ( $settings['newsletter_list_id'] ?? 0 ) : 0;
 
 		foreach ( (array) ( $settings['communication_options'] ?? array() ) as $row ) {
 			$row     = (array) $row;
 			$list_id = (int) ( $row['list_id'] ?? 0 );
 			$title   = trim( (string) ( $row['title'] ?? '' ) );
 
-			if ( $list_id <= 0 || '' === $title ) {
+			if ( $list_id <= 0 || '' === $title || ( $consent > 0 && $consent === $list_id ) ) {
 				continue;
 			}
 
@@ -1537,6 +1544,9 @@ final class Module implements ModuleContract, ProvidesSettings {
 		<h3><?php esc_html_e( 'Communications', 'galaxie-woo' ); ?></h3>
 		<p class="description">
 			<?php esc_html_e( 'What a customer may turn on and off in My Account → Comunicação. Each row is a title, a line of explanation and the FluentCRM list the answer is written to: turning it on joins the list, turning it off leaves it. Which of them a screen shows is chosen on the Galaxie Account Communication widget.', 'galaxie-woo' ); ?>
+		</p>
+		<p class="description">
+			<?php esc_html_e( 'A row on the same list as "List: newsletter opt-in" is not shown beside the consent switch: that switch already is that list, and two switches on one list would disagree the moment one moved. Point the row at another list, or turn the consent off on the widget.', 'galaxie-woo' ); ?>
 		</p>
 
 		<div id="gxf-comms-rows">

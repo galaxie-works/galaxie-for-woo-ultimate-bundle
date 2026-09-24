@@ -198,6 +198,37 @@ function galaxie_boot_kit( array $booted, array $scenario, callable $hooked ): s
 		throw new RuntimeException( 'Communications: none are configured, so none should be offered' );
 	}
 
+	// A row on the consent's own list is the consent switch again: the screen
+	// that shows the consent leaves it out, and a screen without it keeps it.
+	$rows = array(
+		array( 'list_id' => 7, 'title' => 'Newsletter', 'text' => '' ),
+		array( 'list_id' => 9, 'title' => 'Avisos de estoque', 'text' => '' ),
+	);
+
+	$only = static fn( array $list ): array => array_map( static fn( array $row ): int => $row['list_id'], $list );
+
+	$saved = $GLOBALS['galaxie_boot']['options']['galaxie_woo_settings'] ?? array();
+
+	$GLOBALS['galaxie_boot']['options']['galaxie_woo_settings'] = array_merge(
+		(array) $saved,
+		array(
+			'fluentcrm' => array(
+				'communication_options' => $rows,
+				'newsletter_list_id'    => 7,
+			),
+		)
+	);
+
+	if ( array( 9 ) !== $only( $fcrm::communications( true ) ) ) {
+		throw new RuntimeException( 'Communications: the consent list is offered twice' );
+	}
+
+	if ( array( 7, 9 ) !== $only( $fcrm::communications( false ) ) ) {
+		throw new RuntimeException( 'Communications: without the consent switch every row should be offered' );
+	}
+
+	$GLOBALS['galaxie_boot']['options']['galaxie_woo_settings'] = $saved;
+
 	$comm = new \Galaxie\Woo\Modules\MyAccount\Widget\AccountCommunicationWidget();
 	$comm->register_for_test();
 
