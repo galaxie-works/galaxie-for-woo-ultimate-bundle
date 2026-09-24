@@ -336,7 +336,7 @@ final class PixfortControls {
 			'default'     => '',
 		) );
 
-		self::button_hover( $target, $prefix, $condition, $scope );
+		self::button_hover( $target, $prefix, $condition, $scope, $defaults );
 	}
 
 	/**
@@ -589,7 +589,9 @@ final class PixfortControls {
 		return '{{WRAPPER}}' === $scope ? $scope . ' .' . self::button_class( $prefix ) : $scope . ' .btn';
 	}
 
-	private static function button_hover( object $target, string $prefix, array $condition, string $scope ): void {
+	private static function button_hover( object $target, string $prefix, array $condition, string $scope, array $defaults = array() ): void {
+		$d = static fn( string $key, $fallback ) => $defaults[ $key ] ?? $fallback;
+
 		// The button's own hover, not the scope's: with `{{WRAPPER}}` as the scope,
 		// `{{WRAPPER}}:hover .btn` paints every button in the widget the moment the
 		// pointer enters any part of it, and a second button loses the style when
@@ -610,8 +612,8 @@ final class PixfortControls {
 			'separator' => 'before',
 		) );
 
-		self::palette_control( $target, $prefix . '_hover_bg', __( 'Hover background', 'galaxie-woo' ), $hovered, 'background-color', $condition );
-		self::palette_control( $target, $prefix . '_hover_color', __( 'Hover text color', 'galaxie-woo' ), $hovered, 'color', $condition );
+		self::palette_control( $target, $prefix . '_hover_bg', __( 'Hover background', 'galaxie-woo' ), $hovered, 'background-color', $condition, '', (string) $d( 'hover_bg', '' ) );
+		self::palette_control( $target, $prefix . '_hover_color', __( 'Hover text color', 'galaxie-woo' ), $hovered, 'color', $condition, '', (string) $d( 'hover_color', '' ) );
 		self::palette_control(
 			$target,
 			$prefix . '_hover_border',
@@ -619,7 +621,8 @@ final class PixfortControls {
 			$hovered,
 			'border-color',
 			$condition,
-			' border-style: solid !important;'
+			' border-style: solid !important;',
+			(string) $d( 'hover_border', '' )
 		);
 
 		self::add( $target, $condition, $prefix . '_hover_lift', array(
@@ -1426,7 +1429,7 @@ final class PixfortControls {
 	 *
 	 * @param array<string,mixed> $condition
 	 */
-	public static function palette_control( object $target, string $id, string $label, string $selector, string $property, array $condition = array(), string $extra = '' ): void {
+	public static function palette_control( object $target, string $id, string $label, string $selector, string $property, array $condition = array(), string $extra = '', string $default = '' ): void {
 		if ( ! self::available() ) {
 			self::add( $target, $condition, $id . '_fallback', array(
 				'label'     => $label,
@@ -1474,7 +1477,9 @@ final class PixfortControls {
 			'label'                => $label,
 			'type'                 => Controls_Manager::SELECT,
 			'groups'               => $colors,
-			'default'              => '',
+			// A palette entry the caller asks for, e.g. a delete button that
+			// fills red on hover. Anything not in pixfort's list is ignored.
+			'default'              => isset( $dictionary[ $default ] ) ? $default : '',
 			'selectors_dictionary' => $dictionary,
 			'selectors'            => array( $selector => '{{VALUE}}' ),
 		) );
@@ -1568,6 +1573,23 @@ final class PixfortControls {
 	}
 
 	/** @return array<string,string> */
+	/**
+	 * The four sides of a DIMENSIONS control, all the same: what a default
+	 * padding or margin looks like to Elementor.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private static function dimensions( float $px ): array {
+		return array(
+			'unit'     => 'px',
+			'top'      => $px,
+			'right'    => $px,
+			'bottom'   => $px,
+			'left'     => $px,
+			'isLinked' => true,
+		);
+	}
+
 	private static function shadow_options( string $none, string $noun ): array {
 		return array(
 			''  => $none,
@@ -1908,7 +1930,7 @@ final class PixfortControls {
 	public static function surface( object $target, string $prefix, string $selector, array $defaults = array(), array $condition = array(), bool $padding = true ): void {
 		$d = static fn( string $key, $fallback ) => $defaults[ $key ] ?? $fallback;
 
-		self::palette_control( $target, $prefix . '_bg', __( 'Background', 'galaxie-woo' ), $selector, 'background-color', $condition );
+		self::palette_control( $target, $prefix . '_bg', __( 'Background', 'galaxie-woo' ), $selector, 'background-color', $condition, '', (string) $d( 'bg', '' ) );
 
 		// A badge-shaped box (a tag, a tab, a status) gets the badge list, which
 		// is the one with Pill in it; any other box gets the container scale.
@@ -1960,12 +1982,14 @@ final class PixfortControls {
 		// tracks 80px narrower than the lines below it, and nothing under it
 		// lines up. Where that matters the caller pads the cells instead.
 		if ( $padding ) {
+			$pad = $d( 'padding', null );
+
 			self::add_responsive( $target, $condition, $prefix . '_padding', array(
 				'label'      => __( 'Padding', 'galaxie-woo' ),
 				'type'       => Controls_Manager::DIMENSIONS,
 				'size_units' => array( 'px', 'rem', 'em' ),
 				'selectors'  => array( $selector => 'padding: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};' ),
-			) );
+			) + ( null === $pad ? array() : array( 'default' => self::dimensions( (float) $pad ) ) ) );
 		}
 
 		// Same trap as the quantity box: pixfort's containers ship with no
@@ -1980,7 +2004,8 @@ final class PixfortControls {
 			$selector,
 			'border-color',
 			$condition,
-			' border-style: solid; border-width: 1px;'
+			' border-style: solid; border-width: 1px;',
+			(string) $d( 'border_color', '' )
 		);
 
 		self::add_responsive( $target, $condition, $prefix . '_border_width', array(

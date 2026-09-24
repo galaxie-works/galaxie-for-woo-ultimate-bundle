@@ -523,6 +523,39 @@ function galaxie_boot_kit( array $booted, array $scenario, callable $hooked ): s
 			throw new RuntimeException( 'Account: the waiting statuses changed' );
 		}
 
+		// The shop's dialog, as the merchant set it once: a red outline with a
+		// bin for "yes, delete", a quiet button for "no", and the box they
+		// drew. Palette colours are pixfort's own controls and not registered
+		// here, so the set is checked where it is written.
+		$dialog = \Galaxie\Woo\Support\Dialog::class;
+
+		if ( array( 'style' => 'outline', 'color' => 'red', 'text_color' => 'red', 'size' => 'normal', 'icon' => 'Line/pixfort-icon-trash-can-3', 'hover_bg' => 'red', 'hover_color' => 'dynamic-heading' ) !== $dialog::DESTRUCTIVE
+			|| 'dynamic-background' !== $dialog::CANCEL['color']
+			|| 'dynamic-gray-100' !== $dialog::CANCEL['hover_bg']
+			|| array( 'bg' => 'dynamic-background', 'rounded' => 'rounded-10', 'shadow' => '3', 'border_color' => 'dynamic-gray-300', 'padding' => 20 ) !== $dialog::BOX
+			|| 20 !== $dialog::BOX_GAP ) {
+			throw new RuntimeException( 'Dialog: the shop\'s dialog look changed' );
+		}
+
+		$look = array(
+			'account_kit_discard_yes_style'   => 'outline',
+			'account_kit_discard_yes_size'    => 'normal',
+			'account_kit_discard_no_size'     => 'normal',
+			'account_kit_discard_box_rounded' => 'rounded-10',
+			'account_kit_discard_box_shadow'  => '3',
+		);
+
+		foreach ( $look as $id => $value ) {
+			if ( $value !== ( $widget->controls[ $id ]['default'] ?? null ) ) {
+				throw new RuntimeException( "Dialog: {$id} starts at " . var_export( $widget->controls[ $id ]['default'] ?? null, true ) );
+			}
+		}
+
+		if ( 20.0 !== (float) ( $widget->controls['account_kit_discard_box_padding']['default']['top'] ?? 0 )
+			|| 20.0 !== (float) ( $widget->controls['account_kit_discard_gap']['default']['size'] ?? 0 ) ) {
+			throw new RuntimeException( 'Dialog: the box no longer starts at 20px' );
+		}
+
 		$widget->settings = array( 'editor_state' => 'kit' );
 		$card             = $widget->render_for_test();
 
