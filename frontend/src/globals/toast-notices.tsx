@@ -19,6 +19,9 @@ const NOTICE_SELECTOR = '.woocommerce-error, .woocommerce-message, .woocommerce-
 
 let toasterMounted = false
 
+/** Messages toasted a moment ago: WooCommerce queues one per recalculation. */
+const recent = new Set<string>()
+
 function ensureToaster(): void {
   if (toasterMounted) return
   const host = document.createElement('div')
@@ -35,14 +38,31 @@ export function showToast(message: string, variant: ToastVariant = 'success'): v
   toast(message, { variant })
 }
 
+/**
+ * The words of one message. WooCommerce puts its action link inside the
+ * notice ("…added to your cart. View cart"), which read as one run-on
+ * sentence once flattened to text, and a toast has no room for a link.
+ */
+function messageText(el: Element): string {
+  const copy = el.cloneNode(true) as Element
+  copy.querySelectorAll('a.button, a.wc-forward, .restore-item').forEach((a) => a.remove())
+  return (copy.textContent ?? '').replace(/\s+/g, ' ').trim()
+}
+
 function convert(el: Element): void {
   const cls = Object.keys(VARIANT_BY_CLASS).find((c) => el.classList.contains(c))
   if (!cls) return
-  const text = (el.textContent ?? '').trim()
-  if (text) {
+  // An error list (`ul.woocommerce-error`) carries one message per item:
+  // one toast each, not every message glued into a single line. The same
+  // message twice in a row (one notice per recalculation) shows once.
+  const items = el.matches('ul') ? Array.from(el.querySelectorAll(':scope > li')) : [el]
+  const texts = items.map(messageText).filter((text) => text && !recent.has(text))
+  texts.forEach((text) => {
+    recent.add(text)
+    window.setTimeout(() => recent.delete(text), 1500)
     ensureToaster()
     toast(text, { variant: VARIANT_BY_CLASS[cls] })
-  }
+  })
   el.remove()
 }
 
