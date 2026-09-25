@@ -11,6 +11,7 @@ use Galaxie\Woo\Core\Module as ModuleContract;
 use Galaxie\Woo\Core\ProvidesBootData;
 use Galaxie\Woo\Support\Cpf;
 use Galaxie\Woo\Support\ProfileFields;
+use Galaxie\Woo\Support\QuotedDestination;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -58,6 +59,8 @@ final class Module implements ModuleContract, ProvidesBootData {
 			add_action( 'wp_ajax_nopriv_' . $action, array( $this, $action ) );
 			add_action( 'wp_ajax_' . $action, array( $this, $action ) );
 		}
+
+		QuotedDestination::hooks();
 	}
 
 	public function boot_data(): array {
@@ -155,10 +158,17 @@ final class Module implements ModuleContract, ProvidesBootData {
 
 		delete_transient( $key );
 
+		// Before signing in: WooCommerce drops the guest's cart CEP on the
+		// first signed-in request. See QuotedDestination.
+		$quoted = QuotedDestination::remember();
+
 		if ( 'register' === $otp['context'] ) {
 			$user_id = $this->create_account( $email, $otp['reg_data'] );
 			if ( is_wp_error( $user_id ) ) {
 				wp_send_json_error( array( 'message' => $user_id->get_error_message() ) );
+			}
+			if ( null !== $quoted ) {
+				QuotedDestination::keep_in_account( $user_id, $quoted );
 			}
 			wp_set_current_user( $user_id );
 			wp_set_auth_cookie( $user_id, true );

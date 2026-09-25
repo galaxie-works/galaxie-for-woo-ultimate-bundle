@@ -55,19 +55,31 @@ export interface NativeBillingState {
   country?: string
 }
 
+/**
+ * Writes the step's answers into WooCommerce's hidden form — the billing
+ * fields and, when the form has them, the shipping ones too.
+ *
+ * Which of the two WooCommerce quotes carriers for is store configuration
+ * ("Shipping destination") plus a checkbox we never show: with it ticked,
+ * `update_order_review` sends the shipping fields, which held the account's
+ * old address — or nothing at all, for a new account — whatever address the
+ * shopper picked. Filling both makes the answer the same either way.
+ */
 export function fillNativeBilling(state: NativeBillingState): void {
-  setNativeField('billing_first_name', state.first_name)
-  setNativeField('billing_last_name', state.last_name)
-  setNativeField('billing_phone', state.phone)
-  setNativeField('billing_email', state.email)
-  if (state.address_1 !== undefined) {
-    setNativeField('billing_country', state.country || 'BR')
-    setNativeField('billing_address_1', state.address_1)
-    setNativeField('billing_address_2', state.address_2)
-    setNativeField('billing_city', state.city)
-    setNativeField('billing_state', state.state)
-    setNativeField('billing_postcode', state.postcode)
+  for (const type of ['billing', 'shipping'] as const) {
+    setNativeField(`${type}_first_name`, state.first_name)
+    setNativeField(`${type}_last_name`, state.last_name)
+    setNativeField(`${type}_phone`, state.phone)
+    if (state.address_1 !== undefined) {
+      setNativeField(`${type}_country`, state.country || 'BR')
+      setNativeField(`${type}_address_1`, state.address_1)
+      setNativeField(`${type}_address_2`, state.address_2)
+      setNativeField(`${type}_city`, state.city)
+      setNativeField(`${type}_state`, state.state)
+      setNativeField(`${type}_postcode`, state.postcode)
+    }
   }
+  setNativeField('billing_email', state.email)
 }
 
 /**
