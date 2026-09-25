@@ -103,13 +103,13 @@
    print pixfort's own components, whose spacing and list styles lean on the
    browser defaults this would strip. */
 @layer base {
-  :is([data-galaxie-island], .galaxie-ui[role='dialog']) :is(button, input, select, textarea) {
+  :is([data-galaxie-island], .galaxie-ui[role='dialog'], .galaxie-toaster) :is(button, input, select, textarea) {
     font: inherit;
     letter-spacing: inherit;
     color: inherit;
     margin: 0;
   }
-  :is([data-galaxie-island], .galaxie-ui[role='dialog']) button {
+  :is([data-galaxie-island], .galaxie-ui[role='dialog'], .galaxie-toaster) button {
     appearance: none;
     background: transparent;
     border: 0 solid;
@@ -117,22 +117,22 @@
     cursor: pointer;
     text-transform: none;
   }
-  :is([data-galaxie-island], .galaxie-ui[role='dialog']) button:disabled {
+  :is([data-galaxie-island], .galaxie-ui[role='dialog'], .galaxie-toaster) button:disabled {
     cursor: default;
   }
-  :is([data-galaxie-island], .galaxie-ui[role='dialog']) :is(input, select, textarea) {
+  :is([data-galaxie-island], .galaxie-ui[role='dialog'], .galaxie-toaster) :is(input, select, textarea) {
     border: 0 solid;
     background-color: transparent;
   }
-  :is([data-galaxie-island], .galaxie-ui[role='dialog']) :is(ol, ul) {
+  :is([data-galaxie-island], .galaxie-ui[role='dialog'], .galaxie-toaster) :is(ol, ul) {
     list-style: none;
     margin: 0;
     padding: 0;
   }
-  :is([data-galaxie-island], .galaxie-ui[role='dialog']) :is(h1, h2, h3, h4, p) {
+  :is([data-galaxie-island], .galaxie-ui[role='dialog'], .galaxie-toaster) :is(h1, h2, h3, h4, p) {
     margin: 0;
   }
-  :is([data-galaxie-island], .galaxie-ui[role='dialog']) img {
+  :is([data-galaxie-island], .galaxie-ui[role='dialog'], .galaxie-toaster) img {
     display: block;
     max-width: 100%;
   }
@@ -150,44 +150,48 @@
    variable pixfort reads, so pixfort's own declaration paints our colour.
    Scoped like the base reset — the PHP widgets that carry .galaxie-ui use
    pixfort's real bg-* classes and must keep pixfort's values. A new bg-*
-   utility in an island needs its line here. */
-:is([data-galaxie-island], .galaxie-ui[role='dialog']) :is(.bg-primary),
+   utility in an island needs its line here.
+
+   The toaster is in every scope list: it is portalled to <body>, outside any
+   island, so without it the toasts had no background (pixfort painted them
+   with an unset variable) and a theme-styled box round the close button. */
+:is([data-galaxie-island], .galaxie-ui[role='dialog'], .galaxie-toaster) :is(.bg-primary),
 .galaxie-ui[role='dialog'].bg-primary {
   --pix-bg-color: var(--primary);
 }
-:is([data-galaxie-island], .galaxie-ui[role='dialog']) .bg-primary\/15 {
+:is([data-galaxie-island], .galaxie-ui[role='dialog'], .galaxie-toaster) .bg-primary\/15 {
   --pix-bg-color: color-mix(in oklab, var(--primary) 15%, transparent);
 }
-:is([data-galaxie-island], .galaxie-ui[role='dialog']) .bg-secondary {
+:is([data-galaxie-island], .galaxie-ui[role='dialog'], .galaxie-toaster) .bg-secondary {
   --pix-bg-color: var(--secondary);
 }
-:is([data-galaxie-island], .galaxie-ui[role='dialog']) .bg-muted {
+:is([data-galaxie-island], .galaxie-ui[role='dialog'], .galaxie-toaster) .bg-muted {
   --pix-bg-color: var(--muted);
 }
-:is([data-galaxie-island], .galaxie-ui[role='dialog']) .bg-card {
+:is([data-galaxie-island], .galaxie-ui[role='dialog'], .galaxie-toaster) .bg-card {
   --pix-bg-color: var(--card);
 }
-:is([data-galaxie-island], .galaxie-ui[role='dialog']) .bg-popover,
+:is([data-galaxie-island], .galaxie-ui[role='dialog'], .galaxie-toaster) .bg-popover,
 .galaxie-ui[role='dialog'].bg-popover {
   --pix-bg-color: var(--popover);
 }
-:is([data-galaxie-island], .galaxie-ui[role='dialog']) .bg-background,
+:is([data-galaxie-island], .galaxie-ui[role='dialog'], .galaxie-toaster) .bg-background,
 .galaxie-ui[role='dialog'].bg-background {
   --pix-bg-color: var(--background);
 }
-:is([data-galaxie-island], .galaxie-ui[role='dialog']) .bg-foreground {
+:is([data-galaxie-island], .galaxie-ui[role='dialog'], .galaxie-toaster) .bg-foreground {
   --pix-bg-color: var(--foreground);
 }
-:is([data-galaxie-island], .galaxie-ui[role='dialog']) .bg-transparent {
+:is([data-galaxie-island], .galaxie-ui[role='dialog'], .galaxie-toaster) .bg-transparent {
   --pix-bg-color: transparent;
 }
-:is([data-galaxie-island], .galaxie-ui[role='dialog']) .bg-destructive {
+:is([data-galaxie-island], .galaxie-ui[role='dialog'], .galaxie-toaster) .bg-destructive {
   --pix-bg-color: var(--destructive);
 }
-:is([data-galaxie-island], .galaxie-ui[role='dialog']) .bg-destructive\/5 {
+:is([data-galaxie-island], .galaxie-ui[role='dialog'], .galaxie-toaster) .bg-destructive\/5 {
   --pix-bg-color: color-mix(in oklab, var(--destructive) 5%, transparent);
 }
-:is([data-galaxie-island], .galaxie-ui[role='dialog']) .bg-destructive\/10 {
+:is([data-galaxie-island], .galaxie-ui[role='dialog'], .galaxie-toaster) .bg-destructive\/10 {
   --pix-bg-color: color-mix(in oklab, var(--destructive) 10%, transparent);
 }
 .galaxie-ui.bg-black\/50 {
@@ -195,17 +199,17 @@
 }
 /* Hover, for the elements pixfort has pinned: the variable moves, pixfort's
    rule follows. */
-:is([data-galaxie-island], .galaxie-ui[role='dialog']) .bg-primary.hover\:bg-primary\/90:hover:not(:disabled) {
+:is([data-galaxie-island], .galaxie-ui[role='dialog'], .galaxie-toaster) .bg-primary.hover\:bg-primary\/90:hover:not(:disabled) {
   --pix-bg-color: color-mix(in oklab, var(--primary) 90%, transparent);
 }
-:is([data-galaxie-island], .galaxie-ui[role='dialog']) .bg-secondary.hover\:bg-secondary\/80:hover:not(:disabled) {
+:is([data-galaxie-island], .galaxie-ui[role='dialog'], .galaxie-toaster) .bg-secondary.hover\:bg-secondary\/80:hover:not(:disabled) {
   --pix-bg-color: color-mix(in oklab, var(--secondary) 80%, transparent);
 }
-:is([data-galaxie-island], .galaxie-ui[role='dialog']) .bg-destructive.hover\:bg-destructive\/90:hover:not(:disabled) {
+:is([data-galaxie-island], .galaxie-ui[role='dialog'], .galaxie-toaster) .bg-destructive.hover\:bg-destructive\/90:hover:not(:disabled) {
   --pix-bg-color: color-mix(in oklab, var(--destructive) 90%, transparent);
 }
-:is([data-galaxie-island], .galaxie-ui[role='dialog']) .bg-background.hover\:bg-accent:hover:not(:disabled),
-:is([data-galaxie-island], .galaxie-ui[role='dialog']) .bg-transparent.hover\:bg-accent:hover:not(:disabled) {
+:is([data-galaxie-island], .galaxie-ui[role='dialog'], .galaxie-toaster) .bg-background.hover\:bg-accent:hover:not(:disabled),
+:is([data-galaxie-island], .galaxie-ui[role='dialog'], .galaxie-toaster) .bg-transparent.hover\:bg-accent:hover:not(:disabled) {
   --pix-bg-color: var(--accent);
 }
 
