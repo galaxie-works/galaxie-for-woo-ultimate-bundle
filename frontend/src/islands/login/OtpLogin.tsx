@@ -5,14 +5,10 @@ import { post } from '@/lib/wp'
 import { Input } from '@/ui/input'
 import { OtpInput } from '@/ui/otp-input'
 import { PhoneInput } from '@/ui/phone-input'
-import { CoField, PixAlert, PixButton, useFieldClass, useUi, type PixButtonData, type PixUi } from '@/lib/pix'
+import { CoField, PixAlert, PixButton, PixLink, useFieldClass, useUi, type PixButtonData, type PixUi } from '@/lib/pix'
+import type { AuthConfig } from '@/lib/wp'
 import type { ProfileValues } from '@/islands/checkout/types'
 import { BAD_PHONE } from '@/islands/checkout/validation'
-
-interface AjaxEndpoint {
-  ajaxUrl: string
-  nonce: string
-}
 
 /** Every string the login prints. The checkout's own text set extends this one. */
 export interface LoginText {
@@ -34,6 +30,12 @@ export interface LoginText {
   phone: string
   marketing: string
   terms: string
+  /** Sign-in with a password, when sign-in by code is off. */
+  signIn: string
+  createAccount: string
+  forgotPassword: string
+  password: string
+  passwordHint: string
 }
 
 /**
@@ -43,11 +45,14 @@ export interface LoginText {
  */
 export interface LoginUi extends PixUi {
   cls: Record<'body' | 'small' | 'label' | 'hint' | 'error' | 'tab' | 'tabText' | 'option' | 'field', string>
-  buttons: Record<'sendCode' | 'registerButton' | 'confirmCode' | 'resendCode' | 'changeEmail', PixButtonData>
+  buttons: Record<
+    'sendCode' | 'registerButton' | 'confirmCode' | 'resendCode' | 'changeEmail' | 'signIn' | 'createAccount' | 'forgotPassword',
+    PixButtonData
+  >
 }
 
 interface OtpLoginProps {
-  authCfg?: AjaxEndpoint
+  authCfg?: AuthConfig
   text: LoginText
   genericError: string
   onVerified: () => void
@@ -77,6 +82,14 @@ type Tab = 'otp' | 'register'
  * profile/address props, and the step machine's initial-step logic (see
  * index.tsx) lands on the right next step.
  *
+ * With sign-in by code switched off (`authCfg.mode === 'password'`, set on
+ * wp-admin → Galaxie → Login) the same two tabs ask for a password instead:
+ * "Já sou cliente" signs in with e-mail and password and offers "Esqueci
+ * minha senha" (WooCommerce's lost-password page); "Primeira compra" is the
+ * same form plus a password, and creates the account at once. Both go
+ * through the PasswordlessAuth module too, so a new customer is created —
+ * and announced to FluentCRM — the same way either way.
+ *
  * The two tabs are the Wishlist's list tabs (a pill with an `is-current`
  * state), the fields pixfort's `.form-control`, the opt-in the Communication
  * widget's switch — each styled from the widget's own Style tab.
@@ -88,6 +101,8 @@ function OtpLogin({ authCfg, text, genericError, onVerified, preview = false, in
   const [stage, setStage] = React.useState<Stage>('request')
   const [email, setEmail] = React.useState('')
   const [code, setCode] = React.useState('')
+  const [password, setPassword] = React.useState('')
+  const passwordMode = 'password' === authCfg?.mode
   const [busy, setBusy] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
 
@@ -120,6 +135,32 @@ function OtpLogin({ authCfg, text, genericError, onVerified, preview = false, in
     }
     setBusy(true)
     setError(null)
+
+    if (passwordMode) {
+      const action = 'register' === tab ? 'galaxie_auth_password_register' : 'galaxie_auth_password_login'
+      const fields: Record<string, string> =
+        'register' === tab
+          ? {
+              email,
+              password,
+              first_name: reg.first_name,
+              last_name: reg.last_name,
+              phone: reg.phone,
+              birthdate: reg.birthdate,
+              cpf: reg.cpf,
+              terms: reg.terms ? '1' : '',
+              marketing: reg.marketing ? '1' : '',
+            }
+          : { email, password }
+      const res = await post(authCfg.ajaxUrl, action, authCfg.nonce, fields)
+      if (!res.success) {
+        setBusy(false)
+        setError(res.data?.message ?? genericError)
+        return
+      }
+      onVerified()
+      return
+    }
 
     const data: Record<string, string> =
       'register' === tab
@@ -203,6 +244,22 @@ function OtpLogin({ authCfg, text, genericError, onVerified, preview = false, in
     </CoField>
   )
 
+  const passwordField = (register: boolean) => (
+    <CoField label={text.password} htmlFor={`${id}-pw`} hint={register ? text.passwordHint : undefined}>
+      <Input
+        unstyled
+        id={`${id}-pw`}
+        type="password"
+        required
+        minLength={register ? 8 : undefined}
+        autoComplete={register ? 'new-password' : 'current-password'}
+        className={field}
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+      />
+    </CoField>
+  )
+
   return (
     <div className="gx-co-form">
       {text.entryIntro && <p className={cn('gx-co-body', cls.body)}>{text.entryIntro}</p>}
@@ -232,7 +289,13 @@ function OtpLogin({ authCfg, text, genericError, onVerified, preview = false, in
       {'otp' === tab ? (
         <form role="tabpanel" onSubmit={sendCode} className="gx-co-form">
           {emailField}
-          <PixButton button={buttons.sendCode} type="submit" disabled={busy} />
+          {passwordMode && passwordField(false)}
+          <PixButton button={passwordMode ? buttons.signIn : buttons.sendCode} type="submit" disabled={busy} />
+          {passwordMode && authCfg?.lostPasswordUrl && (
+            <div className="gx-co-links">
+              <PixLink button={buttons.forgotPassword} href={authCfg.lostPasswordUrl} />
+            </div>
+          )}
         </form>
       ) : (
         <form role="tabpanel" onSubmit={sendCode} className="gx-co-form">
@@ -264,6 +327,8 @@ function OtpLogin({ authCfg, text, genericError, onVerified, preview = false, in
             />
           </CoField>
 
+          {passwordMode && passwordField(true)}
+
           <label className={cn('gx-co-option', cls.option)}>
             <span className={cn('gx-co-body', cls.body)}>{text.marketing}</span>
             <span className="galaxie-switch">
@@ -277,7 +342,7 @@ function OtpLogin({ authCfg, text, genericError, onVerified, preview = false, in
             <span className={cn('gx-co-small', cls.small)}>{text.terms}</span>
           </label>
 
-          <PixButton button={buttons.registerButton} type="submit" disabled={busy} />
+          <PixButton button={passwordMode ? buttons.createAccount : buttons.registerButton} type="submit" disabled={busy} />
         </form>
       )}
     </div>

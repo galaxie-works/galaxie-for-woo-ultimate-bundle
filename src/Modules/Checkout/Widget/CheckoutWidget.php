@@ -210,6 +210,10 @@ final class CheckoutWidget extends AbstractIslandWidget {
 		$this->text_control( 'change_email', __( 'Change e-mail link', 'galaxie-woo' ), __( 'Usar outro e-mail', 'galaxie-woo' ) );
 		$this->text_control( 'marketing', __( 'Marketing opt-in', 'galaxie-woo' ), __( 'Quero receber novidades e ofertas da EIR.', 'galaxie-woo' ), true );
 		$this->text_control( 'terms', __( 'Terms checkbox', 'galaxie-woo' ), __( 'Li e aceito os termos de uso e a política de privacidade.', 'galaxie-woo' ) );
+		// Only drawn when sign-in by code is off (wp-admin → Galaxie → Login).
+		$this->text_control( 'sign_in', __( 'Password sign-in: button', 'galaxie-woo' ), __( 'Entrar', 'galaxie-woo' ), true, false, __( 'Only when sign-in by code is off (wp-admin → Galaxie → Login).', 'galaxie-woo' ) );
+		$this->text_control( 'create_account', __( 'Password sign-in: create account button', 'galaxie-woo' ), __( 'Criar conta', 'galaxie-woo' ) );
+		$this->text_control( 'forgot_password', __( 'Password sign-in: forgot password link', 'galaxie-woo' ), __( 'Esqueci minha senha', 'galaxie-woo' ) );
 
 		$this->end_controls_section();
 
@@ -516,7 +520,10 @@ final class CheckoutWidget extends AbstractIslandWidget {
 		$preview   = $this->editing();
 		$logged_in = ! $preview && is_user_logged_in();
 		$user      = $logged_in ? wp_get_current_user() : null;
-		$text      = $this->texts( $settings );
+		// The sign-in's own strings fill whatever the checkout's set does not
+		// name (the password mode's, say): the island is the same one the
+		// Galaxie Login widget draws, and it prints all of them.
+		$text      = $this->texts( $settings ) + LoginControls::texts( $settings );
 
 		$props = array(
 			'loggedIn'  => $logged_in,
