@@ -110,15 +110,22 @@ final class LoginWidget extends AbstractIslandWidget {
 		$text     = LoginControls::texts( $settings );
 		$editing  = class_exists( '\\Elementor\\Plugin' ) && isset( \Elementor\Plugin::$instance->editor ) && \Elementor\Plugin::$instance->editor->is_edit_mode();
 
+		$signed_in = ! $editing && is_user_logged_in();
+
 		return array(
-			'text'         => $text,
-			'ui'           => LoginControls::ui( $settings, $text ),
-			'genericError' => __( 'Algo deu errado. Tente novamente.', 'galaxie-woo' ),
-			'redirect'     => $this->redirect( $settings ),
+			'text'            => $text,
+			'ui'              => LoginControls::ui( $settings, $text ),
+			'genericError'    => __( 'Algo deu errado. Tente novamente.', 'galaxie-woo' ),
+			'redirect'        => $this->redirect( $settings ),
 			// Signed in, there is nothing to sign in to: the widget says so, or
-			// says nothing. The editor always draws the form, to be styled.
-			'signedIn'     => ! $editing && is_user_logged_in() ? (string) ( $settings['login_signed_in'] ?? '' ) : '',
-			'preview'      => $editing,
+			// says nothing. Two fields, because "no message" and "not signed in"
+			// are different answers and one string cannot carry both — reading
+			// the message alone would draw the form to someone already signed
+			// in, offering to replace their session. The editor always draws
+			// the form, to be styled.
+			'signedIn'        => $signed_in,
+			'signedInMessage' => $signed_in ? (string) ( $settings['login_signed_in'] ?? '' ) : '',
+			'preview'         => $editing,
 		);
 	}
 

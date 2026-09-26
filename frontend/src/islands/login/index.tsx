@@ -15,8 +15,15 @@ interface LoginProps {
   genericError: string
   /** Where a verified code lands: '' reloads the page. */
   redirect: string
-  /** Shown instead of the form when the visitor is already signed in; '' draws nothing. */
-  signedIn: string
+  /**
+   * The visitor is already signed in. Its own flag, and not the message being
+   * non-empty: a merchant who clears the message wants nothing drawn at all,
+   * and that is a different answer from "not signed in", which one string
+   * cannot carry.
+   */
+  signedIn: boolean
+  /** Shown instead of the form to someone already signed in; '' draws nothing. */
+  signedInMessage: string
   /** In the editor: the form is drawn but never talks to the server. */
   preview: boolean
 }
@@ -24,14 +31,24 @@ interface LoginProps {
 export function Login(props: LoginProps): React.ReactElement | null {
   const cfg = getGalaxieConfig()
 
-  // PixAlert reads the pixfort parts from the provider, so both branches sit
-  // inside it.
+  // Signed in, there is nothing to sign in to. Drawing the form anyway would
+  // offer a signed-in visitor to replace their session with another account.
+  if (props.signedIn && !props.preview) {
+    if (!props.signedInMessage) return null
+
+    // PixAlert reads the pixfort parts from the provider.
+    return (
+      <div className="gx-co">
+        <UiProvider value={props.ui}>
+          <PixAlert message={props.signedInMessage} />
+        </UiProvider>
+      </div>
+    )
+  }
+
   return (
     <div className="gx-co">
       <UiProvider value={props.ui}>
-        {props.signedIn && !props.preview ? (
-          <PixAlert message={props.signedIn} />
-        ) : (
         <OtpLogin
           authCfg={cfg.auth}
           text={props.text}
@@ -45,7 +62,6 @@ export function Login(props: LoginProps): React.ReactElement | null {
           }}
           preview={props.preview}
         />
-        )}
       </UiProvider>
     </div>
   )

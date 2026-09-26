@@ -16,8 +16,8 @@ use Galaxie\Woo\Support\AddressBook;
 use Galaxie\Woo\Support\CustomerProfile;
 use Galaxie\Woo\Support\FreeShipping;
 use Galaxie\Woo\Support\LoginControls;
-use Galaxie\Woo\Support\StripeCards;
 use Galaxie\Woo\Support\PixfortControls;
+use Galaxie\Woo\Support\StripeCards;
 
 defined( 'ABSPATH' ) || exit;
 
