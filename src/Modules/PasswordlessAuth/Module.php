@@ -96,7 +96,7 @@ final class Module implements ModuleContract, ProvidesBootData, ProvidesElemento
 	public function settings_fields(): array {
 		$templates = OtpMail::templates();
 		$choose    = array( '' => __( '— Escolha um template —', 'galaxie-woo' ) ) + $templates;
-		$crm       = class_exists( '\FluentCrm\App\Models\Template' );
+		$crm       = OtpMail::crm_active();
 
 		return array(
 			new Field(
@@ -153,6 +153,14 @@ final class Module implements ModuleContract, ProvidesBootData, ProvidesElemento
 	}
 
 	public function render_extra_settings( array $values ): void {
+		// Say why the template lists are empty rather than leave them blank.
+		if ( OtpMail::crm_active() && ! OtpMail::templates() ) {
+			printf(
+				'<div class="notice notice-warning inline"><p>%s</p></div>',
+				esc_html__( 'Nenhum template de e-mail foi encontrado no FluentCRM. Crie um em FluentCRM → Emails → Templates e recarregue esta página.', 'galaxie-woo' )
+			);
+		}
+
 		echo '<h3>' . esc_html__( 'Smartcodes para o template', 'galaxie-woo' ) . '</h3>';
 		echo '<p>' . esc_html__( 'No editor de templates do FluentCRM eles aparecem no botão de smartcodes, no grupo "Galaxie: código de acesso". Os do próprio FluentCRM, como {{contact.first_name}}, também funcionam quando a pessoa já é contato.', 'galaxie-woo' ) . '</p><ul>';
 		foreach ( OtpMail::smartcodes() as $key => $label ) {

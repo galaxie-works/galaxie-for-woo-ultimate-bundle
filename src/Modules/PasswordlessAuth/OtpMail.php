@@ -38,6 +38,9 @@ final class OtpMail {
 	/** Smartcode group key: `{{galaxie.otp_code}}`. */
 	private const GROUP = 'galaxie';
 
+	/** FluentCRM's email template post type (`fluentcrmTemplateCPTSlug()`). */
+	private const POST_TYPE = 'fc_template';
+
 	/**
 	 * The values the smartcode callback answers with while a code e-mail is
 	 * being rendered, for anything FluentCRM parses that our own pre-replace
@@ -99,20 +102,37 @@ final class OtpMail {
 	 * @return array<string,string>
 	 */
 	public static function templates(): array {
-		if ( ! class_exists( '\FluentCrm\App\Models\Template' ) ) {
+		if ( ! self::crm_active() ) {
 			return array();
 		}
 
+		// Straight from WordPress, not through FluentCRM's ORM: its models
+		// need FluentCRM's own container, and a query that failed there was
+		// swallowed into an empty list — the templates never showed. These are
+		// plain posts of FluentCRM's template post type.
+		$posts = get_posts(
+			array(
+				'post_type'        => self::POST_TYPE,
+				'post_status'      => array( 'publish', 'draft', 'private' ),
+				'posts_per_page'   => 200,
+				'orderby'          => 'ID',
+				'order'            => 'DESC',
+				'suppress_filters' => true,
+			)
+		);
+
 		$out = array();
-		try {
-			foreach ( \FluentCrm\App\Models\Template::emailTemplates( array( 'publish' ) )->orderBy( 'ID', 'desc' )->get() as $template ) {
-				$out[ (string) $template->ID ] = '' !== (string) $template->post_title ? (string) $template->post_title : sprintf( '#%d', $template->ID );
-			}
-		} catch ( \Throwable $e ) {
-			return array();
+		foreach ( $posts as $post ) {
+			$title = '' !== (string) $post->post_title ? (string) $post->post_title : sprintf( '#%d', $post->ID );
+			$out[ (string) $post->ID ] = 'publish' === $post->post_status ? $title : sprintf( '%s (%s)', $title, $post->post_status );
 		}
 
 		return $out;
+	}
+
+	/** Whether FluentCRM is loaded at all. */
+	public static function crm_active(): bool {
+		return defined( 'FLUENTCRM' ) || function_exists( 'FluentCrmApi' );
 	}
 
 	/**
@@ -145,15 +165,15 @@ final class OtpMail {
 	 * @param array<string,mixed>|null $reg_data
 	 */
 	private static function send_template( string $email, int $template_id, string $subject, array $values, ?array $reg_data ): bool {
-		if ( ! class_exists( '\FluentCrm\App\Models\Template' ) || ! class_exists( '\FluentCrm\App\Services\Libs\Mailer\Mailer' ) || ! class_exists( '\FluentCrm\App\Services\Helper' ) ) {
+		if ( ! self::crm_active() || ! class_exists( '\FluentCrm\App\Services\Libs\Mailer\Mailer' ) || ! class_exists( '\FluentCrm\App\Services\Helper' ) ) {
 			return false;
 		}
 
 		self::$current = $values;
 
 		try {
-			$template = \FluentCrm\App\Models\Template::emailTemplates( array( 'publish' ) )->find( $template_id );
-			if ( ! $template ) {
+			$template = get_post( $template_id );
+			if ( ! $template instanceof \WP_Post || self::POST_TYPE !== $template->post_type || 'trash' === $template->post_status ) {
 				return false;
 			}
 
