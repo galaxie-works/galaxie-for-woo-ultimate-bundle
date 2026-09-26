@@ -46,6 +46,11 @@ final class LoginControls {
 			'change_email'    => __( 'Usar outro e-mail', 'galaxie-woo' ),
 			'marketing'       => __( 'Quero receber novidades e ofertas.', 'galaxie-woo' ),
 			'terms'           => __( 'Li e aceito os termos de uso e a política de privacidade.', 'galaxie-woo' ),
+			// Sign-in with a password, when sign-in by code is switched off
+			// (Galaxie → Login in wp-admin).
+			'sign_in'         => __( 'Entrar', 'galaxie-woo' ),
+			'create_account'  => __( 'Criar conta', 'galaxie-woo' ),
+			'forgot_password' => __( 'Esqueci minha senha', 'galaxie-woo' ),
 		);
 	}
 
@@ -68,6 +73,9 @@ final class LoginControls {
 			'change_email'    => array( __( 'Link: use another e-mail', 'galaxie-woo' ), '' ),
 			'marketing'       => array( __( 'Consent: news and offers', 'galaxie-woo' ), __( 'The checkbox on the first-time form. What it writes is set under Galaxie → FluentCRM.', 'galaxie-woo' ) ),
 			'terms'           => array( __( 'Consent: terms', 'galaxie-woo' ), '' ),
+			'sign_in'         => array( __( 'Password sign-in: button', 'galaxie-woo' ), __( 'Only when sign-in by code is off (wp-admin → Galaxie → Login).', 'galaxie-woo' ) ),
+			'create_account'  => array( __( 'Password sign-in: create account button', 'galaxie-woo' ), '' ),
+			'forgot_password' => array( __( 'Password sign-in: forgot password link', 'galaxie-woo' ), '' ),
 		);
 
 		foreach ( self::text_defaults() as $id => $default ) {
@@ -110,6 +118,8 @@ final class LoginControls {
 			'birthdate' => __( 'Data de nascimento', 'galaxie-woo' ),
 			'cpf'       => __( 'CPF', 'galaxie-woo' ),
 			'phone'     => __( 'Celular', 'galaxie-woo' ),
+			'password'     => __( 'Senha', 'galaxie-woo' ),
+			'passwordHint' => __( 'Pelo menos 8 caracteres.', 'galaxie-woo' ),
 		);
 	}
 
@@ -257,6 +267,9 @@ final class LoginControls {
 				'confirmCode'    => $button( 'co_btn_main', $text['confirmCode'] ),
 				'resendCode'     => $button( 'co_btn_link', $text['resendCode'] ),
 				'changeEmail'    => $button( 'co_btn_link', $text['changeEmail'] ),
+				'signIn'         => $button( 'co_btn_main', $text['signIn'] ),
+				'createAccount'  => $button( 'co_btn_main', $text['createAccount'] ),
+				'forgotPassword' => $button( 'co_btn_link', $text['forgotPassword'] ),
 			),
 			'alert'   => self::alert( $settings ),
 			'marker'  => self::MARKER,
