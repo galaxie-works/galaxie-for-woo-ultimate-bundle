@@ -1175,6 +1175,28 @@ final class PixfortControls {
 			'default'      => $d( 'hide_close', '' ),
 		) );
 
+		// pixfort's close button is a bare `&times;` in the body font — about
+		// 16px, lost next to a 20px icon. These three replace the glyph with an
+		// icon of the merchant's choosing and size it; they only take effect
+		// through {@see render_alert()}, which is what swaps the glyph.
+		$shown = array( $prefix . '_hide_close' => '' );
+
+		self::icon_select( $target, $prefix . '_close_icon', __( 'Close icon', 'galaxie-woo' ), $d( 'close_icon', '' ), $condition + $shown );
+
+		self::add( $target, $condition, $prefix . '_close_size', array(
+			'label'      => __( 'Close icon size', 'galaxie-woo' ),
+			'type'       => Controls_Manager::SLIDER,
+			'size_units' => array( 'px' ),
+			'range'      => array( 'px' => array( 'min' => 8, 'max' => 64 ) ),
+			'condition'  => $shown,
+			'selectors'  => array(
+				$scope . ' .alert .close'                         => 'font-size: {{SIZE}}{{UNIT}} !important; line-height: 1 !important;',
+				$scope . ' .alert .close .galaxie-alert-close-icon' => 'width: {{SIZE}}{{UNIT}}; height: {{SIZE}}{{UNIT}};',
+			),
+		) );
+
+		self::icon_color( $target, $prefix . '_close_color', __( 'Close icon color', 'galaxie-woo' ), $scope . ' .alert .close', $condition + $shown );
+
 		self::add( $target, $condition, $prefix . '_media_type', array(
 			'label'   => __( 'Use an icon', 'galaxie-woo' ),
 			'type'    => Controls_Manager::SELECT,
@@ -1198,7 +1220,10 @@ final class PixfortControls {
 		self::add( $target, $condition, $prefix . '_icon_color', array(
 			'label'     => __( 'Icon color', 'galaxie-woo' ),
 			'type'      => Controls_Manager::SELECT,
-			'groups'    => self::colors( array( 'defaultValue' => array( 'alert-default' => __( 'Default', 'galaxie-woo' ) ), 'mainLight' => true, 'gradients' => false ) ),
+			// "Alert color": no rule matches `text-alert-default`, so the icon
+			// inherits the alert's own text colour and follows each message's
+			// type — the green of a success, the red of an error.
+			'groups'    => self::colors( array( 'defaultValue' => array( 'alert-default' => __( 'Alert color (follows the type)', 'galaxie-woo' ) ), 'mainLight' => true, 'gradients' => false ) ),
 			'default'   => $d( 'icon_color', 'primary' ),
 			'condition' => array( $prefix . '_media_type!' => 'none' ),
 		) );
@@ -1318,6 +1343,37 @@ final class PixfortControls {
 		}
 
 		return $attr;
+	}
+
+	/**
+	 * pixfort's Alert, with the close button the {@see alert()} controls chose.
+	 *
+	 * `PixAlert::render()` hard-codes the close glyph as `&times;`, so the icon
+	 * is swapped in the markup it returns. Callers check {@see available()}.
+	 *
+	 * @param array<string,mixed> $settings
+	 * @param array<string,mixed> $link
+	 */
+	public static function render_alert( array $settings, string $prefix, string $title, string $type, string $icon = '', array $link = array() ): string {
+		$html  = (string) \PixfortCore::instance()->elementsManager->renderElement( 'Alert', self::alert_attr( $settings, $prefix, $title, $type, $icon, $link ) );
+		$close = self::icon_value( $settings, $prefix . '_close_icon' );
+
+		if ( '' === $close || false === strpos( $html, 'data-dismiss="alert"' ) ) {
+			return $html;
+		}
+
+		$svg = (string) \PixfortCore::instance()->icons->getIcon( $close, 24, 'galaxie-alert-close-icon' );
+
+		if ( '' === $svg ) {
+			return $html;
+		}
+
+		return (string) preg_replace_callback(
+			'#(<button[^>]*data-dismiss="alert"[^>]*>)\s*<span aria-hidden="true">&times;</span>#',
+			static fn( array $m ): string => $m[1] . '<span aria-hidden="true" class="d-inline-flex">' . $svg . '</span>',
+			$html,
+			1
+		);
 	}
 
 	/**

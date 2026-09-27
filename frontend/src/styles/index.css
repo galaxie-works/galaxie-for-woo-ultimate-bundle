@@ -1302,6 +1302,31 @@ form.galaxie-buybox .galaxie-buybox-row {
   margin: 0 !important;
 }
 
+/* "Full width button": the <button> and its block stretch with pixfort's
+   `w-100` .btn. In a row beside the quantity the block takes the room left,
+   and wraps to its own line when its label no longer fits. */
+form.galaxie-buybox .galaxie-buybox-block.is-full {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+form.galaxie-buybox .galaxie-buybox-btn.is-full {
+  display: flex;
+  width: 100%;
+}
+form.galaxie-buybox .galaxie-buybox-btn.is-full > * {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* An alert's chosen close icon (PixfortControls::render_alert()): sized by
+   the button's font size, painted in its colour. */
+.alert .close .galaxie-alert-close-icon {
+  width: 1em;
+  height: 1em;
+  vertical-align: middle;
+  --pf-icon-color: currentColor;
+}
+
 .galaxie-buybox-btn:disabled {
   cursor: not-allowed;
   opacity: 0.6;

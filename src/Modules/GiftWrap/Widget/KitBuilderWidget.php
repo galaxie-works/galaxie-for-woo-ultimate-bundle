@@ -1259,7 +1259,7 @@ final class KitBuilderWidget extends Widget_Base {
 		$type = (string) ( $settings[ 'kit_alert_' . $kind . '_type' ] ?? ( 'error' === $kind ? 'danger' : 'warning' ) );
 
 		$inner = PixfortControls::available()
-			? (string) \PixfortCore::instance()->elementsManager->renderElement( 'Alert', PixfortControls::alert_attr( $settings, 'kit_alert', $text, $type ) )
+			? (string) PixfortControls::render_alert( $settings, 'kit_alert', $text, $type )
 			: sprintf(
 				'<div class="alert alert-%1$s" role="alert"><div class="pix-alert-title">%2$s</div></div>',
 				esc_attr( $type ),
