@@ -400,7 +400,7 @@ final class BuyBoxWidget extends Widget_Base {
 			)
 		);
 
-		PixfortControls::alert( $this, 'alert', array(), array(), '{{WRAPPER}} .galaxie-buybox-alert' );
+		PixfortControls::alert( $this, 'alert', array( 'icon_color' => 'alert-default' ), array(), '{{WRAPPER}} .galaxie-buybox-alert' );
 
 		$this->end_controls_section();
 	}
@@ -489,7 +489,7 @@ final class BuyBoxWidget extends Widget_Base {
 			)
 		);
 
-		PixfortControls::alert( $this, 'gift_alert', array(), $shown + array( 'gift_inherit!' => 'yes' ), '{{WRAPPER}} .galaxie-buybox-gift' );
+		PixfortControls::alert( $this, 'gift_alert', array( 'icon_color' => 'alert-default' ), $shown + array( 'gift_inherit!' => 'yes' ), '{{WRAPPER}} .galaxie-buybox-gift' );
 
 		$this->end_controls_section();
 	}
@@ -889,7 +889,12 @@ final class BuyBoxWidget extends Widget_Base {
 		// their own element with that exact class, and two nested nodes sharing
 		// it meant every rule written for the inner one also hit the wrapper —
 		// which is what put the stock line beside the price instead of under it.
-		echo '<div class="galaxie-buybox-block galaxie-buybox-block--' . esc_attr( sanitize_html_class( $block ) ) . '">';
+		// A full-width button needs its block to take the room too: in a row
+		// beside the quantity the block is a flex item sized to its content,
+		// and pixfort's `w-100` on the inner .btn was 100% of that.
+		$full = in_array( $block, array( 'addcart', 'buynow' ), true ) && 'yes' === ( $settings[ $block . '_full' ] ?? '' );
+
+		echo '<div class="galaxie-buybox-block galaxie-buybox-block--' . esc_attr( sanitize_html_class( $block ) ) . ( $full ? ' is-full' : '' ) . '">';
 
 		switch ( $block ) {
 			case 'price':
@@ -1050,7 +1055,7 @@ final class BuyBoxWidget extends Widget_Base {
 			);
 
 			if ( PixfortControls::available() ) {
-				echo \PixfortCore::instance()->elementsManager->renderElement( 'Alert', PixfortControls::alert_attr( $settings, 'alert', $text, $type, $icon, $link ) ); // phpcs:ignore WordPress.Security.EscapeOutput -- pixfort's own component markup.
+				echo PixfortControls::render_alert( $settings, 'alert', $text, $type, $icon, $link ); // phpcs:ignore WordPress.Security.EscapeOutput -- pixfort's own component markup.
 			} else {
 				printf(
 					'<div class="alert alert-%s" role="alert"><div class="pix-alert-title">%s</div></div>',
@@ -1139,7 +1144,7 @@ final class BuyBoxWidget extends Widget_Base {
 				wp_enqueue_style( 'pixfort-alert-style', PIX_CORE_PLUGIN_URI . 'includes/assets/css/elements/alert.min.css', array(), PIXFORT_PLUGIN_VERSION );
 			}
 
-			echo \PixfortCore::instance()->elementsManager->renderElement( 'Alert', PixfortControls::alert_attr( $settings, $prefix, $text, $type, PixfortControls::icon_value( $settings, 'gift_icon' ), $link ) ); // phpcs:ignore WordPress.Security.EscapeOutput -- pixfort's own component markup.
+			echo PixfortControls::render_alert( $settings, $prefix, $text, $type, PixfortControls::icon_value( $settings, 'gift_icon' ), $link ); // phpcs:ignore WordPress.Security.EscapeOutput -- pixfort's own component markup.
 		} else {
 			printf( '<div class="alert alert-%s" role="alert"><div class="pix-alert-title">%s</div></div>', esc_attr( $type ), $text ); // phpcs:ignore WordPress.Security.EscapeOutput -- kses above.
 		}
@@ -1367,9 +1372,10 @@ final class BuyBoxWidget extends Widget_Base {
 		// is kept on Add to Cart because WooCommerce's own variation JS toggles
 		// its disabled state as combinations narrow.
 		printf(
-			'<button type="submit" class="galaxie-buybox-btn galaxie-buybox-%s%s">',
+			'<button type="submit" class="galaxie-buybox-btn galaxie-buybox-%s%s%s">',
 			esc_attr( $prefix ),
-			'addcart' === $prefix ? ' single_add_to_cart_button' : ''
+			'addcart' === $prefix ? ' single_add_to_cart_button' : '',
+			'yes' === ( $settings[ $prefix . '_full' ] ?? '' ) ? ' is-full' : ''
 		);
 
 		echo PixfortControls::render_button( $settings, $prefix, $text ); // phpcs:ignore WordPress.Security.EscapeOutput -- pixfort's own component markup.

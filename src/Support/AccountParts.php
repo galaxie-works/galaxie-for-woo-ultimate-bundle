@@ -1298,7 +1298,7 @@ final class AccountParts {
 
 		return sprintf(
 			'<div class="galaxie-order-cancelled" role="status">%s</div>',
-			(string) \PixfortCore::instance()->elementsManager->renderElement( 'Alert', PixfortControls::alert_attr( $settings, 'cancel_alert', $text, $type, PixfortControls::icon_value( $settings, 'cancel_alert_icon' ) ) )
+			(string) PixfortControls::render_alert( $settings, 'cancel_alert', $text, $type, PixfortControls::icon_value( $settings, 'cancel_alert_icon' ) )
 		);
 	}
 
