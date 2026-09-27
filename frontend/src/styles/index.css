@@ -1586,19 +1586,51 @@ form.galaxie-buybox .galaxie-buybox-row {
 
 /* Quantity discount tiers — layout only; every bit of color and typography
    comes from pixfort's own Text component, rendered server-side per cell. */
-.galaxie-qd-table {
+/* The spacing comes from the widget's Layout section, as custom properties. */
+.galaxie-qd {
+  --galaxie-qd-heading-gap: 12px;
+  --galaxie-qd-row-gap: 12px;
+  --galaxie-qd-column-gap: 12px;
+}
+
+.galaxie-qd .galaxie-qd-heading {
+  margin-bottom: var(--galaxie-qd-heading-gap);
+}
+
+/* pixfort's main sheet gives every table `margin: 0 0 1.5em`, which left 24px
+   of nothing under the last row, inside whatever box holds the widget. Two
+   classes, to outrank that `table` rule. */
+.galaxie-qd .galaxie-qd-table {
   width: 100%;
+  margin: 0;
   border-collapse: collapse;
 }
 
+/* Half the row gap above each cell and half below, none above the first row
+   nor below the last: the gap is only ever between rows. */
 .galaxie-qd-table td {
-  padding: 0.375rem 0.75rem 0.375rem 0;
+  padding: calc(var(--galaxie-qd-row-gap) / 2) var(--galaxie-qd-column-gap) calc(var(--galaxie-qd-row-gap) / 2) 0;
   vertical-align: middle;
+}
+
+.galaxie-qd-table tr:first-child td {
+  padding-top: 0;
+}
+
+.galaxie-qd-table tr:last-child td {
+  padding-bottom: 0;
 }
 
 .galaxie-qd-table td:last-child {
   padding-right: 0;
   text-align: right;
+}
+
+/* pixfort wraps an animated text in an inline-block span that sits on the
+   paragraph's baseline; aligned to the middle instead, the words stay where
+   the cell's vertical alignment puts them rather than a few pixels above. */
+.galaxie-qd-table td .animate-in {
+  vertical-align: middle;
 }
 
 /* !important is load-bearing here: WooCommerce's own variation JS toggles
