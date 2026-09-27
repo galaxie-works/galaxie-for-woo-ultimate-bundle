@@ -157,9 +157,77 @@ final class QuantityDiscountsWidget extends Widget_Base {
 
 		$this->end_controls_section();
 
+		$this->register_layout_section();
 		$this->register_button_section();
 		$this->register_text_controls( 'heading', 'heading_style_section', __( 'Heading', 'galaxie-woo' ) );
 		$this->register_text_controls( 'row', 'row_style_section', __( 'Table text', 'galaxie-woo' ) );
+	}
+
+	/**
+	 * The spacing and alignment of the table: the space under the heading,
+	 * between the rows and between the columns, and where a row's text sits
+	 * against its button, which is taller than a line of text.
+	 *
+	 * Rows are spaced by their cells' padding, half the gap above and half
+	 * below, with none above the first row or below the last, so the gap is
+	 * only ever between rows and the widget ends where its last row does.
+	 */
+	private function register_layout_section(): void {
+		$this->start_controls_section(
+			'qd_layout_style',
+			array(
+				'label' => __( 'Layout', 'galaxie-woo' ),
+				'tab'   => Controls_Manager::TAB_STYLE,
+			)
+		);
+
+		$gap = static fn( string $label, int $default, int $max ): array => array(
+			'label'      => $label,
+			'type'       => Controls_Manager::SLIDER,
+			'size_units' => array( 'px', 'rem' ),
+			'range'      => array( 'px' => array( 'min' => 0, 'max' => $max ) ),
+			'default'    => array( 'unit' => 'px', 'size' => $default ),
+		);
+
+		$this->add_responsive_control(
+			'qd_heading_gap',
+			$gap( __( 'Space below the heading', 'galaxie-woo' ), 12, 60 ) + array(
+				'selectors' => array( '{{WRAPPER}} .galaxie-qd' => '--galaxie-qd-heading-gap: {{SIZE}}{{UNIT}};' ),
+			)
+		);
+
+		$this->add_responsive_control(
+			'qd_row_gap',
+			$gap( __( 'Space between rows', 'galaxie-woo' ), 12, 60 ) + array(
+				'selectors' => array( '{{WRAPPER}} .galaxie-qd' => '--galaxie-qd-row-gap: {{SIZE}}{{UNIT}};' ),
+			)
+		);
+
+		$this->add_responsive_control(
+			'qd_column_gap',
+			$gap( __( 'Space between columns', 'galaxie-woo' ), 12, 80 ) + array(
+				'selectors' => array( '{{WRAPPER}} .galaxie-qd' => '--galaxie-qd-column-gap: {{SIZE}}{{UNIT}};' ),
+			)
+		);
+
+		$this->add_responsive_control(
+			'qd_align',
+			array(
+				'label'       => __( 'Vertical alignment', 'galaxie-woo' ),
+				'description' => __( 'Where the quantity and the discount sit against the button of their row.', 'galaxie-woo' ),
+				'type'        => Controls_Manager::CHOOSE,
+				'options'   => array(
+					'top'    => array( 'title' => __( 'Top', 'galaxie-woo' ), 'icon' => 'eicon-v-align-top' ),
+					'middle' => array( 'title' => __( 'Middle', 'galaxie-woo' ), 'icon' => 'eicon-v-align-middle' ),
+					'bottom' => array( 'title' => __( 'Bottom', 'galaxie-woo' ), 'icon' => 'eicon-v-align-bottom' ),
+				),
+				'default'   => 'middle',
+				'toggle'    => false,
+				'selectors' => array( '{{WRAPPER}} .galaxie-qd-table td' => 'vertical-align: {{VALUE}};' ),
+			)
+		);
+
+		$this->end_controls_section();
 	}
 
 	/**
