@@ -1,8 +1,9 @@
 import '@/styles/index.css'
 
-import { mountIslands, registerIsland } from '@/runtime'
+import { bootElementorIslands, mountIslands, registerIsland } from '@/runtime'
 import { Demo } from '@/islands/demo'
 import { Checkout } from '@/islands/checkout'
+import { Login } from '@/islands/login'
 import { MyAccount } from '@/islands/my-account'
 import { bootToastNotices } from '@/globals/toast-notices'
 import { bootVariationSwatches } from '@/globals/variation-swatches'
@@ -29,6 +30,7 @@ import { bootGiftCheckout, type GiftCheckoutConfig } from '@/globals/gift-checko
 // Each module registers its island(s) here as they are ported.
 registerIsland('demo', Demo)
 registerIsland('checkout', Checkout)
+registerIsland('login', Login)
 registerIsland('my-account', MyAccount)
 
 interface GalaxieConfig {
@@ -45,11 +47,15 @@ interface GalaxieConfig {
 
 function boot(): void {
   mountIslands()
+  bootElementorIslands()
 
   const config: GalaxieConfig =
     (window as unknown as { __GALAXIE_WOO__?: GalaxieConfig }).__GALAXIE_WOO__ ?? {}
 
   bootBuyBox(config.variationSwatches?.buyBox)
+
+  // The kit flow is its own entry (kit.ts, `galaxie-kit.js`), loaded wherever
+  // the kit popup is set up.
   bootVariationBadgesWidget(config.variationSwatches?.buyBox)
   bootQuantityDiscounts()
   bootCartCountdown()

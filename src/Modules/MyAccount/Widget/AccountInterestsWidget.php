@@ -11,6 +11,7 @@ use Elementor\Controls_Manager;
 use Elementor\Widget_Base;
 use Galaxie\Woo\Core\Plugin;
 use Galaxie\Woo\Integrations\FluentCRM as FluentCRMApi;
+use Galaxie\Woo\Support\AccountEndpoints;
 use Galaxie\Woo\Support\AccountParts;
 use Galaxie\Woo\Support\Assets;
 use Galaxie\Woo\Support\PixfortControls;
@@ -95,6 +96,56 @@ final class AccountInterestsWidget extends Widget_Base {
 		);
 
 		$this->add_control( 'interests_heading', array( 'label' => __( 'Heading', 'galaxie-woo' ), 'type' => Controls_Manager::TEXT, 'label_block' => true, 'default' => __( 'Seus interesses', 'galaxie-woo' ) ) );
+		$this->add_control(
+			'interests_mode',
+			array(
+				'label'       => __( 'Show', 'galaxie-woo' ),
+				'type'        => Controls_Manager::SELECT,
+				'options'     => array(
+					'full'    => __( 'The pills, to choose from', 'galaxie-woo' ),
+					'summary' => __( 'A line with what is chosen, for a dashboard', 'galaxie-woo' ),
+				),
+				'default'     => 'full',
+				'description' => __( 'The line only reads: choosing happens on the Interests screen, which the link opens.', 'galaxie-woo' ),
+			)
+		);
+
+		$summary = array( 'interests_mode' => 'summary' );
+
+		$this->add_control(
+			'interests_summary_label',
+			array(
+				'label'       => __( 'Before the list', 'galaxie-woo' ),
+				'type'        => Controls_Manager::TEXT,
+				'label_block' => true,
+				'default'     => __( 'Seus interesses:', 'galaxie-woo' ),
+				'condition'   => $summary,
+			)
+		);
+
+		$this->add_control(
+			'interests_summary_none',
+			array(
+				'label'       => __( 'With none chosen', 'galaxie-woo' ),
+				'type'        => Controls_Manager::TEXT,
+				'label_block' => true,
+				'default'     => __( 'Escolha o que você quer ver primeiro.', 'galaxie-woo' ),
+				'condition'   => $summary,
+			)
+		);
+
+		$this->add_control(
+			'interests_all_text',
+			array(
+				'label'       => __( 'Link to the screen', 'galaxie-woo' ),
+				'type'        => Controls_Manager::TEXT,
+				'label_block' => true,
+				'default'     => __( 'Escolher interesses', 'galaxie-woo' ),
+				'description' => __( 'Empty to leave it out.', 'galaxie-woo' ),
+				'condition'   => $summary,
+			)
+		);
+
 		$this->add_control( 'interests_intro', array( 'label' => __( 'Intro text', 'galaxie-woo' ), 'type' => Controls_Manager::TEXTAREA, 'rows' => 2, 'default' => __( 'Escolha o que combina com você. Usamos isso para mandar só novidades que interessam.', 'galaxie-woo' ) ) );
 		$this->add_control( 'interests_sparkles', array( 'label' => __( 'Sparkles when choosing', 'galaxie-woo' ), 'type' => Controls_Manager::SWITCHER, 'return_value' => 'yes', 'default' => 'yes' ) );
 
@@ -113,6 +164,10 @@ final class AccountInterestsWidget extends Widget_Base {
 			)
 		);
 
+		$this->end_controls_section();
+
+		$this->start_controls_section( 'interests_all_section', array( 'label' => __( 'Short line: link to the screen', 'galaxie-woo' ), 'condition' => array( 'interests_mode' => 'summary' ) ) );
+		PixfortControls::button( $this, 'interests_all', array( 'style' => 'link', 'size' => 'sm', 'icon' => 'Line/pixfort-icon-arrow-right-1', 'icon_position' => 'after' ), array(), '{{WRAPPER}}', array( 'text' ) );
 		$this->end_controls_section();
 
 		$this->start_controls_section( 'interests_box_style', array( 'label' => __( 'Box', 'galaxie-woo' ), 'tab' => Controls_Manager::TAB_STYLE ) );
@@ -193,6 +248,41 @@ final class AccountInterestsWidget extends Widget_Base {
 
 		if ( '' !== $intro ) {
 			printf( '<div class="galaxie-interests-intro">%s</div>', PixfortControls::render_text( $s, 'interests_intro_text', esc_html( $intro ) ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pixfort's own element around escaped text.
+		}
+
+		// The dashboard's line: what is chosen, read-only, and the way to
+		// change it. A pill that toggles belongs on the screen that owns it.
+		if ( 'summary' === ( $s['interests_mode'] ?? 'full' ) ) {
+			$chosen = array();
+
+			foreach ( $options as $option ) {
+				if ( in_array( $option['tagId'], $selected, true ) ) {
+					$chosen[] = (string) $option['label'];
+				}
+			}
+
+			$label = trim( (string) ( $s['interests_summary_label'] ?? '' ) );
+			$line  = $chosen
+				? trim( $label . ' ' . implode( ', ', $chosen ) )
+				: (string) ( $s['interests_summary_none'] ?? '' );
+
+			printf(
+				'<p class="galaxie-interests-summary %1$s">%2$s</p>',
+				esc_attr( PixfortControls::text_classes( $s, 'interests_intro_text' ) ),
+				esc_html( $line )
+			);
+
+			$link = trim( (string) ( $s['interests_all_text'] ?? '' ) );
+
+			if ( '' !== $link ) {
+				printf(
+					'<div class="galaxie-interests-more">%s</div>',
+					AccountParts::link_button( $s, 'interests_all', $link, AccountEndpoints::url( 'galaxie-interests' ) ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built from escaped parts.
+				);
+			}
+
+			echo '</div>';
+			return;
 		}
 
 		echo '<div class="galaxie-account-message" role="status" aria-live="polite" hidden></div><div class="galaxie-interests-list">';

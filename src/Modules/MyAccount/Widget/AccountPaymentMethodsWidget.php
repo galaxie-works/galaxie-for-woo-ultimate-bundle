@@ -74,6 +74,34 @@ final class AccountPaymentMethodsWidget extends Widget_Base {
 		$this->add_control( 'pm_intro', array( 'label' => __( 'Intro text', 'galaxie-woo' ), 'type' => Controls_Manager::TEXTAREA, 'rows' => 2, 'default' => __( 'Os cartões que você salvou para comprar mais rápido. Os dados ficam guardados com o processador de pagamento, nunca na loja.', 'galaxie-woo' ) ) );
 		$this->add_control( 'pm_empty_text', array( 'label' => __( 'When there are no cards', 'galaxie-woo' ), 'type' => Controls_Manager::TEXT, 'label_block' => true, 'default' => __( 'Você ainda não salvou nenhum cartão.', 'galaxie-woo' ) ) );
 
+		$this->add_control(
+			'pm_mode',
+			array(
+				'label'       => __( 'Show', 'galaxie-woo' ),
+				'type'        => Controls_Manager::SELECT,
+				'options'     => array(
+					'full'    => __( 'Every card, with the whole screen', 'galaxie-woo' ),
+					'compact' => __( 'The default card only, for a dashboard', 'galaxie-woo' ),
+				),
+				'default'     => 'full',
+				'description' => __( 'The short version shows the card that will be charged next and a link to the screen. Adding, removing and changing a card stay there, where the gateway\'s own form is.', 'galaxie-woo' ),
+				'separator'   => 'before',
+			)
+		);
+
+		$compact = array( 'pm_mode' => 'compact' );
+
+		$this->add_control(
+			'pm_hide_empty',
+			array(
+				'label'        => __( 'Hide the widget with no saved card', 'galaxie-woo' ),
+				'type'         => Controls_Manager::SWITCHER,
+				'return_value' => 'yes',
+				'default'      => 'yes',
+				'condition'    => $compact,
+			)
+		);
+
 		$this->add_control( 'pm_expires_label', array( 'label' => __( 'Expiry label', 'galaxie-woo' ), 'type' => Controls_Manager::TEXT, 'default' => __( 'Validade', 'galaxie-woo' ), 'separator' => 'before' ) );
 		$this->add_control( 'pm_badge_default', array( 'label' => __( 'Default badge', 'galaxie-woo' ), 'type' => Controls_Manager::TEXT, 'default' => __( 'Padrão', 'galaxie-woo' ) ) );
 		$this->add_control( 'pm_badge_expiring', array( 'label' => __( 'Expiring soon badge', 'galaxie-woo' ), 'type' => Controls_Manager::TEXT, 'default' => __( 'Vence em breve', 'galaxie-woo' ) ) );
@@ -135,6 +163,7 @@ final class AccountPaymentMethodsWidget extends Widget_Base {
 		$this->end_controls_section();
 
 		$buttons = array(
+			'pm_all'     => array( __( 'Short card: link to the screen', 'galaxie-woo' ), array( 'text' => __( 'Gerenciar cartões', 'galaxie-woo' ), 'style' => 'link', 'size' => 'sm', 'icon' => 'Line/pixfort-icon-arrow-right-1', 'icon_position' => 'after' ) ),
 			'pm_add'     => array( __( 'Add card button', 'galaxie-woo' ), array( 'text' => __( 'Adicionar cartão', 'galaxie-woo' ), 'size' => 'sm' ) ),
 			'pm_default' => array( __( 'Card: make default button', 'galaxie-woo' ), array( 'text' => __( 'Usar como padrão', 'galaxie-woo' ), 'style' => 'link', 'size' => 'sm' ) ),
 			'pm_delete'  => array( __( 'Card: delete button', 'galaxie-woo' ), array( 'text' => __( 'Excluir', 'galaxie-woo' ), 'style' => 'link', 'size' => 'sm' ) ),
@@ -439,6 +468,14 @@ final class AccountPaymentMethodsWidget extends Widget_Base {
 			);
 		}
 
+		// The dashboard's version: which card pays next, and the way to the
+		// screen. Nothing that changes a card, because changing one belongs
+		// where the gateway's own form is.
+		if ( 'compact' === ( $s['pm_mode'] ?? 'full' ) ) {
+			$this->render_compact( $s, $methods, $editing );
+			return;
+		}
+
 		$stripe = $editing ? null : \Galaxie\Woo\Support\StripeCards::client_config();
 
 		printf(
@@ -500,6 +537,52 @@ final class AccountPaymentMethodsWidget extends Widget_Base {
 
 		echo Dialog::render( $s, 'pm_confirm' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built from escaped parts.
 		echo Dialog::render( $s, 'pm_default_ask' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built from escaped parts.
+
+		echo '</div>';
+	}
+
+	/**
+	 * The short card: the default one, with nothing to press on it.
+	 *
+	 * @param array<string,mixed>      $s       Widget settings.
+	 * @param array<int,array<string,mixed>> $methods The saved methods, default first.
+	 * @param bool                     $editing In the Elementor editor.
+	 */
+	private function render_compact( array $s, array $methods, bool $editing ): void {
+		if ( ! $methods && 'yes' === ( $s['pm_hide_empty'] ?? 'yes' ) && ! $editing ) {
+			return;
+		}
+
+		$link    = trim( (string) ( $s['pm_all_text'] ?? '' ) );
+		$heading = trim( (string) ( $s['pm_heading'] ?? '' ) );
+
+		echo '<div class="galaxie-payment-methods is-compact">';
+
+		if ( '' !== $heading ) {
+			printf( '<div class="galaxie-pm-heading">%s</div>', PixfortControls::render_text( $s, 'pm_heading_text', esc_html( $heading ) ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pixfort's own element around escaped text.
+		}
+
+		if ( $methods ) {
+			// The actions go: a card is removed and made default on its own
+			// screen, where the dialogs and the gateway's answers live.
+			$card            = $methods[0];
+			$card['actions'] = array();
+
+			printf( '<div class="galaxie-pm-cards">%s</div>', $this->card( $s, $card ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built from escaped parts.
+		} else {
+			printf(
+				'<p class="galaxie-pm-empty %1$s">%2$s</p>',
+				esc_attr( PixfortControls::text_classes( $s, 'pm_empty_body' ) ),
+				esc_html( (string) ( $s['pm_empty_text'] ?? '' ) )
+			);
+		}
+
+		if ( '' !== $link ) {
+			printf(
+				'<div class="galaxie-pm-toolbar">%s</div>',
+				AccountParts::link_button( $s, 'pm_all', $link, $editing ? '#' : AccountEndpoints::url( 'payment-methods' ) ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built from escaped parts.
+			);
+		}
 
 		echo '</div>';
 	}

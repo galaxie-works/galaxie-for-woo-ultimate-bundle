@@ -32,6 +32,9 @@ final class Field {
 	 * @param mixed                $default     Default value when never saved.
 	 * @param array<string,string> $options     value => label, required for TYPE_SELECT.
 	 * @param string               $placeholder Input placeholder (text/password/number only).
+	 * @param string               $step        Number input `step` (e.g. `0.1`); empty keeps the browser's 1, which rejects decimals.
+	 * @param string               $min         Number input `min`; empty for none.
+	 * @param string               $max         Number input `max`; empty for none.
 	 */
 	public function __construct(
 		public readonly string $key,
@@ -40,7 +43,10 @@ final class Field {
 		public readonly string $description = '',
 		public readonly mixed $default = '',
 		public readonly array $options = array(),
-		public readonly string $placeholder = ''
+		public readonly string $placeholder = '',
+		public readonly string $step = '',
+		public readonly string $min = '',
+		public readonly string $max = ''
 	) {}
 
 	/** Sanitize one submitted raw value according to this field's type. */

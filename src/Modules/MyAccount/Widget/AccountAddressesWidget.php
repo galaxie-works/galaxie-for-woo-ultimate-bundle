@@ -75,6 +75,24 @@ final class AccountAddressesWidget extends Widget_Base {
 			)
 		);
 
+		// A dashboard wants one card, not the pair: "where your orders go", with
+		// the way to change it. The Addresses screen keeps both.
+		$this->add_control(
+			'addr_which',
+			array(
+				'label'       => __( 'Which addresses', 'galaxie-woo' ),
+				'type'        => Controls_Manager::SELECT,
+				'options'     => array(
+					'both'     => __( 'Billing and shipping', 'galaxie-woo' ),
+					'shipping' => __( 'Shipping only', 'galaxie-woo' ),
+					'billing'  => __( 'Billing only', 'galaxie-woo' ),
+				),
+				'default'     => 'both',
+				'description' => __( 'Shipping only is for a dashboard card. A store that ships to the billing address shows that one whatever this says.', 'galaxie-woo' ),
+				'separator'   => 'before',
+			)
+		);
+
 		$this->add_control( 'addr_billing_title', array( 'label' => __( 'Billing address title', 'galaxie-woo' ), 'type' => Controls_Manager::TEXT, 'default' => __( 'Endereço de cobrança', 'galaxie-woo' ), 'separator' => 'before' ) );
 		$this->add_control( 'addr_shipping_title', array( 'label' => __( 'Shipping address title', 'galaxie-woo' ), 'type' => Controls_Manager::TEXT, 'default' => __( 'Endereço de entrega', 'galaxie-woo' ) ) );
 		$this->add_control( 'addr_empty_text', array( 'label' => __( 'When an address is missing', 'galaxie-woo' ), 'type' => Controls_Manager::TEXT, 'label_block' => true, 'default' => __( 'Você ainda não cadastrou este endereço.', 'galaxie-woo' ) ) );
@@ -242,6 +260,14 @@ final class AccountAddressesWidget extends Widget_Base {
 
 		if ( ! wc_ship_to_billing_address_only() && wc_shipping_enabled() ) {
 			$types['shipping'] = (string) ( $s['addr_shipping_title'] ?? '' );
+		}
+
+		$which = (string) ( $s['addr_which'] ?? 'both' );
+
+		// Never down to nothing: a store that ships to the billing address has
+		// no shipping card to show, and "shipping only" would empty the widget.
+		if ( isset( $types[ $which ] ) ) {
+			$types = array( $which => $types[ $which ] );
 		}
 
 		return $types;

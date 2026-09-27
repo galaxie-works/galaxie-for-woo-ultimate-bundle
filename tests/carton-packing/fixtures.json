@@ -1,0 +1,59 @@
+{
+  "cartons": {
+    "N12": { "code": "N12", "name": "N12", "length": 19, "width": 12, "height": 12, "empty_weight": 60, "max_load": 30000 },
+    "N7": { "code": "N7", "name": "N7", "length": 20, "width": 15, "height": 15, "empty_weight": 90, "max_load": 30000 },
+    "N16": { "code": "N16", "name": "N16", "length": 21, "width": 19, "height": 18, "empty_weight": 120, "max_load": 30000 },
+    "N17": { "code": "N17", "name": "N17", "length": 25, "width": 25, "height": 14, "empty_weight": 140, "max_load": 30000 },
+    "N18": { "code": "N18", "name": "N18", "length": 29, "width": 19, "height": 20, "empty_weight": 160, "max_load": 30000 },
+    "N7light": { "code": "N7light", "name": "N7 (max 700 g)", "length": 20, "width": 15, "height": 15, "empty_weight": 90, "max_load": 700, "test_only": true }
+  },
+  "items": {
+    "50g": { "length": 5.5, "width": 5.5, "height": 7, "weight": 143, "rotate": "any" },
+    "190g": { "length": 8.2, "width": 8.2, "height": 8.8, "weight": 412, "rotate": "any" },
+    "square": { "length": 14.76, "width": 14.76, "height": 5.36, "weight": 196, "rotate": "upright" },
+    "big": { "length": 25, "width": 9.5, "height": 8.5, "weight": 278, "rotate": "upright" }
+  },
+  "options": { "margin": 1.5, "gap": 0, "density": 29, "stacking": true },
+  "pack": [
+    { "name": "1 x 190g", "items": [["190g", 1]], "expect": ["N12"] },
+    { "name": "2 x 50g", "items": [["50g", 2]], "expect": ["N12"] },
+    { "name": "2 x 190g", "items": [["190g", 2]], "expect": ["N7"] },
+    { "name": "1 x 190g + 2 x 50g", "items": [["190g", 1], ["50g", 2]], "expect": ["N7"] },
+    { "name": "4 x 50g (N7 or smaller)", "items": [["50g", 4]], "expect": ["N7"] },
+    {
+      "name": "4 x 190g: N17, not N16",
+      "items": [["190g", 4]],
+      "expect": ["N17"],
+      "note": "Margin 1.5 cm confirmed by the merchant. Usable N16 is 18 x 16 x 15: four 8.2 x 8.2 x 8.8 jars need 2 x 2 = 16.4 x 16.4 on some pair of axes, and only the 18 axis is >= 16.4; 4 in a row is 32.8. N16 holds 2 x 190g. N17 (usable 22 x 22 x 11) takes the 4 flat."
+    },
+    { "name": "1 square gift box", "items": [["square", 1]], "expect": ["N16"] },
+    { "name": "2 square gift boxes stacked", "items": [["square", 2]], "expect": ["N16"] },
+    { "name": "1 big gift box", "items": [["big", 1]], "expect": ["N18"] },
+    { "name": "2 big gift boxes stacked", "items": [["big", 2]], "expect": ["N18"] },
+    { "name": "2 x 190g, margin 0", "items": [["190g", 2]], "options": { "margin": 0 }, "expect": ["N12"] },
+    { "name": "2 big gift boxes, stacking off: two cartons", "items": [["big", 2]], "options": { "stacking": false }, "expect": ["N18", "N18"] },
+    { "name": "2 square gift boxes, stacking off: two cartons", "items": [["square", 2]], "options": { "stacking": false }, "expect": ["N16", "N16"] },
+    { "name": "8 x 190g: N18 takes 6 (3 x 1 x 2 in 26 x 16 x 17), N7 the other 2", "items": [["190g", 8]], "expect": ["N18", "N7"] },
+    { "name": "big gift box + 4 x 190g: 3 jars on the box lid in N18, the 4th in N12", "items": [["big", 1], ["190g", 4]], "expect": ["N18", "N12"] },
+    { "name": "split off, 8 x 190g: none", "items": [["190g", 8]], "options": { "split": false }, "expect": null },
+    { "name": "item too big for every carton", "items": [["big", 1]], "cartons": ["N12", "N7", "N16"], "expect": null },
+    { "name": "max load forces a split", "items": [["190g", 2]], "cartons": ["N7light"], "expect": ["N7light", "N7light"] }
+  ],
+  "fits": [
+    { "name": "190g in N12", "carton": "N12", "items": [["190g", 1]], "expect": true },
+    { "name": "2 x 190g not in N12", "carton": "N12", "items": [["190g", 2]], "expect": false },
+    { "name": "big gift box lid up not in N17", "carton": "N17", "items": [["big", 1]], "expect": false },
+    { "name": "3 big gift boxes not in N18", "carton": "N18", "items": [["big", 3]], "expect": false },
+    { "name": "1 x 190g + 2 x 50g not in N12", "carton": "N12", "items": [["190g", 1], ["50g", 2]], "expect": false },
+    { "name": "1 x 190g + 1 x 50g in N12", "carton": "N12", "items": [["190g", 1], ["50g", 1]], "expect": true },
+    { "name": "4 x 50g not in N12", "carton": "N12", "items": [["50g", 4]], "expect": false },
+    { "name": "4 x 190g in N17", "carton": "N17", "items": [["190g", 4]], "expect": true },
+    { "name": "8 x 50g in N7", "carton": "N7", "items": [["50g", 8]], "expect": true },
+    { "name": "gap 0.5 between items: 2 x 190g in N7 (8.2 + 0.5 + 8.2 = 16.9 <= 17)", "carton": "N7", "items": [["190g", 2]], "options": { "gap": 0.5 }, "expect": true },
+    { "name": "gap 1 between items: 2 x 190g not in N7 (8.2 + 1 + 8.2 = 17.4 > 17; 8.8 + 1 + 8.8 in 12 no)", "carton": "N7", "items": [["190g", 2]], "options": { "gap": 1 }, "expect": false }
+  ],
+  "filler": [
+    { "name": "1 x 190g in N12, 29 g/L", "carton": "N12", "items": [["190g", 1]], "expect": 62 },
+    { "name": "1 x 190g + 2 x 50g in N7", "carton": "N7", "items": [["190g", 1], ["50g", 2]], "expect": 101 }
+  ]
+}

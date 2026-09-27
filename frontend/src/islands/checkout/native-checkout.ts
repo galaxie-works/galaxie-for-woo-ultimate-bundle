@@ -55,19 +55,31 @@ export interface NativeBillingState {
   country?: string
 }
 
+/**
+ * Writes the step's answers into WooCommerce's hidden form — the billing
+ * fields and, when the form has them, the shipping ones too.
+ *
+ * Which of the two WooCommerce quotes carriers for is store configuration
+ * ("Shipping destination") plus a checkbox we never show: with it ticked,
+ * `update_order_review` sends the shipping fields, which held the account's
+ * old address — or nothing at all, for a new account — whatever address the
+ * shopper picked. Filling both makes the answer the same either way.
+ */
 export function fillNativeBilling(state: NativeBillingState): void {
-  setNativeField('billing_first_name', state.first_name)
-  setNativeField('billing_last_name', state.last_name)
-  setNativeField('billing_phone', state.phone)
-  setNativeField('billing_email', state.email)
-  if (state.address_1 !== undefined) {
-    setNativeField('billing_country', state.country || 'BR')
-    setNativeField('billing_address_1', state.address_1)
-    setNativeField('billing_address_2', state.address_2)
-    setNativeField('billing_city', state.city)
-    setNativeField('billing_state', state.state)
-    setNativeField('billing_postcode', state.postcode)
+  for (const type of ['billing', 'shipping'] as const) {
+    setNativeField(`${type}_first_name`, state.first_name)
+    setNativeField(`${type}_last_name`, state.last_name)
+    setNativeField(`${type}_phone`, state.phone)
+    if (state.address_1 !== undefined) {
+      setNativeField(`${type}_country`, state.country || 'BR')
+      setNativeField(`${type}_address_1`, state.address_1)
+      setNativeField(`${type}_address_2`, state.address_2)
+      setNativeField(`${type}_city`, state.city)
+      setNativeField(`${type}_state`, state.state)
+      setNativeField(`${type}_postcode`, state.postcode)
+    }
   }
+  setNativeField('billing_email', state.email)
 }
 
 /**
@@ -193,4 +205,167 @@ export function onCheckoutUpdated(handler: () => void): () => void {
   if (!$) return () => {}
   $(document.body).on('updated_checkout.galaxie', handler)
   return () => $(document.body).off('updated_checkout.galaxie', handler)
+}
+
+/** The panel classes the decorators below put on WooCommerce's markup. */
+export interface NativeDecor {
+  rate: string
+  rateName: string
+  method: string
+  methodName: string
+  methodBox: string
+  /** Saved-card rows and their parts (see PHP Checkout\PaymentMarkup). */
+  token: string
+  tokenNumber: string
+  tokenExpiry: string
+  tokenBadge: string
+  /** Small print: gateway descriptions, the save-card checkbox. */
+  small: string
+  /** Field labels: the editor sample's stand-ins for Stripe's field labels. */
+  label: string
+  /** pixfort's place-order button markup, `marker` standing for the label. */
+  placeOrder: { html: string; full: boolean }
+  marker: string
+}
+
+function addClasses(el: Element | null, classes: string): void {
+  if (!el || !classes) return
+  el.classList.add(...classes.split(/\s+/).filter(Boolean))
+}
+
+/**
+ * Puts the widget's "Delivery: shipping options" classes on WooCommerce's
+ * own rate list. That list is WooCommerce's markup, re-printed on every
+ * recalculation, so it cannot carry our classes by itself — the same
+ * position the account widgets are in with WooCommerce's address fields,
+ * where the classes are injected rather than the markup rewritten.
+ */
+export function decorateShipping(mount: HTMLElement | null, decor: NativeDecor): void {
+  mount?.querySelectorAll('#shipping_method > li').forEach((li) => {
+    addClasses(li, decor.rate)
+    addClasses(li.querySelector('label'), decor.rateName)
+  })
+}
+
+/**
+ * The same for the payment block, plus the place-order button: WooCommerce's
+ * `<button id="place_order">` stays the element WooCommerce and the gateways
+ * drive (its id, name, value and type are untouched), and pixfort's button
+ * is drawn inside it, as every other button of the plugin is. Its label is
+ * WooCommerce's, read back from the button, because gateways rename it.
+ *
+ * Idempotent, and meant to be called again whenever WooCommerce redraws: it
+ * replaces the whole `#payment` fragment on every `updated_checkout`, and
+ * swaps the button's text on its own when the shopper changes gateway.
+ */
+export function decoratePayment(mount: HTMLElement | null, decor: NativeDecor): void {
+  if (!mount) return
+
+  mount.querySelectorAll('li.wc_payment_method').forEach((li) => {
+    addClasses(li, decor.method)
+    addClasses(li.querySelector(':scope > label'), decor.methodName)
+    addClasses(li.querySelector('.payment_box'), `${decor.methodBox} ${decor.small}`)
+  })
+  mount.querySelectorAll('.wc-saved-payment-methods > li').forEach((li) => addClasses(li, decor.token))
+  mount.querySelectorAll('.gx-co-card-number').forEach((el) => addClasses(el, decor.tokenNumber))
+  mount.querySelectorAll('.gx-co-card-expiry').forEach((el) => addClasses(el, decor.tokenExpiry))
+  mount.querySelectorAll('.gx-co-card-badge').forEach((el) => addClasses(el, decor.tokenBadge))
+  mount.querySelectorAll('.gx-co-sample-label').forEach((el) => addClasses(el, decor.label))
+
+  const button = mount.querySelector<HTMLButtonElement>('#place_order')
+  if (!button || button.querySelector('.btn')) return
+
+  const label = (button.textContent ?? '').trim() || button.dataset.value || button.value
+  const safe = label.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] ?? c)
+  button.classList.remove('button', 'alt')
+  button.classList.add('galaxie-account-submit', 'gx-co-btn')
+  button.classList.toggle('is-full', decor.placeOrder.full)
+  button.innerHTML = decor.placeOrder.html.split(decor.marker).join(safe)
+}
+
+/**
+ * Re-runs `decoratePayment` whenever WooCommerce touches the block: a
+ * `MutationObserver` rather than WooCommerce's events, because the gateway
+ * switch rewrites the button with `.text()` and announces nothing.
+ */
+export function watchPayment(mount: HTMLElement | null, decor: NativeDecor): () => void {
+  if (!mount) return () => {}
+  decoratePayment(mount, decor)
+  const observer = new MutationObserver(() => decoratePayment(mount, decor))
+  observer.observe(mount, { childList: true, subtree: true })
+  return () => observer.disconnect()
+}
+
+/**
+ * The look Stripe's card form takes, from the checkout's own fields.
+ *
+ * The new card is typed into Stripe's Payment Element, an iframe this page
+ * cannot style. Left to itself, the Stripe plugin copies its look from
+ * `#billing_first_name` and the payment box — WooCommerce's native fields,
+ * which this widget keeps hidden, and a box the theme paints — so the frame
+ * came out in colours from nowhere on the page. The plugin takes a finished
+ * Appearance object from `wc_stripe_upe_params.appearance` instead of
+ * computing one, so this writes one there, read off `probe`: an input
+ * carrying the same `.form-control` and "Fields" classes every checkout field
+ * has, and a label with the "Field labels" classes. Whatever the panel sets
+ * for the fields is what Stripe's fields get.
+ *
+ * Must run before the plugin mounts its element (it does so after the first
+ * `updated_checkout`); the island runs at DOMContentLoaded, earlier.
+ */
+export function applyStripeAppearance(probe: HTMLElement | null): void {
+  const params = (window as unknown as { wc_stripe_upe_params?: Record<string, unknown> }).wc_stripe_upe_params
+  const input = probe?.querySelector<HTMLElement>('input')
+  const label = probe?.querySelector<HTMLElement>('.gx-co-label')
+  const accent = probe?.querySelector<HTMLElement>('.gx-co-stripe-accent')
+  if (!params || !input || !label || !accent) return
+
+  const field = getComputedStyle(input)
+  const text = getComputedStyle(label)
+  const primary = getComputedStyle(accent).backgroundColor
+  const background = opaque(field.backgroundColor) ? field.backgroundColor : pageBackground(probe as HTMLElement)
+  const border = `${field.borderTopWidth} ${field.borderTopStyle === 'none' ? 'solid' : field.borderTopStyle} ${field.borderTopColor}`
+
+  params.appearance = {
+    theme: isDark(background) ? 'night' : 'stripe',
+    variables: {
+      colorPrimary: primary,
+      colorBackground: background,
+      colorText: field.color,
+      colorDanger: '#df1b41',
+      fontFamily: field.fontFamily,
+      fontSizeBase: field.fontSize,
+      borderRadius: field.borderTopLeftRadius,
+    },
+    rules: {
+      '.Input': { border, boxShadow: 'none', padding: `${field.paddingTop} ${field.paddingLeft}` },
+      '.Input:focus': { borderColor: primary, boxShadow: 'none' },
+      '.Label': { color: text.color, fontWeight: text.fontWeight, fontSize: text.fontSize },
+      '.Tab': { border, boxShadow: 'none', backgroundColor: background },
+      '.Tab--selected': { borderColor: primary, boxShadow: 'none' },
+    },
+  }
+}
+
+function channels(color: string): number[] {
+  return (color.match(/[\d.]+/g) ?? []).map(Number)
+}
+
+function opaque(color: string): boolean {
+  const [, , , alpha = 1] = channels(color)
+  return channels(color).length >= 3 && alpha > 0.9
+}
+
+/** The first painted background up the tree: what a transparent field sits on. */
+function pageBackground(from: HTMLElement): string {
+  for (let el: HTMLElement | null = from; el; el = el.parentElement) {
+    const bg = getComputedStyle(el).backgroundColor
+    if (opaque(bg)) return bg
+  }
+  return 'rgb(255, 255, 255)'
+}
+
+function isDark(color: string): boolean {
+  const [r = 255, g = 255, b = 255] = channels(color)
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b < 128
 }

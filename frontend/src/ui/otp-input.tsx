@@ -14,9 +14,11 @@ interface OtpInputProps {
   length?: number
   disabled?: boolean
   autoFocus?: boolean
+  /** Replaces the default cell look — the checkout passes pixfort's `form-control` and its panel's classes. */
+  cellClassName?: string
 }
 
-function OtpInput({ value, onChange, length = 6, disabled, autoFocus }: OtpInputProps) {
+function OtpInput({ value, onChange, length = 6, disabled, autoFocus, cellClassName }: OtpInputProps) {
   const refs = React.useRef<Array<HTMLInputElement | null>>([])
   const digits = React.useMemo(() => {
     const arr = value.split('').slice(0, length)
@@ -75,9 +77,12 @@ function OtpInput({ value, onChange, length = 6, disabled, autoFocus }: OtpInput
           onChange={(e) => handleChange(i, e.target.value)}
           onKeyDown={(e) => handleKeyDown(i, e)}
           onPaste={(e) => handlePaste(i, e)}
-          className={cn(
-            'h-12 w-10 rounded-md border border-input bg-transparent text-center text-lg font-medium shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50'
-          )}
+          className={
+            cellClassName ??
+            cn(
+              'h-12 w-10 rounded-md border border-input bg-transparent text-center text-lg font-medium shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50'
+            )
+          }
         />
       ))}
     </div>

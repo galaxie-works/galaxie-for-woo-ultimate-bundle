@@ -9,6 +9,8 @@ type PhoneInputProps = Omit<React.ComponentProps<'input'>, 'type' | 'value' | 'd
   value: string
   /** The number in E.164 when readable, and whether the library considers it valid (null: can't tell). */
   onChange: (value: string, valid: boolean | null) => void
+  /** See Input: pixfort's `.form-control` instead of the component library's look. */
+  unstyled?: boolean
 }
 
 /** The phone field with a country flag (Brazil first), see lib/phone.ts. */

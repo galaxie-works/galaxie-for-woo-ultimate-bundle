@@ -46,6 +46,7 @@ final class CartTableWidget extends Widget_Base {
 
 	protected function register_controls(): void {
 		CartParts::register_line_controls( $this );
+		CartParts::register_dialog_controls( $this );
 		CartParts::register_behaviour_controls( $this );
 		CartParts::register_empty_controls( $this );
 		CartParts::register_head_style( $this );

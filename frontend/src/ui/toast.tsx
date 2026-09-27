@@ -68,7 +68,7 @@ export function Toaster() {
   }, [])
 
   return createPortal(
-    <div className="galaxie-ui fixed top-4 right-4 z-[100000] flex w-[calc(100%-2rem)] max-w-sm flex-col gap-2 max-[480px]:top-auto max-[480px]:right-0 max-[480px]:bottom-0 max-[480px]:max-w-none">
+    <div className="galaxie-ui galaxie-toaster fixed top-4 right-4 z-[100000] flex w-[calc(100%-2rem)] max-w-sm flex-col gap-2 max-[480px]:top-auto max-[480px]:right-0 max-[480px]:bottom-0 max-[480px]:max-w-none">
       {list.map((t) => {
         const Icon = ICON[t.variant]
         return (

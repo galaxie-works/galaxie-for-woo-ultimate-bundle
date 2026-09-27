@@ -39,6 +39,37 @@ final class Module implements ModuleContract, ProvidesBootData {
 
 	public function boot(): void {
 		add_action( 'wp_enqueue_scripts', array( Assets::class, 'enqueue' ) );
+		add_action( 'wp_footer', array( $this, 'print_leftover_notices' ), 5 );
+	}
+
+	/**
+	 * Notices no template printed, printed at the end of the page, where the
+	 * interceptor turns them into toasts.
+	 *
+	 * Pages built from Elementor widgets never run the templates that print
+	 * WooCommerce's notices, so they stayed in the session and piled up: every
+	 * "Shipping costs updated." from the cart calculator, every "added to your
+	 * cart". Nothing showed them until the checkout's first `update_order_review`
+	 * after signing in, which returns pending notices as a failure — the whole
+	 * pile at once, as toasts, on the page where the shopper had just typed a
+	 * code. Shown here, each one appears on the page that caused it.
+	 *
+	 * Checkout is left alone: its own form and AJAX print (and judge) notices.
+	 */
+	public function print_leftover_notices(): void {
+		if ( is_admin() || ! function_exists( 'wc_notice_count' ) || ! function_exists( 'WC' ) || ! WC()->session ) {
+			return;
+		}
+		if ( function_exists( 'is_checkout' ) && is_checkout() && is_user_logged_in() ) {
+			return;
+		}
+		if ( 0 === wc_notice_count() ) {
+			return;
+		}
+
+		echo '<div class="woocommerce-notices-wrapper galaxie-leftover-notices" hidden>';
+		wc_print_notices();
+		echo '</div>';
 	}
 
 	public function boot_data(): array {

@@ -17,8 +17,15 @@ interface AjaxEndpoint {
   nonce: string
 }
 
+/** PasswordlessAuth's boot data. */
+export interface AuthConfig extends AjaxEndpoint {
+  /** 'password' when sign-in by code is switched off (wp-admin → Galaxie → Login). */
+  mode?: 'otp' | 'password'
+  lostPasswordUrl?: string
+}
+
 export interface GalaxieWooConfig {
-  auth?: AjaxEndpoint
+  auth?: AuthConfig
   checkout?: AjaxEndpoint
   myAccount?: AjaxEndpoint
   accountDeletion?: AjaxEndpoint

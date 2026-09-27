@@ -30,7 +30,7 @@ interface AddToCartResponse {
   data?: { message?: string; fragments?: Record<string, string>; cart_hash?: string }
 }
 
-import { findAlert } from '@/globals/buy-box-alert'
+import { blockedByChoice, findAlert } from '@/globals/buy-box-alert'
 import { tell } from '@/lib/dialog'
 
 interface VariationPayload {
@@ -235,35 +235,19 @@ function initButtons(form: HTMLFormElement, config?: BuyBoxConfig): void {
    * `.woocommerce-variation-add-to-cart` wrapper that our markup does not have
    * — so nothing else was standing in the way.
    */
-  const blocked = (): boolean => {
-    const selects = Array.from(form.querySelectorAll<HTMLSelectElement>('.variations select'))
-    if (!selects.length) return false
-
-    if (Number(variationField?.value) > 0) {
-      alert?.hide()
-      return false
-    }
-
-    // Every attribute chosen and still no match is a combination the shop does
-    // not sell; a blank one is just an unfinished choice. Different sentence.
-    const key = selects.every((select) => select.value !== '') ? 'unavailable' : 'select'
-
-    // With no Alert block on the widget there is nowhere to say it, so the
-    // native submit is left alone and WooCommerce reports it its own way.
-    return alert?.show(key) ?? false
-  }
+  //
+  // Shared with the kit button (kit-buy-box.ts), which has to give the same
+  // answer to the same missing choice: see blockedByChoice() in buy-box-alert.ts.
+  // With no Alert block on the widget there is nowhere to say it, so the
+  // native submit is left alone and WooCommerce reports it its own way.
+  const blocked = (): boolean => blockedByChoice(form, alert)
 
   // Buy Now navigates away regardless, so it stays a plain native submit —
   // every WooCommerce validation, stock check and third-party add-to-cart hook
   // still runs, and the server-side redirect filter reads this flag. The field
   // is cleared afterwards so a failed submit can't leave it set and send a
   // later ordinary add-to-cart straight to checkout.
-  buyNow?.addEventListener('click', (event) => {
-    if (blocked()) {
-      event.preventDefault()
-      return
-    }
-
+  const markBuyNow = (): void => {
     const flag = form.querySelector<HTMLInputElement>('input[name="galaxie_buy_now"]')
     if (flag) {
       flag.value = '1'
@@ -271,6 +255,21 @@ function initButtons(form: HTMLFormElement, config?: BuyBoxConfig): void {
         flag.value = ''
       }, 0)
     }
+  }
+
+  /** What went wrong, said where the widget can say it. */
+  const report = (message?: string): void => {
+    const spoken = alert?.show('error', message) ?? false
+    if (!spoken) void tell(form, 'buybox_dialog', { text: message, fallback: 'Não foi possível adicionar ao carrinho.' })
+  }
+
+  buyNow?.addEventListener('click', (event) => {
+    if (blocked()) {
+      event.preventDefault()
+      return
+    }
+
+    markBuyNow()
   })
 
   addCart?.addEventListener('click', (event) => {
@@ -283,15 +282,35 @@ function initButtons(form: HTMLFormElement, config?: BuyBoxConfig): void {
     // submit stays as the fallback — it is a complete working path on its own.
     if (!config) return
 
-    const variationId = Number(variationField?.value) || 0
-    const productId = Number(productField?.value) || 0
-
     // A variable product with nothing resolved was already caught above.
     // Anything else with no id at all falls through rather than posting a
     // request the server could not act on.
-    if (!variationId && !productId) return
+    if (!(Number(variationField?.value) || 0) && !(Number(productField?.value) || 0)) return
 
     event.preventDefault()
+    sendAddToCart(config)
+  })
+
+  /** Add to Cart's success, whichever endpoint answered. */
+  function added(data?: { fragments?: Record<string, string>; cart_hash?: string }): void {
+    if (alert?.has('added')) alert.show('added')
+
+    const jq = window.jQuery
+    if (jq && data && addCart) {
+      jq(document.body).trigger('added_to_cart', [data.fragments, data.cart_hash, jq(addCart)])
+    }
+  }
+
+  /**
+   * Read at send time, and from the fields: they are the form's word on what
+   * is being bought.
+   */
+  function sendAddToCart(config: BuyBoxConfig): void {
+    if (!addCart) return
+
+    const variationId = Number(variationField?.value) || 0
+    const productId = Number(productField?.value) || 0
+
     addCart.disabled = true
 
     const body = new URLSearchParams({
@@ -313,22 +332,16 @@ function initButtons(form: HTMLFormElement, config?: BuyBoxConfig): void {
           // guess — falling back to the configured wording otherwise. Only if
           // there is no Alert block at all does this resort to a browser
           // dialog, which is what the whole change is here to get rid of.
-          const spoken = alert?.show('error', json.data?.message) ?? false
-          if (!spoken) void tell(form, 'buybox_dialog', { text: json.data?.message, fallback: 'Não foi possível adicionar ao carrinho.' })
+          report(json.data?.message)
           return
         }
 
-        if (alert?.has('added')) alert.show('added')
-
-        const jq = window.jQuery
-        if (jq && json.data) {
-          jq(document.body).trigger('added_to_cart', [json.data.fragments, json.data.cart_hash, jq(addCart)])
-        }
+        added(json.data)
       })
       .catch(() => {
         addCart.disabled = false
       })
-  })
+  }
 }
 
 export function bootBuyBox(config?: BuyBoxConfig): void {

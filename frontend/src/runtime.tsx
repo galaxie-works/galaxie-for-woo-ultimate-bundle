@@ -42,3 +42,37 @@ export function mountIslands(scope: ParentNode = document): void {
     mounted.set(el, root)
   })
 }
+
+interface ElementorFrontend {
+  hooks?: { addAction: (hook: string, callback: (scope: ArrayLike<HTMLElement>) => void) => void }
+}
+
+/**
+ * Mounts islands in whatever Elementor renders after the page has loaded.
+ *
+ * In the editor, every widget dropped in or re-rendered by a control change
+ * arrives as fresh markup over AJAX, long after `mountIslands()` walked the
+ * page — the checkout used to sit there as an empty box. Elementor announces
+ * each such element through `frontend/element_ready/global`; mounting its
+ * subtree is idempotent (see `mounted`), so it is safe on the live site too.
+ */
+export function bootElementorIslands(): void {
+  const w = window as unknown as {
+    elementorFrontend?: ElementorFrontend
+    jQuery?: (target: Window) => { on: (event: string, handler: () => void) => void }
+  }
+
+  let hooked = false
+  const hook = () => {
+    if (hooked || !w.elementorFrontend?.hooks) return
+    hooked = true
+    w.elementorFrontend.hooks.addAction('frontend/element_ready/global', (scope) => {
+      if (scope[0]) mountIslands(scope[0])
+    })
+  }
+
+  // Our bundle is a deferred module and may run before or after Elementor's
+  // frontend has initialised; cover both orders.
+  hook()
+  w.jQuery?.(window).on('elementor/frontend/init', hook)
+}

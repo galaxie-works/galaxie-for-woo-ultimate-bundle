@@ -1,0 +1,242 @@
+{
+  "_readme": "Shared by tests/kit/run.php (Support\\GiftKit) and tests/kit/run.ts (frontend/src/lib/gift-kit.ts). Sizes are the merchant's jars without their shipping box; boxes are internal sizes. Default packing options: lying, gap 0.",
+  "sizes": {
+    "50g": { "size": "50g", "length": 5.3, "width": 5.3, "height": 6.7 },
+    "190g": { "size": "190g", "length": 7.8, "width": 7.8, "height": 8.4 },
+    "100g": { "size": "100g", "length": 6.5, "width": 6.5, "height": 7.5 },
+    "cube": { "size": "cube", "length": 5, "width": 5, "height": 5 },
+    "bar": { "size": "bar", "length": 11.5, "width": 3, "height": 3 }
+  },
+  "boxes": {
+    "big": { "id": "big", "length": 24.44, "width": 8.94, "height": 7.94, "price": 10 },
+    "square": { "id": "square", "length": 14.2, "width": 14.2, "height": 4.8, "overflow": 0.5, "price": 10 },
+    "big-max2": { "id": "big-max2", "length": 24.44, "width": 8.94, "height": 7.94, "max": 2, "price": 10 },
+    "big-max1": { "id": "big-max1", "length": 24.44, "width": 8.94, "height": 7.94, "max": 1, "price": 10 },
+    "tiny": { "id": "tiny", "length": 5, "width": 5, "height": 5, "price": 1 },
+    "wide-24": { "id": "wide-24", "length": 24, "width": 16, "height": 8, "price": 12 },
+    "wide-30": { "id": "wide-30", "length": 30, "width": 22, "height": 12, "price": 15 },
+    "shallow": { "id": "shallow", "length": 11, "width": 11, "height": 6, "price": 4 }
+  },
+  "labels": { "50g": "50g", "190g": "190g" },
+  "combos": [
+    {
+      "name": "big box, empty: both sizes alone, then the two fullest mixes",
+      "box": "big", "candles": [], "sizes": ["50g", "190g"],
+      "expect": {
+        "singles": [{ "entries": [{ "size": "190g", "count": 3 }], "capped": false }, { "entries": [{ "size": "50g", "count": 4 }], "capped": false }],
+        "mixes": [{ "entries": [{ "size": "190g", "count": 2 }, { "size": "50g", "count": 1 }], "capped": false }, { "entries": [{ "size": "190g", "count": 1 }, { "size": "50g", "count": 3 }], "capped": false }], "complete": true, "settled": true
+      },
+      "wording": { "state": "many", "combos": "3 × 190g ou 4 × 50g ou 2 × 190g + 1 × 50g ou 1 × 190g + 3 × 50g" }
+    },
+    {
+      "name": "big box with 2 × 190g: one more of either, no mix",
+      "box": "big", "candles": [["190g", 2]], "sizes": ["190g", "50g"],
+      "expect": { "singles": [{ "entries": [{ "size": "190g", "count": 1 }], "capped": false }, { "entries": [{ "size": "50g", "count": 1 }], "capped": false }], "mixes": [], "complete": true, "settled": true },
+      "wording": { "state": "many", "combos": "1 × 190g ou 1 × 50g" }
+    },
+    {
+      "name": "big box with 3 × 190g: full",
+      "box": "big", "candles": [["190g", 3]], "sizes": ["190g", "50g"],
+      "expect": { "singles": [], "mixes": [], "complete": true, "settled": true },
+      "wording": { "state": "full", "combos": "" }
+    },
+    {
+      "name": "big box with 1 × 190g + 2 × 50g: only one 50g fits",
+      "box": "big", "candles": [["190g", 1], ["50g", 2]], "sizes": ["190g", "50g"],
+      "expect": { "singles": [{ "entries": [{ "size": "50g", "count": 1 }], "capped": false }], "mixes": [], "complete": true, "settled": true },
+      "wording": { "state": "one", "combos": "1 × 50g" }
+    },
+    {
+      "name": "big box with 1 × 50g: sizes alone and mixes around it",
+      "box": "big", "candles": [["50g", 1]], "sizes": ["190g", "50g"],
+      "expect": {
+        "singles": [{ "entries": [{ "size": "190g", "count": 2 }], "capped": false }, { "entries": [{ "size": "50g", "count": 3 }], "capped": false }],
+        "mixes": [{ "entries": [{ "size": "190g", "count": 1 }, { "size": "50g", "count": 2 }], "capped": false }], "complete": true, "settled": true
+      },
+      "wording": { "state": "many", "combos": "2 × 190g ou 3 × 50g ou 1 × 190g + 2 × 50g" }
+    },
+    {
+      "name": "square box (overflow 0.5), empty: 50g only",
+      "box": "square", "candles": [], "sizes": ["190g", "50g"],
+      "expect": { "singles": [{ "entries": [{ "size": "50g", "count": 4 }], "capped": false }], "mixes": [], "complete": true, "settled": true },
+      "wording": { "state": "many", "combos": "4 × 50g" }
+    },
+    {
+      "name": "square box with 3 × 50g: one more",
+      "box": "square", "candles": [["50g", 3]], "sizes": ["190g", "50g"],
+      "expect": { "singles": [{ "entries": [{ "size": "50g", "count": 1 }], "capped": false }], "mixes": [], "complete": true, "settled": true },
+      "wording": { "state": "one", "combos": "1 × 50g" }
+    },
+    {
+      "name": "square box with 2 × 50g: two more is not 'cabe'",
+      "box": "square", "candles": [["50g", 2]], "sizes": ["190g", "50g"],
+      "expect": { "singles": [{ "entries": [{ "size": "50g", "count": 2 }], "capped": false }], "mixes": [], "complete": true, "settled": true },
+      "wording": { "state": "many", "combos": "2 × 50g" }
+    },
+    {
+      "name": "box limited to 2 candles: the limit is the mix",
+      "box": "big-max2", "candles": [], "sizes": ["190g", "50g"],
+      "expect": {
+        "singles": [{ "entries": [{ "size": "190g", "count": 2 }], "capped": false }, { "entries": [{ "size": "50g", "count": 2 }], "capped": false }],
+        "mixes": [{ "entries": [{ "size": "190g", "count": 1 }, { "size": "50g", "count": 1 }], "capped": false }], "complete": true, "settled": true
+      },
+      "wording": { "state": "many", "combos": "2 × 190g ou 2 × 50g ou 1 × 190g + 1 × 50g" }
+    },
+    {
+      "name": "box limited to 2 candles, holding 2: full whatever the space",
+      "box": "big-max2", "candles": [["50g", 2]], "sizes": ["190g", "50g"],
+      "expect": { "singles": [], "mixes": [], "complete": true, "settled": true },
+      "wording": { "state": "full", "combos": "" }
+    },
+    {
+      "name": "a box nothing fits in",
+      "box": "tiny", "candles": [], "sizes": ["190g", "50g"],
+      "expect": { "singles": [], "mixes": [], "complete": true, "settled": true },
+      "wording": { "state": "full", "combos": "" }
+    },
+    {
+      "name": "no sizes known: nothing was searched, so nothing is known",
+      "box": "big", "candles": [], "sizes": [],
+      "expect": { "singles": [], "mixes": [], "complete": false, "settled": false },
+      "wording": { "state": "unknown", "combos": "" }
+    },
+    {
+      "name": "a box that takes more than the search counts: twelve is where it stopped, not where the box did",
+      "box": "wide-30", "candles": [], "sizes": ["50g"],
+      "expect": { "singles": [{ "entries": [{ "size": "50g", "count": 12 }], "capped": true }], "mixes": [], "complete": true, "settled": true },
+      "wording": { "state": "many", "combos": "12 × 50g ou mais" }
+    },
+    {
+      "name": "no budget at all: every check comes back unknown, and an unknown box is never a full one",
+      "box": "big", "candles": [], "sizes": ["190g", "50g"], "budget_ms": 0,
+      "expect": { "singles": [], "mixes": [], "complete": false, "settled": false },
+      "wording": { "state": "unknown", "combos": "" }
+    },
+    {
+      "name": "a box limited to one candle holding it: full, and a real limit never reads 'ou mais'",
+      "box": "big-max1", "candles": [["50g", 1]], "sizes": ["190g", "50g"],
+      "expect": { "singles": [], "mixes": [], "complete": true, "settled": true },
+      "wording": { "state": "full", "combos": "" }
+    }
+  ],
+  "_fill_readme": "fill_percent(): the volume in the box against the fullest the box was shown to take. A case with a box works combos() out first; a case with `combos` hands one in, for the branches a real box cannot reach on demand. null is 'not known', which is not 0.",
+  "fill_percent": [
+    { "name": "an empty box is empty, whatever it could hold", "box": "big", "candles": [], "sizes": ["190g", "50g"], "expect": 0 },
+    { "name": "one small jar in a long box moves the bar a little", "box": "big", "candles": [["50g", 1]], "sizes": ["190g", "50g"], "expect": 16 },
+    { "name": "one big jar in the same box moves it twice as far", "box": "big", "candles": [["190g", 1]], "sizes": ["190g", "50g"], "expect": 33 },
+    { "name": "two of three big jars", "box": "big", "candles": [["190g", 2]], "sizes": ["190g", "50g"], "expect": 67 },
+    { "name": "nothing more of any size fits: the bar is full", "box": "big", "candles": [["190g", 3]], "sizes": ["190g", "50g"], "expect": 100 },
+    { "name": "a mixed kit with one small jar left to go", "box": "big", "candles": [["190g", 1], ["50g", 2]], "sizes": ["190g", "50g"], "expect": 83 },
+    { "name": "the square box filled with what it takes", "box": "square", "candles": [["50g", 4]], "sizes": ["190g", "50g"], "expect": 100 },
+    { "name": "the smallest size by volume fits nowhere while a larger one still does: the bar is not full", "box": "shallow", "candles": [["cube", 1]], "sizes": ["cube", "bar"], "expect": 25 },
+    { "name": "candles in the box and nothing settled: no bar at all, never an empty one", "combos": { "singles": [], "mixes": [], "complete": false, "settled": false }, "sizes": ["190g", "50g"], "candles": [["190g", 2]], "expect": null },
+    { "name": "no size settled but every mix searched is still nothing known", "combos": { "singles": [], "mixes": [], "complete": false, "settled": true }, "sizes": ["190g", "50g"], "candles": [["50g", 1]], "expect": null },
+    { "name": "rows listed but the mixes not searched: the fullest the box can honestly be said to be", "combos": { "singles": [{ "entries": [{ "size": "50g", "count": 1 }], "capped": false }], "mixes": [], "complete": true, "settled": false }, "sizes": ["190g", "50g"], "candles": [["190g", 2]], "expect": 84 },
+    { "name": "an empty box nothing at all fits in is 0, not 100", "combos": { "singles": [], "mixes": [], "complete": true, "settled": true }, "sizes": ["190g", "50g"], "candles": [], "expect": 0 }
+  ],
+  "wording": [
+    {
+      "name": "labels replace size keys",
+      "combos": { "singles": [{ "entries": [{ "size": "pa-190", "count": 2 }], "capped": false }], "mixes": [{ "entries": [{ "size": "pa-190", "count": 1 }, { "size": "pa-50", "count": 1 }], "capped": false }] },
+      "labels": { "pa-190": "190 g", "pa-50": "50 g" },
+      "expect": { "state": "many", "combos": "2 × 190 g ou 1 × 190 g + 1 × 50 g" }
+    },
+    {
+      "name": "a size without a label keeps its key",
+      "combos": { "singles": [{ "entries": [{ "size": "x", "count": 1 }], "capped": false }], "mixes": [] },
+      "labels": {},
+      "expect": { "state": "one", "combos": "1 × x" }
+    },
+    {
+      "name": "one row of two is 'many'",
+      "combos": { "singles": [], "mixes": [{ "entries": [{ "size": "a", "count": 1 }, { "size": "b", "count": 1 }], "capped": false }] },
+      "labels": {},
+      "expect": { "state": "many", "combos": "1 × a + 1 × b" }
+    },
+    {
+      "name": "two rows of one each is 'many'",
+      "combos": { "singles": [{ "entries": [{ "size": "a", "count": 1 }], "capped": false }, { "entries": [{ "size": "b", "count": 1 }], "capped": false }], "mixes": [] },
+      "labels": {},
+      "expect": { "state": "many", "combos": "1 × a ou 1 × b" }
+    },
+    {
+      "name": "nothing settled in time: unknown, never full",
+      "combos": { "singles": [], "mixes": [], "complete": false, "settled": false },
+      "labels": {},
+      "expect": { "state": "unknown", "combos": "" }
+    },
+    {
+      "name": "one candle of a settled size, another size unknown: not 'cabe'",
+      "combos": { "singles": [{ "entries": [{ "size": "a", "count": 1 }], "capped": false }], "mixes": [], "complete": false, "settled": false },
+      "labels": {},
+      "expect": { "state": "many", "combos": "1 × a" }
+    },
+    {
+      "name": "nothing: full",
+      "combos": { "singles": [], "mixes": [] },
+      "labels": {},
+      "expect": { "state": "full", "combos": "" }
+    },
+    {
+      "name": "every size settled but the mixes not searched: nothing listed is not 'completa'",
+      "combos": { "singles": [], "mixes": [], "complete": true, "settled": false },
+      "labels": {},
+      "expect": { "state": "unknown", "combos": "" }
+    },
+    {
+      "name": "one size settled, the mixes not searched: 'cabe' would promise there is nothing else",
+      "combos": { "singles": [{ "entries": [{ "size": "a", "count": 1 }], "capped": false }], "mixes": [], "complete": true, "settled": false },
+      "labels": {},
+      "expect": { "state": "many", "combos": "1 × a" }
+    },
+    {
+      "name": "a capped row reads 'ou mais', never a number the search never reached",
+      "combos": { "singles": [{ "entries": [{ "size": "a", "count": 12 }], "capped": true }], "mixes": [], "complete": true, "settled": true },
+      "labels": {},
+      "expect": { "state": "many", "combos": "12 × a ou mais" }
+    },
+    {
+      "name": "a capped row of one is still not 'cabe'",
+      "combos": { "singles": [{ "entries": [{ "size": "a", "count": 1 }], "capped": true }], "mixes": [], "complete": true, "settled": true },
+      "labels": {},
+      "expect": { "state": "many", "combos": "1 × a ou mais" }
+    },
+    {
+      "name": "a capped mix names every size in it",
+      "combos": { "singles": [], "mixes": [{ "entries": [{ "size": "a", "count": 8 }, { "size": "b", "count": 4 }], "capped": true }], "labels": {}, "complete": true, "settled": true },
+      "labels": {},
+      "expect": { "state": "many", "combos": "8 × a + 4 × b ou mais" }
+    }
+  ],
+  "_timing_readme": "combos() must answer within max_ms (budget 250 ms plus overhead) on boxes where an unbudgeted search took seconds (review of PR #21: 6.7 s / 28.8 s / 3.8 s in PHP). Whatever it lists is checked without a budget: each single size fits at its count and not at one more.",
+  "timing": [
+    { "name": "24 × 16 × 8 with 50g, 190g and 100g", "box": "wide-24", "candles": [], "sizes": ["50g", "190g", "100g"], "max_ms": 1500 },
+    { "name": "30 × 22 × 12 empty with 50g, 190g and 100g", "box": "wide-30", "candles": [], "sizes": ["50g", "190g", "100g"], "max_ms": 1500 },
+    { "name": "30 × 22 × 12 with the two real sizes", "box": "wide-30", "candles": [], "sizes": ["50g", "190g"], "max_ms": 1500 },
+    { "name": "30 × 22 × 12 already holding 2 × 190g + 1 × 100g", "box": "wide-30", "candles": [["190g", 2], ["100g", 1]], "sizes": ["50g", "190g", "100g"], "max_ms": 1500 }
+  ],
+  "fill": [
+    {"name": "{items} is filled from the candles value", "text": "Começando com: {items}", "values": {"candles": "2 × Nordic Moss"}, "expect": "Começando com: 2 × Nordic Moss"},
+    {"name": "{candles} still works in texts typed before {items}", "text": "Não comporta {candles}", "values": {"candles": "3 × 190g"}, "expect": "Não comporta 3 × 190g"},
+    {"name": "an items value of its own wins over the alias", "text": "{items}", "values": {"candles": "a", "items": "b"}, "expect": "b"},
+    { "name": "kit and combos", "text": "{kit} · Ainda cabem {combos}", "values": { "kit": "Kit 1", "combos": "2 × 190g" }, "expect": "Kit 1 · Ainda cabem 2 × 190g" },
+    { "name": "price with a cedilla", "text": "Adicionar cartão ({preço})", "values": { "preço": "R$ 2,00" }, "expect": "Adicionar cartão (R$ 2,00)" },
+    { "name": "unknown placeholders stay", "text": "{kit} {nada}", "values": { "kit": "A" }, "expect": "A {nada}" },
+    { "name": "every occurrence", "text": "{kit}/{kit}", "values": { "kit": "B" }, "expect": "B/B" },
+    { "name": "percent signs are text", "text": "100% {kit}", "values": { "kit": "C" }, "expect": "100% C" },
+    { "name": "a value holding a placeholder is not filled again", "text": "{kit} {combos}", "values": { "kit": "{combos}", "combos": "x" }, "expect": "{combos} x" }
+  ],
+  "clean_name": [
+    { "name": "spaces and line breaks folded", "name_in": "  Presente\npara   Stella \t ", "expect": "Presente para Stella" },
+    { "name": "kept as typed", "name_in": "Mãe <3 100%", "expect": "Mãe <3 100%" },
+    { "name": "cut at 40 characters", "name_in": "Um presente muito especial para a minha avó querida", "expect": "Um presente muito especial para a minha" },
+    { "name": "emoji count once", "name_in": "🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁", "expect": "🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁" },
+    { "name": "control characters dropped", "name_in": "Kit\u0000 da\u0007 Ana", "expect": "Kit da Ana" },
+    { "name": "blank stays blank", "name_in": " \n\t ", "expect": "" }
+  ],
+  "default_name": [
+    { "name": "first kit", "used": [], "expect": "Kit 1" },
+    { "name": "next free number, any case", "used": ["Kit 1", "kit 2"], "expect": "Kit 3" },
+    { "name": "a gap is reused", "used": ["Kit 2", "Presente da Ana"], "expect": "Kit 1" }
+  ]
+}

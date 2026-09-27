@@ -170,14 +170,20 @@ export function bootAccountScreens(_wishlist?: WishlistConfig): void {
   document.addEventListener('change', (event) => {
     const input = event.target as HTMLInputElement | null
     const root = input?.closest?.<HTMLElement>('.galaxie-account-communication')
-    if (!input || !root || input.name !== 'opt_in' || !config.myAccount) return
+    if (!input || !root || !config.myAccount) return
+    if (input.name !== 'opt_in' && input.name !== 'communication') return
 
     const on = input.checked
     input.disabled = true
 
-    void post(config.myAccount.ajaxUrl, 'galaxie_myaccount_save_communication', config.myAccount.nonce, {
-      opt_in: on ? '1' : '',
-    }).then((res) => {
+    // The consent is a field of the customer's; a communication is a FluentCRM
+    // list and nothing else. Same switch, same messages, different answer.
+    const list = input.value
+    const action = input.name === 'communication' ? 'galaxie_myaccount_toggle_communication' : 'galaxie_myaccount_save_communication'
+    const body =
+      input.name === 'communication' ? { list_id: list, selected: on ? '1' : '' } : { opt_in: on ? '1' : '' }
+
+    void post(config.myAccount.ajaxUrl, action, config.myAccount.nonce, body).then((res) => {
       input.disabled = false
 
       if (res.success) {
