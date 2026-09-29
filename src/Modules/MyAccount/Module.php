@@ -334,8 +334,13 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 		if ( null !== $cpf && '' !== $cpf && ! Cpf::is_valid( $cpf ) ) {
 			wp_send_json_error( array( 'message' => __( 'Please enter a valid CPF.', 'galaxie-woo' ) ) );
 		}
-		if ( null !== $birthdate && '' !== $birthdate && ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $birthdate ) ) {
-			wp_send_json_error( array( 'message' => __( 'Please enter a valid date of birth.', 'galaxie-woo' ) ) );
+		// While Idade mínima is on the date cannot be erased or moved under the
+		// minimum age; off, only its shape is checked.
+		if ( null !== $birthdate ) {
+			$birth_problem = \Galaxie\Woo\Modules\AgeGate\Module::check( $birthdate );
+			if ( null !== $birth_problem ) {
+				wp_send_json_error( array( 'message' => $birth_problem ) );
+			}
 		}
 		if ( null !== $gender && '' !== $gender && ! array_key_exists( $gender, ProfileFields::gender_options() ) ) {
 			wp_send_json_error( array( 'message' => __( 'Please choose a valid option.', 'galaxie-woo' ) ) );

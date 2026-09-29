@@ -393,9 +393,12 @@ final class Module implements ModuleContract, ProvidesBootData, ProvidesElemento
 			return new \WP_Error( 'missing_name', __( 'Informe seu nome e sobrenome.', 'galaxie-woo' ) );
 		}
 
+		// Required and checked against the minimum age while the Idade mínima
+		// module is on: refused here, no account and no FluentCRM contact exist.
 		$birthdate = isset( $data['birthdate'] ) ? sanitize_text_field( $data['birthdate'] ) : '';
-		if ( '' !== $birthdate && ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $birthdate ) ) {
-			return new \WP_Error( 'invalid_birthdate', __( 'Informe uma data de nascimento válida.', 'galaxie-woo' ) );
+		$problem   = \Galaxie\Woo\Modules\AgeGate\Module::check( $birthdate );
+		if ( null !== $problem ) {
+			return new \WP_Error( 'invalid_birthdate', $problem );
 		}
 
 		$cpf = isset( $data['cpf'] ) ? sanitize_text_field( $data['cpf'] ) : '';

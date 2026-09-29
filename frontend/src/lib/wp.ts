@@ -30,8 +30,15 @@ export interface LegalPage {
   title: string
 }
 
+/** AgeGate's boot data (wp-admin → Galaxie → Idade mínima); minAge 0 when the module is off. */
+export interface AgeGateConfig {
+  minAge: number
+  maxDate: string
+}
+
 export interface GalaxieWooConfig {
   auth?: AuthConfig
+  ageGate?: AgeGateConfig
   legal?: Partial<Record<'terms' | 'privacy' | 'returns', LegalPage>>
   checkout?: AjaxEndpoint
   myAccount?: AjaxEndpoint

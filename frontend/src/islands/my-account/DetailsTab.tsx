@@ -3,6 +3,7 @@ import * as React from 'react'
 import { Button } from '@/ui/button'
 import { Field } from '@/ui/field'
 import { Input } from '@/ui/input'
+import { getGalaxieConfig } from '@/lib/wp'
 import type { DetailsValues } from './types'
 
 interface DetailsTabProps {
@@ -47,7 +48,13 @@ function DetailsTab({ initial, email, genderOptions, busy, onSave }: DetailsTabP
 
       <div className="grid grid-cols-2 gap-3">
         <Field label="Date of birth">
-          <Input type="date" value={values.birthdate} onChange={(e) => set('birthdate', e.target.value)} />
+          <Input
+            type="date"
+            value={values.birthdate}
+            required={!!getGalaxieConfig().ageGate?.minAge}
+            max={getGalaxieConfig().ageGate?.minAge ? getGalaxieConfig().ageGate?.maxDate : undefined}
+            onChange={(e) => set('birthdate', e.target.value)}
+          />
         </Field>
         <Field label="CPF">
           <Input value={values.cpf} onChange={(e) => set('cpf', e.target.value)} placeholder="000.000.000-00" />
