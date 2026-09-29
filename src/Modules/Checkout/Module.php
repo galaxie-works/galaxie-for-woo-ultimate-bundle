@@ -211,8 +211,11 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 		if ( '' !== $cpf && ! \Galaxie\Woo\Support\Cpf::is_valid( $cpf ) ) {
 			wp_send_json_error( array( 'message' => __( 'Please enter a valid CPF.', 'galaxie-woo' ) ) );
 		}
-		if ( '' !== $birthdate && ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $birthdate ) ) {
-			wp_send_json_error( array( 'message' => __( 'Please enter a valid date of birth.', 'galaxie-woo' ) ) );
+		// An empty date keeps the saved one; the check then applies to that.
+		$saved_birthdate = (string) get_user_meta( $user_id, \Galaxie\Woo\Support\ProfileFields::BIRTHDATE, true );
+		$birth_problem   = \Galaxie\Woo\Modules\AgeGate\Module::check( '' !== $birthdate ? $birthdate : $saved_birthdate );
+		if ( null !== $birth_problem ) {
+			wp_send_json_error( array( 'message' => $birth_problem ) );
 		}
 		// E.164, the format My Account and FluentCRM keep. Empty still leaves the stored number alone.
 		if ( '' !== $phone ) {

@@ -7,7 +7,7 @@ import { OtpInput } from '@/ui/otp-input'
 import { PhoneInput } from '@/ui/phone-input'
 import { CoField, PixAlert, PixButton, PixLink, useFieldClass, useUi, type PixButtonData, type PixUi } from '@/lib/pix'
 import { LegalText } from '@/lib/legal'
-import type { AuthConfig } from '@/lib/wp'
+import { getGalaxieConfig, type AuthConfig } from '@/lib/wp'
 import type { ProfileValues } from '@/islands/checkout/types'
 import { BAD_PHONE } from '@/islands/checkout/validation'
 
@@ -104,6 +104,9 @@ function OtpLogin({ authCfg, text, genericError, onVerified, preview = false, in
   const [code, setCode] = React.useState('')
   const [password, setPassword] = React.useState('')
   const passwordMode = 'password' === authCfg?.mode
+  // Minimum age (wp-admin → Galaxie → Idade mínima): the date is required and
+  // the picker stops at the latest date old enough. The server has the last word.
+  const ageGate = getGalaxieConfig().ageGate
   const [busy, setBusy] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
 
@@ -310,7 +313,16 @@ function OtpLogin({ authCfg, text, genericError, onVerified, preview = false, in
               <Input unstyled id={`${id}-ln`} required autoComplete="family-name" className={field} value={reg.last_name} onChange={(e) => setReg({ ...reg, last_name: e.target.value })} />
             </CoField>
             <CoField label={text.birthdate} htmlFor={`${id}-bd`}>
-              <Input unstyled id={`${id}-bd`} type="date" className={field} value={reg.birthdate} onChange={(e) => setReg({ ...reg, birthdate: e.target.value })} />
+              <Input
+                unstyled
+                id={`${id}-bd`}
+                type="date"
+                className={field}
+                value={reg.birthdate}
+                required={!!ageGate?.minAge}
+                max={ageGate?.minAge ? ageGate.maxDate : undefined}
+                onChange={(e) => setReg({ ...reg, birthdate: e.target.value })}
+              />
             </CoField>
             <CoField label={text.cpf} htmlFor={`${id}-cpf`}>
               <Input unstyled id={`${id}-cpf`} inputMode="numeric" className={field} value={reg.cpf} onChange={(e) => setReg({ ...reg, cpf: e.target.value })} placeholder="000.000.000-00" />

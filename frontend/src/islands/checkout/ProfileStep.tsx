@@ -1,6 +1,7 @@
 import * as React from 'react'
 
 import { Input } from '@/ui/input'
+import { getGalaxieConfig } from '@/lib/wp'
 import { PhoneInput } from '@/ui/phone-input'
 import { CoField, PixButton, useFieldClass, useUi } from '@/lib/pix'
 import type { CheckoutText, CheckoutUi, ProfileValues } from './types'
@@ -84,6 +85,7 @@ function ProfileStep({ initial, busy, errors, text, onSave }: ProfileStepProps) 
             id={`${id}-bd`}
             type="date"
             required
+            max={getGalaxieConfig().ageGate?.minAge ? getGalaxieConfig().ageGate?.maxDate : undefined}
             className={field}
             aria-invalid={!!errors.birthdate}
             value={values.birthdate}

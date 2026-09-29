@@ -231,7 +231,7 @@ final class AccountDetailsWidget extends Widget_Base {
 					// No placeholder or maxlength: intl-tel-input shows an example
 					// number for the chosen country and caps the length itself.
 					'phone'       => 'type="tel" inputmode="tel" autocomplete="tel"',
-					'birthdate'   => 'type="date" autocomplete="bday"',
+					'birthdate'   => 'type="date" autocomplete="bday"' . ( \Galaxie\Woo\Modules\AgeGate\Module::min_age() > 0 ? ' required max="' . esc_attr( \Galaxie\Woo\Modules\AgeGate\Module::latest_birthdate() ) . '"' : '' ),
 					'cpf'         => 'type="text" inputmode="numeric" placeholder="000.000.000-00" maxlength="14"',
 				);
 
