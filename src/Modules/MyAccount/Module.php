@@ -490,6 +490,10 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 		$opt_in = ! empty( $_POST['opt_in'] );
 		update_user_meta( $user_id, ProfileFields::MARKETING_OPT_IN, $opt_in ? 'yes' : 'no' );
 
+		// The contact's status follows the answer: subscribed with consent,
+		// transactional-only without it.
+		FluentCRMApi::set_consent( $user->user_email, $opt_in );
+
 		$list_id = \Galaxie\Woo\Modules\FluentCRM\Module::consent_list_id();
 		if ( $list_id > 0 ) {
 			if ( $opt_in ) {

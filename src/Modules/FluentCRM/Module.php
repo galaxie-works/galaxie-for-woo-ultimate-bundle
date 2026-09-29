@@ -126,14 +126,17 @@ final class Module implements ModuleContract, ProvidesSettings {
 		}
 
 		$settings = $this->settings();
+		$consent  = 'yes' === get_user_meta( $user_id, \Galaxie\Woo\Support\ProfileFields::MARKETING_OPT_IN, true );
 
-		FluentCRMApi::sync_contact(
+		// Subscribed only with the sign-up's marketing consent (LGPD); a contact
+		// that was already subscribed stays so.
+		FluentCRMApi::sync_contact_consent(
 			$user->user_email,
 			array(
 				'first_name' => $user->first_name,
 				'last_name'  => $user->last_name,
-				'status'     => 'subscribed',
-			)
+			),
+			$consent
 		);
 
 		$tag_key = 'google' === $source ? 'signup_google_tag_id' : 'signup_email_tag_id';
@@ -962,10 +965,10 @@ final class Module implements ModuleContract, ProvidesSettings {
 	private function display_value( string $key, string $value ): string {
 		$value = trim( $value );
 
-		// Never answered is consenting — the default — so it reads "Sim", and
-		// a first explicit "yes" is not noted as a change.
+		// Never answered is not consenting (LGPD), so it reads "Não", and a
+		// first explicit "no" is not noted as a change.
 		if ( ProfileFields::MARKETING_OPT_IN === $key ) {
-			return '' === $value || 'yes' === $value ? __( 'Sim', 'galaxie-woo' ) : __( 'Não', 'galaxie-woo' );
+			return 'yes' === $value ? __( 'Sim', 'galaxie-woo' ) : __( 'Não', 'galaxie-woo' );
 		}
 
 		if ( '' === $value ) {

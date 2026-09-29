@@ -107,6 +107,68 @@ final class FluentCRM {
 		self::with_contact( $email, static fn( $contact ) => $contact->detachLists( $list_ids ) );
 	}
 
+	/**
+	 * The status for a contact who has not consented to marketing (LGPD): in
+	 * FluentCRM, but receiving only transactional e-mail.
+	 *
+	 * `transactional` where this FluentCRM has it; otherwise `pending` for a
+	 * new contact (no double opt-in is sent from here) and `unsubscribed` for
+	 * one withdrawing consent.
+	 */
+	public static function no_consent_status( bool $withdrawing = false ): string {
+		if ( function_exists( 'fluentcrm_subscriber_statuses' ) ) {
+			$statuses = (array) fluentcrm_subscriber_statuses();
+			if ( in_array( 'transactional', $statuses, true ) || isset( $statuses['transactional'] ) ) {
+				return 'transactional';
+			}
+		}
+
+		return $withdrawing ? 'unsubscribed' : 'pending';
+	}
+
+	/** Whether the account behind `$email` said yes to marketing. Never answered is no. */
+	public static function has_consent( string $email ): bool {
+		$user = get_user_by( 'email', $email );
+
+		return $user && 'yes' === get_user_meta( $user->ID, \Galaxie\Woo\Support\ProfileFields::MARKETING_OPT_IN, true );
+	}
+
+	/**
+	 * Creates or updates a contact with a status that follows the consent:
+	 * consent makes it `subscribed`; without it a NEW contact gets
+	 * {@see no_consent_status()} and an existing one keeps whatever status it
+	 * has — a subscription given before is never downgraded here.
+	 *
+	 * @param array<string,mixed> $fields Contact fields, without `status`.
+	 */
+	public static function sync_contact_consent( string $email, array $fields, bool $consent ): void {
+		if ( ! self::is_active() || '' === $email ) {
+			return;
+		}
+		unset( $fields['status'] );
+		try {
+			if ( $consent ) {
+				$fields['status'] = 'subscribed';
+			} elseif ( ! \FluentCrmApi( 'contacts' )->getContact( $email ) ) {
+				$fields['status'] = self::no_consent_status();
+			}
+		} catch ( \Throwable $e ) {
+			return;
+		}
+		self::sync_contact( $email, $fields );
+	}
+
+	/**
+	 * The customer changed their answer in My Account: yes subscribes the
+	 * contact, no takes marketing away ({@see no_consent_status()}).
+	 */
+	public static function set_consent( string $email, bool $consent ): void {
+		if ( ! self::is_active() || '' === $email ) {
+			return;
+		}
+		self::sync_contact( $email, array( 'status' => $consent ? 'subscribed' : self::no_consent_status( true ) ) );
+	}
+
 	/** @param array<string,mixed> $fields */
 	public static function sync_contact( string $email, array $fields ): void {
 		if ( ! self::is_active() || '' === $email ) {
@@ -551,8 +613,11 @@ final class FluentCRM {
 	 * Non-fatal on any failure.
 	 *
 	 * A contact is born here more often than anywhere else — the first interest
-	 * a customer picks, the first opt-in — so it is born with the account's
-	 * name, and a contact that was created nameless gets it on its next visit.
+	 * a customer picks, the first opt-in, a paid order joining the customers
+	 * list — so it is born with the account's name, and a contact that was
+	 * created nameless gets it on its next visit. It is born `subscribed` only
+	 * with the account's marketing consent (LGPD); otherwise with
+	 * {@see no_consent_status()}.
 	 */
 	private static function with_contact( string $email, callable $callback ): void {
 		if ( ! self::is_active() || '' === $email ) {
@@ -561,7 +626,7 @@ final class FluentCRM {
 		try {
 			$contact = \FluentCrmApi( 'contacts' )->getContact( $email );
 			if ( ! $contact ) {
-				self::sync_contact( $email, array_merge( array( 'status' => 'subscribed' ), self::names_for( $email ) ) );
+				self::sync_contact( $email, array_merge( array( 'status' => self::has_consent( $email ) ? 'subscribed' : self::no_consent_status() ), self::names_for( $email ) ) );
 				$contact = \FluentCrmApi( 'contacts' )->getContact( $email );
 			} elseif ( '' === trim( (string) $contact->first_name ) && ( $names = self::names_for( $email ) ) ) { // phpcs:ignore Generic.CodeAnalysis.AssignmentInCondition.Found
 				self::sync_contact( $email, $names );

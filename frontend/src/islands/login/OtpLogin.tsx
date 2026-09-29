@@ -6,6 +6,7 @@ import { Input } from '@/ui/input'
 import { OtpInput } from '@/ui/otp-input'
 import { PhoneInput } from '@/ui/phone-input'
 import { CoField, PixAlert, PixButton, PixLink, useFieldClass, useUi, type PixButtonData, type PixUi } from '@/lib/pix'
+import { LegalText } from '@/lib/legal'
 import type { AuthConfig } from '@/lib/wp'
 import type { ProfileValues } from '@/islands/checkout/types'
 import { BAD_PHONE } from '@/islands/checkout/validation'
@@ -113,7 +114,8 @@ function OtpLogin({ authCfg, text, genericError, onVerified, preview = false, in
     birthdate: '',
     cpf: '',
     terms: false,
-    marketing: true,
+    // Unticked: a pre-ticked box is not consent (LGPD).
+    marketing: false,
   })
   // The flag field's verdict on the (optional) phone; null until it can tell.
   const [phoneValid, setPhoneValid] = React.useState<boolean | null>(null)
@@ -339,7 +341,9 @@ function OtpLogin({ authCfg, text, genericError, onVerified, preview = false, in
 
           <label className="gx-co-check">
             <input type="checkbox" required checked={reg.terms} onChange={(e) => setReg({ ...reg, terms: e.target.checked })} />
-            <span className={cn('gx-co-small', cls.small)}>{text.terms}</span>
+            <span className={cn('gx-co-small', cls.small)}>
+              <LegalText text={text.terms} />
+            </span>
           </label>
 
           <PixButton button={passwordMode ? buttons.createAccount : buttons.registerButton} type="submit" disabled={busy} />
