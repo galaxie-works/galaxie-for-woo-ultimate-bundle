@@ -24,8 +24,15 @@ export interface AuthConfig extends AjaxEndpoint {
   lostPasswordUrl?: string
 }
 
+/** LegalPages' boot data: the pages set on wp-admin → Galaxie → Páginas legais. */
+export interface LegalPage {
+  url: string
+  title: string
+}
+
 export interface GalaxieWooConfig {
   auth?: AuthConfig
+  legal?: Partial<Record<'terms' | 'privacy' | 'returns', LegalPage>>
   checkout?: AjaxEndpoint
   myAccount?: AjaxEndpoint
   accountDeletion?: AjaxEndpoint
