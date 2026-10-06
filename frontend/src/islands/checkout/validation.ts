@@ -62,6 +62,9 @@ const PROFILE_NATIVE: Record<string, keyof ProfileValues | null> = {
   billing_first_name: 'first_name',
   billing_last_name: 'last_name',
   billing_phone: 'phone',
+  // The Brazilian checkout plugin's required CPF/CNPJ box, fed from our CPF
+  // (fillNativeDocument): its rejection belongs under the CPF input.
+  billing_document: 'cpf',
 }
 
 const ADDRESS_NATIVE: Record<string, keyof AddressValues | null> = {

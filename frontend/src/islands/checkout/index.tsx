@@ -113,6 +113,7 @@ function Checkout(props: CheckoutProps) {
       last_name: profileValues.last_name,
       phone: profileValues.phone,
       email: props.userEmail,
+      cpf: profileValues.cpf,
       address_1: addressValues.address_1,
       address_2: addressValues.address_2,
       city: addressValues.city,
@@ -175,6 +176,7 @@ function Checkout(props: CheckoutProps) {
       last_name: values.last_name,
       phone: values.phone,
       email: props.userEmail,
+      cpf: values.cpf,
     })
     const check = validateProfileStep(values, props.userEmail, validateNativeFields(PROFILE_NATIVE_FIELDS))
     setProfileErrors(check.errors)
