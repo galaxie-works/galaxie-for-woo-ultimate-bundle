@@ -1039,10 +1039,13 @@ final class AccountParts {
 	 *   the parts both screens show.
 	 * - addresses: the card, address box and texts of Galaxie Account Address
 	 *   Book, for the order's billing and shipping cards.
+	 * - checkout_login: the sign-in panel of Galaxie Checkout (every `co_`
+	 *   setting), for Galaxie Login's "Use the Galaxie Checkout style".
 	 */
 	private const LOOKS = array(
 		'orders'    => array( 'galaxie-account-orders', 'galaxie_woo_orders_look_v3', array( 'status_', 'orders_pay_', 'orders_cancel_', 'orders_action_', 'cancel_' ) ),
 		'addresses' => array( 'galaxie-account-address-book', 'galaxie_woo_addresses_look', array( 'ab_card_', 'ab_box_', 'ab_address_text_', 'ab_label_text_' ) ),
+		'checkout_login' => array( 'galaxie-checkout', 'galaxie_woo_checkout_login_look', array( 'co_' ) ),
 	);
 
 	/** Added to a look's option name: the option holding the id of the document the look was taken from. */
