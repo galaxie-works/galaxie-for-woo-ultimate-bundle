@@ -164,15 +164,35 @@ export function hasChosenShippingMethod(mount: HTMLElement | null, everSeenRates
 }
 
 /**
- * Moves the native `#payment` block (methods + place-order button) into
- * `mount`. Unlike shipping, this only needs to run once: `#payment` IS the
- * whole fragment WooCommerce's own JS replaces by selector on every
- * `updated_checkout`, so once it's inside `mount` it keeps getting correctly
- * replaced there (id-based selection doesn't care about its parent).
+ * Moves WooCommerce's whole `form.checkout` into `mount`, where only its
+ * `#payment` block (methods, gateway fields, terms, place-order button) shows
+ * — the rest is hidden by CSS (`.galaxie-native-form`), and still submitted.
+ *
+ * It used to move `#payment` alone, out of the form. That left
+ * `#place_order` — a submit button — outside any form, so pressing it did
+ * nothing at all; and even a forced submit would fail, because WooCommerce
+ * reads the chosen method with `$form.find('input[name="payment_method"]')`
+ * and triggers `checkout_place_order_{gateway}` from it, which is where the
+ * gateways (FunnelKit's Stripe, the official one) create the payment. Every
+ * one of them expects the payment fields inside the form, so the form comes
+ * to the payment step instead.
+ *
+ * Only needs to run once: WooCommerce replaces `#payment` (and the review
+ * table) by selector on every `updated_checkout`, wherever the form is, and
+ * its jQuery bindings live on the form element itself, which moving keeps.
+ * The gateways mount their card fields again after each of those redraws.
  */
 export function relocatePayment(mount: HTMLElement | null): void {
   if (!mount) return
   const payment = document.querySelector('#payment')
+  const form = payment?.closest<HTMLFormElement>('form.checkout') ?? document.querySelector<HTMLFormElement>('form.checkout')
+
+  if (form) {
+    form.classList.add('galaxie-native-form')
+    if (!mount.contains(form)) mount.appendChild(form)
+    return
+  }
+
   if (payment && !mount.contains(payment)) {
     mount.appendChild(payment)
   }

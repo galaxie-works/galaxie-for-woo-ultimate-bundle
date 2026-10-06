@@ -4489,6 +4489,22 @@ address.galaxie-order-body {
    specific. They set structure and a neutral look only: the panel's surface
    controls write !important colours, and text colour and size are left to
    the inherited value or the text classes the decorator adds. */
+/* WooCommerce's form, moved whole into the payment step (relocatePayment()):
+   only #payment shows. Everything else stays in the form — hidden, still
+   submitted — and so do the notices WooCommerce prepends to it on a failed
+   submit (they become toasts anyway). */
+.galaxie-payment-mount form.galaxie-native-form > :not(#order_review):not(.woocommerce-NoticeGroup),
+.galaxie-payment-mount form.galaxie-native-form #order_review > :not(#payment) {
+  display: none !important;
+}
+.galaxie-payment-mount form.galaxie-native-form,
+.galaxie-payment-mount form.galaxie-native-form #order_review {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
 .gx-co .galaxie-payment-mount #payment {
   padding: 0;
   border: 0;
