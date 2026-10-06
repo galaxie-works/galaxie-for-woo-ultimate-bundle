@@ -263,7 +263,11 @@ function Checkout(props: CheckoutProps) {
   }
 
   const needCard = React.useCallback(() => setNotice(text.needCard), [text.needCard])
-  const ownCards = preview || null !== props.stripeCards
+  // The own-cards mode hides the WooCommerce Stripe plugin's card form by its
+  // markup (`li.payment_method_stripe`); with FunnelKit, whose Payment Element
+  // pays at checkout itself, PHP sends no config — and one that names FunnelKit
+  // is not taken either (see CheckoutWidget::own_cards_config()).
+  const ownCards = preview || (null !== props.stripeCards && props.stripeCards.gateway !== 'fkwcs_stripe')
 
   function handleContinueToPayment() {
     if (preview) return

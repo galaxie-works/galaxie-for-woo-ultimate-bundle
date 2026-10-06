@@ -85,14 +85,16 @@ final class PaymentMarkup {
 	}
 
 	/**
-	 * WooCommerce's card-form gateways, and Stripe's card gateway (`stripe`),
-	 * which in its Payment Element version does not extend the card class.
+	 * WooCommerce's card-form gateways, and the Stripe card gateways that do
+	 * not extend the card class: the WooCommerce Stripe plugin's (`stripe`, in
+	 * its Payment Element version) and FunnelKit's (`fkwcs_stripe`, which
+	 * extends WC_Payment_Gateway through its own abstract gateway).
 	 *
 	 * @param mixed $gateway
 	 */
 	private static function is_card_gateway( $gateway ): bool {
 		return $gateway instanceof \WC_Payment_Gateway_CC
-			|| ( $gateway instanceof \WC_Payment_Gateway && 'stripe' === $gateway->id );
+			|| ( $gateway instanceof \WC_Payment_Gateway && in_array( $gateway->id, array( 'stripe', 'fkwcs_stripe' ), true ) );
 	}
 
 	/**

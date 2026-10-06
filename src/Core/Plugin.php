@@ -136,6 +136,7 @@ final class Plugin {
 		$this->modules->register( new \Galaxie\Woo\Modules\FluentCRM\Module() );
 		$this->modules->register( new \Galaxie\Woo\Modules\Checkout\Module() );
 		$this->modules->register( new \Galaxie\Woo\Modules\MyAccount\Module() );
+		$this->modules->register( new \Galaxie\Woo\Modules\FunnelKitPtBr\Module() );
 		$this->modules->register( new \Galaxie\Woo\Modules\Cart\Module() );
 		$this->modules->register( new \Galaxie\Woo\Modules\FreeShipping\Module() );
 		$this->modules->register( new \Galaxie\Woo\Modules\Wishlist\Module() );
