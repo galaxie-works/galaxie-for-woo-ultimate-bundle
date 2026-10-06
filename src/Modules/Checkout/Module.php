@@ -12,6 +12,7 @@ use Galaxie\Woo\Core\Module as ModuleContract;
 use Galaxie\Woo\Core\ProvidesBootData;
 use Galaxie\Woo\Core\ProvidesElementorWidgets;
 use Galaxie\Woo\Core\ProvidesSettings;
+use Galaxie\Woo\Integrations\FunnelKitStripe;
 use Galaxie\Woo\Modules\Checkout\Widget\CheckoutWidget;
 use Galaxie\Woo\Support\CustomerProfile;
 
@@ -42,6 +43,13 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 
 		add_filter( 'woocommerce_update_order_review_fragments', array( $this, 'summary_fragment' ) );
 		PaymentMarkup::hooks();
+
+		// Pix through FunnelKit's Stripe gateway: completed from Stripe's verified
+		// webhook when the customer never comes back, once, and not cancelled by
+		// the unpaid-order sweep while the QR code can still be paid. Inert
+		// without FunnelKit. Booted here because it is part of paying at this
+		// checkout; it reads no setting of the module.
+		FunnelKitStripe::hooks();
 
 		add_action( 'wp_ajax_galaxie_save_profile', array( $this, 'ajax_save_profile' ) );
 		add_action( 'wp_ajax_galaxie_save_address', array( $this, 'ajax_save_address' ) );

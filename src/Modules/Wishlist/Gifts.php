@@ -43,6 +43,7 @@ defined( 'ABSPATH' ) || exit;
  *   without the owner's phone.
  * - The payment gateway. Stripe is not sent a shipping address for a gift: a
  *   PaymentIntent's shipping can be read in the browser with its client secret.
+ *   Nor, through FunnelKit's gateway, the CEP it puts in `amount_details`.
  * - The address book. Gift orders are not filed into the buyer's addresses
  *   (see Modules\AddressBook\Module::file_order_address()).
  *
@@ -152,6 +153,10 @@ final class Gifts {
 		add_filter( 'wc_stripe_generate_payment_request', array( self::class, 'stripe_request' ), 10, 2 );
 		add_filter( 'wc_stripe_generate_create_intent_request', array( self::class, 'stripe_request' ), 10, 2 );
 		add_filter( 'http_request_args', array( self::class, 'stripe_http' ), 10, 2 );
+		// FunnelKit's Stripe gateway (`fkwcs_*`) calls Stripe through its bundled
+		// stripe-php over curl, which `http_request_args` never sees: its own
+		// request filter is the only stop before the API.
+		add_filter( 'fkwcs_payment_intent_data', array( self::class, 'funnelkit_request' ), 10, 2 );
 	}
 
 	/**
@@ -959,6 +964,44 @@ final class Gifts {
 	public static function stripe_request( $request, $order = null ) {
 		if ( is_array( $request ) && array_key_exists( 'shipping', $request ) && self::is_gift_order( $order ) ) {
 			unset( $request['shipping'] );
+		}
+
+		return $request;
+	}
+
+	/**
+	 * FunnelKit's PaymentIntent request for a gift order, before it is sent.
+	 * Two keys carry the owner's address there (FunnelKit 1.15.0.1):
+	 *
+	 * - `shipping` — name and full address, from `set_shipping_data()`
+	 *   (Pix and the other local gateways, card, saved cards; the upsell
+	 *   compatibility for Pix builds the same key).
+	 * - `amount_details.shipping.to_postal_code` — the shipping CEP, from
+	 *   `Amount_Details::build()` (includes/amount-details.php), sent with the
+	 *   line items. Only that entry goes; the line items stay.
+	 *
+	 * The filter runs in `get_payment_intent()` (new intents: Pix, card,
+	 * Apple/Google Pay), the saved-card path, off-session renewals, and setup
+	 * intents (a third argument; nothing to strip there). Not covered: ACH,
+	 * Bancontact, iDEAL, SEPA and Cash App's saved-method path, which call
+	 * `make_payment_by_source()` with no request filter — none of them is
+	 * offered in Brazil. `fkwcs_execute_payment_intent_data` is the API's
+	 * answer, not the request, so it is not filtered here. The Stripe customer
+	 * FunnelKit creates carries the buyer's billing address only.
+	 *
+	 * @param mixed $request
+	 * @param mixed $order
+	 * @return mixed
+	 */
+	public static function funnelkit_request( $request, $order = null ) {
+		if ( ! is_array( $request ) || ! self::is_gift_order( $order ) ) {
+			return $request;
+		}
+
+		unset( $request['shipping'] );
+
+		if ( isset( $request['amount_details'] ) && is_array( $request['amount_details'] ) ) {
+			unset( $request['amount_details']['shipping'] );
 		}
 
 		return $request;
