@@ -1142,7 +1142,9 @@ final class AccountParts {
 					$target = add_query_arg( self::CANCELLED_ARG, $order->get_id(), $target );
 				}
 
-				$url = $order->get_cancel_order_url( rawurlencode( $target ) );
+				// A paid order is cancelled by the Order Cancellation module, which
+				// asks why and refunds; WooCommerce's link only cancels unpaid ones.
+				$url = (string) apply_filters( 'galaxie_woo/cancel_order_url', $order->get_cancel_order_url( rawurlencode( $target ) ), $order, $target );
 			}
 
 			$out .= self::link_button( $settings, $prefix, '' !== $label ? $label : (string) $action['name'], $url, 'is-' . sanitize_html_class( (string) $key ) );

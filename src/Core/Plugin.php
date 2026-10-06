@@ -130,6 +130,7 @@ final class Plugin {
 		$this->modules->register( new \Galaxie\Woo\Modules\PasswordlessAuth\Module() );
 		$this->modules->register( new \Galaxie\Woo\Modules\LegalPages\Module() );
 		$this->modules->register( new \Galaxie\Woo\Modules\AgeGate\Module() );
+		$this->modules->register( new \Galaxie\Woo\Modules\OrderCancellation\Module() );
 		$this->modules->register( new \Galaxie\Woo\Modules\GoogleLogin\Module() );
 		$this->modules->register( new \Galaxie\Woo\Modules\AddressAutocomplete\Module() );
 		$this->modules->register( new \Galaxie\Woo\Modules\FluentCRM\Module() );

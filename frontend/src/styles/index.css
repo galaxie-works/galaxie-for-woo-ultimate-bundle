@@ -4846,3 +4846,28 @@ address.galaxie-order-body {
   opacity: 0.55;
 }
 
+
+/* The reason asked before a paid order is cancelled (OrderCancellation),
+   added to the Cancel order dialog for that opening only. */
+.galaxie-dialog .galaxie-cancel-reason {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  width: 100%;
+  text-align: left;
+}
+.galaxie-dialog .galaxie-cancel-reason-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin: 0;
+  font-size: 0.875rem;
+}
+.galaxie-dialog .galaxie-cancel-reason .form-control {
+  width: 100%;
+}
+.galaxie-dialog .galaxie-cancel-reason-error {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--pix-red, #c0392b);
+}

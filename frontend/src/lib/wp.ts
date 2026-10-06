@@ -36,8 +36,18 @@ export interface AgeGateConfig {
   maxDate: string
 }
 
+/** OrderCancellation's boot data: the reasons set on wp-admin → Galaxie → Cancelamento. */
+export interface OrderCancellationConfig {
+  reasons: string[]
+  question: string
+  choose: string
+  comment: string
+  required: string
+}
+
 export interface GalaxieWooConfig {
   auth?: AuthConfig
+  orderCancellation?: OrderCancellationConfig
   ageGate?: AgeGateConfig
   legal?: Partial<Record<'terms' | 'privacy' | 'returns', LegalPage>>
   checkout?: AjaxEndpoint
