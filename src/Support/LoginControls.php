@@ -151,11 +151,12 @@ final class LoginControls {
 	 * Every Style section the sign-in needs: its texts, the tabs, the fields,
 	 * the switch and checkbox, the warning, and its two buttons.
 	 *
-	 * @param object $widget The Elementor widget registering them.
-	 * @param string $scope  What the selectors hang from.
+	 * @param object               $widget    The Elementor widget registering them.
+	 * @param string               $scope     What the selectors hang from.
+	 * @param array<string,string> $condition When the sections show (Galaxie Login hides them while it borrows the checkout's).
 	 */
-	public static function register_style( object $widget, string $scope = '{{WRAPPER}}' ): void {
-		$style = static fn( string $label ): array => array( 'label' => $label, 'tab' => Controls_Manager::TAB_STYLE );
+	public static function register_style( object $widget, string $scope = '{{WRAPPER}}', array $condition = array() ): void {
+		$style = static fn( string $label ): array => array( 'label' => $label, 'tab' => Controls_Manager::TAB_STYLE ) + ( $condition ? array( 'condition' => $condition ) : array() );
 
 		foreach ( self::text_sets() as $prefix => [ $label, $selector, $defaults ] ) {
 			$widget->start_controls_section( $prefix . '_style', $style( $label ) );
