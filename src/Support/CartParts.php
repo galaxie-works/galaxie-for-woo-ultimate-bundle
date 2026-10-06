@@ -410,6 +410,18 @@ final class CartParts {
 			)
 		);
 
+		$widget->add_control(
+			'express_buttons',
+			array(
+				'label'        => __( 'Show express payment buttons (Apple Pay / Google Pay)', 'galaxie-woo' ),
+				'type'         => Controls_Manager::SWITCHER,
+				'default'      => 'yes',
+				'return_value' => 'yes',
+				'separator'    => 'before',
+				'description'  => __( 'Runs WooCommerce\'s "proceed to checkout" hook above the checkout button, which is where FunnelKit Stripe prints its wallet buttons on the cart. WooCommerce\'s own default checkout button is held back, since this widget has its own.', 'galaxie-woo' ),
+			)
+		);
+
 		$widget->end_controls_section();
 
 		// Each button gets a section of its own carrying pixfort's whole Button
@@ -1179,6 +1191,10 @@ final class CartParts {
 
 		echo self::rows_markup( $settings ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built from escaped parts.
 
+		if ( 'yes' === ( $settings['express_buttons'] ?? 'yes' ) ) {
+			echo self::proceed_to_checkout_hooks(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- third-party hook output, see the method.
+		}
+
 		printf(
 			'<a class="galaxie-cart-checkout" href="%s">%s</a>',
 			esc_url( wc_get_checkout_url() ),
@@ -1196,6 +1212,82 @@ final class CartParts {
 		echo '</div>';
 
 		return (string) ob_get_clean();
+	}
+
+	/**
+	 * WooCommerce's `woocommerce_proceed_to_checkout`, minus WooCommerce's own button.
+	 *
+	 * WHY. WooCommerce's cart-totals template fires this action where the
+	 * checkout button goes, and payment plugins hang their cart buttons on it —
+	 * FunnelKit Stripe prints Apple Pay / Google Pay there at priority 1, i.e.
+	 * above the checkout button, with its "OR" separator below them. This box
+	 * replaced that template ({@see totals_markup()}), so the action never ran
+	 * and the cart had no wallet at all. It runs here, just above our own
+	 * checkout button, in the same spot.
+	 *
+	 * WooCommerce hangs its OWN "Proceed to checkout" button on the same action
+	 * (`woocommerce_button_proceed_to_checkout`, priority 20). Ours is the
+	 * merchant-styled one, so WooCommerce's is unhooked for the duration of
+	 * the call and put back at the priority it had — any other code that fires
+	 * the action later in the request (a mini cart, a side cart) still gets it.
+	 *
+	 * REFRESHES. Four paths redraw this box, and all four keep the wallet:
+	 * - Page load: rendered here.
+	 * - WooCommerce's cart.js (shipping method, coupon, calculator): it fetches
+	 *   `get_cart_totals`, which Cart\Module serves from our template, so this
+	 *   runs again — WooCommerce defines WOOCOMMERCE_CART on that request, so
+	 *   is_cart() holds and FunnelKit prints a fresh container — and cart.js
+	 *   then fires `updated_cart_totals`, on which FunnelKit re-arms and,
+	 *   finding no iframe in the new container, re-mounts.
+	 * - The coupon widget without a cart table (coupon.ts): it re-fetches the
+	 *   cart page itself, swaps `.cart_totals` and fires the same event — same
+	 *   outcome.
+	 * - Our own quantity/remove AJAX: it replaces only `.galaxie-cart-totals-rows`,
+	 *   so this block is never touched; cart.ts fires `updated_cart_totals`
+	 *   afterwards so FunnelKit re-reads the new total.
+	 *
+	 * ONLY ON THE CART. WooCommerce itself never fires this action anywhere
+	 * else, and FunnelKit answers it by page: a Cart Totals widget dropped on
+	 * the checkout page would get FunnelKit's CHECKOUT wallet here (its
+	 * is_checkout() branch prints without claiming the one render it allows),
+	 * and then a second one in the checkout form — two
+	 * #fkwcs_stripe_smart_button_wrapper on one page. is_cart() is also false
+	 * in Elementor's editor render, and the explicit editor check covers the
+	 * preview frame, where anything printed would be markup on the canvas the
+	 * merchant cannot select. Empty output leaves no wrapper behind.
+	 */
+	private static function proceed_to_checkout_hooks(): string {
+		if ( ! function_exists( 'is_cart' ) || ! is_cart() ) {
+			return '';
+		}
+
+		if ( class_exists( '\Elementor\Plugin' ) && isset( \Elementor\Plugin::$instance->editor ) && \Elementor\Plugin::$instance->editor->is_edit_mode() ) {
+			return '';
+		}
+
+		$priority = has_action( 'woocommerce_proceed_to_checkout', 'woocommerce_button_proceed_to_checkout' );
+
+		if ( false !== $priority ) {
+			remove_action( 'woocommerce_proceed_to_checkout', 'woocommerce_button_proceed_to_checkout', (int) $priority );
+		}
+
+		ob_start();
+
+		try {
+			do_action( 'woocommerce_proceed_to_checkout' );
+		} finally {
+			$output = (string) ob_get_clean();
+
+			if ( false !== $priority ) {
+				add_action( 'woocommerce_proceed_to_checkout', 'woocommerce_button_proceed_to_checkout', (int) $priority );
+			}
+		}
+
+		if ( '' === trim( $output ) ) {
+			return '';
+		}
+
+		return '<div class="galaxie-cart-express">' . $output . '</div>';
 	}
 
 	/**

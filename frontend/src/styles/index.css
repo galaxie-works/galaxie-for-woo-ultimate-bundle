@@ -548,6 +548,24 @@ form.galaxie-buybox {
   margin: 0;
 }
 
+/* WooCommerce's add-to-cart hooks, fired inside the form — see
+   BuyBoxWidget::fire_wc_hook(). Whatever a plugin prints there (FunnelKit's
+   Apple Pay / Google Pay stack, mostly) is one more block of the column: full
+   width, spaced by the form's own gap. Plugins bring their own outer margins
+   for a theme form with no gap; zeroing the first and last child's keeps the
+   spacing the merchant set from being doubled. */
+form.galaxie-buybox .galaxie-buybox-block--hooks {
+  width: 100%;
+}
+
+form.galaxie-buybox .galaxie-buybox-block--hooks > :first-child {
+  margin-top: 0;
+}
+
+form.galaxie-buybox .galaxie-buybox-block--hooks > :last-child {
+  margin-bottom: 0;
+}
+
 /* Inside the buy box the quantity wrapper must not be inline-level. As an
    inline-block it sits on the text baseline, so the browser reserves descender
    space under it and the wrapping block ends up ~9px taller than the field
@@ -2065,6 +2083,17 @@ form.galaxie-buybox .galaxie-buybox-btn.is-full > * {
 
 .galaxie-cart-checkout {
   margin-top: 16px;
+}
+
+/* WooCommerce's `woocommerce_proceed_to_checkout`, above our checkout button —
+   see CartParts::proceed_to_checkout_hooks(). FunnelKit's wallet ends with its
+   own "OR" separator, which then sits right over the button below. */
+.galaxie-cart-express {
+  margin-top: 16px;
+}
+
+.galaxie-cart-express + .galaxie-cart-checkout {
+  margin-top: 8px;
 }
 
 /* No font-size of its own any more: it carries a pixfort button, and the

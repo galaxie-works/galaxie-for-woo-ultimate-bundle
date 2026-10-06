@@ -83,7 +83,33 @@ final class Module implements ModuleContract, ProvidesBootData, ProvidesElemento
 		add_filter( 'woocommerce_add_to_cart_redirect', array( $this, 'buy_now_redirect' ) );
 	}
 
+	/**
+	 * While above zero, {@see print_buy_now_field()} prints nothing.
+	 *
+	 * The Buy Box fires `woocommerce_after_add_to_cart_button` inside its own
+	 * form (so FunnelKit's wallet buttons and the like have somewhere to land),
+	 * and that form already carries this field. A second, empty copy is not
+	 * harmless: the script flips the FIRST one to "1", PHP keeps the LAST value
+	 * of a repeated name, and Buy Now would quietly stop going to checkout.
+	 */
+	private static int $own_field_suppressed = 0;
+
+	/** Runs $callback with {@see print_buy_now_field()} silenced — see $own_field_suppressed. */
+	public static function without_buy_now_field( callable $callback ): void {
+		++self::$own_field_suppressed;
+
+		try {
+			$callback();
+		} finally {
+			--self::$own_field_suppressed;
+		}
+	}
+
 	public function print_buy_now_field(): void {
+		if ( self::$own_field_suppressed > 0 ) {
+			return;
+		}
+
 		printf( '<input type="hidden" name="%s" value="" />', esc_attr( self::BUY_NOW_FIELD ) );
 	}
 
