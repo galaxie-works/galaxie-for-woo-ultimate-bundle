@@ -9,7 +9,7 @@
  */
 
 import { getGalaxieConfig, post, type OrderCancellationConfig } from '@/lib/wp'
-import { ask } from '@/lib/dialog'
+import { ask, tell } from '@/lib/dialog'
 import { attachPhoneInput, readPhone } from '@/lib/phone'
 
 interface WishlistConfig {
@@ -79,6 +79,8 @@ function attachPhones(root: ParentNode): void {
 }
 
 export function bootAccountScreens(_wishlist?: WishlistConfig): void {
+  openPostedNotice()
+
   const config = getGalaxieConfig()
 
   // Personal details.
@@ -244,9 +246,32 @@ export function bootAccountScreens(_wishlist?: WishlistConfig): void {
     // answer with the link's own fields. WooCommerce's unpaid-order link stays a link.
     const cfg = getGalaxieConfig().orderCancellation
     if (cfg && link.href.includes('action=galaxie_cancel_order')) {
-      const form = reasonForm(cfg)
-      void ask(root, 'cancel_confirm', { fallback: 'Cancelar este pedido?', extra: form.el, validate: form.validate }).then((yes) => {
-        if (yes) submitCancel(link.href, form.reason(), form.comment())
+      const url = new URL(link.href, window.location.href)
+
+      // Already on its way: the in-transit notice, and nothing else.
+      if ('1' === url.searchParams.get('posted')) {
+        void tellPosted(root, cfg)
+        return
+      }
+
+      // Asked before the reason, so nobody fills one in to hear no.
+      link.setAttribute('aria-busy', 'true')
+      void post<{ posted?: boolean }>(cfg.ajaxUrl, 'galaxie_cancel_check', url.searchParams.get('_wpnonce') ?? '', {
+        order_id: url.searchParams.get('order_id') ?? '',
+      }).then((res) => {
+        link.removeAttribute('aria-busy')
+
+        if (res.success && res.data?.posted) {
+          url.searchParams.set('posted', '1')
+          link.href = url.toString()
+          void tellPosted(root, cfg)
+          return
+        }
+
+        const form = reasonForm(cfg)
+        void ask(root, 'cancel_confirm', { fallback: 'Cancelar este pedido?', extra: form.el, validate: form.validate }).then((yes) => {
+          if (yes) submitCancel(link.href, form.reason(), form.comment())
+        })
       })
       return
     }
@@ -343,4 +368,27 @@ function submitCancel(href: string, reason: string, comment: string) {
 
   document.body.appendChild(form)
   form.submit()
+}
+
+/** The widget's "Cancelamento de pedido em rota" notice (OK only), or the built-in one with the default text. */
+function tellPosted(scope: Element | null, cfg: OrderCancellationConfig): Promise<void> {
+  return tell(scope, 'cancel_posted', { fallback: cfg.posted })
+}
+
+/**
+ * Back from a cancellation the server refused because the order had just
+ * been posted: the in-transit notice, once, and the mark taken out of the
+ * address so a reload does not show it again.
+ */
+function openPostedNotice() {
+  const cfg = getGalaxieConfig().orderCancellation
+  const params = new URLSearchParams(window.location.search)
+  if (!cfg || !params.has('galaxie_cancel_posted')) return
+
+  params.delete('galaxie_cancel_posted')
+  const query = params.toString()
+  window.history.replaceState(null, '', window.location.pathname + (query ? `?${query}` : '') + window.location.hash)
+
+  const root = document.querySelector('.galaxie-account-orders, .galaxie-account-order')
+  void tellPosted(root, cfg)
 }

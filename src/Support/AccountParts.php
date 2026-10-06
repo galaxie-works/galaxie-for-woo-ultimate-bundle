@@ -1246,6 +1246,21 @@ final class AccountParts {
 				'condition' => $condition,
 			)
 		);
+
+		// A paid order already posted (Order Cancellation module): the Cancel
+		// button stays and opens this notice, with a single OK.
+		Dialog::controls(
+			$widget,
+			'cancel_posted',
+			array(
+				'label'     => __( 'Cancelamento de pedido em rota', 'galaxie-woo' ),
+				'title'     => __( 'Seu pedido já está a caminho', 'galaxie-woo' ),
+				'text'      => __( 'Para que o pedido seja cancelado, simplesmente recuse o recebimento.', 'galaxie-woo' ),
+				'yes'       => __( 'OK', 'galaxie-woo' ),
+				'no'        => null,
+				'condition' => $condition,
+			)
+		);
 	}
 
 	/**

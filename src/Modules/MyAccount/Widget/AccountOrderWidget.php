@@ -290,8 +290,8 @@ final class AccountOrderWidget extends Widget_Base {
 		$inherit = 'yes' === ( $s['status_inherit'] ?? '' );
 		$cancel  = $inherit ? array_merge( $s, AccountParts::orders_look(), array( 'cancel_alert_preview' => (string) ( $s['order_cancel_preview'] ?? '' ) ) ) : $s;
 		$scope   = '.elementor-element-' . $this->get_id();
-		$css     = $inherit ? Dialog::css( $cancel, 'cancel_confirm', $scope ) . AccountParts::cancelled_alert_css( $cancel, $scope ) : '';
-		$out     = ( '' !== $css ? '<style>' . $css . '</style>' : '' ) . AccountParts::cancelled_alert( $cancel ) . Dialog::render( $cancel, 'cancel_confirm' );
+		$css     = $inherit ? Dialog::css( $cancel, 'cancel_confirm', $scope ) . Dialog::css( $cancel, 'cancel_posted', $scope ) . AccountParts::cancelled_alert_css( $cancel, $scope ) : '';
+		$out     = ( '' !== $css ? '<style>' . $css . '</style>' : '' ) . AccountParts::cancelled_alert( $cancel ) . Dialog::render( $cancel, 'cancel_confirm' ) . Dialog::render( $cancel, 'cancel_posted', false );
 
 		// Header: back link, title, date, status.
 		$back = trim( (string) ( $s['order_back_text'] ?? '' ) );

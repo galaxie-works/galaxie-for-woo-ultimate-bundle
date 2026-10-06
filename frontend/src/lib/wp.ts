@@ -38,6 +38,9 @@ export interface AgeGateConfig {
 
 /** OrderCancellation's boot data: the reasons set on wp-admin → Galaxie → Cancelamento. */
 export interface OrderCancellationConfig {
+  ajaxUrl: string
+  /** The in-transit notice's text for a screen whose widget has no dialog of its own. */
+  posted: string
   reasons: string[]
   question: string
   choose: string
