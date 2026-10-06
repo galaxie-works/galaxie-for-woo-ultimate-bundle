@@ -55,6 +55,9 @@ defined( 'ABSPATH' ) || exit;
  */
 final class BuyBoxWidget extends Widget_Base {
 
+	/** @var array<string,true> Hooks already fired by this render — see fire_wc_hook(). */
+	private array $fired_hooks = array();
+
 	/**
 	 * `PixAlert::render()` enqueues its own stylesheet as it renders, which is
 	 * fine on the site — the handle lands in the footer — but useless inside
@@ -163,6 +166,22 @@ final class BuyBoxWidget extends Widget_Base {
 					array( 'block' => 'quantity' ),
 					array( 'block' => 'addcart' ),
 				),
+			)
+		);
+
+		// One switch for all three hooks rather than one per hook: the merchant
+		// is choosing "wallet buttons or not", not which WooCommerce action
+		// FunnelKit happens to be configured on (that is FunnelKit's own
+		// "above / below Add to Cart" setting, and it can change under us).
+		$this->add_control(
+			'express_buttons',
+			array(
+				'label'        => __( 'Show express payment buttons (Apple Pay / Google Pay)', 'galaxie-woo' ),
+				'type'         => Controls_Manager::SWITCHER,
+				'return_value' => 'yes',
+				'default'      => 'yes',
+				'separator'    => 'before',
+				'description'  => __( 'Runs WooCommerce\'s add-to-cart hooks inside this buy box, which is where FunnelKit Stripe prints its wallet buttons. Anything else a plugin hooks there (a shipping simulator, a size guide) appears too — turn this off to keep the box to the blocks above.', 'galaxie-woo' ),
 			)
 		);
 
@@ -751,12 +770,12 @@ final class BuyBoxWidget extends Widget_Base {
 			// variations at all: no price update, no narrowing of options.
 			wp_enqueue_script( 'wc-add-to-cart-variation' );
 			$this->render_attribute_selects( $product );
-			$this->render_single_variation_slot();
+			$this->render_single_variation_slot( $product );
 		}
 
 		$this->render_gift_notice( $settings, $product );
 		$this->render_blocks( $rows, $product, $settings );
-		$this->render_hidden_fields( $product, $variable );
+		$this->render_hidden_fields( $product, $variable, $settings, $rows );
 
 		echo '</form>';
 		echo Dialog::render( $settings, 'buybox_dialog', false ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built from escaped parts.
@@ -771,10 +790,16 @@ final class BuyBoxWidget extends Widget_Base {
 	 * @param array<string,mixed>            $settings
 	 */
 	private function render_blocks( array $rows, \WC_Product $product, array $settings ): void {
-		$rows    = $this->with_giftwrap_row( $rows, $settings );
-		$inline  = 'yes' === ( $settings['inline_actions'] ?? 'yes' );
-		$buttons = array( 'addcart', 'buynow' );
-		$count   = count( $rows );
+		$rows              = array_values( $this->with_giftwrap_row( $rows, $settings ) );
+		$inline            = 'yes' === ( $settings['inline_actions'] ?? 'yes' );
+		$buttons           = array( 'addcart', 'buynow' );
+		$count             = count( $rows );
+		$this->fired_hooks = array();
+
+		// Grouped first, rendered second: where WooCommerce's hooks go depends
+		// on which group holds the last purchase control, and that is only
+		// known once the whole order has been walked.
+		$segments = array();
 
 		for ( $i = 0; $i < $count; $i++ ) {
 			$block = (string) ( $rows[ $i ]['block'] ?? '' );
@@ -785,21 +810,155 @@ final class BuyBoxWidget extends Widget_Base {
 				&& in_array( $next, $buttons, true );
 
 			if ( ! $pairs ) {
-				$this->render_block( $block, $product, $settings );
+				$segments[] = array( 'row' => false, 'blocks' => array( $block ) );
 				continue;
 			}
 
-			echo '<div class="galaxie-buybox-row">';
-			$this->render_block( $block, $product, $settings );
+			$segment = array( $block );
 
 			// Keep absorbing following button blocks so quantity + Add to Cart
 			// + Buy Now all land on the same row rather than just the first two.
 			while ( $i + 1 < $count && in_array( (string) ( $rows[ $i + 1 ]['block'] ?? '' ), $buttons, true ) ) {
 				++$i;
-				$this->render_block( (string) $rows[ $i ]['block'], $product, $settings );
+				$segment[] = (string) $rows[ $i ]['block'];
 			}
-			echo '</div>';
+
+			$segments[] = array( 'row' => true, 'blocks' => $segment );
 		}
+
+		$hooks = $this->wc_hooks_enabled( $settings );
+		$last  = null;
+
+		foreach ( $segments as $n => $segment ) {
+			if ( array_intersect( $segment['blocks'], array( 'quantity', 'addcart', 'buynow' ) ) ) {
+				$last = $n;
+			}
+		}
+
+		foreach ( $segments as $n => $segment ) {
+			$blocks = $segment['blocks'];
+
+			if ( $hooks && array_intersect( $blocks, array( 'quantity', 'addcart', 'buynow' ) ) ) {
+				$this->fire_wc_hook( 'woocommerce_before_add_to_cart_button' );
+			}
+
+			// "After the quantity" lands ABOVE a group holding a button when it
+			// has not fired yet. Two cases end up here. A quantity sharing a row
+			// with the buttons: nothing can be put between them without breaking
+			// the row, and above the row is still above Add to Cart, which is
+			// what FunnelKit's "above" position asks for. And no quantity block
+			// at all: WooCommerce's own templates fire this hook even when they
+			// hide the field (a product sold individually), so a wallet set to
+			// "above" still appears.
+			if ( $hooks && array_intersect( $blocks, $buttons ) ) {
+				$this->fire_wc_hook( 'woocommerce_after_add_to_cart_quantity' );
+			}
+
+			if ( $segment['row'] ) {
+				echo '<div class="galaxie-buybox-row">';
+			}
+
+			foreach ( $blocks as $block ) {
+				$this->render_block( $block, $product, $settings );
+			}
+
+			if ( $segment['row'] ) {
+				echo '</div>';
+			}
+
+			if ( $hooks && in_array( 'quantity', $blocks, true ) ) {
+				$this->fire_wc_hook( 'woocommerce_after_add_to_cart_quantity' );
+			}
+
+			// After the whole group, never inside it: FunnelKit's default
+			// ("below") wallet is a full-width stack of buttons, and as a flex
+			// item of the quantity + buttons row it would be squeezed into
+			// whatever width the row had left.
+			if ( $hooks && $n === $last ) {
+				$this->fire_wc_hook( 'woocommerce_after_add_to_cart_button' );
+			}
+		}
+
+		// No quantity and no button at all — a box that is only price and
+		// swatches. The hooks still run once, after everything, so a wallet-only
+		// buy box remains possible.
+		if ( $hooks && null === $last ) {
+			$this->fire_wc_hook( 'woocommerce_before_add_to_cart_button' );
+			$this->fire_wc_hook( 'woocommerce_after_add_to_cart_quantity' );
+			$this->fire_wc_hook( 'woocommerce_after_add_to_cart_button' );
+		}
+	}
+
+	/**
+	 * Whether this render runs WooCommerce's add-to-cart hooks.
+	 *
+	 * Never in the editor. Nothing hooked there can work in Elementor's AJAX
+	 * render (FunnelKit, for one, checks is_product() and prints nothing), and
+	 * a plugin that does print would put live third-party markup on the
+	 * canvas the merchant cannot select or remove.
+	 *
+	 * @param array<string,mixed> $settings
+	 */
+	private function wc_hooks_enabled( array $settings ): bool {
+		return 'yes' === ( $settings['express_buttons'] ?? 'yes' ) && ! self::is_editing();
+	}
+
+	/**
+	 * One of WooCommerce's add-to-cart actions, fired inside our form.
+	 *
+	 * WHY. WooCommerce's own add-to-cart templates fire these, and plugins
+	 * hang their product-page UI on them — FunnelKit Stripe prints its Apple
+	 * Pay / Google Pay buttons on `woocommerce_after_add_to_cart_button`
+	 * (priority 1, its "below" default) or `woocommerce_after_add_to_cart_quantity`
+	 * ("above"). This widget replaces those templates, so until now nothing
+	 * fired and the express script loaded onto a page with no container to
+	 * mount in. Only the three actions the native templates fire INSIDE
+	 * `form.cart` are fired here, never `woocommerce_before/after_add_to_cart_form`:
+	 * anything hooked on these is already built to sit inside a form, so a
+	 * plugin cannot nest a second `<form>` in ours (the parser would drop it and
+	 * fold its fields into the add-to-cart post).
+	 *
+	 * Each fires at most once per render. FunnelKit only ever renders one
+	 * wallet per page anyway (it claims the render and unhooks itself), but a
+	 * plugin without that guard would otherwise print twice when a fallback
+	 * path above reaches the same hook again.
+	 *
+	 * Output is buffered so an empty hook leaves no empty block taking a gap in
+	 * the column; what does print gets a block of its own, as a direct child of
+	 * the form like every other block. Module's own Buy Now field, hooked on
+	 * the "after button" action for native forms, is silenced here: this form
+	 * already has one, and a second copy breaks Buy Now — see
+	 * {@see Module::without_buy_now_field()}.
+	 */
+	private function fire_wc_hook( string $hook ): void {
+		if ( isset( $this->fired_hooks[ $hook ] ) ) {
+			return;
+		}
+
+		$this->fired_hooks[ $hook ] = true;
+
+		ob_start();
+
+		try {
+			Module::without_buy_now_field(
+				static function () use ( $hook ): void {
+					do_action( $hook );
+				}
+			);
+		} finally {
+			$output = (string) ob_get_clean();
+		}
+
+		if ( '' === trim( $output ) ) {
+			return;
+		}
+
+		printf(
+			'<div class="galaxie-buybox-block galaxie-buybox-block--hooks galaxie-buybox-hook-%s">',
+			esc_attr( str_replace( '_', '-', substr( $hook, strlen( 'woocommerce_' ) ) ) )
+		);
+		echo $output; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- third-party hook output, printed as WooCommerce's own templates would print it.
+		echo '</div>';
 	}
 
 	/**
@@ -831,9 +990,22 @@ final class BuyBoxWidget extends Widget_Base {
 	 * opacity, cursor and pointer-events are unchanged and the click still
 	 * reaches our handler, because the rules this widget already uses to
 	 * neutralise the theme cover that state too. The alert flow is untouched.
+	 *
+	 * `product_id` lives in here, not with the other hidden fields, because
+	 * that is where WooCommerce's own variable template puts it and where
+	 * FunnelKit's express script looks for it: on a page with a
+	 * `.single_variation_wrap` it reads the product from
+	 * `.single_variation_wrap input[name="product_id"]` and nowhere else
+	 * (express-checkout.js, addToCartProduct / prepareSelectedProductData).
+	 * With the field outside, that read is `undefined` and the wallet's
+	 * add-to-cart and price lookup go out without a product. Still inside the
+	 * form, so the native post is unchanged.
 	 */
-	private function render_single_variation_slot(): void {
-		echo '<div class="galaxie-buybox-wc-variation" aria-hidden="true"><div class="single_variation_wrap"><div class="single_variation"></div></div></div>';
+	private function render_single_variation_slot( \WC_Product $product ): void {
+		printf(
+			'<div class="galaxie-buybox-wc-variation" aria-hidden="true"><div class="single_variation_wrap"><div class="single_variation"></div><input type="hidden" name="product_id" value="%d" /></div></div>',
+			(int) $product->get_id()
+		);
 	}
 
 	/**
@@ -866,15 +1038,30 @@ final class BuyBoxWidget extends Widget_Base {
 		echo '</div>';
 	}
 
-	private function render_hidden_fields( \WC_Product $product, bool $variable ): void {
+	/**
+	 * @param array<string,mixed>            $settings
+	 * @param array<int,array<string,mixed>> $rows
+	 */
+	private function render_hidden_fields( \WC_Product $product, bool $variable, array $settings, array $rows ): void {
 		printf( '<input type="hidden" name="add-to-cart" value="%d" />', (int) $product->get_id() );
 
 		if ( $variable ) {
-			printf( '<input type="hidden" name="product_id" value="%d" />', (int) $product->get_id() );
+			// `product_id` is printed in the variation slot — see render_single_variation_slot().
 			echo '<input type="hidden" name="variation_id" class="variation_id" value="0" />';
 		}
 
 		printf( '<input type="hidden" name="%s" value="" />', esc_attr( Module::BUY_NOW_FIELD ) );
+
+		// FunnelKit reads the product id from `$('.single_add_to_cart_button').val()`,
+		// which is our Add to Cart button (it carries the id as its value — see
+		// render_button()). A box built without that block, Buy Now only, would
+		// hand the wallet nothing, so the id gets a carrier of its own: no name,
+		// so it never joins the post, and hidden, so nothing can click it.
+		$has_addcart = in_array( 'addcart', array_map( static fn( $row ): string => (string) ( is_array( $row ) ? ( $row['block'] ?? '' ) : '' ), $rows ), true );
+
+		if ( ! $has_addcart && $this->wc_hooks_enabled( $settings ) ) {
+			printf( '<input type="hidden" class="single_add_to_cart_button galaxie-buybox-product-ref" value="%d" />', (int) $product->get_id() );
+		}
 	}
 
 	/**
@@ -914,7 +1101,7 @@ final class BuyBoxWidget extends Widget_Base {
 				break;
 			case 'addcart':
 			case 'buynow':
-				$this->render_button( $settings, $block );
+				$this->render_button( $settings, $block, $product );
 				break;
 		}
 
@@ -1363,7 +1550,7 @@ final class BuyBoxWidget extends Widget_Base {
 	/**
 	 * @param array<string,mixed> $settings
 	 */
-	private function render_button( array $settings, string $prefix ): void {
+	private function render_button( array $settings, string $prefix, \WC_Product $product ): void {
 		$text = (string) ( $settings[ $prefix . '_text' ] ?? '' );
 
 		// Both are real submit buttons: with JS off the form still posts and
@@ -1371,11 +1558,18 @@ final class BuyBoxWidget extends Widget_Base {
 		// and flags Buy Now for the checkout redirect. `single_add_to_cart_button`
 		// is kept on Add to Cart because WooCommerce's own variation JS toggles
 		// its disabled state as combinations narrow.
+		//
+		// Add to Cart also carries the product id as its VALUE, as WooCommerce's
+		// simple-product button does, because FunnelKit's express script reads
+		// the product from `$('.single_add_to_cart_button').val()`. Value only,
+		// no `name`: a nameless button is never part of the post, so the hidden
+		// `add-to-cart` field stays the one and only add-to-cart the server sees.
 		printf(
-			'<button type="submit" class="galaxie-buybox-btn galaxie-buybox-%s%s%s">',
+			'<button type="submit" class="galaxie-buybox-btn galaxie-buybox-%s%s%s"%s>',
 			esc_attr( $prefix ),
 			'addcart' === $prefix ? ' single_add_to_cart_button' : '',
-			'yes' === ( $settings[ $prefix . '_full' ] ?? '' ) ? ' is-full' : ''
+			'yes' === ( $settings[ $prefix . '_full' ] ?? '' ) ? ' is-full' : '',
+			'addcart' === $prefix ? sprintf( ' value="%d"', (int) $product->get_id() ) : ''
 		);
 
 		echo PixfortControls::render_button( $settings, $prefix, $text ); // phpcs:ignore WordPress.Security.EscapeOutput -- pixfort's own component markup.

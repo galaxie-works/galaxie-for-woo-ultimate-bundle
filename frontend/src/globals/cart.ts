@@ -244,6 +244,18 @@ function apply(line: HTMLElement, data: NonNullable<CartResponse['data']>): void
   } else {
     jq()?.(document.body).trigger('wc_fragment_refresh')
   }
+
+  // FunnelKit's cart wallet (CartParts::proceed_to_checkout_hooks()) sits
+  // outside the rows, so the swap above leaves it mounted — but still priced
+  // at the old total. FunnelKit re-reads the cart from the server on
+  // `updated_cart_totals`, the event WooCommerce's own cart.js fires after a
+  // totals change. Its `wc_fragments_refreshed` path is not enough on its own:
+  // it only reads the fragments cached in sessionStorage, which exist only
+  // where cart-fragments.js is loaded. Fired only when a wallet is on the
+  // page, so nothing else listening for the event sees a change.
+  if (data.totals && document.querySelector('.galaxie-cart-express')) {
+    jq()?.(document.body).trigger('updated_cart_totals')
+  }
 }
 
 /**

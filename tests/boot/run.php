@@ -830,7 +830,27 @@ function galaxie_boot_kit( array $booted, array $scenario, callable $hooked ): s
 			}
 		}
 
+		// The switch that decides whether WooCommerce's add-to-cart hooks fire
+		// inside the box (FunnelKit's Apple Pay / Google Pay live there). On by
+		// default: the buttons going missing is the bug it was added for.
+		if ( 'yes' !== ( $buybox->controls['express_buttons']['default'] ?? null ) ) {
+			throw new RuntimeException( 'Buy Box: express_buttons is missing or not on by default' );
+		}
+
 		$parts[] = 'BuyBoxWidget ' . count( $buybox->controls ) . ' controls';
+	}
+
+	if ( in_array( 'cart', $booted, true ) ) {
+		foreach ( array( \Galaxie\Woo\Modules\Cart\Widget\CartTotalsWidget::class, \Galaxie\Woo\Modules\Cart\Widget\CartWidget::class ) as $class ) {
+			$cart_widget = new $class();
+			$cart_widget->register_for_test();
+
+			if ( 'yes' !== ( $cart_widget->controls['express_buttons']['default'] ?? null ) ) {
+				throw new RuntimeException( ( new ReflectionClass( $class ) )->getShortName() . ': express_buttons is missing or not on by default' );
+			}
+
+			$parts[] = ( new ReflectionClass( $class ) )->getShortName() . ' ' . count( $cart_widget->controls ) . ' controls';
+		}
 	}
 
 	return implode( ', ', $parts );
