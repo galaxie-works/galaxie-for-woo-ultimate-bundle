@@ -671,6 +671,13 @@ final class AccountPaymentMethodsWidget extends Widget_Base {
 				}
 			}
 
+			// FunnelKit's card gateway with "Saved Cards" off shows its form on
+			// the add-payment-method screen and stores the card, yet never offers
+			// a saved card at checkout: a card added there pays for nothing.
+			if ( 'fkwcs_stripe' === $gateway->id && 'yes' !== ( $gateway->enable_saved_cards ?? '' ) ) {
+				continue;
+			}
+
 			if ( $gateway->supports( 'add_payment_method' ) ) {
 				return true;
 			}

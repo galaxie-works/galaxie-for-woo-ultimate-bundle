@@ -5,10 +5,12 @@
  * The number, expiry and code are Stripe's own fields — iframes Stripe serves —
  * mounted into boxes of ours, so the card data goes from the customer's
  * keyboard straight to Stripe and never through this site. The save runs the
- * WooCommerce Stripe plugin's own flow (see PHP Support\StripeCards): Stripe.js
- * creates the PaymentMethod, the plugin confirms a SetupIntent for it,
- * Stripe.js handles any bank authentication, and our endpoint turns the
- * confirmed intent into a saved WooCommerce payment token.
+ * active Stripe plugin's own flow (see PHP Support\StripeCards): Stripe.js
+ * creates the PaymentMethod, the plugin makes a SetupIntent for it — the
+ * WooCommerce Stripe plugin confirms it too, FunnelKit leaves that to
+ * Stripe.js — Stripe.js handles any bank authentication, and our endpoint turns
+ * the confirmed intent into a saved WooCommerce payment token through that
+ * plugin's own code.
  *
  * What each caller does around it — redrawing an account list, or refreshing
  * the checkout and selecting the new card — stays with the caller.
@@ -16,6 +18,13 @@
 
 /** PHP `StripeCards::client_config()`. */
 export interface StripeConfig {
+  /**
+   * The card gateway whose SetupIntent action step 2 calls: the WooCommerce
+   * Stripe plugin (`stripe`, also when absent) or FunnelKit (`fkwcs_stripe`).
+   */
+  gateway?: 'stripe' | 'fkwcs_stripe'
+  /** FunnelKit only: the brands the merchant accepts, as Stripe's slugs; empty or absent = any. */
+  brands?: string[]
   key: string
   ajaxUrl: string
   intentNonce: string
@@ -41,7 +50,7 @@ interface StripeElements {
 
 interface StripeResult {
   error?: { message?: string }
-  paymentMethod?: { id: string }
+  paymentMethod?: { id: string; card?: { brand?: string } }
   setupIntent?: { id: string; status: string }
 }
 
@@ -82,6 +91,7 @@ export interface CardBoxes {
 
 const STRIPE_JS = 'https://js.stripe.com/v3/'
 export const GENERIC_ERROR = 'Não foi possível salvar o cartão. Tente de novo.'
+const BRAND_ERROR = 'A loja não aceita cartões desta bandeira. Use outro cartão.'
 const PENDING_ERROR = 'O banco ainda está confirmando este cartão, por isso ele não foi salvo. Aguarde alguns minutos e tente de novo.'
 
 /** How long a SetupIntent still "processing" is watched before giving up: 8 × 2 s. */
@@ -213,9 +223,24 @@ export function destroyCardFields(fields: CardFields, boxes?: CardBoxes): void {
   }
 }
 
-export async function postForm<T>(url: string, body: Record<string, string>): Promise<AjaxResponse<T>> {
+/**
+ * The body of a POST as parsed JSON, or null when it was not JSON. FunnelKit's
+ * SetupIntent action lets an error from Stripe escape as a PHP fatal — an HTML
+ * error page — and that must reach the customer as "could not save", not as a
+ * JSON parser's complaint.
+ */
+async function postJson(url: string, body: Record<string, string>): Promise<unknown> {
   const response = await fetch(url, { method: 'POST', credentials: 'same-origin', body: new URLSearchParams(body) })
-  return (await response.json()) as AjaxResponse<T>
+  try {
+    return (await response.json()) as unknown
+  } catch {
+    return null
+  }
+}
+
+export async function postForm<T>(url: string, body: Record<string, string>): Promise<AjaxResponse<T>> {
+  const parsed = await postJson(url, body)
+  return parsed && typeof parsed === 'object' ? (parsed as AjaxResponse<T>) : { success: false }
 }
 
 const wait = (ms: number) => new Promise<void>((resolve) => window.setTimeout(resolve, ms))
@@ -263,6 +288,50 @@ async function settleIntent(stripe: StripeInstance, answer: SetupIntentAnswer): 
   return id
 }
 
+/** Step 2 with the WooCommerce Stripe plugin: a SetupIntent it creates and confirms. */
+async function officialIntent(config: StripeConfig, paymentMethod: string): Promise<SetupIntentAnswer> {
+  const intent = await postForm<SetupIntentAnswer>(config.ajaxUrl, {
+    action: 'wc_stripe_create_and_confirm_setup_intent',
+    _ajax_nonce: config.intentNonce,
+    'wc-stripe-payment-method': paymentMethod,
+    'wc-stripe-payment-type': 'card',
+  })
+
+  if (!intent.success || !intent.data) throw new Error(intent.data?.error?.message ?? GENERIC_ERROR)
+
+  return intent.data
+}
+
+/**
+ * Step 2 with FunnelKit: its `fkwcs_create_setup_intent`, called the way its
+ * own add-payment-method page calls it (stripe-elements.js
+ * `create_setup_intent()`). It answers `{ status: 'success', data: <SetupIntent> }`
+ * with the intent created but not confirmed (`requires_confirmation`), which
+ * settleIntent() confirms with Stripe.js — as FunnelKit's page does with
+ * `confirmCardSetup`. A refusal comes as `{ success: false, data: { message } }`
+ * in English, meant for logs, so the customer gets ours.
+ *
+ * A brand the merchant does not accept is stopped here, before any intent
+ * exists — FunnelKit's page does the same from its card field; the server
+ * checks again before saving.
+ */
+async function funnelkitIntent(config: StripeConfig, paymentMethod: { id: string; card?: { brand?: string } }): Promise<SetupIntentAnswer> {
+  const brand = (paymentMethod.card?.brand ?? '').toLowerCase()
+  if (brand && brand !== 'unknown' && config.brands?.length && !config.brands.includes(brand)) throw new Error(BRAND_ERROR)
+
+  const answer = (await postJson(config.ajaxUrl, {
+    action: 'fkwcs_create_setup_intent',
+    fkwcs_nonce: config.intentNonce,
+    fkwcs_source: paymentMethod.id,
+    gateway_id: 'fkwcs_stripe',
+  })) as { status?: string; data?: Partial<SetupIntentAnswer> } | null
+
+  const data = answer?.status === 'success' ? answer.data : undefined
+  if (!data?.id || !data.client_secret || !data.status) throw new Error(GENERIC_ERROR)
+
+  return { id: data.id, status: data.status, client_secret: data.client_secret }
+}
+
 /**
  * The whole save, from the typed fields to a WooCommerce payment token.
  * Resolves with the token id ('' if the server did not say); rejects with an
@@ -274,16 +343,12 @@ export async function saveCardToken(config: StripeConfig, fields: CardFields): P
   const created = await fields.stripe.createPaymentMethod({ type: 'card', card: fields.number })
   if (created.error || !created.paymentMethod) throw new Error(created.error?.message ?? GENERIC_ERROR)
 
-  const intent = await postForm<SetupIntentAnswer>(config.ajaxUrl, {
-    action: 'wc_stripe_create_and_confirm_setup_intent',
-    _ajax_nonce: config.intentNonce,
-    'wc-stripe-payment-method': created.paymentMethod.id,
-    'wc-stripe-payment-type': 'card',
-  })
+  const intent =
+    config.gateway === 'fkwcs_stripe'
+      ? await funnelkitIntent(config, created.paymentMethod)
+      : await officialIntent(config, created.paymentMethod.id)
 
-  if (!intent.success || !intent.data) throw new Error(intent.data?.error?.message ?? GENERIC_ERROR)
-
-  const setupIntentId = await settleIntent(fields.stripe, intent.data)
+  const setupIntentId = await settleIntent(fields.stripe, intent)
 
   const saved = await postForm<{ token: number }>(config.ajaxUrl, {
     action: 'galaxie_stripe_save_card',

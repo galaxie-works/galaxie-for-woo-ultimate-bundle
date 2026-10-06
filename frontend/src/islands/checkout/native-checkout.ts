@@ -349,25 +349,40 @@ export function watchPayment(mount: HTMLElement | null, decor: NativeDecor): () 
  * The look Stripe's card form takes, from the checkout's own fields.
  *
  * The new card is typed into Stripe's Payment Element, an iframe this page
- * cannot style. Left to itself, the Stripe plugin copies its look from
- * `#billing_first_name` and the payment box — WooCommerce's native fields,
- * which this widget keeps hidden, and a box the theme paints — so the frame
- * came out in colours from nowhere on the page. The plugin takes a finished
- * Appearance object from `wc_stripe_upe_params.appearance` instead of
- * computing one, so this writes one there, read off `probe`: an input
- * carrying the same `.form-control` and "Fields" classes every checkout field
- * has, and a label with the "Field labels" classes. Whatever the panel sets
- * for the fields is what Stripe's fields get.
+ * cannot style. Left to itself, the WooCommerce Stripe plugin copies its look
+ * from `#billing_first_name` and the payment box — WooCommerce's native
+ * fields, which this widget keeps hidden, and a box the theme paints — so the
+ * frame came out in colours from nowhere on the page; FunnelKit's plugin gives
+ * it Stripe's stock theme. So one Appearance object is read off `probe` — an
+ * input carrying the same `.form-control` and "Fields" classes every checkout
+ * field has, and a label with the "Field labels" classes — and handed to
+ * whichever plugin is on the page. Whatever the panel sets for the fields is
+ * what Stripe's fields get.
  *
- * Must run before the plugin mounts its element (it does so after the first
+ * - WooCommerce Stripe takes a finished Appearance from
+ *   `wc_stripe_upe_params.appearance` instead of computing one, so it is
+ *   written there.
+ * - FunnelKit: see applyFunnelKitAppearance().
+ *
+ * Must run before the plugin mounts its element (both do so after the first
  * `updated_checkout`); the island runs at DOMContentLoaded, earlier.
  */
 export function applyStripeAppearance(probe: HTMLElement | null): void {
+  const appearance = stripeAppearance(probe)
+  if (!appearance) return
+
   const params = (window as unknown as { wc_stripe_upe_params?: Record<string, unknown> }).wc_stripe_upe_params
+  if (params) params.appearance = appearance
+
+  applyFunnelKitAppearance(appearance)
+}
+
+/** The Appearance object for Stripe's Payment Element, read off the probe; null without one. */
+function stripeAppearance(probe: HTMLElement | null): Record<string, unknown> | null {
   const input = probe?.querySelector<HTMLElement>('input')
   const label = probe?.querySelector<HTMLElement>('.gx-co-label')
   const accent = probe?.querySelector<HTMLElement>('.gx-co-stripe-accent')
-  if (!params || !input || !label || !accent) return
+  if (!input || !label || !accent) return null
 
   const field = getComputedStyle(input)
   const text = getComputedStyle(label)
@@ -375,7 +390,7 @@ export function applyStripeAppearance(probe: HTMLElement | null): void {
   const background = opaque(field.backgroundColor) ? field.backgroundColor : pageBackground(probe as HTMLElement)
   const border = `${field.borderTopWidth} ${field.borderTopStyle === 'none' ? 'solid' : field.borderTopStyle} ${field.borderTopColor}`
 
-  params.appearance = {
+  return {
     theme: isDark(background) ? 'night' : 'stripe',
     variables: {
       colorPrimary: primary,
@@ -394,6 +409,67 @@ export function applyStripeAppearance(probe: HTMLElement | null): void {
       '.Tab--selected': { borderColor: primary, boxShadow: 'none' },
     },
   }
+}
+
+/** What FunnelKit's card gateway object (stripe-elements.js `FKWCS_Stripe`) is read for. */
+interface FunnelKitCardGateway {
+  elements?: { update?: (options: Record<string, unknown>) => void } | null
+}
+
+interface JQueryOn {
+  on: (event: string, handler: (event: unknown, ...args: unknown[]) => void) => unknown
+}
+
+let funnelKitAppearance: Record<string, unknown> | null = null
+let funnelKitBound = false
+
+/**
+ * FunnelKit's card form, when the merchant chose its "Enhanced Payment
+ * Element": the Appearance goes where FunnelKit looks for one, and back on
+ * every time FunnelKit puts its stock theme in its place.
+ *
+ * FunnelKit builds the element from `fkwcs_data.fkwcs_payment_data.element_data`
+ * (appearance `{ theme: 'stripe' }`) and, on each `updated_checkout`, swaps in
+ * the copy its fragments carry and pushes any changed key — appearance
+ * included — into the live element with `elements.update()`. The object on the
+ * page is given ours (a page with no fragments, such as order-pay, mounts from
+ * it); the live element is restyled through the `elements` of the gateway
+ * object FunnelKit hands out with its `fkwcs_payment_element_mounted` event,
+ * once mounted and again after every `updated_checkout` — on the next tick, so
+ * after FunnelKit's own handler whichever was bound first. FunnelKit's copy
+ * of the data is left as it is, so its "has anything changed?" comparison
+ * keeps telling a real change from ours.
+ *
+ * FunnelKit's other card forms (inline or separate card fields) take their
+ * look from `fkwcs_data.common_style` / `inline_style`, read once when its
+ * script loads in the head, before this runs; they keep FunnelKit's style.
+ */
+function applyFunnelKitAppearance(appearance: Record<string, unknown>): void {
+  type FkwcsData = { fkwcs_payment_data?: { element_data?: Record<string, unknown> } }
+  const elementData = (window as unknown as { fkwcs_data?: FkwcsData }).fkwcs_data?.fkwcs_payment_data?.element_data
+  if (!elementData) return
+
+  elementData.appearance = appearance
+  funnelKitAppearance = appearance
+
+  const $ = (window as unknown as { jQuery?: (target: unknown) => JQueryOn }).jQuery
+  if (!$ || funnelKitBound) return
+  funnelKitBound = true
+
+  let gateway: FunnelKitCardGateway | null = null
+  const restyle = () => {
+    try {
+      if (funnelKitAppearance) gateway?.elements?.update?.({ appearance: funnelKitAppearance })
+    } catch {
+      // A look not applied is FunnelKit's stock look, never a broken form.
+    }
+  }
+
+  $(document).on('fkwcs_payment_element_mounted', (_event, _element, mounted) => {
+    gateway = (mounted as FunnelKitCardGateway | undefined) ?? null
+    restyle()
+  })
+  $(document.body).on('updated_checkout', () => window.setTimeout(restyle, 0))
 }
 
 function channels(color: string): number[] {

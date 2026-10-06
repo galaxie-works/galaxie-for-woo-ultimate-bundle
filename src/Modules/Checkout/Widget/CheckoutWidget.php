@@ -547,7 +547,7 @@ final class CheckoutWidget extends AbstractIslandWidget {
 			'ui'        => $this->ui( $settings, $text ),
 			'addressBook' => $logged_in ? self::address_book( $user->ID ) : null,
 			'quoted'      => $preview ? null : self::quoted(),
-			'stripeCards' => $logged_in && \Galaxie\Woo\Core\Plugin::instance()->settings()->is_enabled( 'my-account', true ) ? StripeCards::client_config() : null,
+			'stripeCards' => $logged_in && \Galaxie\Woo\Core\Plugin::instance()->settings()->is_enabled( 'my-account', true ) ? self::own_cards_config() : null,
 			'i18n'      => array(
 				'genericError' => __( 'Algo deu errado. Tente novamente.', 'galaxie-woo' ),
 				'noShipping'   => __( 'Não há opções de envio para este endereço. Confira o endereço e tente novamente.', 'galaxie-woo' ),
@@ -610,6 +610,27 @@ final class CheckoutWidget extends AbstractIslandWidget {
 		}
 
 		return $props;
+	}
+
+	/**
+	 * The card form the checkout draws in place of the gateway's own "new
+	 * card" (the island's `ownCards` mode), or null to leave the gateway's form
+	 * alone.
+	 *
+	 * Only with the WooCommerce Stripe plugin: the mode hides that plugin's
+	 * Payment Element and saved-card "new" row by their markup, and lets an
+	 * order be placed only with a saved card. With FunnelKit as the card
+	 * gateway, FunnelKit's own Payment Element (with its own "save this card"
+	 * box) takes card payments at checkout as it was built to, so the payment
+	 * path stays entirely FunnelKit's; adding a card ahead of a purchase is My
+	 * Account's job (StripeCards works with either plugin there).
+	 *
+	 * @return array<string,mixed>|null
+	 */
+	private static function own_cards_config(): ?array {
+		$config = StripeCards::client_config();
+
+		return $config && StripeCards::OFFICIAL === ( $config['gateway'] ?? '' ) ? $config : null;
 	}
 
 	/**
