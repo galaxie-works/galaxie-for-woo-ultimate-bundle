@@ -1142,7 +1142,9 @@ final class AccountParts {
 					$target = add_query_arg( self::CANCELLED_ARG, $order->get_id(), $target );
 				}
 
-				$url = $order->get_cancel_order_url( rawurlencode( $target ) );
+				// A paid order is cancelled by the Order Cancellation module, which
+				// asks why and refunds; WooCommerce's link only cancels unpaid ones.
+				$url = (string) apply_filters( 'galaxie_woo/cancel_order_url', $order->get_cancel_order_url( rawurlencode( $target ) ), $order, $target );
 			}
 
 			$out .= self::link_button( $settings, $prefix, '' !== $label ? $label : (string) $action['name'], $url, 'is-' . sanitize_html_class( (string) $key ) );
@@ -1241,6 +1243,21 @@ final class AccountParts {
 				'text'  => __( 'Cancelar este pedido? Isso não pode ser desfeito.', 'galaxie-woo' ),
 				'yes'       => __( 'Sim, cancelar', 'galaxie-woo' ),
 				'no'        => __( 'Voltar', 'galaxie-woo' ),
+				'condition' => $condition,
+			)
+		);
+
+		// A paid order already posted (Order Cancellation module): the Cancel
+		// button stays and opens this notice, with a single OK.
+		Dialog::controls(
+			$widget,
+			'cancel_posted',
+			array(
+				'label'     => __( 'Cancelamento de pedido em rota', 'galaxie-woo' ),
+				'title'     => __( 'Seu pedido já está a caminho', 'galaxie-woo' ),
+				'text'      => __( 'Para que o pedido seja cancelado, simplesmente recuse o recebimento.', 'galaxie-woo' ),
+				'yes'       => __( 'OK', 'galaxie-woo' ),
+				'no'        => null,
 				'condition' => $condition,
 			)
 		);

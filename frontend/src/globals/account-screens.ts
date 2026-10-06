@@ -8,8 +8,8 @@
  * dropped in by a template or drawn as a screen default works the same.
  */
 
-import { getGalaxieConfig, post } from '@/lib/wp'
-import { ask } from '@/lib/dialog'
+import { getGalaxieConfig, post, type OrderCancellationConfig } from '@/lib/wp'
+import { ask, tell } from '@/lib/dialog'
 import { attachPhoneInput, readPhone } from '@/lib/phone'
 
 interface WishlistConfig {
@@ -79,6 +79,8 @@ function attachPhones(root: ParentNode): void {
 }
 
 export function bootAccountScreens(_wishlist?: WishlistConfig): void {
+  openPostedNotice()
+
   const config = getGalaxieConfig()
 
   // Personal details.
@@ -239,6 +241,41 @@ export function bootAccountScreens(_wishlist?: WishlistConfig): void {
     if (!link || !root) return
 
     event.preventDefault()
+
+    // A paid order (Order Cancellation module): always ask why, then post the
+    // answer with the link's own fields. WooCommerce's unpaid-order link stays a link.
+    const cfg = getGalaxieConfig().orderCancellation
+    if (cfg && link.href.includes('action=galaxie_cancel_order')) {
+      const url = new URL(link.href, window.location.href)
+
+      // Already on its way: the in-transit notice, and nothing else.
+      if ('1' === url.searchParams.get('posted')) {
+        void tellPosted(root, cfg)
+        return
+      }
+
+      // Asked before the reason, so nobody fills one in to hear no.
+      link.setAttribute('aria-busy', 'true')
+      void post<{ posted?: boolean }>(cfg.ajaxUrl, 'galaxie_cancel_check', url.searchParams.get('_wpnonce') ?? '', {
+        order_id: url.searchParams.get('order_id') ?? '',
+      }).then((res) => {
+        link.removeAttribute('aria-busy')
+
+        if (res.success && res.data?.posted) {
+          url.searchParams.set('posted', '1')
+          link.href = url.toString()
+          void tellPosted(root, cfg)
+          return
+        }
+
+        const form = reasonForm(cfg)
+        void ask(root, 'cancel_confirm', { fallback: 'Cancelar este pedido?', extra: form.el, validate: form.validate }).then((yes) => {
+          if (yes) submitCancel(link.href, form.reason(), form.comment())
+        })
+      })
+      return
+    }
+
     void ask(root, 'cancel_confirm', 'Cancelar este pedido?').then((yes) => {
       if (yes) window.location.href = link.href
     })
@@ -257,4 +294,101 @@ export function bootAccountScreens(_wishlist?: WishlistConfig): void {
   })
 
   // The wishlist screen's own behaviour lives in globals/wishlist-account.ts.
+}
+
+/** The reason (required) and comment (optional) asked before a paid order is cancelled. */
+function reasonForm(cfg: OrderCancellationConfig) {
+  const el = document.createElement('div')
+  el.className = 'galaxie-cancel-reason'
+
+  const label = document.createElement('label')
+  label.className = 'galaxie-cancel-reason-field'
+  label.textContent = cfg.question
+
+  const select = document.createElement('select')
+  select.className = 'form-control'
+  select.required = true
+  select.add(new Option(cfg.choose, ''))
+  for (const reason of cfg.reasons) select.add(new Option(reason, reason))
+  label.appendChild(select)
+
+  const commentLabel = document.createElement('label')
+  commentLabel.className = 'galaxie-cancel-reason-field'
+  commentLabel.textContent = cfg.comment
+
+  const textarea = document.createElement('textarea')
+  textarea.className = 'form-control'
+  textarea.rows = 3
+  textarea.maxLength = 500
+  commentLabel.appendChild(textarea)
+
+  const error = document.createElement('p')
+  error.className = 'galaxie-cancel-reason-error'
+  error.setAttribute('role', 'alert')
+  error.hidden = true
+  error.textContent = cfg.required
+
+  select.addEventListener('change', () => {
+    if (select.value) error.hidden = true
+  })
+
+  el.append(label, commentLabel, error)
+
+  return {
+    el,
+    reason: () => select.value,
+    comment: () => textarea.value,
+    validate: () => {
+      const ok = '' !== select.value
+      error.hidden = ok
+      if (!ok) select.focus()
+      return ok
+    },
+  }
+}
+
+/** Posts the cancel link's own fields, plus the answer, to the same address. */
+function submitCancel(href: string, reason: string, comment: string) {
+  const url = new URL(href, window.location.href)
+  const form = document.createElement('form')
+  form.method = 'post'
+  form.action = url.origin + url.pathname
+
+  const fields: Record<string, string> = Object.fromEntries(url.searchParams.entries())
+  fields.reason = reason
+  fields.comment = comment
+
+  for (const [name, value] of Object.entries(fields)) {
+    const input = document.createElement('input')
+    input.type = 'hidden'
+    input.name = name
+    input.value = value
+    form.appendChild(input)
+  }
+
+  document.body.appendChild(form)
+  form.submit()
+}
+
+/** The widget's "Cancelamento de pedido em rota" notice (OK only), or the built-in one with the default text. */
+function tellPosted(scope: Element | null, cfg: OrderCancellationConfig): Promise<void> {
+  return tell(scope, 'cancel_posted', { fallback: cfg.posted })
+}
+
+/**
+ * Back from a cancellation the server refused because the order had just
+ * been posted: the in-transit notice, once, and the mark taken out of the
+ * address so a reload does not show it again.
+ */
+function openPostedNotice() {
+  const cfg = getGalaxieConfig().orderCancellation
+  const params = new URLSearchParams(window.location.search)
+  if (!cfg || !params.has('galaxie_cancel_posted')) return
+
+  params.delete('galaxie_cancel_posted')
+  const query = params.toString()
+  window.history.replaceState(null, '', window.location.pathname + (query ? `?${query}` : '') + window.location.hash)
+
+  const root = document.querySelector('.galaxie-account-orders, .galaxie-account-order')
+  void tellPosted(root, cfg)
 }

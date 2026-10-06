@@ -18,6 +18,10 @@ interface Opening {
   /** Placeholders to fill in whichever message wins, e.g. `{ kit: 'Kit 1' }`. */
   fill?: Record<string, string>
   cancel: boolean
+  /** Added under the message for this opening only (a form, say), and taken out again on close. */
+  extra?: HTMLElement
+  /** Asked when confirm is pressed; false keeps the dialog open. */
+  validate?: () => boolean
 }
 
 /**
@@ -85,16 +89,25 @@ function open(scope: Element | null, name: string, options: Opening): Promise<bo
   const cancel = dialog.querySelector<HTMLElement>('.galaxie-dialog-cancel')
   if (cancel) cancel.hidden = !options.cancel
 
+  if (options.extra) {
+    const text = dialog.querySelector('.galaxie-dialog-text')
+    if (text) text.after(options.extra)
+    else dialog.prepend(options.extra)
+  }
+
   return new Promise((resolve) => {
     const onClick = (event: MouseEvent) => {
       const target = event.target as Element
 
-      if (target.closest('.galaxie-dialog-confirm')) dialog.close('yes')
+      if (target.closest('.galaxie-dialog-confirm')) {
+        if (!options.validate || options.validate()) dialog.close('yes')
+      }
       else if (target.closest('.galaxie-dialog-cancel') || target === dialog) dialog.close('')
     }
 
     const onClose = () => {
       dialog.removeEventListener('click', onClick)
+      options.extra?.remove()
       resolve(dialog.returnValue === 'yes')
     }
 
@@ -110,7 +123,11 @@ function open(scope: Element | null, name: string, options: Opening): Promise<bo
  * cancel all say no. A string is the fallback for a widget with no dialog of its
  * own; the object form also replaces or fills the message the widget carries.
  */
-export function ask(scope: Element | null, name: string, message: string | { text?: string; key?: string; fallback: string; fill?: Record<string, string> }): Promise<boolean> {
+export function ask(
+  scope: Element | null,
+  name: string,
+  message: string | { text?: string; key?: string; fallback: string; fill?: Record<string, string>; extra?: HTMLElement; validate?: () => boolean }
+): Promise<boolean> {
   const options = typeof message === 'string' ? { fallback: message } : message
 
   return open(scope, name, { ...options, cancel: true })

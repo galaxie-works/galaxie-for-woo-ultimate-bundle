@@ -325,6 +325,7 @@ final class AccountOrdersWidget extends Widget_Base {
 
 		echo AccountParts::cancelled_alert( $s ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped inside, and pixfort's own alert.
 		echo Dialog::render( $s, 'cancel_confirm' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built from escaped parts.
+		echo Dialog::render( $s, 'cancel_posted', false ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built from escaped parts.
 
 		if ( ! $data['orders'] && 'waiting' === ( $s['orders_source'] ?? 'all' ) && 'yes' === ( $s['orders_hide_empty'] ?? 'yes' ) && ! AccountParts::editing() ) {
 			echo '</div>';
