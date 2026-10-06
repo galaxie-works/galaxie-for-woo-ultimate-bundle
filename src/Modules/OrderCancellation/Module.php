@@ -19,7 +19,8 @@ defined( 'ABSPATH' ) || exit;
 /**
  * WooCommerce lets a customer cancel only an order that was never paid. The
  * store's policy goes further: a paid order ("Processando", "Aguardando") may
- * be cancelled until it is posted, with the whole amount back.
+ * be cancelled until it is posted, with the whole amount back. Paid means
+ * paid, not just in one of those statuses (see {@see self::eligible()}).
  *
  * The Cancel button of My Account (Galaxie Account Orders / Order, and
  * WooCommerce's own table) appears for those orders too. Pressing it asks why
@@ -129,9 +130,20 @@ final class Module implements ModuleContract, ProvidesSettings, ProvidesBootData
 	 * Whether this module draws a Cancel button for `$order` (WooCommerce draws
 	 * the unpaid ones itself). An order in transit keeps it: it opens the
 	 * in-transit notice. One whose request is with the store does not.
+	 *
+	 * The status alone does not prove a payment: "Aguardando" (on-hold) is also
+	 * where an unpaid order waits — a Pix whose intent Stripe reports as
+	 * processing, a bank transfer, a card only authorized. Refunding one of
+	 * those would refund nothing, or a payment still to come, and cancel the
+	 * order on the way. So the order must have been paid: WooCommerce stamps
+	 * `date_paid` in `payment_complete()` and on any move to processing or
+	 * completed, and keeps it when a paid order is put on hold by the store.
+	 * An unpaid on-hold order gets no button from here (WooCommerce's own
+	 * Cancel covers pending and failed only).
 	 */
 	public static function eligible( \WC_Order $order ): bool {
 		return $order->has_status( self::PAID_STATUSES )
+			&& null !== $order->get_date_paid()
 			&& (int) $order->get_customer_id() > 0
 			&& '' === (string) $order->get_meta( self::META_REQUESTED );
 	}
