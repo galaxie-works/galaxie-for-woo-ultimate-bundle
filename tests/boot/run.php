@@ -1016,6 +1016,64 @@ if ( null !== $child ) {
 			$shipping = count( $cartons ) . ' carton, rewrite fails open';
 		}
 
+		// Checkout: the profile CPF reaches the Brazilian checkout plugin's
+		// CPF/CNPJ fields (Link Nacional's billing_document & co.), never over a
+		// document already there or outside Brazil, and FunnelKit's Pix gets it
+		// as Stripe's tax_id through the fkwcs_gateway_loaded listener.
+		if ( in_array( 'checkout', $booted, true ) ) {
+			$br  = \Galaxie\Woo\Integrations\BrazilianCheckoutFields::class;
+			$fk  = \Galaxie\Woo\Integrations\FunnelKitStripe::class;
+			$cpf = '529.982.247-25';
+
+			$expected = array(
+				array( 'added_user_meta', $br, 'mirror_profile_cpf' ),
+				array( 'updated_user_meta', $br, 'mirror_profile_cpf' ),
+				array( 'woocommerce_checkout_process', $br, 'fill_request' ),
+				array( 'woocommerce_checkout_posted_data', $br, 'fill_posted_data' ),
+				array( 'default_checkout_billing_document', $br, 'default_value' ),
+				array( 'default_checkout_billing_persontype', $br, 'default_value' ),
+				array( 'wp_enqueue_scripts', $fk, 'pix_tax_id' ),
+			);
+
+			foreach ( $expected as list( $hook, $class, $method ) ) {
+				if ( ! $hooked( $hook, $class, $method ) ) {
+					throw new RuntimeException( "Checkout: {$class}::{$method} not hooked on {$hook}" );
+				}
+			}
+
+			$cases = array(
+				'empty request, all keys' => array( array( 'billing_country' => 'BR' ), false, array( 'billing_country' => 'BR', 'billing_persontype' => '1', 'billing_cpf' => $cpf, 'billing_document' => $cpf ) ),
+				'registered keys only'    => array( array( 'billing_document' => '', 'billing_cpf' => '', 'billing_first_name' => 'Ana' ), true, array( 'billing_document' => $cpf, 'billing_cpf' => $cpf, 'billing_first_name' => 'Ana' ) ),
+				'a CNPJ stays'            => array( array( 'billing_document' => '', 'billing_cnpj' => '11.222.333/0001-81' ), false, array( 'billing_document' => '', 'billing_cnpj' => '11.222.333/0001-81' ) ),
+				'a typed document stays'  => array( array( 'billing_document' => '111.444.777-35' ), false, array( 'billing_document' => '111.444.777-35' ) ),
+				'not Brazil'              => array( array( 'billing_country' => 'PT', 'billing_document' => '' ), false, array( 'billing_country' => 'PT', 'billing_document' => '' ) ),
+			);
+
+			foreach ( $cases as $label => list( $in, $only_present, $want ) ) {
+				$got = $br::fill_document( $in, $cpf, $only_present );
+
+				if ( $got != $want ) { // phpcs:ignore -- key order is not the point.
+					throw new RuntimeException( "Checkout: fill_document, {$label}: " . json_encode( $got ) );
+				}
+			}
+
+			// Logged out (the stubs' state): nothing to fill from, nothing changed.
+			if ( array( 'billing_document' => '' ) !== $br::fill_posted_data( array( 'billing_document' => '' ) ) || null !== $br::default_value( null, 'billing_document' ) ) {
+				throw new RuntimeException( 'Checkout: a guest request was filled' );
+			}
+
+			// FunnelKit not loaded here: the enqueue callback must stay quiet.
+			$fk::pix_tax_id();
+
+			$js = $fk::inline_script( '52998224725' );
+
+			foreach ( array( "on('fkwcs_gateway_loaded'", 'classes.FKWCS_PIX', 'tax_id: id', '"52998224725");' ) as $needle ) {
+				if ( false === strpos( $js, $needle ) ) {
+					throw new RuntimeException( "Checkout: the Pix tax_id script lacks {$needle}" );
+				}
+			}
+		}
+
 		// The settings API: routes on rest_api_init, the WP-CLI commands, and the
 		// service the settings page, the routes and the commands all save through.
 		$api = '';

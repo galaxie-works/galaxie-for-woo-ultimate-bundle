@@ -12,6 +12,8 @@ use Galaxie\Woo\Core\Module as ModuleContract;
 use Galaxie\Woo\Core\ProvidesBootData;
 use Galaxie\Woo\Core\ProvidesElementorWidgets;
 use Galaxie\Woo\Core\ProvidesSettings;
+use Galaxie\Woo\Integrations\BrazilianCheckoutFields;
+use Galaxie\Woo\Integrations\FunnelKitStripe;
 use Galaxie\Woo\Modules\Checkout\Widget\CheckoutWidget;
 use Galaxie\Woo\Support\CustomerProfile;
 
@@ -45,6 +47,14 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 
 		add_action( 'wp_ajax_galaxie_save_profile', array( $this, 'ajax_save_profile' ) );
 		add_action( 'wp_ajax_galaxie_save_address', array( $this, 'ajax_save_address' ) );
+
+		// The profile CPF into the Brazilian checkout plugin's CPF/CNPJ fields
+		// (prefill meta, default values, the posted order), and on to Stripe as
+		// the Pix payer's tax id. Without the Brazilian plugin the first only
+		// keeps three unread billing_* user meta; the second no-ops without
+		// FunnelKit Stripe.
+		BrazilianCheckoutFields::hooks();
+		FunnelKitStripe::hooks();
 	}
 
 	public function boot_data(): array {

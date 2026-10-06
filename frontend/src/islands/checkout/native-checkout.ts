@@ -53,6 +53,8 @@ export interface NativeBillingState {
   state?: string
   postcode?: string
   country?: string
+  /** The profile CPF, for the Brazilian checkout plugin's document fields (see `fillNativeDocument`). */
+  cpf?: string
 }
 
 /**
@@ -80,6 +82,33 @@ export function fillNativeBilling(state: NativeBillingState): void {
     }
   }
   setNativeField('billing_email', state.email)
+  fillNativeDocument(state.cpf)
+}
+
+/**
+ * The CPF into the fields "Campos Checkout Brasileiro" (Link Nacional) adds
+ * to the classic checkout when its person-type option is on: the visible,
+ * required `billing_document` (CPF or CNPJ in one box) and its hidden
+ * companions `billing_persontype` ('1' individual, '2' company),
+ * `billing_cpf` and `billing_cnpj`. The form they sit in is the hidden one,
+ * so nobody else will ever type into them — and an empty `billing_document`
+ * does not merely fail validation: the plugin's own script cancels the click
+ * on `#place_order`, and the place-order button silently does nothing.
+ *
+ * The companions are written first, then the document: its `input` handler
+ * (the plugin's) re-derives all three from it and hides the company field a
+ * CPF does not need, so the order of events matches a shopper typing it. The
+ * profile step only takes a CPF, hence person type '1' and no CNPJ. Missing
+ * fields (plugin off, or the option off) are skipped by `setNativeField`.
+ * PHP fills the same fields on its side (Integrations\BrazilianCheckoutFields)
+ * should this never run.
+ */
+export function fillNativeDocument(cpf: string | undefined): void {
+  if (cpf === undefined || '' === cpf.trim()) return
+  setNativeField('billing_persontype', '1')
+  setNativeField('billing_cpf', cpf)
+  setNativeField('billing_cnpj', '')
+  setNativeField('billing_document', cpf)
 }
 
 /**
