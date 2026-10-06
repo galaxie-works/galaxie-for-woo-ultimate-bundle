@@ -70,8 +70,9 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 			'nonce'   => wp_create_nonce( self::NONCE_ACTION ),
 		);
 
-		// The addresses themselves only travel to the page that uses them.
-		if ( $this->setting( 'checkout_picker' ) && is_user_logged_in() && function_exists( 'is_checkout' ) && is_checkout() && ! is_wc_endpoint_url( 'order-received' ) ) {
+		// The addresses themselves only travel to the page that uses them: the
+		// checkout form, not the thank-you or order-pay pages under its URL.
+		if ( $this->setting( 'checkout_picker' ) && is_user_logged_in() && \Galaxie\Woo\Support\CheckoutPage::is_form() ) {
 			$data['entries'] = AddressBook::for_js( get_current_user_id() );
 			$data['i18n']    = array( 'pickerTitle' => __( 'Endereços salvos', 'galaxie-woo' ) );
 		}

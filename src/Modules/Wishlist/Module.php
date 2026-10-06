@@ -151,7 +151,9 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 		);
 
 		// A gift checkout learns who it is for and the area — never the street or the CEP.
-		$gift = function_exists( 'is_checkout' ) && is_checkout() ? Gifts::cart_gift() : null;
+		// Only on the checkout form: order-pay pays an order already placed, and
+		// a gift still in the cart must not rewrite the session's address there.
+		$gift = \Galaxie\Woo\Support\CheckoutPage::is_form() ? Gifts::cart_gift() : null;
 
 		if ( $gift ) {
 			$place = trim( $gift['address']['city'] . ( '' !== $gift['address']['state'] ? '/' . $gift['address']['state'] : '' ), '/' );

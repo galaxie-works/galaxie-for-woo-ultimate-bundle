@@ -77,6 +77,69 @@ function galaxie_boot_scenarios(): array {
 }
 
 /**
+ * The Galaxie Checkout widget under the checkout URL's order pages; '' when
+ * Checkout is off. On order-received and order-pay the cart is empty (the
+ * stubs have none at all), and the widget used to print "Seu carrinho está
+ * vazio." there instead of the thank-you page, which hid it and kept
+ * FunnelKit's Stripe from ever seeing `woocommerce_thankyou`. There it must
+ * print WooCommerce's own shortcode, visible, and nothing of the stepper: no
+ * island mount (whose script moves `#payment`), no hidden native copy, no
+ * summary script. Off those pages, the form keeps its empty-cart line, and
+ * CheckoutPage tells the form from the order pages for the modules that
+ * dress the form.
+ *
+ * @param string[] $booted
+ */
+function galaxie_boot_checkout_endpoints( array $booted ): string {
+	if ( ! in_array( 'checkout', $booted, true ) ) {
+		return '';
+	}
+
+	$page   = \Galaxie\Woo\Support\CheckoutPage::class;
+	$widget = new \Galaxie\Woo\Modules\Checkout\Widget\CheckoutWidget();
+
+	$GLOBALS['galaxie_boot']['editing']  = false;
+	$GLOBALS['galaxie_boot']['checkout'] = true;
+
+	try {
+		foreach ( array( 'order-received', 'order-pay' ) as $endpoint ) {
+			$GLOBALS['galaxie_boot']['endpoint'] = $endpoint;
+			$html                                = $widget->render_for_test();
+
+			if ( ! str_contains( $html, 'galaxie-checkout--endpoint' ) || ! str_contains( $html, '<!--wc-checkout-shortcode-->' ) ) {
+				throw new RuntimeException( "Checkout: {$endpoint} did not print WooCommerce's page in the endpoint wrapper: " . substr( $html, 0, 200 ) );
+			}
+
+			foreach ( array( 'Seu carrinho', 'data-galaxie-island', 'data-galaxie-native-checkout', ' hidden', 'application/json' ) as $stray ) {
+				if ( str_contains( $html, $stray ) ) {
+					throw new RuntimeException( "Checkout: {$endpoint} printed '{$stray}'" );
+				}
+			}
+
+			if ( ! $page::is_order_endpoint() || $page::is_form() ) {
+				throw new RuntimeException( "Checkout: CheckoutPage takes {$endpoint} for the checkout form" );
+			}
+		}
+
+		$GLOBALS['galaxie_boot']['endpoint'] = '';
+		$form                                = $widget->render_for_test();
+
+		if ( ! str_contains( $form, 'Seu carrinho está vazio.' ) || str_contains( $form, '<!--wc-checkout-shortcode-->' ) ) {
+			throw new RuntimeException( 'Checkout: the form with an empty cart no longer says so: ' . substr( $form, 0, 200 ) );
+		}
+
+		if ( $page::is_order_endpoint() || ! $page::is_form() ) {
+			throw new RuntimeException( 'Checkout: CheckoutPage does not take the checkout form for the form' );
+		}
+	} finally {
+		$GLOBALS['galaxie_boot']['checkout'] = false;
+		$GLOBALS['galaxie_boot']['endpoint'] = '';
+	}
+
+	return 'order-received + order-pay print the native page';
+}
+
+/**
  * The kit flow's checks for one booted scenario; '' when Gift Wrap is off.
  *
  * @param string[] $booted
@@ -968,6 +1031,9 @@ if ( null !== $child ) {
 		// editor on every screen; plus the Buy Box's kit button controls.
 		$kit = galaxie_boot_kit( $booted, $scenario, $hooked );
 
+		// The checkout widget on the thank-you and order-pay pages.
+		$checkout = galaxie_boot_checkout_endpoints( $booted );
+
 		// Shipping Cartons: booted whenever every module is on, its hooks where
 		// they belong, and what it reads on every HTTP request safe on boot.
 		$shipping = '';
@@ -1066,7 +1132,7 @@ if ( null !== $child ) {
 			$api .= ( '' !== $api ? ', ' : '' ) . count( $commands ) . ' WP-CLI commands';
 		}
 
-		echo json_encode( array( 'booted' => $booted, 'attribute' => $attribute, 'fields' => $fields, 'shipping' => $shipping, 'api' => $api, 'kit' => $kit ) );
+		echo json_encode( array( 'booted' => $booted, 'attribute' => $attribute, 'fields' => $fields, 'shipping' => $shipping, 'api' => $api, 'kit' => $kit, 'checkout' => $checkout ) );
 		exit( 0 );
 	} catch ( \Throwable $e ) {
 		fwrite( STDERR, get_class( $e ) . ': ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine() . "\n" );
@@ -1162,6 +1228,7 @@ foreach ( array_keys( galaxie_boot_scenarios() ) as $name ) {
 			. ( ! empty( $result['shipping'] ) ? ", shipping cartons: {$result['shipping']}" : '' )
 			. ( ! empty( $result['api'] ) ? ", {$result['api']}" : '' )
 			. ( ! empty( $result['kit'] ) ? ", kit: {$result['kit']}" : '' )
+			. ( ! empty( $result['checkout'] ) ? ", checkout: {$result['checkout']}" : '' )
 		: "exit {$code}\n" . trim( $err . "\n" . substr( (string) $out, 0, 500 ) );
 
 	$report( $ok, "boot: {$name}", $detail );

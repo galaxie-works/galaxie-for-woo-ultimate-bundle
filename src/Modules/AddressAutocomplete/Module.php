@@ -60,7 +60,9 @@ final class Module implements ModuleContract, ProvidesSettings, ProvidesBootData
 			return;
 		}
 
-		if ( ! function_exists( 'is_cart' ) || ! ( is_cart() || is_checkout() ) ) {
+		// The checkout form, not the thank-you or order-pay pages under its URL:
+		// neither has an address field, and each load is billed.
+		if ( ! function_exists( 'is_cart' ) || ! ( is_cart() || \Galaxie\Woo\Support\CheckoutPage::is_form() ) ) {
 			return;
 		}
 

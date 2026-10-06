@@ -226,7 +226,14 @@ function wc_get_page_permalink( $page ) { return home_url( $page ); }
 function is_woocommerce() { return false; }
 function is_product() { return false; }
 function is_cart() { return false; }
-function is_checkout() { return false; }
+function is_checkout() { return ! empty( $GLOBALS['galaxie_boot']['checkout'] ); }
+/** The endpoint a scenario puts the page on ('order-received', 'order-pay'), none by default. */
+function is_wc_endpoint_url( $endpoint = false ) {
+	$current = $GLOBALS['galaxie_boot']['endpoint'] ?? '';
+	return false === $endpoint ? '' !== $current : $current === $endpoint;
+}
+/** WooCommerce's shortcodes print a marker, so a render shows which one it ran and where. */
+function do_shortcode( $content, $ignore_html = false ) { return str_replace( '[woocommerce_checkout]', '<!--wc-checkout-shortcode-->', (string) $content ); }
 function is_account_page() { return false; }
 function wc_get_product( $id ) { return false; }
 function get_woocommerce_currency_symbol( $currency = '' ) { return 'R$'; }

@@ -726,7 +726,7 @@ final class Gifts {
 
 	/** @param array<int,string> $classes */
 	public static function body_class( $classes ) {
-		$page = ( function_exists( 'is_cart' ) && is_cart() ) || ( function_exists( 'is_checkout' ) && is_checkout() );
+		$page = ( function_exists( 'is_cart' ) && is_cart() ) || \Galaxie\Woo\Support\CheckoutPage::is_form();
 
 		if ( $page && is_array( $classes ) && self::cart_gift() ) {
 			$classes[] = 'galaxie-gift-checkout';

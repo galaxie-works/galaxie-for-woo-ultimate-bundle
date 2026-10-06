@@ -4040,6 +4040,21 @@ address.galaxie-order-body {
 :where(.e-con, .e-con-inner) > .elementor-widget-galaxie-checkout {
   width: 100%;
 }
+/* The thank-you and order-pay pages: WooCommerce's own markup, printed as is
+   in the widget's column (CheckoutWidget::render). Only room and rhythm here;
+   WooCommerce's and the theme's styles, unlayered, still dress the parts. */
+@layer components {
+  .galaxie-checkout--endpoint {
+    width: 100%;
+    min-width: 0;
+  }
+  .galaxie-checkout--endpoint :is(.woocommerce-order, #order_review) > * + * {
+    margin-block-start: 24px;
+  }
+  .galaxie-checkout--endpoint :is(table.shop_table, #payment) {
+    width: 100%;
+  }
+}
 .gx-co-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr);

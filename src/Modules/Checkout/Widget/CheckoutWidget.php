@@ -13,6 +13,8 @@ use Galaxie\Woo\Modules\Checkout\Module;
 use Galaxie\Woo\Modules\Checkout\OrderSummary;
 use Galaxie\Woo\Modules\Checkout\PaymentMarkup;
 use Galaxie\Woo\Support\AddressBook;
+use Galaxie\Woo\Support\Assets;
+use Galaxie\Woo\Support\CheckoutPage;
 use Galaxie\Woo\Support\CustomerProfile;
 use Galaxie\Woo\Support\FreeShipping;
 use Galaxie\Woo\Support\LoginControls;
@@ -732,6 +734,23 @@ final class CheckoutWidget extends AbstractIslandWidget {
 		if ( $this->editing() ) {
 			echo '<div class="galaxie-checkout">';
 			parent::render();
+			echo '</div>';
+			return;
+		}
+
+		// The thank-you page and order-pay live under the checkout URL and run
+		// this widget too, after the cart was emptied: the empty-cart line below
+		// stood in for the whole thank-you page, and FunnelKit's Stripe never
+		// got the `woocommerce_thankyou` that marks a Pix order paid, nor a form
+		// to pay a pending one again. WooCommerce prints both pages itself, from
+		// the same shortcode, so it is printed as is — visible, with no stepper
+		// island and no summary script, and so nothing that relocates `#payment`.
+		// The bundle still loads for the styles below and the site-wide globals
+		// (toasts), as on any other page; with no island mount it mounts nothing.
+		if ( CheckoutPage::is_order_endpoint() ) {
+			Assets::enqueue();
+			echo '<div class="galaxie-checkout galaxie-checkout--endpoint">';
+			echo do_shortcode( '[woocommerce_checkout]' ); // phpcs:ignore WordPress.Security.EscapeOutput -- WooCommerce's own templates, escaped there.
 			echo '</div>';
 			return;
 		}
