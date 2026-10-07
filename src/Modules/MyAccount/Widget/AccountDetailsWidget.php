@@ -192,7 +192,7 @@ final class AccountDetailsWidget extends Widget_Base {
 			esc_attr( PixfortControls::text_classes( $s, 'details_msg_err' ) ),
 			esc_attr( PixfortControls::text_classes( $s, 'details_msg_ok' ) ),
 			esc_attr( (string) ( $s['details_saved_text'] ?? '' ) ),
-			esc_attr__( 'Please enter a valid phone number, with area code.', 'galaxie-woo' )
+			esc_attr__( 'Informe um telefone válido, com DDD.', 'galaxie-woo' )
 		);
 
 		$heading = trim( (string) ( $s['details_heading'] ?? '' ) );

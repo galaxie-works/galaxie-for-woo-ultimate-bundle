@@ -39,8 +39,12 @@ defined( 'ABSPATH' ) || exit;
  *    eir-my-account-ux's interests UI) displays the list alphabetically by
  *    label and syncs the customer's selection to their FluentCRM tags.
  *
- * 3. **Profile sync** — the customer's contact follows their account: name,
- *    phone, date of birth, address, CPF, gender and social name. Watched at the
+ * 3. **Profile sync** — the customer's contact follows their account. By
+ *    default only the name (the store's privacy policy says marketing uses
+ *    "e-mail, nome, interesses"); phone, date of birth, CPF, gender and social
+ *    name ("Dados pessoais") and the addresses ("Endereços") are two opt-in
+ *    settings, and even then reach only contacts whose account said yes to
+ *    marketing. Watched at the
  *    user meta itself rather than at each screen that writes it (My Account
  *    details, the address book, the checkout's profile step, wp-admin), so a
  *    new screen cannot forget to sync, and flushed once per request.
@@ -51,11 +55,19 @@ defined( 'ABSPATH' ) || exit;
  *    hold. Edits made in FluentCRM's own admin are never pushed back over.
  *
  *    A field the customer empties is emptied on the contact too, so the
- *    contact never shows data the customer took back. What it held is not
- *    lost: every change — profile fields, addresses, the communication consent,
- *    interests, saved cards added, deleted or made the default (brand, last
- *    four digits, expiry) — is written on the contact's Notes tab as before → after, with
- *    the date and time, where it was made and who made it.
+ *    contact never shows data the customer took back. Every change — profile
+ *    fields, addresses, the communication consent, interests, saved cards
+ *    added, deleted or made the default — is written on the contact's Notes
+ *    tab with the date and time, where it was made and who made it; the
+ *    values themselves (before → after) only for what the contact is allowed
+ *    to hold, and never a card's brand, digits or expiry.
+ *
+ * 4. **Consent follows FluentCRM** — a contact unsubscribed (link in an
+ *    e-mail, the admin, a complaint) or deleted in FluentCRM turns the
+ *    account's marketing consent off, so it is not subscribed again on the
+ *    next order. Contacts left `subscribed` without consent by older versions
+ *    are moved once to {@see FluentCRMApi::no_consent_status()} (see
+ *    {@see self::migrate_consent()}).
  */
 final class Module implements ModuleContract, ProvidesSettings {
 
@@ -70,6 +82,18 @@ final class Module implements ModuleContract, ProvidesSettings {
 		'order_refunded_tag_id',
 		'order_failed_tag_id',
 	);
+
+	/** Where the consent migration's result is kept (and whether it ran). */
+	public const MIGRATION_OPTION = 'galaxie_woo_fcrm_consent_migration';
+
+	/** admin-post action of the "run the consent migration again" button. */
+	public const MIGRATION_ACTION = 'galaxie_fcrm_consent_migration';
+
+	/** The order status tags, which replace one another on a contact. */
+	private const ORDER_STATUS_TAGS = array( 'order_paid_tag_id', 'order_cancelled_tag_id', 'order_refunded_tag_id', 'order_failed_tag_id' );
+
+	/** Statuses that mean the contact does not want marketing. */
+	private const NO_MARKETING_STATUSES = array( 'unsubscribed', 'complained', 'spammed', 'transactional' );
 
 	public function id(): string {
 		return 'fluentcrm';
@@ -97,6 +121,17 @@ final class Module implements ModuleContract, ProvidesSettings {
 		$settings            = $this->settings();
 		$this->sync_contacts = ! empty( $settings['profile_sync'] ?? true );
 		$this->log_changes   = ! empty( $settings['profile_notes'] ?? true );
+		$this->sync_personal = ! empty( $settings['sync_personal'] ?? false );
+		$this->sync_address  = ! empty( $settings['sync_addresses'] ?? false );
+
+		// FluentCRM's own word on consent wins: an unsubscribe (the link in an
+		// e-mail, the admin, a complaint) or a deleted contact turns the
+		// account's consent off, or the next paid order would subscribe it again.
+		add_action( 'fluent_crm/subscriber_status_changed', array( $this, 'on_contact_status_changed' ), 10, 3 );
+		add_action( 'fluentcrm_before_subscribers_deleted', array( $this, 'on_contacts_deleted' ) );
+
+		add_action( 'admin_init', array( $this, 'maybe_migrate_consent' ) );
+		add_action( 'admin_post_' . self::MIGRATION_ACTION, array( $this, 'handle_migration_button' ) );
 
 		if ( $this->sync_contacts || $this->log_changes ) {
 			// Watched only when FluentCRM is there to take the notes and changes —
@@ -204,6 +239,12 @@ final class Module implements ModuleContract, ProvidesSettings {
 	private bool $sync_contacts = true;
 
 	private bool $log_changes = true;
+
+	/** Phone, date of birth, CPF, gender and social name reach consenting contacts. */
+	private bool $sync_personal = false;
+
+	/** Addresses reach consenting contacts. */
+	private bool $sync_address = false;
 
 	/** @var array<int,array<string,mixed>> Each watched field's value before this request first touched it. */
 	private array $old_meta = array();
@@ -588,8 +629,9 @@ final class Module implements ModuleContract, ProvidesSettings {
 	}
 
 	/**
-	 * Saved cards, noted by brand, last four digits and expiry — what is needed
-	 * to trace a card in a fraud dispute, and nothing a card could be used with.
+	 * Saved cards, noted as an event only — which gateway, never the brand,
+	 * digits or expiry: the CRM is for marketing, and the gateway keeps the
+	 * card for a dispute.
 	 *
 	 * @param mixed $token_id
 	 * @param mixed $token
@@ -620,22 +662,9 @@ final class Module implements ModuleContract, ProvidesSettings {
 			return;
 		}
 
-		if ( $token instanceof \WC_Payment_Token_CC ) {
-			$card = sprintf(
-				/* translators: 1: card brand, 2: last four digits, 3: expiry month, 4: expiry year. */
-				__( '%1$s final %2$s, validade %3$s/%4$s', 'galaxie-woo' ),
-				ucfirst( (string) $token->get_card_type() ),
-				(string) $token->get_last4(),
-				str_pad( (string) $token->get_expiry_month(), 2, '0', STR_PAD_LEFT ),
-				(string) $token->get_expiry_year()
-			);
-		} else {
-			$card = wp_strip_all_tags( (string) $token->get_display_name() );
-		}
-
 		$gateway = (string) $token->get_gateway_id();
 
-		$this->event_log[ (int) $token->get_user_id() ][] = $what . ': ' . $card . ( '' !== $gateway ? ' (' . $gateway . ')' : '' );
+		$this->event_log[ (int) $token->get_user_id() ][] = $what . ( '' !== $gateway ? ' (' . $gateway . ')' : '' );
 		$this->queue_profile_sync( $token->get_user_id() );
 	}
 
@@ -889,7 +918,7 @@ final class Module implements ModuleContract, ProvidesSettings {
 				// AddressBook::entries() seeds it on its first read, a page view
 				// included. Nothing the customer did.
 				if ( is_array( $value ) ) {
-					$lines = array_merge( $lines, $this->address_book_changes( $value, is_array( $new ) ? $new : array() ) );
+					$lines = array_merge( $lines, $this->address_book_changes( $value, is_array( $new ) ? $new : array(), $this->may_hold( $user, 'address' ) ) );
 				}
 				continue;
 			}
@@ -897,9 +926,20 @@ final class Module implements ModuleContract, ProvidesSettings {
 			$before = $this->display_value( $key, $this->scalar( $value ) );
 			$after  = $this->display_value( $key, $this->scalar( $new ) );
 
-			if ( $before !== $after ) {
-				$lines[] = sprintf( '<strong>%1$s:</strong> %2$s → %3$s', esc_html( $this->field_label( $key ) ), esc_html( $before ), esc_html( $after ) );
+			if ( $before === $after ) {
+				continue;
 			}
+
+			// What the contact may not hold is not written into its notes
+			// either: the change is noted, not the values.
+			$kind = $this->field_kind( $key );
+
+			if ( '' !== $kind && ! $this->may_hold( $user, $kind ) ) {
+				$lines[] = sprintf( '<strong>%1$s:</strong> %2$s', esc_html( $this->field_label( $key ) ), esc_html__( 'alterado', 'galaxie-woo' ) );
+				continue;
+			}
+
+			$lines[] = sprintf( '<strong>%1$s:</strong> %2$s → %3$s', esc_html( $this->field_label( $key ) ), esc_html( $before ), esc_html( $after ) );
 		}
 
 		foreach ( $this->event_log[ $user->ID ] ?? array() as $entry ) {
@@ -940,16 +980,16 @@ final class Module implements ModuleContract, ProvidesSettings {
 	 * @param array<string,mixed> $new
 	 * @return string[] Escaped lines.
 	 */
-	private function address_book_changes( array $old, array $new ): array {
-		$show = fn( $entry ): string => $this->address_line( (array) $entry );
+	private function address_book_changes( array $old, array $new, bool $with_values = true ): array {
+		$show = fn( $entry ): string => $with_values ? $this->address_line( (array) $entry ) : '';
 
 		$lines = array();
 
 		foreach ( $new as $id => $entry ) {
 			if ( ! isset( $old[ $id ] ) ) {
 				$lines[] = '<strong>' . esc_html__( 'Endereço incluído:', 'galaxie-woo' ) . '</strong> ' . esc_html( $show( $entry ) );
-			} elseif ( $show( $old[ $id ] ) !== $show( $entry ) ) {
-				$lines[] = '<strong>' . esc_html__( 'Endereço alterado:', 'galaxie-woo' ) . '</strong> ' . esc_html( $show( $old[ $id ] ) ) . ' → ' . esc_html( $show( $entry ) );
+			} elseif ( $this->address_line( (array) $old[ $id ] ) !== $this->address_line( (array) $entry ) ) {
+				$lines[] = '<strong>' . esc_html__( 'Endereço alterado:', 'galaxie-woo' ) . '</strong> ' . ( $with_values ? esc_html( $show( $old[ $id ] ) ) . ' → ' . esc_html( $show( $entry ) ) : '' );
 			}
 		}
 
@@ -960,6 +1000,33 @@ final class Module implements ModuleContract, ProvidesSettings {
 		}
 
 		return $lines;
+	}
+
+	/**
+	 * Which opt-in setting a watched field belongs to: 'personal', 'address',
+	 * or '' for what every contact may hold (the name, the consent).
+	 */
+	private function field_kind( string $key ): string {
+		if ( in_array( $key, array( 'billing_phone', 'shipping_phone', ProfileFields::CPF, ProfileFields::BIRTHDATE, ProfileFields::GENDER, ProfileFields::SOCIAL_NAME ), true ) ) {
+			return 'personal';
+		}
+
+		if ( AddressBook::META_KEY === $key || preg_match( '/^(billing|shipping)_(address_1|address_2|city|state|postcode|country)$/', $key ) ) {
+			return 'address';
+		}
+
+		return '';
+	}
+
+	/**
+	 * Whether the contact of this account may hold this kind of data: the
+	 * merchant turned its sync on (declaring it in the privacy policy) and the
+	 * customer said yes to marketing.
+	 */
+	private function may_hold( \WP_User $user, string $kind ): bool {
+		$on = 'personal' === $kind ? $this->sync_personal : ( 'address' === $kind ? $this->sync_address : true );
+
+		return $on && 'yes' === get_user_meta( $user->ID, ProfileFields::MARKETING_OPT_IN, true );
 	}
 
 	private function display_value( string $key, string $value ): string {
@@ -1181,6 +1248,16 @@ final class Module implements ModuleContract, ProvidesSettings {
 			}
 		}
 
+		// Beyond the name, only what the merchant chose to sync, and only for a
+		// contact whose account said yes to marketing (LGPD: the privacy policy
+		// names e-mail, name and interests for marketing).
+		$personal = $this->may_hold( $user, 'personal' );
+		$address  = $this->may_hold( $user, 'address' );
+
+		if ( ! $personal ) {
+			$changed = array_diff_key( $changed, array_flip( array( 'billing_phone', 'shipping_phone', ProfileFields::BIRTHDATE, ProfileFields::CPF, ProfileFields::GENDER, ProfileFields::SOCIAL_NAME ) ) );
+		}
+
 		// The billing phone when it changed, emptied included: a customer who
 		// just erased it must not find the shipping phone put in its place.
 		if ( isset( $changed['billing_phone'] ) ) {
@@ -1224,7 +1301,7 @@ final class Module implements ModuleContract, ProvidesSettings {
 
 		// A change to the shipping address is the contact's business only while
 		// the shipping address is the one it shows.
-		if ( $switched || $touched( 'billing' ) || ( 'shipping' === $type && $touched( 'shipping' ) ) ) {
+		if ( $address && ( $switched || $touched( 'billing' ) || ( 'shipping' === $type && $touched( 'shipping' ) ) ) ) {
 			foreach ( $parts as $part => $column ) {
 				$value = $meta( $type . '_' . $part );
 
@@ -1257,21 +1334,20 @@ final class Module implements ModuleContract, ProvidesSettings {
 			FluentCRMApi::update_contact( (string) $user->user_email, $columns, $custom, $user_id );
 		}
 
-		if ( isset( $changed[ AddressBook::META_KEY ] ) || $touched( 'billing' ) || $touched( 'shipping' ) ) {
-			$this->append_other_addresses( $user, $type );
+		if ( $address && ( isset( $changed[ AddressBook::META_KEY ] ) || $touched( 'billing' ) || $touched( 'shipping' ) ) ) {
+			$this->sync_other_addresses( $user, $type );
 		}
 	}
 
 	/**
-	 * The address book's other addresses, added to the merchant's field and never
-	 * removed from it: a record of every place the customer has kept, dated the
-	 * day it was first seen. The contact's main address is left out while it is
-	 * the main one, and joins the list the day it stops being it.
+	 * The address book's other addresses, in the merchant's field: each dated
+	 * the day it was first seen, and taken out the day it leaves the book. The
+	 * contact's main address is left out while it is the main one.
 	 *
 	 * Only with the Address Book module on: reading the book creates it, and a
 	 * store that turned the module off has not asked for one.
 	 */
-	private function append_other_addresses( \WP_User $user, string $main_type ): void {
+	private function sync_other_addresses( \WP_User $user, string $main_type ): void {
 		if ( ! Plugin::instance()->modules()->is_enabled_by_id( 'address-book' ) ) {
 			return;
 		}
@@ -1297,12 +1373,12 @@ final class Module implements ModuleContract, ProvidesSettings {
 			}
 
 			// Keyed on the place alone: the same address under a new label or
-			// with a new phone is not a new place, and is not appended again.
+			// with a new phone is not a new place, and keeps its line.
 			/* translators: 1: the address, 2: the date it was recorded. */
 			$lines[ $place ] = sprintf( __( '%1$s (registrado em %2$s)', 'galaxie-woo' ), $this->address_line( array_merge( $values, array( 'label' => (string) $entry['label'] ) ) ), wp_date( 'd/m/Y' ) );
 		}
 
-		FluentCRMApi::append_to_custom_field( (string) $user->user_email, $slug, $lines, $user->ID );
+		FluentCRMApi::replace_custom_field_lines( (string) $user->user_email, $slug, $lines, $user->ID );
 	}
 
 	/**
@@ -1354,7 +1430,15 @@ final class Module implements ModuleContract, ProvidesSettings {
 		$this->tag_order( $order_id, 'order_failed_tag_id' );
 	}
 
-	/** @param bool $also_customer Also apply the "customer" tag/list (only on a paid order). */
+	/**
+	 * The order status tags say how the customer's latest order stands, so they
+	 * replace one another: applying one takes the other three away. An order
+	 * that is not the customer's latest (an old one refunded today) changes no
+	 * status tag — the latest order's still holds. The customer tag and list
+	 * only ever add up.
+	 *
+	 * @param bool $also_customer Also apply the "customer" tag/list (only on a paid order).
+	 */
 	private function tag_order( int $order_id, string $tag_key, bool $also_customer = false ): void {
 		if ( ! function_exists( 'wc_get_order' ) ) {
 			return;
@@ -1370,10 +1454,20 @@ final class Module implements ModuleContract, ProvidesSettings {
 
 		$settings = $this->settings();
 		$tags     = array();
+		$status   = array();
 
-		$tag_id = (int) ( $settings[ $tag_key ] ?? 0 );
-		if ( $tag_id > 0 ) {
-			$tags[] = $tag_id;
+		foreach ( self::ORDER_STATUS_TAGS as $key ) {
+			$id = (int) ( $settings[ $key ] ?? 0 );
+
+			if ( $id > 0 ) {
+				$status[ $key ] = $id;
+			}
+		}
+
+		$latest = $this->is_latest_order( $order );
+
+		if ( $latest && isset( $status[ $tag_key ] ) ) {
+			$tags[] = $status[ $tag_key ];
 		}
 		if ( $also_customer ) {
 			$customer_tag = (int) ( $settings['customer_tag_id'] ?? 0 );
@@ -1381,6 +1475,15 @@ final class Module implements ModuleContract, ProvidesSettings {
 				$tags[] = $customer_tag;
 			}
 		}
+
+		if ( $latest ) {
+			$others = array_values( array_diff( $status, array( $status[ $tag_key ] ?? 0 ), $tags ) );
+
+			if ( $others && FluentCRMApi::contact_tag_ids( $email ) ) {
+				FluentCRMApi::detach_tags( $email, $others );
+			}
+		}
+
 		if ( ! empty( $tags ) ) {
 			FluentCRMApi::attach_tags( $email, $tags );
 		}
@@ -1391,6 +1494,205 @@ final class Module implements ModuleContract, ProvidesSettings {
 				FluentCRMApi::attach_lists( $email, array( $list_id ) );
 			}
 		}
+	}
+
+	/** Whether no order of the same customer (account, or billing e-mail for a guest) is newer. */
+	private function is_latest_order( \WC_Abstract_Order $order ): bool {
+		$query = array(
+			'limit'   => 1,
+			'orderby' => 'date',
+			'order'   => 'DESC',
+			'return'  => 'ids',
+			'type'    => 'shop_order',
+		);
+
+		if ( (int) $order->get_customer_id() > 0 ) {
+			$query['customer_id'] = (int) $order->get_customer_id();
+		} else {
+			$query['billing_email'] = (string) $order->get_billing_email();
+		}
+
+		try {
+			$ids = wc_get_orders( $query );
+		} catch ( \Throwable $e ) {
+			return true;
+		}
+
+		return ! $ids || (int) $ids[0] === (int) $order->get_id();
+	}
+
+	/**
+	 * A contact's status changed in FluentCRM. Out of marketing (unsubscribed,
+	 * complaint, spam, transactional) turns the account's consent off — the
+	 * customer's word there is the same answer as the switch in My Account.
+	 * Into `subscribed` changes nothing here: consent is given by the customer
+	 * on the site, not inferred.
+	 *
+	 * @param mixed $contact    FluentCRM Subscriber model.
+	 * @param mixed $old_status
+	 * @param mixed $new_status
+	 */
+	public function on_contact_status_changed( $contact, $old_status = '', $new_status = '' ): void {
+		$new_status = (string) ( '' !== (string) $new_status ? $new_status : ( $contact->status ?? '' ) );
+
+		if ( ! in_array( $new_status, self::NO_MARKETING_STATUSES, true ) ) {
+			return;
+		}
+
+		$this->withdraw_consent( $contact, __( 'FluentCRM — status do contato', 'galaxie-woo' ) );
+	}
+
+	/**
+	 * Contacts deleted in FluentCRM: their accounts' consent goes off, or the
+	 * next paid order would bring the contact back subscribed.
+	 *
+	 * @param mixed $contact_ids
+	 */
+	public function on_contacts_deleted( $contact_ids ): void {
+		if ( ! class_exists( '\FluentCrm\App\Models\Subscriber' ) ) {
+			return;
+		}
+
+		try {
+			foreach ( \FluentCrm\App\Models\Subscriber::whereIn( 'id', array_map( 'absint', (array) $contact_ids ) )->get() as $contact ) {
+				$this->withdraw_consent( $contact, __( 'FluentCRM — contato excluído', 'galaxie-woo' ) );
+			}
+		} catch ( \Throwable $e ) {
+			// Never in the way of FluentCRM's delete.
+		}
+	}
+
+	/** @param mixed $contact FluentCRM Subscriber model. */
+	private function withdraw_consent( $contact, string $source ): void {
+		$user_id = (int) ( $contact->user_id ?? 0 );
+		$user    = $user_id > 0 ? get_userdata( $user_id ) : get_user_by( 'email', (string) ( $contact->email ?? '' ) );
+
+		if ( ! $user || 'no' === get_user_meta( $user->ID, ProfileFields::MARKETING_OPT_IN, true ) ) {
+			return;
+		}
+
+		do_action( 'galaxie_woo/change_source', $source );
+		update_user_meta( $user->ID, ProfileFields::MARKETING_OPT_IN, 'no' );
+	}
+
+	/**
+	 * Once after this version is deployed, on the first wp-admin page a store
+	 * manager opens: {@see self::migrate_consent()}. The option it writes is
+	 * the guard, so it never runs on its own again.
+	 */
+	public function maybe_migrate_consent(): void {
+		if ( wp_doing_ajax() || false !== get_option( self::MIGRATION_OPTION, false ) || ! current_user_can( 'manage_woocommerce' ) ) {
+			return;
+		}
+
+		if ( ! FluentCRMApi::is_active() || ! class_exists( '\FluentCrm\App\Models\Subscriber' ) ) {
+			return;
+		}
+
+		self::migrate_consent( 'auto' );
+	}
+
+	/** The settings tab's "run again" button. */
+	public function handle_migration_button(): void {
+		if ( ! current_user_can( 'manage_woocommerce' ) || ! check_admin_referer( self::MIGRATION_ACTION ) ) {
+			wp_die( esc_html__( 'Sem permissão.', 'galaxie-woo' ), 403 );
+		}
+
+		self::migrate_consent( 'manual' );
+
+		wp_safe_redirect( add_query_arg( array( 'page' => 'galaxie-woo', 'tab' => $this->id() ), admin_url( 'admin.php' ) ) );
+		exit;
+	}
+
+	/**
+	 * Contacts left `subscribed` by older versions without the account's
+	 * consent (LGPD). Every `subscribed` contact is checked: one with no
+	 * WordPress account, or whose account never said yes
+	 * (`eir_marketing_opt_in` other than 'yes'), moves to
+	 * {@see FluentCRMApi::no_consent_status()} — transactional where FluentCRM
+	 * has it — and gets a note saying why.
+	 *
+	 * Written straight to the contacts, without FluentCRM's status events, so
+	 * no automation listening for a status change sends anything. Idempotent: a
+	 * second run finds only what is still subscribed without consent. The
+	 * counts are kept in MIGRATION_OPTION for the settings tab.
+	 *
+	 * @return array<string,mixed> The result kept in the option.
+	 */
+	public static function migrate_consent( string $trigger ): array {
+		$lock = self::MIGRATION_OPTION . '_lock';
+
+		if ( ! add_option( $lock, (string) time(), '', 'no' ) ) {
+			if ( time() - (int) get_option( $lock, 0 ) < 10 * MINUTE_IN_SECONDS ) {
+				return (array) get_option( self::MIGRATION_OPTION, array() );
+			}
+			update_option( $lock, (string) time(), false );
+		}
+
+		$result = array(
+			'ran_at'     => gmdate( 'Y-m-d H:i:s' ),
+			'trigger'    => $trigger,
+			'by'         => get_current_user_id(),
+			'status'     => FluentCRMApi::no_consent_status( true ),
+			'checked'    => 0,
+			'downgraded' => 0,
+			'kept'       => 0,
+			'ids'        => array(),
+			'error'      => '',
+		);
+
+		try {
+			$model = 'FluentCrm\App\Models\Subscriber';
+			$last  = 0;
+
+			do {
+				$batch = $model::where( 'status', 'subscribed' )->where( 'id', '>', $last )->orderBy( 'id', 'ASC' )->limit( 200 )->get();
+				$move  = array();
+
+				foreach ( $batch as $contact ) {
+					$last = (int) $contact->id;
+					++$result['checked'];
+
+					$user_id = (int) ( $contact->user_id ?? 0 );
+					$user    = $user_id > 0 ? get_userdata( $user_id ) : false;
+					$user    = $user ? $user : get_user_by( 'email', (string) $contact->email );
+
+					if ( $user && 'yes' === get_user_meta( $user->ID, ProfileFields::MARKETING_OPT_IN, true ) ) {
+						++$result['kept'];
+						continue;
+					}
+
+					$move[] = (int) $contact->id;
+				}
+
+				if ( $move ) {
+					$model::whereIn( 'id', $move )->where( 'status', 'subscribed' )->update( array( 'status' => $result['status'] ) );
+					$result['downgraded'] += count( $move );
+					$result['ids']         = array_slice( array_merge( $result['ids'], $move ), 0, 1000 );
+
+					foreach ( $move as $id ) {
+						FluentCRMApi::add_note_by_contact_id(
+							$id,
+							__( 'Consentimento (LGPD)', 'galaxie-woo' ),
+							'<p>' . esc_html(
+								sprintf(
+									/* translators: %s: the new status */
+									__( 'Status alterado de Inscrito para %s: a conta no site não tem consentimento de marketing registrado (ou o contato não tem conta). Migração única do Galaxie Bundle.', 'galaxie-woo' ),
+									$result['status']
+								)
+							) . '</p>'
+						);
+					}
+				}
+			} while ( count( $batch ) >= 200 );
+		} catch ( \Throwable $e ) {
+			$result['error'] = $e->getMessage();
+		}
+
+		update_option( self::MIGRATION_OPTION, $result, false );
+		delete_option( $lock );
+
+		return $result;
 	}
 
 	/**
@@ -1543,16 +1845,30 @@ final class Module implements ModuleContract, ProvidesSettings {
 			),
 			new Field(
 				key: 'profile_sync',
-				label: __( 'Keep contacts up to date', 'galaxie-woo' ),
+				label: __( 'Manter contatos atualizados', 'galaxie-woo' ),
 				type: Field::TYPE_TOGGLE,
-				description: __( 'Whenever a customer\'s account changes — in My Account, at checkout or in wp-admin — their FluentCRM contact follows: name, phone, date of birth, billing address (shipping when there is none), and CPF, gender and social name as custom fields, created in FluentCRM if missing. The address book\'s other addresses are appended, never removed, to a multi-line custom field labelled "Outros endereços que o usuário cadastrou" when the store has one. Only contacts that already exist are updated.', 'galaxie-woo' ),
+				description: __( 'Quando a conta do cliente muda — em Minha conta, no checkout ou no wp-admin — o contato no FluentCRM acompanha: nome e e-mail. Telefone, nascimento, CPF, gênero, nome social e endereços só com as duas opções abaixo. Só contatos que já existem são atualizados.', 'galaxie-woo' ),
 				default: true
 			),
 			new Field(
-				key: 'profile_notes',
-				label: __( 'Record profile changes in contact notes', 'galaxie-woo' ),
+				key: 'sync_personal',
+				label: __( 'Enviar dados pessoais ao FluentCRM', 'galaxie-woo' ),
 				type: Field::TYPE_TOGGLE,
-				description: __( 'Every change a customer makes — profile fields, addresses, communication consent, interests, saved cards (brand, last four digits, expiry) — is written on their FluentCRM contact\'s Notes tab as before → after, with the date and time, where it was made and who made it. Edits to a contact\'s profile in FluentCRM\'s own admin (columns, status and custom fields) are noted too, credited to the admin who made them. Keeps a record of data the contact itself no longer shows.', 'galaxie-woo' ),
+				description: __( 'Telefone, data de nascimento, CPF, gênero e nome social (os três últimos como campos personalizados, criados se faltarem). Só para contatos que aceitaram receber marketing. ATENÇÃO: ligue apenas se a Política de Privacidade da loja declarar que esses dados são usados em marketing — hoje ela fala em "e-mail, nome, interesses".', 'galaxie-woo' ),
+				default: false
+			),
+			new Field(
+				key: 'sync_addresses',
+				label: __( 'Enviar endereços ao FluentCRM', 'galaxie-woo' ),
+				type: Field::TYPE_TOGGLE,
+				description: __( 'O endereço de cobrança (o de entrega quando não há cobrança) e, no campo personalizado "Outros endereços que o usuário cadastrou" (se existir), os demais endereços do catálogo — um endereço apagado sai do campo também. Só para contatos que aceitaram receber marketing. ATENÇÃO: ligue apenas se a Política de Privacidade declarar o uso de endereços em marketing.', 'galaxie-woo' ),
+				default: false
+			),
+			new Field(
+				key: 'profile_notes',
+				label: __( 'Registrar alterações nas notas do contato', 'galaxie-woo' ),
+				type: Field::TYPE_TOGGLE,
+				description: __( 'Cada alteração do cliente — dados, endereços, consentimento, interesses, cartões salvos — vira uma nota no contato, com data, hora, origem e autor. Os valores (antes → depois) só aparecem para o que o contato pode guardar (opções acima + consentimento); o resto é anotado só como "alterado". Cartões: só o evento e o gateway, nunca bandeira, dígitos ou validade. Edições feitas no próprio painel do FluentCRM também são anotadas.', 'galaxie-woo' ),
 				default: true
 			),
 		);
@@ -1597,6 +1913,47 @@ final class Module implements ModuleContract, ProvidesSettings {
 
 		$this->render_communications_builder( $lists, $values );
 		$this->render_interests_builder( $tags, $values );
+		$this->render_migration_status();
+	}
+
+	/** The consent migration: what it did, and a button to run it again. */
+	private function render_migration_status(): void {
+		$result = get_option( self::MIGRATION_OPTION, false );
+
+		echo '<h3>' . esc_html__( 'Consentimento (LGPD): contatos inscritos sem consentimento', 'galaxie-woo' ) . '</h3>';
+		echo '<p class="description">' . esc_html__( 'Versões anteriores deixavam contatos como "Inscrito" sem o consentimento da conta. A migração passa para Transacional (só e-mails de pedido) todo contato Inscrito sem conta no site ou cuja conta não aceitou marketing, com uma nota no contato. Roda sozinha uma vez; rodar de novo só pega o que sobrou.', 'galaxie-woo' ) . '</p>';
+
+		if ( is_array( $result ) ) {
+			$who = (int) ( $result['by'] ?? 0 ) > 0 ? get_userdata( (int) $result['by'] ) : false;
+
+			printf(
+				'<p>%s</p>',
+				esc_html(
+					sprintf(
+						/* translators: 1: date, 2: who, 3: checked, 4: moved, 5: new status, 6: kept */
+						__( 'Última execução: %1$s (UTC), por %2$s — %3$d contatos inscritos verificados, %4$d passaram para "%5$s", %6$d mantidos (com consentimento).', 'galaxie-woo' ),
+						(string) ( $result['ran_at'] ?? '' ),
+						$who ? $who->display_name : __( 'sistema', 'galaxie-woo' ),
+						(int) ( $result['checked'] ?? 0 ),
+						(int) ( $result['downgraded'] ?? 0 ),
+						(string) ( $result['status'] ?? '' ),
+						(int) ( $result['kept'] ?? 0 )
+					)
+				)
+			);
+
+			if ( '' !== (string) ( $result['error'] ?? '' ) ) {
+				printf( '<div class="notice notice-error inline"><p>%s</p></div>', esc_html( (string) $result['error'] ) );
+			}
+		} else {
+			echo '<p>' . esc_html__( 'Ainda não executada — roda na próxima página do wp-admin aberta por um gerente da loja.', 'galaxie-woo' ) . '</p>';
+		}
+
+		printf(
+			'<p><a class="button" href="%s">%s</a></p>',
+			esc_url( wp_nonce_url( add_query_arg( 'action', self::MIGRATION_ACTION, admin_url( 'admin-post.php' ) ), self::MIGRATION_ACTION ) ),
+			esc_html__( 'Rodar a migração agora', 'galaxie-woo' )
+		);
 	}
 
 	/**

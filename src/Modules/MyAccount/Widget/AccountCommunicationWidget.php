@@ -248,7 +248,7 @@ final class AccountCommunicationWidget extends Widget_Base {
 				$this->newsletter( $s, $txt, $id, $on, $place );
 		}
 
-		$this->communications( $s, $txt, $place );
+		$this->communications( $s, $txt, $place, $on || AccountParts::editing() );
 
 		echo '<div class="galaxie-account-message" role="status" aria-live="polite" hidden></div></div>';
 	}
@@ -291,9 +291,10 @@ final class AccountCommunicationWidget extends Widget_Base {
 	 *
 	 * @param array<string,mixed> $s     Widget settings.
 	 * @param callable            $txt   The text helper render() builds.
-	 * @param string              $place Where the switch sits.
+	 * @param string              $place   Where the switch sits.
+	 * @param bool                $consent Whether the customer already said yes to marketing.
 	 */
-	private function communications( array $s, callable $txt, string $place ): void {
+	private function communications( array $s, callable $txt, string $place, bool $consent = true ): void {
 		// With the consent switch on the screen, its own list is already
 		// answered for; a row on it would be the same question twice.
 		$rows = FluentCRMModule::communications( 'yes' === ( $s['comm_show_newsletter'] ?? 'yes' ) );
@@ -313,14 +314,25 @@ final class AccountCommunicationWidget extends Widget_Base {
 			$id = 'galaxie-comm-' . $this->get_id() . '-' . $row['list_id'];
 
 			printf(
-				'<label class="galaxie-comm-option card is-switch-%7$s %1$s" for="%2$s" data-list="%6$d"><span class="galaxie-comm-copy">%3$s%4$s</span><span class="galaxie-switch"><input type="checkbox" id="%2$s" name="communication" value="%6$d"%5$s /><span class="galaxie-switch-track" aria-hidden="true"></span></span></label>',
+				'<label class="galaxie-comm-option card is-switch-%7$s %1$s" for="%2$s" data-list="%6$d"><span class="galaxie-comm-copy">%3$s%4$s%8$s</span><span class="galaxie-switch"><input type="checkbox" id="%2$s" name="communication" value="%6$d"%5$s /><span class="galaxie-switch-track" aria-hidden="true"></span></span></label>',
 				esc_attr( PixfortControls::surface_classes( $s, 'comm_option' ) ),
 				esc_attr( $id ),
 				$txt( 'comm_title_text', 'galaxie-comm-title', $row['title'] ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pixfort's own element around escaped text.
 				'yes' === ( $s['comm_compact'] ?? '' ) ? '' : $txt( 'comm_desc_text', 'galaxie-comm-text', $row['text'] ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pixfort's own element around escaped text.
 				checked( in_array( $row['list_id'], $on, true ), true, false ),
 				(int) $row['list_id'],
-				esc_attr( $place )
+				esc_attr( $place ),
+				// Without consent, turning a communication on gives it: said
+				// before the switch moves, not after.
+				$consent ? '' : $txt(
+					'comm_desc_text',
+					'galaxie-comm-text galaxie-comm-consent-hint',
+					sprintf(
+						/* translators: %s: store name */
+						__( 'Ao ativar, você aceita receber e-mails da %s.', 'galaxie-woo' ),
+						wp_specialchars_decode( (string) get_bloginfo( 'name' ), ENT_QUOTES )
+					)
+				) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pixfort's own element around escaped text.
 			);
 
 			unset( $i );

@@ -159,14 +159,111 @@ final class FluentCRM {
 	}
 
 	/**
-	 * The customer changed their answer in My Account: yes subscribes the
-	 * contact, no takes marketing away ({@see no_consent_status()}).
+	 * The customer changed their answer: yes subscribes the contact, no takes
+	 * marketing away ({@see no_consent_status()}).
+	 *
+	 * An existing contact has its status set through FluentCRM's own
+	 * updateStatus(): createOrUpdate() keeps a subscribed contact subscribed
+	 * whatever status it is sent (FluentCRM's updateOrCreate() drops the status
+	 * unless forced), so "no" never took a subscribed contact out of
+	 * marketing. A contact that does not exist yet is created with the status.
 	 */
-	public static function set_consent( string $email, bool $consent ): void {
-		if ( ! self::is_active() || '' === $email ) {
+	public static function set_consent( string $email, bool $consent, int $user_id = 0 ): void {
+		if ( ! self::is_active() || ( '' === $email && $user_id <= 0 ) ) {
 			return;
 		}
-		self::sync_contact( $email, array( 'status' => $consent ? 'subscribed' : self::no_consent_status( true ) ) );
+
+		$status = $consent ? 'subscribed' : self::no_consent_status( true );
+
+		try {
+			$contact = self::find_contact( $email, $user_id );
+
+			if ( $contact ) {
+				self::apply_status( $contact, $status );
+				return;
+			}
+		} catch ( \Throwable $e ) {
+			return;
+		}
+
+		if ( '' !== $email ) {
+			self::sync_contact( $email, array_merge( array( 'status' => $status ), self::names_for( $email ) ) );
+		}
+	}
+
+	/**
+	 * A contact's status moved to `$status` — or left alone where FluentCRM's
+	 * own rules say so: a bounce, complaint or spam report is never
+	 * re-subscribed from here, and withdrawing consent leaves a contact that is
+	 * already outside marketing as it is.
+	 *
+	 * @param object $contact FluentCRM Subscriber model.
+	 */
+	public static function apply_status( $contact, string $status ): bool {
+		$current = (string) ( $contact->status ?? '' );
+
+		if ( $current === $status ) {
+			return false;
+		}
+
+		if ( 'subscribed' === $status && in_array( $current, array( 'bounced', 'complained', 'spammed' ), true ) ) {
+			return false;
+		}
+
+		if ( 'subscribed' !== $status && in_array( $current, array( 'unsubscribed', 'bounced', 'complained', 'spammed', 'transactional' ), true ) ) {
+			return false;
+		}
+
+		try {
+			if ( is_callable( array( $contact, 'updateStatus' ) ) ) {
+				$contact->updateStatus( $status );
+			} else {
+				$contact->status = $status;
+				$contact->save();
+			}
+
+			return true;
+		} catch ( \Throwable $e ) {
+			return false;
+		}
+	}
+
+	/** Whether the account said yes to marketing. Never answered is no. */
+	private static function account_consent( int $user_id ): bool {
+		return $user_id > 0 && 'yes' === get_user_meta( $user_id, \Galaxie\Woo\Support\ProfileFields::MARKETING_OPT_IN, true );
+	}
+
+	/**
+	 * The account's contact taken out of FluentCRM: unsubscribed first (so
+	 * FluentCRM stops its automations and e-mails for it the way it does for
+	 * any unsubscribe), then deleted with FluentCRM's own helper, which also
+	 * removes its notes, tags, lists and custom values.
+	 */
+	public static function delete_contact( string $email, int $user_id = 0 ): bool {
+		if ( ! self::is_active() || ( '' === $email && $user_id <= 0 ) ) {
+			return false;
+		}
+		try {
+			$contact = self::find_contact( $email, $user_id );
+
+			if ( ! $contact ) {
+				return false;
+			}
+
+			if ( 'unsubscribed' !== (string) $contact->status && is_callable( array( $contact, 'updateStatus' ) ) ) {
+				$contact->updateStatus( 'unsubscribed' );
+			}
+
+			if ( is_callable( array( '\FluentCrm\App\Services\Helper', 'deleteContacts' ) ) ) {
+				\FluentCrm\App\Services\Helper::deleteContacts( array( (int) $contact->id ) );
+			} else {
+				$contact->delete();
+			}
+
+			return true;
+		} catch ( \Throwable $e ) {
+			return false;
+		}
 	}
 
 	/** @param array<string,mixed> $fields */
@@ -240,17 +337,44 @@ final class FluentCRM {
 
 	/**
 	 * Moves the contact of an account whose e-mail changed to the new address,
-	 * so later syncs, notes and tags still find it. Left alone when a contact
-	 * already has the new address: merging two contacts is the merchant's call.
+	 * so later syncs, notes and tags still find it.
+	 *
+	 * When a contact already has the new address, merging the two is the
+	 * merchant's call, so they stay apart — but both get the account's current
+	 * consent (the person behind both addresses answered it) and a note saying
+	 * what happened, so the split is seen rather than found later.
 	 */
 	public static function change_contact_email( int $user_id, string $old_email, string $new_email ): bool {
 		if ( ! self::is_active() || '' === $new_email || 0 === strcasecmp( $old_email, $new_email ) ) {
 			return false;
 		}
 		try {
-			$api = \FluentCrmApi( 'contacts' );
+			$api      = \FluentCrmApi( 'contacts' );
+			$existing = $api->getContact( $new_email );
 
-			if ( $api->getContact( $new_email ) ) {
+			if ( $existing ) {
+				$status   = self::account_consent( $user_id ) ? 'subscribed' : self::no_consent_status( true );
+				$contacts = array( (int) $existing->id => $existing );
+				$old      = '' !== $old_email ? $api->getContact( $old_email ) : null;
+
+				if ( $old ) {
+					$contacts[ (int) $old->id ] = $old;
+				}
+
+				$note = sprintf(
+					/* translators: 1: account id, 2: old e-mail, 3: new e-mail, 4: Sim/Não */
+					__( 'A conta #%1$d trocou o e-mail de %2$s para %3$s, e já existia um contato com o novo e-mail. Os contatos continuam separados — mescle à mão se forem a mesma pessoa. Consentimento de marketing aplicado aos dois: %4$s.', 'galaxie-woo' ),
+					$user_id,
+					$old_email,
+					$new_email,
+					'subscribed' === $status ? __( 'Sim', 'galaxie-woo' ) : __( 'Não', 'galaxie-woo' )
+				);
+
+				foreach ( $contacts as $id => $contact ) {
+					self::apply_status( $contact, $status );
+					self::add_note_by_contact_id( (int) $id, __( 'E-mail da conta alterado', 'galaxie-woo' ), '<p>' . esc_html( $note ) . '</p>' );
+				}
+
 				return false;
 			}
 
@@ -477,13 +601,16 @@ final class FluentCRM {
 	}
 
 	/**
-	 * Adds lines to a multi-line custom field and never takes one away: a line
-	 * goes at the end unless its key is already somewhere in the field.
+	 * Makes a multi-line custom field hold exactly these lines: a line whose
+	 * key is already in the field keeps the wording it has there (and the date
+	 * it was first recorded), a new one is added, and a line whose key is no
+	 * longer given is taken out — an address the customer deleted leaves the
+	 * contact too.
 	 *
-	 * @param array<string,string> $lines Key to look for => line to add.
+	 * @param array<string,string> $lines Key to look for => line to write when it is new.
 	 */
-	public static function append_to_custom_field( string $email, string $slug, array $lines, int $user_id = 0 ): bool {
-		if ( ! self::is_active() || '' === $slug || ! $lines ) {
+	public static function replace_custom_field_lines( string $email, string $slug, array $lines, int $user_id = 0 ): bool {
+		if ( ! self::is_active() || '' === $slug ) {
 			return false;
 		}
 		try {
@@ -492,20 +619,32 @@ final class FluentCRM {
 				return false;
 			}
 
-			$current = (string) ( $contact->custom_fields()[ $slug ] ?? '' );
-			$added   = array();
+			$current = trim( (string) ( $contact->custom_fields()[ $slug ] ?? '' ) );
+			$split   = preg_split( '/\R/', $current );
+			$kept    = array_values( array_filter( array_map( 'trim', is_array( $split ) ? $split : array() ), 'strlen' ) );
+			$out     = array();
 
 			foreach ( $lines as $key => $line ) {
-				if ( '' !== trim( (string) $key ) && false === mb_stripos( $current, (string) $key ) ) {
-					$added[] = $line;
+				$key   = trim( (string) $key );
+				$found = null;
+
+				foreach ( $kept as $existing ) {
+					if ( '' !== $key && false !== mb_stripos( $existing, $key ) ) {
+						$found = $existing;
+						break;
+					}
 				}
+
+				$out[] = $found ?? $line;
 			}
 
-			if ( ! $added ) {
+			$value = implode( "\n", array_unique( $out ) );
+
+			if ( $value === $current ) {
 				return true;
 			}
 
-			$contact->syncCustomFieldValues( array( $slug => ltrim( rtrim( $current ) . "\n" . implode( "\n", $added ) ) ), false );
+			$contact->syncCustomFieldValues( array( $slug => $value ), '' === $value );
 
 			return true;
 		} catch ( \Throwable $e ) {

@@ -185,10 +185,19 @@ export function bootAccountScreens(_wishlist?: WishlistConfig): void {
     const body =
       input.name === 'communication' ? { list_id: list, selected: on ? '1' : '' } : { opt_in: on ? '1' : '' }
 
-    void post(config.myAccount.ajaxUrl, action, config.myAccount.nonce, body).then((res) => {
+    void post<{ consented?: boolean }>(config.myAccount.ajaxUrl, action, config.myAccount.nonce, body).then((res) => {
       input.disabled = false
 
       if (res.success) {
+        // Turning a communication on without consent gave it (the line under
+        // the switch said so): the consent switch follows, and the line goes.
+        if (res.data?.consented) {
+          root.querySelectorAll<HTMLInputElement>('input[name="opt_in"]').forEach((optIn) => {
+            optIn.checked = true
+          })
+          root.querySelectorAll('.galaxie-comm-consent-hint').forEach((hint) => hint.remove())
+        }
+
         message(root, (on ? root.dataset.on : root.dataset.off) ?? '', true)
         return
       }
@@ -234,52 +243,27 @@ export function bootAccountScreens(_wishlist?: WishlistConfig): void {
     }
   })
 
-  // Orders: WooCommerce cancels an order on a plain link, so ask first.
+  // Orders: WooCommerce cancels an order on a plain link, so ask first. Our
+  // own link is caught wherever it is drawn — Galaxie's buttons, WooCommerce's
+  // orders table or order details — since without the reason it cannot go.
   document.addEventListener('click', (event) => {
-    const link = (event.target as Element | null)?.closest?.<HTMLAnchorElement>('.galaxie-account-button.is-cancel')
-    const root = link?.closest<HTMLElement>('.galaxie-account-orders, .galaxie-account-order')
-    if (!link || !root) return
+    if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
+
+    const target = event.target as Element | null
+    const link =
+      target?.closest?.<HTMLAnchorElement>('.galaxie-account-button.is-cancel') ??
+      target?.closest?.<HTMLAnchorElement>('a[href*="action=galaxie_cancel_order"]')
+    if (!link) return
+
+    const root = link.closest<HTMLElement>('.galaxie-account-orders, .galaxie-account-order')
+    const ours = link.href.includes('action=galaxie_cancel_order')
+    if (!root && !ours) return
 
     event.preventDefault()
-
-    // A paid order (Order Cancellation module): always ask why, then post the
-    // answer with the link's own fields. WooCommerce's unpaid-order link stays a link.
-    const cfg = getGalaxieConfig().orderCancellation
-    if (cfg && link.href.includes('action=galaxie_cancel_order')) {
-      const url = new URL(link.href, window.location.href)
-
-      // Already on its way: the in-transit notice, and nothing else.
-      if ('1' === url.searchParams.get('posted')) {
-        void tellPosted(root, cfg)
-        return
-      }
-
-      // Asked before the reason, so nobody fills one in to hear no.
-      link.setAttribute('aria-busy', 'true')
-      void post<{ posted?: boolean }>(cfg.ajaxUrl, 'galaxie_cancel_check', url.searchParams.get('_wpnonce') ?? '', {
-        order_id: url.searchParams.get('order_id') ?? '',
-      }).then((res) => {
-        link.removeAttribute('aria-busy')
-
-        if (res.success && res.data?.posted) {
-          url.searchParams.set('posted', '1')
-          link.href = url.toString()
-          void tellPosted(root, cfg)
-          return
-        }
-
-        const form = reasonForm(cfg)
-        void ask(root, 'cancel_confirm', { fallback: 'Cancelar este pedido?', extra: form.el, validate: form.validate }).then((yes) => {
-          if (yes) submitCancel(link.href, form.reason(), form.comment())
-        })
-      })
-      return
-    }
-
-    void ask(root, 'cancel_confirm', 'Cancelar este pedido?').then((yes) => {
-      if (yes) window.location.href = link.href
-    })
+    startCancel(link, root)
   })
+
+  openCancelFromLink()
 
   // Payment methods: WooCommerce deletes a saved card on a plain link, so ask first.
   document.addEventListener('click', (event) => {
@@ -294,6 +278,74 @@ export function bootAccountScreens(_wishlist?: WishlistConfig): void {
   })
 
   // The wishlist screen's own behaviour lives in globals/wishlist-account.ts.
+}
+
+/**
+ * The cancel flow for one link: a paid order (Order Cancellation module) is
+ * checked with Melhor Envio, then the reason is asked and posted with the
+ * link's own fields; WooCommerce's unpaid-order link is just confirmed.
+ */
+function startCancel(link: HTMLAnchorElement, root: HTMLElement | null): void {
+  const cfg = getGalaxieConfig().orderCancellation
+  if (cfg && link.href.includes('action=galaxie_cancel_order')) {
+    const url = new URL(link.href, window.location.href)
+
+    // Already on its way: the in-transit notice, and nothing else.
+    if ('1' === url.searchParams.get('posted')) {
+      void tellPosted(root, cfg)
+      return
+    }
+
+    // Asked before the reason, so nobody fills one in to hear no.
+    link.setAttribute('aria-busy', 'true')
+    void post<{ posted?: boolean }>(cfg.ajaxUrl, 'galaxie_cancel_check', url.searchParams.get('_wpnonce') ?? '', {
+      order_id: url.searchParams.get('order_id') ?? '',
+    }).then((res) => {
+      link.removeAttribute('aria-busy')
+
+      if (res.success && res.data?.posted) {
+        url.searchParams.set('posted', '1')
+        link.href = url.toString()
+        void tellPosted(root, cfg)
+        return
+      }
+
+      const form = reasonForm(cfg)
+      void ask(root, 'cancel_confirm', { fallback: 'Cancelar este pedido?', extra: form.el, validate: form.validate }).then((yes) => {
+        if (yes) submitCancel(link.href, form.reason(), form.comment())
+      })
+    })
+    return
+  }
+
+  void ask(root, 'cancel_confirm', 'Cancelar este pedido?').then((yes) => {
+    if (yes) window.location.href = link.href
+  })
+}
+
+/**
+ * A bare Cancel link (WooCommerce's own button, followed without this script
+ * or from a page it does not run on) lands on the order's screen with
+ * `galaxie-cancel=<order id>`: the dialog opens for that order's link, and the
+ * mark leaves the address so a reload does not ask again.
+ */
+function openCancelFromLink(): void {
+  const params = new URLSearchParams(window.location.search)
+  const id = params.get('galaxie-cancel')
+  if (!id) return
+
+  params.delete('galaxie-cancel')
+  const query = params.toString()
+  window.history.replaceState(window.history.state, '', window.location.pathname + (query ? `?${query}` : '') + window.location.hash)
+
+  if (!/^\d+$/.test(id)) return
+
+  const link = [...document.querySelectorAll<HTMLAnchorElement>('a[href*="action=galaxie_cancel_order"]')].find(
+    (item) => new URL(item.href, window.location.href).searchParams.get('order_id') === id
+  )
+  if (!link) return
+
+  startCancel(link, link.closest<HTMLElement>('.galaxie-account-orders, .galaxie-account-order'))
 }
 
 /** The reason (required) and comment (optional) asked before a paid order is cancelled. */

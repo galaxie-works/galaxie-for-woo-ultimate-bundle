@@ -453,6 +453,8 @@ final class AccountOrderWidget extends Widget_Base {
 			}
 		}
 
-		echo '<div class="galaxie-account-order">' . $out . '</div>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built from escaped parts and WooCommerce's own output.
+		// The order's id rides on the box, so the account menu can ask for this
+		// order again when the browser goes Back to it.
+		echo '<div class="galaxie-account-order" data-account-value="' . esc_attr( (string) $order->get_id() ) . '">' . $out . '</div>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built from escaped parts and WooCommerce's own output.
 	}
 }

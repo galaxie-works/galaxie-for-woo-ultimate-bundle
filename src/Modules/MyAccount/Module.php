@@ -321,18 +321,18 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 		$phone       = isset( $_POST['phone'] ) ? sanitize_text_field( wp_unslash( $_POST['phone'] ) ) : null;
 
 		if ( '' === $first_name || '' === $last_name ) {
-			wp_send_json_error( array( 'message' => __( 'Please enter your first and last name.', 'galaxie-woo' ) ) );
+			wp_send_json_error( array( 'message' => __( 'Informe seu nome e sobrenome.', 'galaxie-woo' ) ) );
 		}
 		// Stored in E.164, as FluentCRM keeps it: `+5511980409005` saves as it
 		// is, a Brazilian `(11) 98040-9005` becomes `+55…`.
 		if ( null !== $phone && '' !== $phone ) {
 			$phone = \Galaxie\Woo\Support\Phone::normalize( $phone );
 			if ( null === $phone ) {
-				wp_send_json_error( array( 'message' => __( 'Please enter a valid phone number, with area code.', 'galaxie-woo' ) ) );
+				wp_send_json_error( array( 'message' => __( 'Informe um telefone válido, com DDD.', 'galaxie-woo' ) ) );
 			}
 		}
 		if ( null !== $cpf && '' !== $cpf && ! Cpf::is_valid( $cpf ) ) {
-			wp_send_json_error( array( 'message' => __( 'Please enter a valid CPF.', 'galaxie-woo' ) ) );
+			wp_send_json_error( array( 'message' => __( 'Informe um CPF válido.', 'galaxie-woo' ) ) );
 		}
 		// While Idade mínima is on the date cannot be erased or moved under the
 		// minimum age; off, only its shape is checked.
@@ -343,7 +343,7 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 			}
 		}
 		if ( null !== $gender && '' !== $gender && ! array_key_exists( $gender, ProfileFields::gender_options() ) ) {
-			wp_send_json_error( array( 'message' => __( 'Please choose a valid option.', 'galaxie-woo' ) ) );
+			wp_send_json_error( array( 'message' => __( 'Escolha uma opção válida.', 'galaxie-woo' ) ) );
 		}
 
 		wp_update_user(
@@ -392,11 +392,19 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 		// Logging out is a real navigation: it ends the session the page is drawn
 		// from, so it is never swapped in.
 		if ( '' === $key || 'customer-logout' === $key || ! AccountEndpoints::get( $key ) || ! AccountEndpoints::is_enabled( $key ) ) {
-			wp_send_json_error( array( 'message' => __( 'Unknown screen.', 'galaxie-woo' ) ), 404 );
+			wp_send_json_error( array( 'message' => __( 'Tela não encontrada.', 'galaxie-woo' ) ), 404 );
 		}
 
 		$value    = isset( $_POST['value'] ) ? sanitize_text_field( wp_unslash( $_POST['value'] ) ) : '';
 		$override = isset( $_POST['template'] ) ? absint( $_POST['template'] ) : 0;
+
+		// The screen's value as if the address carried it, so the widgets that
+		// read the current screen (the order page above all) get the order the
+		// customer went Back to, not the latest one. Ownership is still theirs to
+		// check — the order widget only shows an order the user may view.
+		if ( '' !== $value && isset( $GLOBALS['wp'] ) && $GLOBALS['wp'] instanceof \WP ) {
+			$GLOBALS['wp']->query_vars[ $key ] = $value;
+		}
 
 		// The override travels from the clicked menu item, so it arrives as the
 		// visitor's word. Only a template the site actually offers is honoured,
@@ -429,8 +437,17 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 		$tag_id   = isset( $_POST['tag_id'] ) ? absint( $_POST['tag_id'] ) : 0;
 		$selected = ! empty( $_POST['selected'] );
 
-		if ( $tag_id <= 0 ) {
-			wp_send_json_error( array( 'message' => __( 'Invalid interest.', 'galaxie-woo' ) ) );
+		// Only an interest the merchant put on the screen: a tag id from anywhere
+		// else would let a request tag a contact with anything (a segment, a
+		// "VIP", a funnel trigger).
+		$known = array();
+
+		foreach ( (array) ( \Galaxie\Woo\Core\Plugin::instance()->settings()->module_settings( 'fluentcrm' )['interest_options'] ?? array() ) as $row ) {
+			$known[] = (int) ( ( (array) $row )['tag_id'] ?? 0 );
+		}
+
+		if ( $tag_id <= 0 || ! in_array( $tag_id, $known, true ) ) {
+			wp_send_json_error( array( 'message' => __( 'Esse interesse não existe mais.', 'galaxie-woo' ) ) );
 		}
 
 		// An interest lives only in FluentCRM. Without it there is nowhere to
@@ -475,6 +492,19 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 			wp_send_json_error( array( 'message' => __( 'Não foi possível salvar agora. Tente de novo mais tarde.', 'galaxie-woo' ) ) );
 		}
 
+		// A list only reaches a subscribed contact. Turning one on is the
+		// customer asking for e-mail, and the switch says so ("Ao ativar, você
+		// aceita receber e-mails…"): it gives the marketing consent too, or the
+		// list would be joined and nothing would ever arrive.
+		$consented = false;
+
+		if ( $selected && 'yes' !== get_user_meta( $user->ID, ProfileFields::MARKETING_OPT_IN, true ) ) {
+			do_action( 'galaxie_woo/change_source', __( 'Minha conta — Comunicação', 'galaxie-woo' ) );
+			update_user_meta( $user->ID, ProfileFields::MARKETING_OPT_IN, 'yes' );
+			FluentCRMApi::set_consent( $user->user_email, true, $user->ID );
+			$consented = true;
+		}
+
 		if ( $selected ) {
 			FluentCRMApi::attach_lists( $user->user_email, array( $list_id ) );
 		} else {
@@ -484,7 +514,7 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 		/** Fires after a customer turns a communication on or off — the FluentCRM module notes it on the contact. */
 		do_action( 'galaxie_woo/communication_changed', $user->ID, $list_id, $selected );
 
-		wp_send_json_success();
+		wp_send_json_success( array( 'consented' => $consented ) );
 	}
 
 	public function ajax_save_communication(): void {
@@ -497,7 +527,7 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 
 		// The contact's status follows the answer: subscribed with consent,
 		// transactional-only without it.
-		FluentCRMApi::set_consent( $user->user_email, $opt_in );
+		FluentCRMApi::set_consent( $user->user_email, $opt_in, $user_id );
 
 		$list_id = \Galaxie\Woo\Modules\FluentCRM\Module::consent_list_id();
 		if ( $list_id > 0 ) {
@@ -514,10 +544,10 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 	private function check_nonce_and_login(): void {
 		$nonce = isset( $_POST['nonce'] ) ? sanitize_text_field( wp_unslash( $_POST['nonce'] ) ) : '';
 		if ( ! wp_verify_nonce( $nonce, self::NONCE_ACTION ) ) {
-			wp_send_json_error( array( 'message' => __( 'Security check failed. Please refresh and try again.', 'galaxie-woo' ) ), 403 );
+			wp_send_json_error( array( 'message' => __( 'Sua sessão expirou. Atualize a página e tente de novo.', 'galaxie-woo' ) ), 403 );
 		}
 		if ( ! is_user_logged_in() ) {
-			wp_send_json_error( array( 'message' => __( 'Please sign in first.', 'galaxie-woo' ) ), 401 );
+			wp_send_json_error( array( 'message' => __( 'Entre na sua conta para continuar.', 'galaxie-woo' ) ), 401 );
 		}
 	}
 }
