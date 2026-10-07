@@ -23,9 +23,13 @@ defined( 'ABSPATH' ) || exit;
  *   put on the shipping packages only. The session — and so everything the
  *   browser is sent — holds the owner's country, state and city with a stand-in
  *   CEP of that state, and every Store API answer has its addresses cut down
- *   to that before it leaves (the surname too). The "Shipping to" lines and the
- *   calculator are not drawn for a gift. Once the cart holds no gift, the
- *   buyer's own shipping location is put back on the session.
+ *   to that before it leaves (the surname too). Once rated, the packages
+ *   themselves hold only the area ({@see self::mask_packages()}), and
+ *   WooCommerce's shipping row is drawn without its "Shipping to" / "No
+ *   shipping options were found for" lines and calculator — on the cart page
+ *   and in the unauthenticated `wc-ajax=get_cart_totals` alike. Once the cart
+ *   holds no gift, the buyer's own shipping location is put back on the
+ *   session.
  * - The checkout. The block checkout sends the shipping address it holds back
  *   to the server and saves it on the buyer's account. Placeholder values are
  *   sent by the gift script, and the buyer's own saved address is put back on
@@ -38,9 +42,11 @@ defined( 'ABSPATH' ) || exit;
  * - The order. The full address is written onto the order only as it is
  *   created. Who sees it whole is decided by who is reading, in one place
  *   ({@see self::reveals_address()}): e-mails to the customer are masked
- *   whoever sends them, e-mails to the store are not; elsewhere staff and the
- *   owner see it whole and everyone else sees "Gift for <name> — city/state",
- *   without the owner's phone.
+ *   whoever sends them, e-mails to the store are not; elsewhere it is whole
+ *   only on wp-admin's order screens and for the owner, and everything else
+ *   — other plugins' e-mails included — gets "Presente para <name> —
+ *   city/state", without the owner's phone. These order-level hooks
+ *   ({@see self::order_hooks()}) stay on with the Wishlist module off.
  * - The payment gateway. Stripe is not sent a shipping address for a gift: a
  *   PaymentIntent's shipping can be read in the browser with its client secret.
  *   Nor, through FunnelKit's gateway, the CEP it puts in `amount_details`.
@@ -61,6 +67,37 @@ final class Gifts {
 
 	/** Set on the product page a gift link redirects to; carries no secret (see SharedPage::remember_gift()). */
 	public const VIEW_ARG = 'galaxie_gift_view';
+
+	/**
+	 * Staff requests that may read a gift order's whole address and phone: the
+	 * Melhor Envio plugin's (melhor-envio-cotacao 2.16.6) admin-ajax actions
+	 * that read, quote, buy, pay, print or cancel an order's label — as its
+	 * Services/RouterService.php registers them. It has no REST routes. Applied
+	 * only while that plugin is loaded (MELHORENVIO_VERSION): the names are
+	 * generic. Filterable as `galaxie_woo/gift_reveal_actions`; an entry that
+	 * starts with "/" is a REST route prefix (e.g. "/melhor-envio/v1/").
+	 *
+	 * 2.16.6 itself reads the raw shipping getters and the billing phone, which
+	 * the masks never touch; this keeps a later version that reads the
+	 * formatted address or shipping phone from buying a label to "Presente
+	 * para …".
+	 */
+	public const REVEAL_ACTIONS = array(
+		'get_orders',
+		'get_quotation',
+		'update_order',
+		'add_cart',
+		'add_order',
+		'buy_click',
+		'remove_order',
+		'cancel_order',
+		'pay_ticket',
+		'create_ticket',
+		'print_ticket',
+		'insert_invoice_order',
+		'get_payload',
+		'get_payload_cart',
+	);
 
 	/** How long a product page opened from a gift link keeps its gift, in seconds. */
 	public const PENDING_TTL = 1800;
@@ -102,12 +139,13 @@ final class Gifts {
 		add_action( 'woocommerce_cart_emptied', array( self::class, 'restore_buyer_area' ), 20, 0 );
 		add_action( 'woocommerce_cart_item_removed', array( self::class, 'restore_buyer_area' ), 20, 0 );
 		add_action( 'woocommerce_before_calculate_totals', array( self::class, 'ship_to_owner_area' ), 5 );
+		// Quote first, mask after: carriers read the real destination inside
+		// WC_Shipping::calculate_shipping_for_package(), and the packages that
+		// leave it (`woocommerce_shipping_packages`) hold the area only.
 		add_filter( 'woocommerce_cart_shipping_packages', array( self::class, 'ship_packages' ), 5 );
+		add_filter( 'woocommerce_shipping_packages', array( self::class, 'mask_packages' ), PHP_INT_MAX );
+		add_filter( 'wc_get_template', array( self::class, 'shipping_template' ), 10, 2 );
 		add_filter( 'woocommerce_package_rates', array( self::class, 'no_pickup' ), 10, 1 );
-		add_filter( 'rest_request_after_callbacks', array( self::class, 'scrub_store_api' ), 10, 3 );
-		// The block cart and checkout preload their Store API data by calling the
-		// route directly, which skips the REST filter above and fires this instead.
-		add_filter( 'woocommerce_hydration_request_after_callbacks', array( self::class, 'scrub_store_api' ), 10, 3 );
 		add_filter( 'galaxie_cart_shipping_destination', array( self::class, 'hide_destination' ) );
 		add_filter( 'galaxie_cart_shipping_calculator_hidden', array( self::class, 'hide_calculator' ) );
 		add_filter( 'body_class', array( self::class, 'body_class' ) );
@@ -130,9 +168,27 @@ final class Gifts {
 		add_filter( 'delete_user_metadata_by_mid', array( self::class, 'block_shipping_meta_by_mid' ), 1, 2 );
 
 		add_action( 'woocommerce_store_api_checkout_update_customer_from_request', array( self::class, 'keep_buyer_address' ), 10, 1 );
+		// A gift that stopped holding between the cart and the order (gifts turned
+		// off, link renewed, list or address gone): refused before it is written.
+		add_action( 'woocommerce_after_checkout_validation', array( self::class, 'revalidate_checkout' ), 10, 2 );
+		add_action( 'woocommerce_store_api_checkout_update_order_from_request', array( self::class, 'revalidate_store_api' ), 5, 1 );
 		add_action( 'woocommerce_store_api_checkout_update_order_from_request', array( self::class, 'address_order' ), 10, 1 );
 		add_action( 'woocommerce_checkout_create_order', array( self::class, 'address_order' ), 10, 1 );
 		add_action( 'woocommerce_checkout_create_order_line_item', array( self::class, 'line_item' ), 10, 3 );
+	}
+
+	/**
+	 * What protects gift orders already placed: masking, e-mail audience,
+	 * payment-gateway scrubbing. Registered by Core\Plugin whether or not the
+	 * Wishlist module is on — turning it off must not unmask past gift orders.
+	 * Everything here reads order meta (or a gift checkout already in flight)
+	 * and does nothing for an ordinary order.
+	 */
+	public static function order_hooks(): void {
+		add_filter( 'rest_request_after_callbacks', array( self::class, 'scrub_store_api' ), 10, 3 );
+		// The block cart and checkout preload their Store API data by calling the
+		// route directly, which skips the REST filter above and fires this instead.
+		add_filter( 'woocommerce_hydration_request_after_callbacks', array( self::class, 'scrub_store_api' ), 10, 3 );
 
 		// Who an e-mail is for. Header and footer wrap an HTML e-mail's body;
 		// `woocommerce_email_customer_details` prints the addresses (WC_Emails
@@ -244,7 +300,13 @@ final class Gifts {
 		);
 	}
 
-	/** The gift token this add-to-cart carries: in the request, or remembered from the shared page. */
+	/**
+	 * The gift token this add-to-cart carries: in the request, or remembered
+	 * from the shared page — the latter only for an add-to-cart made from the
+	 * gift view of the product page ({@see self::from_gift_view()}). The same
+	 * product added from anywhere else (a shop grid, a carousel, a quick view)
+	 * is the buyer's own purchase, and the remembered gift is forgotten.
+	 */
 	private static function incoming_token( int $product_id ): string {
 		$token = isset( $_REQUEST[ self::REQUEST_ARG ] ) ? sanitize_key( wp_unslash( $_REQUEST[ self::REQUEST_ARG ] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- an add-to-cart, validated below.
 
@@ -254,7 +316,47 @@ final class Gifts {
 
 		$pending = self::pending_gift();
 
-		return $pending && $pending['product'] === $product_id ? $pending['token'] : '';
+		if ( ! $pending || $pending['product'] !== $product_id ) {
+			return '';
+		}
+
+		if ( ! self::from_gift_view() ) {
+			if ( WC()->session ) {
+				WC()->session->set( self::PENDING, null );
+			}
+			return '';
+		}
+
+		return $pending['token'];
+	}
+
+	/**
+	 * Whether this add-to-cart was made on a product page opened from "Dar de
+	 * presente": the page carries `galaxie_gift_view=1` (SharedPage::
+	 * remember_gift()), and an add-to-cart made there says so — in the request
+	 * itself, or in the page it was sent from: WooCommerce's form posts to the
+	 * bare product URL and the buy box posts to admin-ajax, but both are
+	 * same-origin requests, which carry the full referring URL. A request with
+	 * no referrer at all (a privacy setting) is given the benefit of the
+	 * doubt, as before.
+	 */
+	private static function from_gift_view(): bool {
+		// phpcs:disable WordPress.Security.NonceVerification -- only reads where the request came from.
+		if ( ! empty( $_REQUEST[ self::VIEW_ARG ] ) ) {
+			return true;
+		}
+
+		$referer = isset( $_SERVER['HTTP_REFERER'] ) ? (string) wp_unslash( $_SERVER['HTTP_REFERER'] ) : ''; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- parsed, never printed.
+		// phpcs:enable
+
+		if ( '' === $referer ) {
+			return true;
+		}
+
+		$query = (string) wp_parse_url( $referer, PHP_URL_QUERY );
+		parse_str( $query, $args );
+
+		return ! empty( $args[ self::VIEW_ARG ] );
 	}
 
 	/** The gift this product page was opened for, still valid, or null. @return array<string,mixed>|null */
@@ -462,6 +564,48 @@ final class Gifts {
 		return (string) ( $address['postcode'] ?? '' );
 	}
 
+	/**
+	 * While the cart holds a gift, the session's shipping location is the
+	 * owner's area with a stand-in CEP. This is the buyer's own location from
+	 * before the gift replaced it — what they quoted themselves — or null when
+	 * there is no gift, or no such snapshot.
+	 *
+	 * @return array{country:string,state:string,postcode:string,city:string}|null
+	 */
+	public static function buyer_area(): ?array {
+		if ( ! function_exists( 'WC' ) || ! WC()->session || ! self::cart_gift() ) {
+			return null;
+		}
+
+		$before = WC()->session->get( self::AREA_BEFORE );
+
+		if ( ! is_array( $before ) ) {
+			return null;
+		}
+
+		return array(
+			'country'  => (string) ( $before['country'] ?? '' ),
+			'state'    => (string) ( $before['state'] ?? '' ),
+			'postcode' => (string) ( $before['postcode'] ?? '' ),
+			'city'     => (string) ( $before['city'] ?? '' ),
+		);
+	}
+
+	/** Whether an account has the saved shipping address a gift needs ({@see self::for_token()}). */
+	public static function owner_address_ready( int $user_id ): bool {
+		if ( ! $user_id ) {
+			return false;
+		}
+
+		foreach ( array( 'address_1', 'postcode', 'country' ) as $field ) {
+			if ( '' === (string) get_user_meta( $user_id, 'shipping_' . $field, true ) ) {
+				return false;
+			}
+		}
+
+		return true;
+	}
+
 	public static function address_placeholder(): string {
 		return __( 'Endereço de quem recebe o presente', 'galaxie-woo' );
 	}
@@ -587,11 +731,80 @@ final class Gifts {
 		foreach ( $packages as $index => $package ) {
 			$packages[ $index ]['destination'] = array_merge(
 				(array) ( $package['destination'] ?? array() ),
-				array_intersect_key( $gift['address'], array_flip( array( 'country', 'state', 'postcode', 'city', 'address_1', 'address_2' ) ) )
+				array_intersect_key( $gift['address'], array_flip( array( 'country', 'state', 'postcode', 'city', 'address_1', 'address_2' ) ) ),
+				// WC_Cart::get_shipping_packages() also fills the legacy `address` key.
+				array( 'address' => $gift['address']['address_1'] )
 			);
 		}
 
 		return $packages;
+	}
+
+	/**
+	 * The packages once rated, with their destination cut down to the area —
+	 * the same country, state, city and stand-in CEP the session holds.
+	 *
+	 * WC_Shipping::calculate_shipping() rates each package (the carriers, Melhor
+	 * Envio included, read the real destination {@see self::ship_packages()} put
+	 * there, and the session caches the rates by a hash of that real package),
+	 * then passes the rated packages through `woocommerce_shipping_packages` and
+	 * keeps them as WC()->shipping()->get_packages(). That is what everything
+	 * after the quote draws from:
+	 *
+	 * - wc_cart_totals_shipping_html() → cart/cart-shipping.php, "Shipping to %s"
+	 *   / "No shipping options were found for %s" — the cart page, and the
+	 *   unauthenticated `?wc-ajax=get_cart_totals` / `update_shipping_method`;
+	 * - the Store API cart's `shipping_rates[].destination`
+	 *   (CartController::get_shipping_packages() → CartShippingRateSchema).
+	 *
+	 * Order creation reads the rates, never the destination: the order's own
+	 * shipping address is the owner's, written by {@see self::address_order()}.
+	 *
+	 * @param mixed $packages
+	 * @return mixed
+	 */
+	public static function mask_packages( $packages ) {
+		$gift = is_array( $packages ) && $packages ? self::cart_gift() : null;
+
+		if ( ! $gift ) {
+			return $packages;
+		}
+
+		$area = array(
+			'country'   => (string) $gift['address']['country'],
+			'state'     => (string) $gift['address']['state'],
+			'city'      => (string) $gift['address']['city'],
+			'postcode'  => self::placeholder_postcode( $gift['address'] ),
+			'address'   => '',
+			'address_1' => '',
+			'address_2' => '',
+		);
+
+		foreach ( $packages as $index => $package ) {
+			if ( is_array( $package ) && isset( $package['destination'] ) && is_array( $package['destination'] ) ) {
+				$packages[ $index ]['destination'] = array_merge( $package['destination'], $area );
+			}
+		}
+
+		return $packages;
+	}
+
+	/**
+	 * WooCommerce's shipping row (cart/cart-shipping.php) without the lines that
+	 * name the destination — "Shipping to …", "No shipping options were found
+	 * for …" — and without the calculator, for a cart that holds a gift. The
+	 * rates, their radio buttons and `woocommerce_after_shipping_rate` stay.
+	 *
+	 * @param mixed $template
+	 * @param mixed $template_name
+	 * @return mixed
+	 */
+	public static function shipping_template( $template, $template_name ) {
+		if ( 'cart/cart-shipping.php' !== $template_name || ! self::cart_gift() ) {
+			return $template;
+		}
+
+		return __DIR__ . '/templates/cart-shipping-gift.php';
 	}
 
 	/**
@@ -821,6 +1034,104 @@ final class Gifts {
 		}
 	}
 
+	/**
+	 * Cart items flagged as a gift whose gift no longer holds: the list stopped
+	 * accepting gifts, its link was renewed, the list or the owner's address is
+	 * gone, or the product left the list. Keyed by cart item key, valued by the
+	 * name the gift was given under.
+	 *
+	 * @return array<string,string>
+	 */
+	public static function stale_gift_items(): array {
+		if ( ! function_exists( 'WC' ) || ! WC()->cart ) {
+			return array();
+		}
+
+		$gift  = self::cart_gift();
+		$stale = array();
+
+		foreach ( WC()->cart->get_cart() as $key => $item ) {
+			$token = (string) ( $item[ self::CART_KEY ]['token'] ?? '' );
+
+			if ( '' === $token ) {
+				continue;
+			}
+
+			if ( ! $gift || $gift['token'] !== $token || ! self::on_list( $gift, (int) ( $item['product_id'] ?? 0 ), (int) ( $item['variation_id'] ?? 0 ) ) ) {
+				$stale[ (string) $key ] = (string) ( $item[ self::CART_KEY ]['name'] ?? '' );
+			}
+		}
+
+		return $stale;
+	}
+
+	/**
+	 * Takes the stale gifts out of the cart and says why, or returns null when
+	 * every gift still holds. Dropped rather than kept as the buyer's own
+	 * purchase: they were chosen for someone else's address, and a quiet switch
+	 * would ship them to the buyer.
+	 */
+	private static function drop_stale_gifts(): ?string {
+		$stale = self::stale_gift_items();
+
+		if ( ! $stale ) {
+			return null;
+		}
+
+		$contents = WC()->cart->get_cart_contents();
+
+		foreach ( array_keys( $stale ) as $key ) {
+			unset( $contents[ $key ] );
+		}
+
+		WC()->cart->set_cart_contents( $contents );
+		// Saves the cart to the session (WC_Cart_Session hooks the end of every
+		// calculation) and puts the buyer's own area back once no gift is left.
+		WC()->cart->calculate_totals();
+
+		$name = trim( (string) reset( $stale ) );
+
+		return '' !== $name
+			/* translators: %s: the list owner's first name. */
+			? sprintf( __( 'O presente para %s não pode mais ser enviado: a lista mudou ou deixou de aceitar presentes. Tiramos esse item do seu carrinho — abra o link da lista de novo para escolher outro presente.', 'galaxie-woo' ), $name )
+			: __( 'Este presente não pode mais ser enviado: a lista mudou ou deixou de aceitar presentes. Tiramos esse item do seu carrinho — abra o link da lista de novo para escolher outro presente.', 'galaxie-woo' );
+	}
+
+	/**
+	 * Classic checkout (the Galaxie Checkout widget posts WooCommerce's form):
+	 * a stale gift fails validation, so no order is written.
+	 *
+	 * @param mixed $data
+	 * @param mixed $errors
+	 */
+	public static function revalidate_checkout( $data, $errors ): void {
+		$message = $errors instanceof \WP_Error ? self::drop_stale_gifts() : null;
+
+		if ( null !== $message ) {
+			$errors->add( 'galaxie_gift', $message );
+		}
+	}
+
+	/**
+	 * Store API checkout: the same, before the owner's address would be written
+	 * (address_order, priority 10). The draft order is left a draft.
+	 *
+	 * @param mixed $order
+	 */
+	public static function revalidate_store_api( $order ): void {
+		$message = self::drop_stale_gifts();
+
+		if ( null === $message ) {
+			return;
+		}
+
+		if ( class_exists( '\Automattic\WooCommerce\StoreApi\Exceptions\RouteException' ) ) {
+			throw new \Automattic\WooCommerce\StoreApi\Exceptions\RouteException( 'galaxie_gift_unavailable', $message, 409 );
+		}
+
+		throw new \RuntimeException( $message );
+	}
+
 	/** The owner's full address onto the order, as it is created. */
 	public static function address_order( $order ): void {
 		$gift = $order instanceof \WC_Order ? self::cart_gift() : null;
@@ -846,7 +1157,14 @@ final class Gifts {
 	}
 
 	public static function line_item( $item, $cart_item_key, $values ): void {
-		if ( $item instanceof \WC_Order_Item_Product && ! empty( $values[ self::CART_KEY ]['name'] ) ) {
+		if ( ! $item instanceof \WC_Order_Item_Product || empty( $values[ self::CART_KEY ]['name'] ) ) {
+			return;
+		}
+
+		// Only for a gift the order really ships to its owner (see revalidate_*()).
+		$gift = self::cart_gift();
+
+		if ( $gift && (string) ( $values[ self::CART_KEY ]['token'] ?? '' ) === $gift['token'] ) {
 			$item->add_meta_data( __( 'Presente para', 'galaxie-woo' ), (string) $values[ self::CART_KEY ]['name'], true );
 		}
 	}
@@ -898,8 +1216,13 @@ final class Gifts {
 	 *   e-mails to the customer — even one staff send from wp-admin (completed
 	 *   order, customer note, order details), and even when the buyer is logged
 	 *   in as they trigger an e-mail to the store.
-	 * - Anywhere else: whole for staff (wp-admin, its AJAX order preview, the
-	 *   front end) and for the list's owner; masked for everyone else.
+	 * - Anywhere else: masked by default. Whole only on a wp-admin order screen
+	 *   being drawn for staff, the orders list's AJAX preview, and for the
+	 *   list's owner.
+	 *
+	 * Who is logged in is not enough on its own: an e-mail that is not a
+	 * WooCommerce one (a FluentCRM automation, a carrier's tracking message)
+	 * can be built while staff save an order, and it goes to the buyer.
 	 */
 	public static function reveals_address( \WC_Order $order ): bool {
 		$audience = self::$email['details'] ?? self::$email['header'];
@@ -908,9 +1231,65 @@ final class Gifts {
 			return 'admin' === $audience;
 		}
 
+		if ( self::staff_order_screen() ) {
+			return true;
+		}
+
 		$owner = (int) $order->get_meta( self::ORDER_OWNER );
 
-		return current_user_can( 'edit_shop_orders' ) || ( $owner && get_current_user_id() === $owner );
+		return $owner && get_current_user_id() === $owner && ! ( function_exists( 'wp_doing_cron' ) && wp_doing_cron() );
+	}
+
+	/**
+	 * A wp-admin order screen being drawn for staff: the order edit screen or
+	 * the orders list (HPOS or posts), past the admin header — so not the save
+	 * or bulk-action handler that runs first and may fire automations — or the
+	 * orders list's "Preview" (WC_AJAX::get_order_details), or a staff request
+	 * of the shipping-label plugin ({@see self::REVEAL_ACTIONS}).
+	 */
+	private static function staff_order_screen(): bool {
+		if ( ! current_user_can( 'edit_shop_orders' ) ) {
+			return false;
+		}
+
+		$reveal = self::reveal_actions();
+
+		if ( defined( 'REST_REQUEST' ) && REST_REQUEST ) {
+			$route = (string) ( $GLOBALS['wp']->query_vars['rest_route'] ?? '' );
+
+			foreach ( $reveal as $entry ) {
+				if ( '/' === substr( $entry, 0, 1 ) && '' !== $route && 0 === strpos( $route, $entry ) ) {
+					return true;
+				}
+			}
+
+			return false;
+		}
+
+		if ( ! is_admin() ) {
+			return false;
+		}
+
+		if ( wp_doing_ajax() ) {
+			$action = isset( $_REQUEST['action'] ) ? sanitize_key( wp_unslash( $_REQUEST['action'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- the handler checks its own nonce; this only reads which request it is.
+
+			return '' !== $action && ( 'woocommerce_get_order_details' === $action || in_array( $action, $reveal, true ) );
+		}
+
+		if ( ! did_action( 'in_admin_header' ) ) {
+			return false;
+		}
+
+		$screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
+
+		return $screen && ( 'shop_order' === $screen->post_type || in_array( (string) $screen->id, array( 'shop_order', 'edit-shop_order', 'woocommerce_page_wc-orders', 'admin_page_wc-orders' ), true ) );
+	}
+
+	/** @return array<int,string> {@see self::REVEAL_ACTIONS}, filtered. */
+	private static function reveal_actions(): array {
+		$defaults = defined( 'MELHORENVIO_VERSION' ) ? self::REVEAL_ACTIONS : array();
+
+		return array_values( array_filter( array_map( 'strval', (array) apply_filters( 'galaxie_woo/gift_reveal_actions', $defaults ) ) ) );
 	}
 
 	private static function is_gift_order( $order ): bool {

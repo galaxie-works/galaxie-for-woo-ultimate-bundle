@@ -90,7 +90,9 @@ final class SharedPage {
 			// Otherwise LiteSpeed keeps the 404 for every guess at a secret.
 			self::no_cache();
 
-			return get_404_template() ?: $template;
+			// Still a 404, and noindex (robots()), but one that says what happened:
+			// a link someone was sent is not a page that never existed.
+			return __DIR__ . '/templates/shared-wishlist-missing.php';
 		}
 
 		// Drawn differently for its owner and for everyone else.
@@ -116,9 +118,24 @@ final class SharedPage {
 
 		if ( $shared ) {
 			$parts['title'] = (string) $shared['list']['name'];
+		} elseif ( self::is_request() ) {
+			$parts['title'] = __( 'Lista não encontrada', 'galaxie-woo' );
 		}
 
 		return $parts;
+	}
+
+	/** What an invalid list link shows, inside the theme. */
+	public static function missing_content(): string {
+		$shop = function_exists( 'wc_get_page_permalink' ) ? (string) wc_get_page_permalink( 'shop' ) : home_url( '/shop/' );
+
+		return sprintf(
+			'<div class="galaxie-shared-wishlist is-missing"><h1 class="galaxie-shared-name">%1$s</h1><p class="galaxie-shared-intro">%2$s</p><p><a class="galaxie-account-button" href="%3$s">%4$s</a></p></div>',
+			esc_html__( 'Lista não encontrada', 'galaxie-woo' ),
+			esc_html__( 'Esta lista não existe mais ou foi tornada privada.', 'galaxie-woo' ),
+			esc_url( '' !== $shop ? $shop : home_url( '/shop/' ) ),
+			esc_html__( 'Ver a loja', 'galaxie-woo' )
+		);
 	}
 
 	/** @param array<string,bool|string> $robots */

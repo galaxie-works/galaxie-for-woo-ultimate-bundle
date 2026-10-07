@@ -4,6 +4,8 @@ import { cn } from '@/lib/cn'
 import { getGalaxieConfig, post } from '@/lib/wp'
 import { AddressBookStep } from './AddressBookStep'
 import { AddressStep, formatAddress } from './AddressStep'
+import { GiftDelivery } from './GiftDelivery'
+import { giftCheckoutConfig } from '@/globals/gift-checkout'
 import { OtpLogin } from '@/islands/login/OtpLogin'
 import {
   fillNativeBilling,
@@ -62,6 +64,8 @@ function Checkout(props: CheckoutProps) {
   const cfg = getGalaxieConfig()
   const { text, layout, ui } = props
   const preview = null !== props.preview
+  // A gift from a shared wish list: delivered to the list owner (see GiftDelivery).
+  const gift = React.useMemo(() => (preview ? null : giftCheckoutConfig()), [preview])
   const decor = React.useMemo<NativeDecor>(
     () => ({
       rate: ui.cls.rate,
@@ -362,15 +366,16 @@ function Checkout(props: CheckoutProps) {
               onEdit={() => goTo('address')}
               summary={
                 <>
-                  <span className="block">{addressLine}</span>
+                  <span className="block">{gift?.summary || addressLine}</span>
                   {shippingNote && <span className="block">{shippingNote}</span>}
                 </>
               }
             >
+              {gift && <GiftDelivery gift={gift} />}
               {props.addressBook ? (
                 <AddressBookStep
                   book={props.addressBook}
-                  quoted={props.quoted}
+                  quoted={gift ? null : props.quoted}
                   profile={profileValues}
                   text={text}
                   busy={busy}

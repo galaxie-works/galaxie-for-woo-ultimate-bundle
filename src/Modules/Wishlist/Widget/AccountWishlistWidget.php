@@ -570,6 +570,21 @@ final class AccountWishlistWidget extends Widget_Base {
 				$this->button( $s, 'wl_share_renew', 'galaxie-wishlist-share-renew' ),
 				$switch( 'galaxie-wishlist-gifts-toggle', ! empty( $list['gifts'] ), (string) ( $s['wl_gifts_toggle'] ?? '' ) )
 			);
+
+			// Gifts on, but nowhere to send them: the shared page shows no "Dar de
+			// presente" button until there is (Gifts::for_token()). Said here, where
+			// the switch was turned on, instead of failing silently.
+			$user_id = get_current_user_id();
+
+			if ( ! empty( $list['gifts'] ) && $user_id && ! \Galaxie\Woo\Modules\Wishlist\Gifts::owner_address_ready( $user_id ) ) {
+				$link .= sprintf(
+					'<p class="galaxie-wishlist-gifts-warning %1$s" role="status">%2$s <a href="%3$s">%4$s</a></p>',
+					esc_attr( $body ),
+					esc_html__( 'Para receber presentes, cadastre um endereço de entrega. Até lá, o botão “Dar de presente” não aparece na sua lista.', 'galaxie-woo' ),
+					esc_url( function_exists( 'wc_get_account_endpoint_url' ) ? wc_get_account_endpoint_url( 'edit-address' ) : '' ),
+					esc_html__( 'Cadastrar endereço', 'galaxie-woo' )
+				);
+			}
 		}
 
 		printf(

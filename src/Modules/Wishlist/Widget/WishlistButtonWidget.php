@@ -514,6 +514,9 @@ final class WishlistButtonWidget extends Widget_Base {
 		// a product goes, and whichever list took it, the button should say so.
 		$saved = $user_id && Lists::contains( $user_id, (int) $product->get_id() );
 		$shape = (string) ( $settings['heart_shape'] ?? '' );
+		// An icon-only button still needs a name for screen readers.
+		$add_label   = '' !== trim( (string) ( $settings['add_text'] ?? '' ) ) ? (string) $settings['add_text'] : __( 'Salvar na lista', 'galaxie-woo' );
+		$saved_label = '' !== trim( (string) ( $settings['saved_text'] ?? '' ) ) ? (string) $settings['saved_text'] : __( 'Salvo na lista', 'galaxie-woo' );
 
 		echo $this->legacy_css(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built from sanitized slugs and colours.
 
@@ -525,9 +528,9 @@ final class WishlistButtonWidget extends Widget_Base {
 			$saved ? ' is-in-wishlist' : '',
 			in_array( $shape, self::SHAPES, true ) ? ' galaxie-wishlist-shape-' . esc_attr( $shape ) : '',
 			esc_attr( (string) $product->get_id() ),
-			esc_attr( (string) ( $settings[ $saved ? 'saved_text' : 'add_text' ] ?? '' ) ),
-			esc_attr( (string) ( $settings['add_text'] ?? '' ) ),
-			esc_attr( (string) ( $settings['saved_text'] ?? '' ) )
+			esc_attr( $saved ? $saved_label : $add_label ),
+			esc_attr( $add_label ),
+			esc_attr( $saved_label )
 		);
 		// Both states ship in the markup; CSS shows exactly one. See class docblock.
 		echo '<span class="galaxie-wishlist-add">' . $this->render_button( 'add', $settings ) . '</span>'; // phpcs:ignore -- pixfort's own component markup.
