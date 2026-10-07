@@ -7,6 +7,8 @@
 
 namespace Galaxie\Woo\Integrations;
 
+use Galaxie\Woo\Support\CheckoutPage;
+
 defined( 'ABSPATH' ) || exit;
 
 /**
@@ -44,7 +46,8 @@ defined( 'ABSPATH' ) || exit;
  * back to the signed-in customer's profile CPF — already on this page in the
  * checkout island's own data — for a store without those fields.
  *
- * No-ops unless FunnelKit Stripe is active and has enqueued its script.
+ * No-ops unless FunnelKit Stripe is active and has enqueued its script, and
+ * only ever prints on the checkout form or an order-pay page.
  */
 final class FunnelKitPixTaxId {
 
@@ -64,8 +67,19 @@ final class FunnelKitPixTaxId {
 		add_action( 'wp_enqueue_scripts', array( self::class, 'pix_tax_id' ), 999 );
 	}
 
+	/**
+	 * Only where Pix can be paid: the checkout form and an order's pay page.
+	 * FunnelKit's script also loads on product and cart pages for its wallet
+	 * buttons, and the inline listener carries the signed-in customer's CPF —
+	 * printed there it would sit in the HTML of every product page they open
+	 * (audit CP-13), for nothing: no Pix is confirmed on those pages.
+	 */
+	public static function on_payment_page(): bool {
+		return CheckoutPage::is_form() || ( function_exists( 'is_wc_endpoint_url' ) && is_wc_endpoint_url( 'order-pay' ) );
+	}
+
 	public static function pix_tax_id(): void {
-		if ( ! self::is_active() || ! wp_script_is( self::SCRIPT, 'enqueued' ) ) {
+		if ( ! self::is_active() || ! self::on_payment_page() || ! wp_script_is( self::SCRIPT, 'enqueued' ) ) {
 			return;
 		}
 

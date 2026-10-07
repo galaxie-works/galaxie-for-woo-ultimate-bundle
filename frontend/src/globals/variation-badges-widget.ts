@@ -19,6 +19,7 @@
  */
 
 import { tell } from '@/lib/dialog'
+import { parseReply, postWithNonce } from '@/lib/wp'
 
 interface BuyBoxConfig {
   ajaxUrl: string
@@ -30,16 +31,13 @@ interface AddToCartResponse {
   data?: { message?: string; fragments?: Record<string, string>; cart_hash?: string; checkout_url?: string }
 }
 
+/** Nonce read at send time and renewed once if a cached page outlived it (lib/wp.ts). */
 function postAddToCart(config: BuyBoxConfig, variationId: number, quantity: number): Promise<AddToCartResponse> {
-  const body = new URLSearchParams({
+  return postWithNonce(config.ajaxUrl, config, {
     action: 'galaxie_variation_add_to_cart',
-    nonce: config.nonce,
     variation_id: String(variationId),
     quantity: String(quantity),
-  })
-  return fetch(config.ajaxUrl, { method: 'POST', credentials: 'same-origin', body }).then(
-    (response) => response.json() as Promise<AddToCartResponse>
-  )
+  }).then((reply) => (parseReply(reply) as AddToCartResponse | null) ?? { success: false })
 }
 
 const SELECT_FIRST = 'Selecione uma variação antes de continuar.'

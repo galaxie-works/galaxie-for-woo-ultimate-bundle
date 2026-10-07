@@ -25,13 +25,14 @@ interface BuyBoxConfig {
   nonce: string
 }
 
-interface AddToCartResponse {
-  success: boolean
-  data?: { message?: string; fragments?: Record<string, string>; cart_hash?: string }
+interface AddToCartData {
+  fragments?: Record<string, string>
+  cart_hash?: string
 }
 
 import { blockedByChoice, findAlert } from '@/globals/buy-box-alert'
 import { tell } from '@/lib/dialog'
+import { parseReply, postWithNonce } from '@/lib/wp'
 
 interface VariationPayload {
   price_html?: string
@@ -313,26 +314,27 @@ function initButtons(form: HTMLFormElement, config?: BuyBoxConfig): void {
 
     addCart.disabled = true
 
-    const body = new URLSearchParams({
+    // The nonce is read at send time from the config object, which a refresh
+    // updates in place: a page cached past its nonces' life gets them renewed
+    // and the add sent once more (lib/wp.ts, postWithNonce).
+    postWithNonce(config.ajaxUrl, config, {
       action: 'galaxie_variation_add_to_cart',
-      nonce: config.nonce,
       variation_id: String(variationId),
       product_id: String(productId),
       quantity: String(currentQuantity(form)),
     })
-
-    fetch(config.ajaxUrl, { method: 'POST', credentials: 'same-origin', body })
-      .then((response) => response.json() as Promise<AddToCartResponse>)
-      .then((json) => {
+      .then((reply) => {
         addCart.disabled = false
 
-        if (!json.success) {
+        const json = parseReply<AddToCartData>(reply)
+
+        if (!json?.success) {
           // The server's own sentence when it has one — a stock limit or a
           // third-party validation filter says something the widget cannot
           // guess — falling back to the configured wording otherwise. Only if
           // there is no Alert block at all does this resort to a browser
           // dialog, which is what the whole change is here to get rid of.
-          report(json.data?.message)
+          report(json?.data?.message)
           return
         }
 
@@ -340,6 +342,7 @@ function initButtons(form: HTMLFormElement, config?: BuyBoxConfig): void {
       })
       .catch(() => {
         addCart.disabled = false
+        report('Não foi possível falar com a loja. Verifique sua conexão e tente de novo.')
       })
   }
 }

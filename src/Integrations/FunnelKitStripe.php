@@ -42,8 +42,13 @@ defined( 'ABSPATH' ) || exit;
  *    there first, even when two run at the same moment — each reads the status
  *    it loaded before the other saved, and WooCommerce would complete twice:
  *    two "processing" e-mails, two payment notes.
+ *    A Pix order already CANCELLED is never completed by any of them either:
+ *    WooCommerce 10.9+ counts 'cancelled' among the statuses payment_complete()
+ *    may move to processing, so a late return URL would otherwise revive an
+ *    order whose stock went back on sale. The store gets a note to refund.
  * 3. {@see self::keep_pending_pix()} stops the unpaid-order sweep from cancelling
- *    a Pix order while its QR code can still be paid.
+ *    a Pix order while its QR code can still be paid, counted from the latest
+ *    payment attempt ({@see self::mark_attempt()}), not from the order's creation.
  *
  * Inert without FunnelKit: its action never fires, and the WooCommerce filters
  * only look at orders paid with `fkwcs_stripe_pix` while FunnelKit is loaded.
@@ -65,6 +70,12 @@ final class FunnelKitStripe {
 
 	/** Set once a Pix payment arrived for an order already cancelled, so the note is written once. */
 	public const META_PAID_AFTER_CANCEL = '_galaxie_pix_paid_after_cancel';
+
+	/** Unix time the order's latest Pix QR code was asked for: the sweep's window counts from it. */
+	public const META_ATTEMPT_AT = '_galaxie_pix_attempt_at';
+
+	/** The PaymentIntent id {@see self::META_ATTEMPT_AT} was recorded for. */
+	public const META_ATTEMPT_INTENT = '_galaxie_pix_attempt_intent';
 
 	/** Seconds a second completion waits for the first to save before going ahead anyway. */
 	private const LOCK_WAIT = 10;
@@ -90,6 +101,16 @@ final class FunnelKitStripe {
 		add_action( 'woocommerce_payment_complete', array( self::class, 'release' ), PHP_INT_MAX, 1 );
 		add_action( 'shutdown', array( self::class, 'release_all' ) );
 		add_filter( 'woocommerce_cancel_unpaid_order', array( self::class, 'keep_pending_pix' ), 20, 2 );
+
+		// When each Pix QR code was asked for. A new PaymentIntent is caught as
+		// FunnelKit saves it on the order (Helper::add_payment_intent_to_order()
+		// ends in $order->save()); an intent FunnelKit REUSES for a retry
+		// (validate_existing_intent(): one still `requires_action`) is not
+		// saved again, but the browser confirms it again and Stripe issues a new
+		// QR code with a new 24 h — caught on the gateway's successful result,
+		// which both the checkout and the order-pay page filter.
+		add_action( 'woocommerce_before_order_object_save', array( self::class, 'note_intent' ), 10, 1 );
+		add_filter( 'woocommerce_payment_successful_result', array( self::class, 'note_attempt' ), 1, 2 );
 	}
 
 	/** FunnelKit loads on `plugins_loaded` priority 0 and defines this as it does. */
@@ -141,17 +162,7 @@ final class FunnelKitStripe {
 		}
 
 		if ( $order->has_status( 'cancelled' ) ) {
-			if ( '' === (string) $order->get_meta( self::META_PAID_AFTER_CANCEL ) ) {
-				$order->update_meta_data( self::META_PAID_AFTER_CANCEL, (string) time() );
-				$order->save_meta_data();
-				$order->add_order_note(
-					sprintf(
-						/* translators: %s: Stripe PaymentIntent id */
-						__( 'Stripe confirmou o pagamento Pix (%s) depois que o pedido foi cancelado. Estorne pelo painel da Stripe, ou reabra o pedido se ainda houver estoque.', 'galaxie-woo' ),
-						(string) ( $intent->id ?? '' )
-					)
-				);
-			}
+			self::paid_after_cancel( $order, (string) ( $intent->id ?? '' ) );
 
 			return;
 		}
@@ -195,7 +206,15 @@ final class FunnelKitStripe {
 
 		// The return URL may have completed it since FunnelKit loaded the order;
 		// then FunnelKit's own notes would be written a second time for nothing.
-		if ( in_array( self::stored_status( (int) $order->get_id() ), self::paid_statuses(), true ) ) {
+		$stored_status = self::stored_status( (int) $order->get_id() );
+		if ( in_array( $stored_status, self::paid_statuses(), true ) ) {
+			return;
+		}
+
+		// Cancelled by the sweep since FunnelKit loaded it: not revived either.
+		if ( 'cancelled' === $stored_status ) {
+			self::paid_after_cancel( $order, (string) ( $intent->id ?? '' ) );
+
 			return;
 		}
 
@@ -247,7 +266,90 @@ final class FunnelKitStripe {
 			return array();
 		}
 
-		return $statuses;
+		// WooCommerce 10.9+ lists 'cancelled' here: a Pix paid after the sweep
+		// cancelled the order would come back as processing through the return
+		// URL or the thank-you page, though its stock went back on sale. The
+		// webhook path stops before this (pix_paid()); every path stops here.
+		if ( 'cancelled' === $status || ( '' === $status && $order->has_status( 'cancelled' ) ) ) {
+			self::paid_after_cancel( $order, self::stored_intent_id( $order ) );
+			self::log( 'warning', sprintf( 'Pix order %d: payment completed after the order was cancelled; left cancelled for a manual refund.', $order_id ) );
+			self::release( $order_id );
+
+			return array();
+		}
+
+		return array_values( array_diff( $statuses, array( 'cancelled' ) ) );
+	}
+
+	/**
+	 * The "paid after it was cancelled" note, written once per order whichever
+	 * path got there (webhook, return URL, thank-you page).
+	 */
+	private static function paid_after_cancel( \WC_Order $order, string $intent_id ): void {
+		if ( '' !== (string) $order->get_meta( self::META_PAID_AFTER_CANCEL ) ) {
+			return;
+		}
+
+		$order->update_meta_data( self::META_PAID_AFTER_CANCEL, (string) time() );
+		$order->save_meta_data();
+		$order->add_order_note(
+			sprintf(
+				/* translators: %s: Stripe PaymentIntent id */
+				__( 'Pix pago após o cancelamento do pedido (%s). O pedido continua cancelado: estorne manualmente pelo painel da Stripe, ou reabra o pedido se ainda houver estoque.', 'galaxie-woo' ),
+				'' !== $intent_id ? $intent_id : '?'
+			)
+		);
+	}
+
+	/**
+	 * Before an order is saved: a Pix order whose PaymentIntent is not the one
+	 * {@see self::META_ATTEMPT_AT} was recorded for gets the time now — a new
+	 * intent is a new QR code. Written onto the object being saved, so it goes
+	 * to the database in the same save.
+	 *
+	 * @param mixed $order
+	 */
+	public static function note_intent( $order ): void {
+		if ( ! $order instanceof \WC_Order || self::PIX !== $order->get_payment_method() ) {
+			return;
+		}
+
+		$intent = self::stored_intent_id( $order );
+		if ( '' === $intent || (string) $order->get_meta( self::META_ATTEMPT_INTENT ) === $intent ) {
+			return;
+		}
+
+		$order->update_meta_data( self::META_ATTEMPT_INTENT, $intent );
+		$order->update_meta_data( self::META_ATTEMPT_AT, (string) time() );
+	}
+
+	/**
+	 * The gateway accepted a payment attempt (checkout or order-pay): for Pix,
+	 * the browser now confirms the intent and Stripe issues a QR code good for
+	 * PIX_EXPIRY from now, even when FunnelKit reused the order's intent.
+	 *
+	 * @param mixed $result
+	 * @param mixed $order_id
+	 * @return mixed
+	 */
+	public static function note_attempt( $result, $order_id = 0 ) {
+		$order = function_exists( 'wc_get_order' ) ? wc_get_order( (int) $order_id ) : null;
+
+		if ( $order instanceof \WC_Order && self::PIX === $order->get_payment_method() ) {
+			self::mark_attempt( $order );
+		}
+
+		return $result;
+	}
+
+	/** Records now as the order's latest Pix attempt, with the intent it is for. */
+	public static function mark_attempt( \WC_Order $order ): void {
+		$intent = self::stored_intent_id( $order );
+		if ( '' !== $intent ) {
+			$order->update_meta_data( self::META_ATTEMPT_INTENT, $intent );
+		}
+		$order->update_meta_data( self::META_ATTEMPT_AT, (string) time() );
+		$order->save_meta_data();
 	}
 
 	/**
@@ -257,9 +359,10 @@ final class FunnelKitStripe {
 	 * already paid. Past it, Stripe no longer accepts the payment and the
 	 * sweep cancels as usual.
 	 *
-	 * Counted from the order's creation: a customer who retries Pix on the
-	 * same order later gets a QR code that outlives this window by the time
-	 * between the two attempts.
+	 * Counted from the latest payment attempt ({@see self::META_ATTEMPT_AT}),
+	 * or from the order's creation when none was recorded (orders from before
+	 * this was written, or one FunnelKit never got to): a customer who retries
+	 * Pix on the same order a day later gets a fresh QR code, and its full life.
 	 *
 	 * @param mixed $cancel
 	 * @param mixed $order
@@ -271,14 +374,15 @@ final class FunnelKitStripe {
 		}
 
 		$created = $order->get_date_created();
-		if ( ! $created ) {
+		$since   = max( $created ? (int) $created->getTimestamp() : 0, (int) $order->get_meta( self::META_ATTEMPT_AT ) );
+		if ( $since <= 0 ) {
 			return $cancel;
 		}
 
 		$expiry = (int) apply_filters( 'galaxie_woo/pix_expiry_seconds', self::PIX_EXPIRY, $order );
 		$window = max( 0, $expiry ) + self::CANCEL_GRACE;
 
-		return ( time() - $created->getTimestamp() ) < $window ? false : $cancel;
+		return ( time() - $since ) < $window ? false : $cancel;
 	}
 
 	/** Lets go of the order's lock, once it was saved paid. */
