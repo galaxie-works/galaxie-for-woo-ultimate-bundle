@@ -420,6 +420,56 @@ $_SERVER['HTTP_REFERER'] = 'https://eirnaturals.shop/lista/abc/';
 WC()->session->set( Gifts::PENDING, null );
 $check( '"Dar de presente" link (token in the request): gift', $validate_token(), 'abcdefabcdef12' );
 
+echo "LP-06 — Melhor Envio's staff requests (galaxie_woo/gift_reveal_actions)\n";
+$order = new WC_Order();
+$order->meta['_galaxie_gift_owner'] = 7;
+$staff_ajax = static function ( string $action, bool $staff = true ): void {
+	$GLOBALS['gx_user']  = 1;
+	$GLOBALS['gx_caps']  = $staff ? array( 'edit_shop_orders' ) : array();
+	$GLOBALS['gx_admin'] = true;
+	$GLOBALS['gx_ajax']  = true;
+	$_REQUEST            = array( 'action' => $action );
+};
+$reset();
+$staff_ajax( 'add_order' );
+$check( 'Melhor Envio not loaded: its generic action names reveal nothing', Gifts::reveals_address( $order ), false );
+define( 'MELHORENVIO_VERSION', '2.16.6' );
+foreach ( array( 'add_order', 'add_cart', 'buy_click', 'get_orders', 'get_quotation', 'update_order', 'create_ticket', 'pay_ticket', 'print_ticket', 'get_payload', 'get_payload_cart' ) as $action ) {
+	$staff_ajax( $action );
+	$check( "staff, Melhor Envio '$action': whole", Gifts::reveals_address( $order ), true );
+}
+$staff_ajax( 'add_order' );
+$check( 'staff, Melhor Envio: real phone', Gifts::mask_phone( '41999990000', $order ), '41999990000' );
+$check( 'staff, Melhor Envio: real formatted address', Gifts::mask( 'Rua Secreta, 42', array(), $order ), 'Rua Secreta, 42' );
+$staff_ajax( 'add_order', false );
+$check( 'Melhor Envio action without edit_shop_orders: masked', Gifts::reveals_address( $order ), false );
+$check( 'Melhor Envio action without edit_shop_orders: phone hidden', Gifts::mask_phone( '41999990000', $order ), '' );
+$staff_ajax( 'fluentcrm_send_email' );
+$check( 'staff, another plugin\'s AJAX: masked', Gifts::reveals_address( $order ), false );
+$staff_ajax( 'add_order' );
+$GLOBALS['gx_admin'] = false;
+$check( 'Melhor Envio action name outside admin-ajax: masked', Gifts::reveals_address( $order ), false );
+add_filter( 'galaxie_woo/gift_reveal_actions', static fn( $actions ) => array_values( array_diff( $actions, array( 'add_order' ) ) ) );
+$staff_ajax( 'add_order' );
+$check( 'filter can take an action out', Gifts::reveals_address( $order ), false );
+$staff_ajax( 'buy_click' );
+$check( 'filter keeps the rest', Gifts::reveals_address( $order ), true );
+$GLOBALS['gx_hooks']['galaxie_woo/gift_reveal_actions'] = array();
+
+// Last: REST_REQUEST cannot be undefined again.
+add_filter( 'galaxie_woo/gift_reveal_actions', static fn( $actions ) => array_merge( $actions, array( '/melhor-envio/v1/' ) ) );
+define( 'REST_REQUEST', true );
+$GLOBALS['wp'] = (object) array( 'query_vars' => array( 'rest_route' => '/melhor-envio/v1/orders/12' ) );
+$staff_ajax( 'add_order' );
+$GLOBALS['gx_admin'] = false;
+$GLOBALS['gx_ajax']  = false;
+$check( 'staff, filtered REST route prefix: whole', Gifts::reveals_address( $order ), true );
+$GLOBALS['wp']->query_vars['rest_route'] = '/wc/v3/orders/12';
+$check( 'staff, any other REST route: masked', Gifts::reveals_address( $order ), false );
+$GLOBALS['wp']->query_vars['rest_route'] = '/melhor-envio/v1/orders/12';
+$GLOBALS['gx_caps'] = array();
+$check( 'filtered REST route without edit_shop_orders: masked', Gifts::reveals_address( $order ), false );
+
 echo "\n  $passed passed, $failed failed\n";
 exit( $failed ? 1 : 0 );
 

@@ -68,6 +68,37 @@ final class Gifts {
 	/** Set on the product page a gift link redirects to; carries no secret (see SharedPage::remember_gift()). */
 	public const VIEW_ARG = 'galaxie_gift_view';
 
+	/**
+	 * Staff requests that may read a gift order's whole address and phone: the
+	 * Melhor Envio plugin's (melhor-envio-cotacao 2.16.6) admin-ajax actions
+	 * that read, quote, buy, pay, print or cancel an order's label — as its
+	 * Services/RouterService.php registers them. It has no REST routes. Applied
+	 * only while that plugin is loaded (MELHORENVIO_VERSION): the names are
+	 * generic. Filterable as `galaxie_woo/gift_reveal_actions`; an entry that
+	 * starts with "/" is a REST route prefix (e.g. "/melhor-envio/v1/").
+	 *
+	 * 2.16.6 itself reads the raw shipping getters and the billing phone, which
+	 * the masks never touch; this keeps a later version that reads the
+	 * formatted address or shipping phone from buying a label to "Presente
+	 * para …".
+	 */
+	public const REVEAL_ACTIONS = array(
+		'get_orders',
+		'get_quotation',
+		'update_order',
+		'add_cart',
+		'add_order',
+		'buy_click',
+		'remove_order',
+		'cancel_order',
+		'pay_ticket',
+		'create_ticket',
+		'print_ticket',
+		'insert_invoice_order',
+		'get_payload',
+		'get_payload_cart',
+	);
+
 	/** How long a product page opened from a gift link keeps its gift, in seconds. */
 	public const PENDING_TTL = 1800;
 
@@ -1213,15 +1244,36 @@ final class Gifts {
 	 * A wp-admin order screen being drawn for staff: the order edit screen or
 	 * the orders list (HPOS or posts), past the admin header — so not the save
 	 * or bulk-action handler that runs first and may fire automations — or the
-	 * orders list's "Preview" (WC_AJAX::get_order_details).
+	 * orders list's "Preview" (WC_AJAX::get_order_details), or a staff request
+	 * of the shipping-label plugin ({@see self::REVEAL_ACTIONS}).
 	 */
 	private static function staff_order_screen(): bool {
-		if ( ! is_admin() || ! current_user_can( 'edit_shop_orders' ) ) {
+		if ( ! current_user_can( 'edit_shop_orders' ) ) {
+			return false;
+		}
+
+		$reveal = self::reveal_actions();
+
+		if ( defined( 'REST_REQUEST' ) && REST_REQUEST ) {
+			$route = (string) ( $GLOBALS['wp']->query_vars['rest_route'] ?? '' );
+
+			foreach ( $reveal as $entry ) {
+				if ( '/' === substr( $entry, 0, 1 ) && '' !== $route && 0 === strpos( $route, $entry ) ) {
+					return true;
+				}
+			}
+
+			return false;
+		}
+
+		if ( ! is_admin() ) {
 			return false;
 		}
 
 		if ( wp_doing_ajax() ) {
-			return 'woocommerce_get_order_details' === ( isset( $_REQUEST['action'] ) ? sanitize_key( wp_unslash( $_REQUEST['action'] ) ) : '' ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- WooCommerce checks the nonce; this only reads which screen.
+			$action = isset( $_REQUEST['action'] ) ? sanitize_key( wp_unslash( $_REQUEST['action'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- the handler checks its own nonce; this only reads which request it is.
+
+			return '' !== $action && ( 'woocommerce_get_order_details' === $action || in_array( $action, $reveal, true ) );
 		}
 
 		if ( ! did_action( 'in_admin_header' ) ) {
@@ -1231,6 +1283,13 @@ final class Gifts {
 		$screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
 
 		return $screen && ( 'shop_order' === $screen->post_type || in_array( (string) $screen->id, array( 'shop_order', 'edit-shop_order', 'woocommerce_page_wc-orders', 'admin_page_wc-orders' ), true ) );
+	}
+
+	/** @return array<int,string> {@see self::REVEAL_ACTIONS}, filtered. */
+	private static function reveal_actions(): array {
+		$defaults = defined( 'MELHORENVIO_VERSION' ) ? self::REVEAL_ACTIONS : array();
+
+		return array_values( array_filter( array_map( 'strval', (array) apply_filters( 'galaxie_woo/gift_reveal_actions', $defaults ) ) ) );
 	}
 
 	private static function is_gift_order( $order ): bool {
