@@ -14,7 +14,7 @@
  * - Modules\FunnelKitPtBr\Translations: gettext only in a Portuguese request
  *   and only where no translation exists; stored English defaults translated,
  *   merchant titles kept; card messages by code; every placeholder of an
- *   original kept in its translation.
+ *   original kept in its translation; the express "Or" separator as "ou".
  *
  * `--funnelkit=<dir>` (a copy of the FunnelKit plugin) also checks that every
  * original string and code is still one FunnelKit writes.
@@ -66,6 +66,8 @@ function determine_locale() { return $GLOBALS['gx']['locale']; }
 function sanitize_text_field( $v ) { return trim( (string) $v ); }
 function wp_unslash( $v ) { return $v; }
 function get_user_option( $key, $user_id ) { return $GLOBALS['gx']['user_meta'][ $key ] ?? false; }
+function is_admin() { return ! empty( $GLOBALS['gx']['admin'] ); }
+function wp_doing_ajax() { return false; }
 
 /** The first JSON answer is the one the browser gets; anything after it never leaves the server. */
 function gx_send( bool $success, $data ): void {
@@ -300,7 +302,17 @@ $check( 'pt-br', 'stored default kept outside Portuguese', Translations::gateway
 
 gx_reset();
 $check( 'pt-br', 'stored English default title translated', Translations::gateway_title( 'Credit Card (Stripe)', 'fkwcs_stripe' ), 'Cartão de crédito (Stripe)' );
-$check( 'pt-br', 'stored English default description translated', Translations::gateway_description( 'Pay with Pix', 'fkwcs_stripe_pix' ), 'Pague com Pix' );
+$check( 'pt-br', 'stored English default description translated', Translations::gateway_description( 'Pay with Pix', 'fkwcs_stripe_pix' ), 'Pague com Pix — o código aparece ao finalizar o pedido.' );
+$check( 'pt-br', 'Pix is just "Pix"', Translations::gateway_title( 'Stripe Pix', 'fkwcs_stripe_pix' ), 'Pix' );
+
+$check( 'pt-br', 'express separator "Or" becomes "ou"', Translations::separator( array( 'separator_text' => 'Or', 'enabled' => 'yes' ), 'fkwcs_stripe_google_pay' ), array( 'separator_text' => 'ou', 'enabled' => 'yes' ) );
+$check( 'pt-br', 'legacy shared separators too', Translations::separator( array( 'express_checkout_separator_product' => 'OR ', 'express_checkout_separator_cart' => 'Or' ) ), array( 'express_checkout_separator_product' => 'ou', 'express_checkout_separator_cart' => 'ou' ) );
+$check( 'pt-br', 'a separator the merchant wrote is kept', Translations::separator( array( 'separator_text' => 'ou pague com' ) ), array( 'separator_text' => 'ou pague com' ) );
+$GLOBALS['gx']['admin'] = true;
+$check( 'pt-br', 'wp-admin settings screen shows what is stored', Translations::separator( array( 'separator_text' => 'Or' ) ), array( 'separator_text' => 'Or' ) );
+gx_reset( array( 'locale' => 'en_US' ) );
+$check( 'pt-br', 'separator kept outside Portuguese', Translations::separator( array( 'separator_text' => 'Or' ) ), array( 'separator_text' => 'Or' ) );
+gx_reset();
 $check( 'pt-br', 'a title the merchant wrote is kept', Translations::gateway_title( 'Cartão de crédito', 'fkwcs_stripe' ), 'Cartão de crédito' );
 $check( 'pt-br', 'another gateway\'s identical title is not touched', Translations::gateway_title( 'Credit Card (Stripe)', 'stripe' ), 'Credit Card (Stripe)' );
 $check( 'pt-br', 'brand names stay', Translations::gateway_title( 'Apple Pay', 'fkwcs_stripe_apple_pay' ), 'Apple Pay' );

@@ -30,6 +30,8 @@ defined( 'ABSPATH' ) || exit;
  *    English default is stored as the setting, and gettext never sees a stored
  *    value. Only a value still equal to FunnelKit's English default is
  *    translated: a title the merchant wrote is theirs.
+ * 4. `fkwcs_gateway_settings` — the wallet buttons' "Or" separator, which
+ *    FunnelKit prints from its settings, never through gettext ({@see separator()}).
  *
  * Nothing changes unless the request's locale is Portuguese.
  */
@@ -42,6 +44,42 @@ final class Translations {
 		add_filter( 'fkwcs_stripe_localized_messages', array( self::class, 'messages' ), 20 );
 		add_filter( 'woocommerce_gateway_title', array( self::class, 'gateway_title' ), 20, 2 );
 		add_filter( 'woocommerce_gateway_description', array( self::class, 'gateway_description' ), 20, 2 );
+		add_filter( 'fkwcs_gateway_settings', array( self::class, 'separator' ), 20, 2 );
+	}
+
+	/** What the express buttons' separator says instead of FunnelKit's default "Or". */
+	public const SEPARATOR = 'ou';
+
+	/** The separator settings FunnelKit reads (per wallet since 1.15, and the legacy shared ones). */
+	private const SEPARATOR_KEYS = array( 'separator_text', 'express_checkout_separator_product', 'express_checkout_separator_cart', 'express_checkout_separator_checkout' );
+
+	/**
+	 * The express buttons' "Or" separator, in Portuguese.
+	 *
+	 * FunnelKit prints it from its settings (`separator_text`, per wallet,
+	 * defaulting to "Or"; SmartButtons::payment_request_button_separator()),
+	 * never through gettext, so layer 1 cannot reach it. Its settings getter
+	 * (`Helper::get_gateway_settings()`) is filtered, and only a value still
+	 * equal to the English default is replaced — a separator the merchant
+	 * wrote is theirs. Never on wp-admin screens: the settings form shows and
+	 * saves what is stored.
+	 *
+	 * @param mixed $settings
+	 * @param mixed $gateway
+	 * @return mixed
+	 */
+	public static function separator( $settings, $gateway = '' ) {
+		if ( ! is_array( $settings ) || ( is_admin() && ! wp_doing_ajax() ) || ! self::active() ) {
+			return $settings;
+		}
+
+		foreach ( self::SEPARATOR_KEYS as $key ) {
+			if ( isset( $settings[ $key ] ) && is_string( $settings[ $key ] ) && 'or' === strtolower( trim( $settings[ $key ] ) ) ) {
+				$settings[ $key ] = self::SEPARATOR;
+			}
+		}
+
+		return $settings;
 	}
 
 	/** Whether this request speaks Portuguese. */
@@ -153,11 +191,11 @@ final class Translations {
 			// Gateway titles and descriptions (defaults; see stored_default()).
 			'Credit Card (Stripe)'                  => 'Cartão de crédito (Stripe)',
 			'Pay with your credit card via Stripe'  => 'Pague com seu cartão de crédito via Stripe',
-			'Stripe Pix'                            => 'Pix (Stripe)',
-			'Pay with Pix'                          => 'Pague com Pix',
+			'Stripe Pix'                            => 'Pix',
+			'Pay with Pix'                          => 'Pague com Pix — o código aparece ao finalizar o pedido.',
 			'Pay with Apple Pay'                    => 'Pague com Apple Pay',
 			'Pay with your Google Pay'              => 'Pague com seu Google Pay',
-			'Or'                                    => 'Ou',
+			'Or'                                    => self::SEPARATOR,
 
 			// The card form.
 			'Save payment information to my account for future purchases.' => 'Salvar os dados de pagamento na minha conta para compras futuras.',
@@ -179,6 +217,7 @@ final class Translations {
 			'Unable to process this payment, please try again or use alternative method.' => 'Não foi possível processar este pagamento. Tente de novo ou use outra forma de pagamento.',
 			'We are unable to process payments using the selected method. Please choose a different payment method.' => 'Não conseguimos processar pagamentos com a forma escolhida. Escolha outra forma de pagamento.',
 			'We do not accept %s. Please use a different card.' => 'Não aceitamos %s. Use outro cartão.',
+			'Invalid Order Key.'                    => 'Não encontramos este pedido. Abra-o pelo link do e-mail de confirmação e tente de novo.',
 			'Invalid order. Please refresh the page and try again.' => 'Pedido inválido. Recarregue a página e tente de novo.',
 			'Invalid stripe source'                 => 'Forma de pagamento inválida.',
 			'Unable to attach payment method to customer' => 'Não foi possível vincular a forma de pagamento à sua conta.',
@@ -284,6 +323,16 @@ final class Translations {
 			'transaction_not_allowed'           => $declined,
 			'try_again_later'                   => 'O cartão foi recusado por um motivo não informado. Tente de novo; se o problema continuar, fale com o banco emissor do cartão.',
 			'withdrawal_count_limit_exceeded'   => 'O saldo ou o limite de crédito do cartão foi excedido. Use outra forma de pagamento.',
+
+			// Stripe API errors a card or Pix shopper can still be shown when
+			// something goes wrong on the store's side: nothing for them to fix
+			// but to try again, so said that way.
+			'invalid_charge_amount'             => 'O valor do pagamento é inválido. Recarregue a página e tente de novo.',
+			'idempotency_key_in_use'            => 'Este pagamento já está sendo processado. Aguarde alguns instantes antes de tentar de novo.',
+			'invalid_source_usage'              => 'Esta forma de pagamento não pode ser usada agora. Tente de novo ou use outra forma de pagamento.',
+			'missing'                           => 'Não foi possível usar o cartão salvo. Informe os dados do cartão de novo.',
+			'charge_exceeds_source_limit'       => 'Não foi possível processar este pagamento agora. Tente de novo mais tarde ou use outra forma de pagamento.',
+			'server_side_confirmation_beta'     => 'Não foi possível processar o pagamento com cartão agora. Tente de novo ou use outra forma de pagamento.',
 		);
 	}
 }

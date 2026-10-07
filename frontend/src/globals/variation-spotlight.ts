@@ -11,15 +11,16 @@
  */
 
 import { tell } from '@/lib/dialog'
+import { parseReply, postWithNonce } from '@/lib/wp'
 
 interface VariationSpotlightConfig {
   ajaxUrl: string
   nonce: string
 }
 
-interface AddToCartResponse {
-  success: boolean
-  data?: { message?: string; fragments?: Record<string, string>; cart_hash?: string }
+interface AddToCartData {
+  fragments?: Record<string, string>
+  cart_hash?: string
 }
 
 export function bootVariationSpotlight(config: VariationSpotlightConfig): void {
@@ -36,17 +37,15 @@ export function bootVariationSpotlight(config: VariationSpotlightConfig): void {
     button.disabled = true
     button.textContent = '…'
 
-    const body = new URLSearchParams({
+    // Nonce read at send time and renewed once if a cached page outlived it.
+    postWithNonce(config.ajaxUrl, config, {
       action: 'galaxie_spotlight_add_to_cart',
-      nonce: config.nonce,
       variation_id: variationId,
       quantity: '1',
     })
-
-    fetch(config.ajaxUrl, { method: 'POST', credentials: 'same-origin', body })
-      .then((response) => response.json() as Promise<AddToCartResponse>)
-      .then((json) => {
-        if (json.success) {
+      .then((reply) => {
+        const json = parseReply<AddToCartData>(reply)
+        if (json?.success) {
           button.textContent = 'Adicionado!'
           const jq = window.jQuery
           if (jq && json.data) {
@@ -57,7 +56,7 @@ export function bootVariationSpotlight(config: VariationSpotlightConfig): void {
             button.disabled = false
           }, 2000)
         } else {
-          void tell(button, 'spotlight_dialog', { text: json.data?.message, fallback: 'Não foi possível adicionar ao carrinho.' })
+          void tell(button, 'spotlight_dialog', { text: json?.data?.message, fallback: 'Não foi possível adicionar ao carrinho.' })
           button.textContent = originalText
           button.disabled = false
         }

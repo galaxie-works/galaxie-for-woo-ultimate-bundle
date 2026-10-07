@@ -87,6 +87,10 @@ final class Plugin {
 		// (`wp galaxie`), saving through the same service as the page.
 		( new SettingsController( $this->service ) )->hooks();
 
+		// Fresh nonces for pages LiteSpeed / the CDN kept longer than a nonce
+		// lives (admin-ajax, so is_admin() is true there: outside the branch below).
+		FreshNonces::hooks();
+
 		if ( defined( 'WP_CLI' ) && WP_CLI ) {
 			\WP_CLI::add_command( 'galaxie module', new ModuleCommand( $this->service ) );
 			\WP_CLI::add_command( 'galaxie settings', new SettingsCommand( $this->service ) );
@@ -104,21 +108,33 @@ final class Plugin {
 		$this->modules->boot_enabled();
 	}
 
-	/**
-	 * Prints `window.__GALAXIE_WOO__` — merged boot config from every enabled
-	 * module that implements {@see ProvidesBootData} — in the head, ahead of the
-	 * deferred module bundle so the JS can read it before it runs.
-	 */
-	public function print_boot_data(): void {
+	/** Merged boot config from every enabled module that implements {@see ProvidesBootData}. */
+	public function boot_data(): array {
 		$data = array();
 		foreach ( $this->modules->enabled() as $module ) {
 			if ( $module instanceof ProvidesBootData ) {
 				$data = array_merge( $data, $module->boot_data() );
 			}
 		}
+
+		return $data;
+	}
+
+	/**
+	 * Prints `window.__GALAXIE_WOO__` — {@see boot_data()} — in the head, ahead
+	 * of the deferred module bundle so the JS can read it before it runs.
+	 *
+	 * With when it was made (`generatedAt`, Unix seconds) and where to ask for
+	 * fresh nonces (`ajaxUrl`): the page may be served from a cache for days,
+	 * and the script renews the nonces of one old enough ({@see FreshNonces}).
+	 */
+	public function print_boot_data(): void {
+		$data = $this->boot_data();
 		if ( empty( $data ) ) {
 			return;
 		}
+		$data['generatedAt'] = time();
+		$data['ajaxUrl']     = admin_url( 'admin-ajax.php' );
 		echo '<script>window.__GALAXIE_WOO__=Object.assign(window.__GALAXIE_WOO__||{},'
 			. wp_json_encode( $data ) . ');</script>' . "\n";
 	}
@@ -138,6 +154,7 @@ final class Plugin {
 		$this->modules->register( new \Galaxie\Woo\Modules\Checkout\Module() );
 		$this->modules->register( new \Galaxie\Woo\Modules\MyAccount\Module() );
 		$this->modules->register( new \Galaxie\Woo\Modules\FunnelKitPtBr\Module() );
+		$this->modules->register( new \Galaxie\Woo\Modules\FunnelKitExpress\Module() );
 		$this->modules->register( new \Galaxie\Woo\Modules\Cart\Module() );
 		$this->modules->register( new \Galaxie\Woo\Modules\FreeShipping\Module() );
 		$this->modules->register( new \Galaxie\Woo\Modules\Wishlist\Module() );

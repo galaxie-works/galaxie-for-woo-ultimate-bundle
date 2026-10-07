@@ -24,6 +24,8 @@
  * controls set.
  */
 
+import { parseReply, postWithNonce } from '@/lib/wp'
+
 interface WishlistConfig {
   ajaxUrl: string
   nonce: string
@@ -78,9 +80,10 @@ function sendToLogin(url: string, message?: string): void {
 }
 
 async function call(config: WishlistConfig, action: string, fields: Record<string, string>): Promise<WishlistResponse> {
-  const body = new URLSearchParams({ action: `galaxie_wishlist_${action}`, nonce: config.nonce, return: window.location.href, ...fields })
-  const response = await fetch(config.ajaxUrl, { method: 'POST', credentials: 'same-origin', body })
-  const json = (await response.json()) as WishlistResponse
+  // Nonce read at send time and renewed once if a cached page outlived it (lib/wp.ts).
+  const reply = await postWithNonce(config.ajaxUrl, config, { action: `galaxie_wishlist_${action}`, return: window.location.href, ...fields })
+  const json = parseReply(reply) as WishlistResponse | null
+  if (!json) throw new Error('wishlist: no JSON')
 
   if (!json.success && json.data?.login) sendToLogin(json.data.login, json.data.message)
 
