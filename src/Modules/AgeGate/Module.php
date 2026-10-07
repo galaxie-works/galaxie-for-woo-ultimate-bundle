@@ -79,7 +79,9 @@ final class Module implements ModuleContract, ProvidesSettings, ProvidesBootData
 		}
 		$age = (int) ( Plugin::instance()->settings()->module_settings( 'age-gate' )['min_age'] ?? 18 );
 
-		return $age > 0 ? $age : 18;
+		// The REST / WP-CLI settings path stores any number; past 120 every
+		// birthdate would fail and nobody could sign up or order.
+		return max( 1, min( 120, $age > 0 ? $age : 18 ) );
 	}
 
 	/** The latest date of birth that meets the minimum age, Y-m-d in the site's time zone. */

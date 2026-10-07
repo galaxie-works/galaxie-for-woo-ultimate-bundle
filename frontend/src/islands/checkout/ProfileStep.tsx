@@ -84,7 +84,7 @@ function ProfileStep({ initial, busy, errors, text, onSave }: ProfileStepProps) 
             unstyled
             id={`${id}-bd`}
             type="date"
-            required
+            required={!!getGalaxieConfig().ageGate?.minAge}
             max={getGalaxieConfig().ageGate?.minAge ? getGalaxieConfig().ageGate?.maxDate : undefined}
             className={field}
             aria-invalid={!!errors.birthdate}
