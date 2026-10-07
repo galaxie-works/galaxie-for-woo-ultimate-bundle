@@ -53,6 +53,9 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 		// checkout; it reads no setting of the module.
 		FunnelKitStripe::hooks();
 
+		// Orders only from signed-in customers, enforced on the server (the stepper only hides the form).
+		GuestCheckoutGuard::hooks();
+
 		add_action( 'wp_ajax_galaxie_save_profile', array( $this, 'ajax_save_profile' ) );
 		add_action( 'wp_ajax_galaxie_save_address', array( $this, 'ajax_save_address' ) );
 

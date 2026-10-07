@@ -109,6 +109,9 @@ function OtpLogin({ authCfg, text, genericError, onVerified, preview = false, in
   const ageGate = getGalaxieConfig().ageGate
   const [busy, setBusy] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
+  // The server's word after a sign-in code is asked for: it does not say
+  // whether the e-mail has an account, so this tells the shopper as much.
+  const [notice, setNotice] = React.useState<string | null>(null)
 
   const [reg, setReg] = React.useState<ProfileValues & { terms: boolean; marketing: boolean }>({
     first_name: '',
@@ -128,6 +131,7 @@ function OtpLogin({ authCfg, text, genericError, onVerified, preview = false, in
     setTab(next)
     setStage('request')
     setError(null)
+    setNotice(null)
     setCode('')
   }
 
@@ -182,12 +186,13 @@ function OtpLogin({ authCfg, text, genericError, onVerified, preview = false, in
           }
         : { email, context: 'login' }
 
-    const res = await post(authCfg.ajaxUrl, 'galaxie_auth_send_otp', authCfg.nonce, data)
+    const res = await post<{ notice?: string }>(authCfg.ajaxUrl, 'galaxie_auth_send_otp', authCfg.nonce, data)
     setBusy(false)
     if (!res.success) {
       setError(res.data?.message ?? genericError)
       return
     }
+    setNotice(res.data?.notice ?? null)
     setCode('')
     setStage('verify')
   }
@@ -217,6 +222,7 @@ function OtpLogin({ authCfg, text, genericError, onVerified, preview = false, in
             </React.Fragment>
           ))}
         </p>
+        {notice && <p className={cn('gx-co-small', cls.small)}>{notice}</p>}
         {error && <PixAlert message={error} />}
         <OtpInput value={code} onChange={setCode} autoFocus cellClassName={cn(field, 'gx-co-otp')} />
         <PixButton button={buttons.confirmCode} type="submit" disabled={busy || 6 !== code.length} />
@@ -227,6 +233,7 @@ function OtpLogin({ authCfg, text, genericError, onVerified, preview = false, in
             onClick={() => {
               setStage('request')
               setError(null)
+              setNotice(null)
             }}
           />
         </div>

@@ -182,7 +182,10 @@ final class OtpMail {
 
 			// The contact, when there is one, so {{contact.first_name}} and the
 			// like fill in; otherwise an unsaved one built from what we know. A
-			// null subscriber would give every smartcode its default.
+			// null subscriber would give every smartcode its default. The name
+			// typed on the sign-up form is anyone's to choose and goes to an
+			// address no one has proven yet, so only a name-shaped part of it
+			// reaches the e-mail: no links, no digits, short.
 			$subscriber = null;
 			if ( class_exists( '\FluentCrm\App\Models\Subscriber' ) ) {
 				$subscriber = \FluentCrm\App\Models\Subscriber::where( 'email', $email )->first();
@@ -190,8 +193,8 @@ final class OtpMail {
 					$subscriber = new \FluentCrm\App\Models\Subscriber(
 						array(
 							'email'      => $email,
-							'first_name' => (string) ( $reg_data['first_name'] ?? '' ),
-							'last_name'  => (string) ( $reg_data['last_name'] ?? '' ),
+							'first_name' => self::safe_name( (string) ( $reg_data['first_name'] ?? '' ) ),
+							'last_name'  => self::safe_name( (string) ( $reg_data['last_name'] ?? '' ) ),
 						)
 					);
 				}
@@ -239,7 +242,7 @@ final class OtpMail {
 
 			$sent = \FluentCrm\App\Services\Libs\Mailer\Mailer::send(
 				array(
-					'to'      => array( 'email' => $email, 'name' => trim( (string) ( $reg_data['first_name'] ?? '' ) ) ),
+					'to'      => array( 'email' => $email, 'name' => self::safe_name( (string) ( $reg_data['first_name'] ?? '' ) ) ),
 					'subject' => '' !== $subject ? $subject : __( 'Seu código de acesso', 'galaxie-woo' ),
 					'body'    => $html,
 					'headers' => \FluentCrm\App\Services\Helper::getMailHeader(),
@@ -282,6 +285,19 @@ final class OtpMail {
 		add_filter( 'wp_mail_content_type', $html );
 		wp_mail( $email, $subject, $body );
 		remove_filter( 'wp_mail_content_type', $html );
+	}
+
+	/**
+	 * A typed name as it may appear in a code e-mail: links dropped, then
+	 * only letters, spaces, hyphens and apostrophes, at most 40 characters.
+	 */
+	public static function safe_name( string $name ): string {
+		$name = (string) preg_replace( '~(?:[a-z][a-z0-9+.-]*://|www\.)\S*~iu', ' ', $name );
+		$name = (string) preg_replace( '~\S*\.(?:[a-z]{2,})(?:/\S*)?~iu', ' ', $name ); // bare domains: golpe.com, x.com.br/y
+		$name = (string) preg_replace( "~[^\p{L}\p{M} '\-]+~u", ' ', $name );
+		$name = trim( (string) preg_replace( '~\s+~u', ' ', $name ) );
+
+		return trim( function_exists( 'mb_substr' ) ? mb_substr( $name, 0, 40 ) : substr( $name, 0, 40 ) );
 	}
 
 	/**
