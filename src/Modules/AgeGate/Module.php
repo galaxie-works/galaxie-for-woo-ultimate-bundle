@@ -53,6 +53,8 @@ final class Module implements ModuleContract, ProvidesSettings, ProvidesBootData
 
 	public function boot(): void {
 		add_action( 'woocommerce_after_checkout_validation', array( $this, 'check_order' ), 10, 2 );
+		// The block checkout and anything else placing orders through the Store API.
+		add_action( 'woocommerce_store_api_checkout_update_order_from_request', array( $this, 'check_store_api_order' ), 10, 2 );
 	}
 
 	public function boot_data(): array {
@@ -126,21 +128,63 @@ final class Module implements ModuleContract, ProvidesSettings, ProvidesBootData
 	 * The last word on an order: a signed-in shopper whose saved date of birth
 	 * is missing or under the minimum age cannot place it. The checkout's
 	 * profile step asks for the date before payment; this catches anything
-	 * that reaches WooCommerce without it.
+	 * that reaches WooCommerce without it — express payments included, which
+	 * go through the same checkout for a signed-in customer.
+	 *
+	 * Someone signed out has no date of birth on file, so cannot be checked:
+	 * the order is refused and they are asked to sign in.
 	 *
 	 * @param array<string,mixed> $data
 	 * @param \WP_Error           $errors
 	 */
 	public function check_order( $data, $errors ): void {
-		$user_id = get_current_user_id();
-		if ( $user_id <= 0 || ! $errors instanceof \WP_Error ) {
+		if ( ! $errors instanceof \WP_Error ) {
 			return;
 		}
 
-		$problem = self::check( (string) get_user_meta( $user_id, ProfileFields::BIRTHDATE, true ) );
-		if ( null !== $problem ) {
-			$errors->add( 'galaxie_age_gate', $problem );
+		$problem = self::order_problem();
+		if ( null === $problem ) {
+			return;
 		}
+
+		// The Checkout module's guard may have said the same already.
+		if ( function_exists( 'wc_has_notice' ) && wc_has_notice( $problem, 'error' ) ) {
+			return;
+		}
+
+		$errors->add( 'galaxie_age_gate', $problem );
+	}
+
+	/**
+	 * The same check for an order placed through the Store API, where the
+	 * classic validation hook does not run. Throwing stops the order.
+	 *
+	 * @param \WC_Order        $order
+	 * @param \WP_REST_Request $request
+	 * @throws \Automattic\WooCommerce\StoreApi\Exceptions\RouteException When the order may not be placed.
+	 */
+	public function check_store_api_order( $order, $request ): void {
+		$problem = self::order_problem();
+		if ( null === $problem ) {
+			return;
+		}
+
+		$guest = get_current_user_id() <= 0;
+		throw new \Automattic\WooCommerce\StoreApi\Exceptions\RouteException(
+			$guest ? 'galaxie_woo_login_required' : 'galaxie_age_gate',
+			esc_html( $problem ),
+			$guest ? 401 : 400
+		);
+	}
+
+	/** Why the current shopper may not place an order, or null when they may. */
+	private static function order_problem(): ?string {
+		$user_id = get_current_user_id();
+		if ( $user_id <= 0 ) {
+			return __( 'Entre na sua conta para finalizar a compra.', 'galaxie-woo' );
+		}
+
+		return self::check( (string) get_user_meta( $user_id, ProfileFields::BIRTHDATE, true ) );
 	}
 
 	private static function timezone(): \DateTimeZone {
