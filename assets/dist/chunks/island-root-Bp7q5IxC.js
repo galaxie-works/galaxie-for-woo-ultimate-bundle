@@ -1,0 +1,1 @@
+import{n as e,t}from"./react-5S0hSHUy.js";var n=e(),r=t();function i(e,t,i){(0,n.createRoot)(e).render((0,r.jsx)(t,{...i}))}export{i as renderIsland};
