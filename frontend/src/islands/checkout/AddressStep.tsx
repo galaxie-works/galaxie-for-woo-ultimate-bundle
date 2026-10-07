@@ -4,9 +4,10 @@ import { cn } from '@/lib/cn'
 import { Input } from '@/ui/input'
 import { CoField, PixButton, useFieldClass, useUi } from '@/lib/pix'
 import type { AddressValues, CheckoutText, CheckoutUi } from './types'
-import type { AddressErrors } from './validation'
+import { splitStreet, type AddressErrors } from './validation'
 import { PlacesSearch } from './PlacesSearch'
 import { ShippingChoice } from './ShippingChoice'
+import { StreetFields } from './StreetFields'
 
 interface AddressStepProps {
   initial: Partial<AddressValues>
@@ -26,11 +27,14 @@ interface AddressStepProps {
   onContinue: () => void
   /** Editor preview: a sample carrier list stands in for WooCommerce's. */
   preview: boolean
+  /** Set when every carrier refused the saved address (see ShippingChoice). */
+  noRates?: string | null
 }
 
+/** "Rua das Flores, 123, Apto 4, Centro, Curitiba - PR, 80000-000". */
 export function formatAddress(values: Partial<AddressValues>): string {
   const cityLine = [values.city, values.state].filter(Boolean).join(' - ')
-  return [values.address_1, values.address_2, cityLine, values.postcode].filter(Boolean).join(', ')
+  return [values.address_1, values.number, values.address_2, values.neighborhood, cityLine, values.postcode].filter(Boolean).join(', ')
 }
 
 /**
@@ -53,17 +57,25 @@ function AddressStep({
   onSave,
   onContinue,
   preview,
+  noRates = null,
 }: AddressStepProps) {
   const { cls, buttons } = useUi<CheckoutUi>()
   const field = useFieldClass()
   const id = React.useId()
-  const [values, setValues] = React.useState<AddressValues>({
-    address_1: initial.address_1 ?? '',
-    address_2: initial.address_2 ?? '',
-    city: initial.city ?? '',
-    state: initial.state ?? '',
-    postcode: initial.postcode ?? '',
-    country: initial.country ?? 'BR',
+  const [values, setValues] = React.useState<AddressValues>(() => {
+    // An address saved before Número had its own field kept it at the end of
+    // the street line: split it back out rather than ask for it again.
+    const legacy = initial.number ? null : splitStreet(initial.address_1 ?? '')
+    return {
+      address_1: legacy ? legacy.street : (initial.address_1 ?? ''),
+      number: legacy ? legacy.number : (initial.number ?? ''),
+      address_2: initial.address_2 ?? '',
+      neighborhood: initial.neighborhood ?? '',
+      city: initial.city ?? '',
+      state: initial.state ?? '',
+      postcode: initial.postcode ?? '',
+      country: initial.country ?? 'BR',
+    }
   })
 
   function set<K extends keyof AddressValues>(key: K, value: AddressValues[K]) {
@@ -92,10 +104,14 @@ function AddressStep({
           <PlacesSearch
             label={text.addressSearch}
             onPlace={(place) => {
+              // Google gives "Rua, número" in one line and the bairro apart:
+              // each goes to its own field, never the bairro into Complemento.
+              const street = splitStreet(place.address_1)
               setValues((prev) => ({
                 ...prev,
-                address_1: place.address_1 || prev.address_1,
-                address_2: prev.address_2 || place.neighbourhood,
+                address_1: street.street || prev.address_1,
+                number: street.number || prev.number,
+                neighborhood: place.neighbourhood || prev.neighborhood,
                 city: place.city || prev.city,
                 state: place.state || prev.state,
                 postcode: place.postcode || prev.postcode,
@@ -117,21 +133,11 @@ function AddressStep({
               onChange={(e) => set('postcode', e.target.value)}
             />
           </CoField>
-          <CoField label={text.address1} htmlFor={`${id}-a1`} error={errors.address_1}>
-            <Input
-              unstyled
-              id={`${id}-a1`}
-              required
-              autoComplete="address-line1"
-              className={field}
-              aria-invalid={!!errors.address_1}
-              value={values.address_1}
-              onChange={(e) => set('address_1', e.target.value)}
-            />
-          </CoField>
-          <CoField label={text.address2} htmlFor={`${id}-a2`} hint={text.address2Hint}>
-            <Input unstyled id={`${id}-a2`} autoComplete="address-line2" className={field} value={values.address_2} onChange={(e) => set('address_2', e.target.value)} />
-          </CoField>
+          <StreetFields id={id} values={values} errors={errors} text={text} onChange={set}>
+            <CoField label={text.address2} htmlFor={`${id}-a2`} hint={text.address2Hint}>
+              <Input unstyled id={`${id}-a2`} autoComplete="address-line2" className={field} value={values.address_2} onChange={(e) => set('address_2', e.target.value)} />
+            </CoField>
+          </StreetFields>
           <div className="gx-co-grid-city">
             <CoField label={text.city} htmlFor={`${id}-city`} error={errors.city}>
               <Input
@@ -170,6 +176,7 @@ function AddressStep({
         shown={showSummary}
         onContinue={onContinue}
         preview={preview}
+        noRates={noRates}
       />
     </div>
   )

@@ -41,8 +41,25 @@ defined( 'ABSPATH' ) || exit;
  *
  * Only ever fills what is empty: a CNPJ (or any document) already there wins,
  * since the plugin's own account fields can hold a company's.
+ *
+ * The same holds for the house number and the bairro. With its options
+ * `woo_better_calc_number_required` / `woo_better_calc_enable_neighborhood_field`
+ * on, the plugin adds REQUIRED `billing_number` / `shipping_number` and
+ * `billing_neighborhood` / `shipping_neighborhood` to the hidden form, and
+ * Melhor Envio reads the order meta they become (`_shipping_number`,
+ * `_shipping_neighborhood`) for the label, beside `address_1` as the street.
+ * The delivery step now has fields for both and the island mirrors them in;
+ * with the plugin's options off this class registers the four fields itself
+ * (optional), so the order carries the same meta either way, and prints the
+ * number and bairro in formatted addresses where the plugin would have.
  */
 final class BrazilianCheckoutFields {
+
+	/** The address parts the Brazilian plugins keep beside WooCommerce's, with Link Nacional's form priorities. */
+	private const ADDRESS_PARTS = array(
+		'number'       => 55,
+		'neighborhood' => 69,
+	);
 
 	/** `billing_persontype` value for an individual (CPF); '2' is a company (CNPJ). */
 	public const INDIVIDUAL = '1';
@@ -68,6 +85,174 @@ final class BrazilianCheckoutFields {
 		foreach ( array( 'billing_document', 'billing_cpf', 'billing_persontype' ) as $key ) {
 			add_filter( 'default_checkout_' . $key, array( self::class, 'default_value' ), 10, 2 );
 		}
+
+		// After Link Nacional (100 and 999): only what it did not add.
+		add_filter( 'woocommerce_checkout_fields', array( self::class, 'address_fields' ), 1000 );
+		add_filter( 'woocommerce_checkout_posted_data', array( self::class, 'fill_address_parts' ), 20 );
+		add_filter( 'woocommerce_order_formatted_billing_address', array( self::class, 'formatted_order_address' ), 20, 2 );
+		add_filter( 'woocommerce_order_formatted_shipping_address', array( self::class, 'formatted_order_address' ), 20, 2 );
+	}
+
+	/** Does Link Nacional add (and print) this part itself? */
+	public static function plugin_handles( string $part ): bool {
+		$option = 'number' === $part ? 'woo_better_calc_number_required' : 'woo_better_calc_enable_neighborhood_field';
+
+		return 'yes' === get_option( $option, 'no' );
+	}
+
+	/**
+	 * Number and bairro on the checkout form when no plugin put them there:
+	 * optional for WooCommerce (the delivery step asks for them), and saved by
+	 * WooCommerce itself as `_billing_number` & co. order meta and customer meta.
+	 *
+	 * @param array<string,array<string,mixed>> $fields
+	 * @return array<string,array<string,mixed>>
+	 */
+	public static function address_fields( $fields ) {
+		if ( ! is_array( $fields ) ) {
+			return $fields;
+		}
+
+		foreach ( array( 'billing', 'shipping' ) as $type ) {
+			if ( ! isset( $fields[ $type ] ) || ! is_array( $fields[ $type ] ) ) {
+				continue;
+			}
+
+			foreach ( self::ADDRESS_PARTS as $part => $priority ) {
+				$key = $type . '_' . $part;
+
+				if ( isset( $fields[ $type ][ $key ] ) ) {
+					continue;
+				}
+
+				$fields[ $type ][ $key ] = array(
+					'label'    => 'number' === $part ? __( 'Número', 'galaxie-woo' ) : __( 'Bairro', 'galaxie-woo' ),
+					'required' => false,
+					'class'    => array( 'form-row-wide' ),
+					'priority' => $priority,
+				);
+			}
+		}
+
+		return $fields;
+	}
+
+	/**
+	 * Number and bairro for an order posted without them (the island not having
+	 * run), from the customer's saved address — but only when the posted
+	 * address IS that saved address (same street and CEP): another address's
+	 * number on this one would put the parcel at the wrong door.
+	 *
+	 * @param array<string,mixed> $data
+	 * @return array<string,mixed>
+	 */
+	public static function fill_address_parts( $data ) {
+		$user_id = get_current_user_id();
+
+		if ( ! is_array( $data ) || $user_id <= 0 ) {
+			return $data;
+		}
+
+		$saved = array(
+			'address_1' => (string) get_user_meta( $user_id, 'billing_address_1', true ),
+			'postcode'  => (string) get_user_meta( $user_id, 'billing_postcode', true ),
+		);
+
+		foreach ( self::ADDRESS_PARTS as $part => $unused ) {
+			$saved[ $part ] = (string) get_user_meta( $user_id, 'billing_' . $part, true );
+		}
+
+		return self::fill_parts( $data, $saved );
+	}
+
+	/**
+	 * Pure, for the tests: `$data` with empty number/bairro keys filled from
+	 * `$saved` when the posted billing street and CEP are the saved ones.
+	 *
+	 * @param array<string,mixed>  $data
+	 * @param array<string,string> $saved address_1, postcode, number, neighborhood.
+	 * @return array<string,mixed>
+	 */
+	public static function fill_parts( array $data, array $saved ): array {
+		$same = static fn( $a, $b ): bool => '' !== trim( (string) $b )
+			&& mb_strtolower( trim( (string) $a ) ) === mb_strtolower( trim( (string) $b ) );
+		$cep  = static fn( $value ): string => (string) preg_replace( '/\D+/', '', (string) $value );
+
+		if ( ! $same( $data['billing_address_1'] ?? '', $saved['address_1'] ?? '' )
+			|| '' === $cep( $saved['postcode'] ?? '' )
+			|| $cep( $data['billing_postcode'] ?? '' ) !== $cep( $saved['postcode'] ?? '' ) ) {
+			return $data;
+		}
+
+		foreach ( self::ADDRESS_PARTS as $part => $unused ) {
+			$value = (string) ( $saved[ $part ] ?? '' );
+
+			if ( '' === $value ) {
+				continue;
+			}
+
+			foreach ( array( 'billing', 'shipping' ) as $type ) {
+				$key = $type . '_' . $part;
+
+				if ( array_key_exists( $key, $data ) && '' === trim( (string) $data[ $key ] ) ) {
+					// Shipping only when it is the billing address (no
+					// separate street posted, or the same one).
+					if ( 'shipping' === $type && '' !== trim( (string) ( $data['shipping_address_1'] ?? '' ) ) && ! $same( $data['shipping_address_1'], $saved['address_1'] ) ) {
+						continue;
+					}
+					$data[ $key ] = $value;
+				}
+			}
+		}
+
+		return $data;
+	}
+
+	/**
+	 * Number and bairro in the order's printed address (e-mails, My Account,
+	 * admin) when Link Nacional, whose format has places for them, is not the
+	 * one printing them: "Rua das Flores, 123" and "Apto 4 - Centro".
+	 *
+	 * @param array<string,string>|mixed $address
+	 * @param \WC_Order|mixed            $order
+	 * @return array<string,string>|mixed
+	 */
+	public static function formatted_order_address( $address, $order ) {
+		if ( ! is_array( $address ) || ! $order instanceof \WC_Order ) {
+			return $address;
+		}
+
+		$type = 'woocommerce_order_formatted_shipping_address' === current_filter() ? 'shipping' : 'billing';
+
+		return self::with_parts(
+			$address,
+			self::plugin_handles( 'number' ) ? '' : (string) $order->get_meta( '_' . $type . '_number' ),
+			self::plugin_handles( 'neighborhood' ) ? '' : (string) $order->get_meta( '_' . $type . '_neighborhood' )
+		);
+	}
+
+	/**
+	 * Pure: the number appended to the street, the bairro to the complement.
+	 * Nothing added twice: a street already ending in that number keeps it.
+	 *
+	 * @param array<string,string> $address
+	 * @return array<string,string>
+	 */
+	public static function with_parts( array $address, string $number, string $neighborhood ): array {
+		$street = (string) ( $address['address_1'] ?? '' );
+		$number = trim( $number );
+
+		if ( '' !== $number && '' !== $street && ! preg_match( '/,\s*' . preg_quote( $number, '/' ) . '$/u', $street ) ) {
+			$address['address_1'] = $street . ', ' . $number;
+		}
+
+		$neighborhood = trim( $neighborhood );
+
+		if ( '' !== $neighborhood ) {
+			$address['address_2'] = implode( ' - ', array_filter( array( (string) ( $address['address_2'] ?? '' ), $neighborhood ) ) );
+		}
+
+		return $address;
 	}
 
 	/**

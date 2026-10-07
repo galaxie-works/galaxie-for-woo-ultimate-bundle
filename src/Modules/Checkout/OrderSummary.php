@@ -173,7 +173,7 @@ final class OrderSummary {
 		$row = array(
 			'id'    => 'shipping',
 			'label' => __( 'Frete', 'galaxie-woo' ),
-			'value' => __( 'Calculado na entrega', 'galaxie-woo' ),
+			'value' => __( 'Calculado na etapa Entrega', 'galaxie-woo' ),
 			'note'  => '',
 		);
 

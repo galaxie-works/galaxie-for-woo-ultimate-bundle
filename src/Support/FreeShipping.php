@@ -19,8 +19,12 @@ defined( 'ABSPATH' ) || exit;
  * its `min_amount`. Typing one by hand stays available for stores whose real
  * rule lives somewhere this cannot see.
  *
- * The comparison is against the cart contents total AFTER discounts, which is
- * what WooCommerce's own Free Shipping method compares by default.
+ * The comparison is the one the rule makes: with the Free Shipping module on,
+ * its own total (subtotal before coupons, unless "include discounts" is set —
+ * see Module::cart_total()); otherwise the cart contents total AFTER
+ * discounts, which is what WooCommerce's own Free Shipping method compares by
+ * default. Measuring one total and promising on another made the bar say
+ * "Faltam R$ 12" for an order the rule already shipped free (or the reverse).
  */
 final class FreeShipping {
 
@@ -95,7 +99,7 @@ final class FreeShipping {
 	 * @return array{threshold:float,total:float,remaining:float,percent:float,achieved:bool}
 	 */
 	public static function state( float $threshold ): array {
-		$total = function_exists( 'WC' ) && WC()->cart ? (float) WC()->cart->get_cart_contents_total() : 0.0;
+		$total = self::cart_total();
 
 		if ( $threshold <= 0 ) {
 			return array(
@@ -116,6 +120,15 @@ final class FreeShipping {
 			'percent'   => min( 100.0, ( $total / $threshold ) * 100 ),
 			'achieved'  => $remaining <= 0,
 		);
+	}
+
+	/** The total the free-shipping rule in force compares against its minimum. */
+	public static function cart_total(): float {
+		if ( \Galaxie\Woo\Core\Plugin::instance()->settings()->is_enabled( 'free-shipping', false ) ) {
+			return \Galaxie\Woo\Modules\FreeShipping\Module::cart_total();
+		}
+
+		return function_exists( 'WC' ) && WC()->cart ? (float) WC()->cart->get_cart_contents_total() : 0.0;
 	}
 
 	/**

@@ -15,8 +15,13 @@ export interface ProfileValues {
 }
 
 export interface AddressValues {
+  /** The street alone ("Rua das Flores"): the number has its own field. */
   address_1: string
+  /** "123", or "S/N" (sem número) — the Brazilian checkout plugin's convention. */
+  number: string
   address_2: string
+  /** The bairro: Melhor Envio prints it on the label, Link Nacional can require it. */
+  neighborhood: string
   city: string
   state: string
   postcode: string
@@ -100,8 +105,12 @@ export interface CheckoutText extends LoginText {
   cpf: string
   phone: string
   address1: string
+  number: string
+  /** The "no number" checkbox beside Número. */
+  numberNone: string
   address2: string
   address2Hint: string
+  neighborhood: string
   city: string
   state: string
   postcode: string
@@ -207,6 +216,10 @@ export interface CheckoutProps {
   i18n: {
     genericError: string
     noShipping: string
+    /** A CEP every carrier refused: no rate at all for the address. */
+    noRates: string
+    /** A saved address from before Número and Bairro had fields of their own. */
+    completeAddress: string
   }
   /**
    * Set only in the Elementor editor: sample data, one fixed step, no
