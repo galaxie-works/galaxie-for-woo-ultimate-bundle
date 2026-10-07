@@ -213,10 +213,10 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 	private function check_nonce_and_login(): void {
 		$nonce = isset( $_POST['nonce'] ) ? sanitize_text_field( wp_unslash( $_POST['nonce'] ) ) : '';
 		if ( ! wp_verify_nonce( $nonce, self::NONCE_ACTION ) ) {
-			wp_send_json_error( array( 'message' => __( 'Security check failed. Please refresh and try again.', 'galaxie-woo' ) ), 403 );
+			wp_send_json_error( array( 'message' => __( 'Sua sessão expirou. Atualize a página e tente de novo.', 'galaxie-woo' ) ), 403 );
 		}
 		if ( ! is_user_logged_in() ) {
-			wp_send_json_error( array( 'message' => __( 'Please sign in first.', 'galaxie-woo' ) ), 401 );
+			wp_send_json_error( array( 'message' => __( 'Entre na sua conta para continuar.', 'galaxie-woo' ) ), 401 );
 		}
 	}
 }

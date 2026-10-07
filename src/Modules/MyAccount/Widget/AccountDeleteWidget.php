@@ -56,9 +56,9 @@ final class AccountDeleteWidget extends Widget_Base {
 		$this->start_controls_section( 'delete_section', array( 'label' => __( 'Delete account', 'galaxie-woo' ) ) );
 
 		$this->add_control( 'delete_title', array( 'label' => __( 'Title', 'galaxie-woo' ), 'type' => Controls_Manager::TEXT, 'label_block' => true, 'default' => __( 'Excluir conta', 'galaxie-woo' ) ) );
-		$this->add_control( 'delete_text', array( 'label' => __( 'Text', 'galaxie-woo' ), 'type' => Controls_Manager::TEXTAREA, 'rows' => 3, 'default' => __( 'Sua conta é desativada na hora e excluída de vez depois de 6 meses. Se você entrar de novo nesse período, a exclusão é cancelada.', 'galaxie-woo' ) ) );
+		$this->add_control( 'delete_text', array( 'label' => __( 'Text', 'galaxie-woo' ), 'type' => Controls_Manager::TEXTAREA, 'rows' => 3, 'default' => __( 'Sua conta é desativada na hora e excluída de vez depois de 6 meses. Para desistir nesse período, entre de novo e toque em “Cancelar exclusão”.', 'galaxie-woo' ) ) );
 		$this->add_control( 'delete_dialog_title', array( 'label' => __( 'Confirmation title', 'galaxie-woo' ), 'type' => Controls_Manager::TEXT, 'label_block' => true, 'default' => __( 'Excluir sua conta?', 'galaxie-woo' ), 'separator' => 'before' ) );
-		$this->add_control( 'delete_dialog_text', array( 'label' => __( 'Confirmation text', 'galaxie-woo' ), 'type' => Controls_Manager::TEXTAREA, 'rows' => 3, 'default' => __( 'Você será desconectado agora. Pedidos em andamento continuam sendo entregues normalmente.', 'galaxie-woo' ) ) );
+		$this->add_control( 'delete_dialog_text', array( 'label' => __( 'Confirmation text', 'galaxie-woo' ), 'type' => Controls_Manager::TEXTAREA, 'rows' => 3, 'default' => __( 'Você será desconectado em todos os dispositivos e deixará de receber nossos e-mails de marketing. Pedidos em andamento continuam sendo entregues normalmente.', 'galaxie-woo' ) ) );
 
 		$this->end_controls_section();
 

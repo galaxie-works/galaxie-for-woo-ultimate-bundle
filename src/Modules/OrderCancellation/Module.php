@@ -27,7 +27,12 @@ defined( 'ABSPATH' ) || exit;
  * (always: a reason from the list set on wp-admin → Galaxie → Cancelamento,
  * and an optional comment), then:
  *
- * 1. Melhor Envio. No label for the order — nothing to undo. A label still in
+ * 1. Melhor Envio. No label for an order shipped by a Melhor Envio method —
+ *    nothing to undo. Anything the module cannot vouch for — Melhor Envio
+ *    inactive or failing, an order shipped some other way (free shipping,
+ *    local pickup, a label bought outside the plugin, a tracking code on the
+ *    order) — goes to the store to review, never to an automatic refund. A
+ *    label still in
  *    the Melhor Envio cart is taken out of it. A paid label is cancelled when
  *    Melhor Envio says it can be (its credit goes back to the wallet). A
  *    label already posted, delivered or otherwise on its way cannot be
@@ -54,11 +59,17 @@ final class Module implements ModuleContract, ProvidesSettings, ProvidesBootData
 	public const CHECK           = 'galaxie_cancel_check';
 	/** The query argument a refused (in-transit) cancellation returns with: the order id. */
 	public const POSTED_ARG      = 'galaxie_cancel_posted';
+	/** On an order's screen: open the cancel dialog for this order id (a bare Cancel link lands here). */
+	public const OPEN_ARG        = 'galaxie-cancel';
 	public const META_REASON     = '_galaxie_cancel_reason';
 	public const META_COMMENT    = '_galaxie_cancel_comment';
 	public const META_REQUESTED  = '_galaxie_cancel_requested_at';
 	public const META_CANCELLED  = '_galaxie_cancelled_by_customer_at';
 	public const META_POSTED     = '_galaxie_shipment_posted';
+
+	/** Option name prefix of the per-order lock, and how long a lock holds (seconds). */
+	private const LOCK_PREFIX = '_galaxie_cancel_lock_';
+	private const LOCK_TTL    = 120;
 
 	/** Order statuses this module adds to WooCommerce's own cancellable ones. */
 	private const PAID_STATUSES = array( 'processing', 'on-hold' );
@@ -75,6 +86,23 @@ final class Module implements ModuleContract, ProvidesSettings, ProvidesBootData
 	 * @var callable|null
 	 */
 	public static $melhor_envio = null;
+
+	/**
+	 * Reads the Melhor Envio record of an order (order → array, as the Melhor
+	 * Envio plugin's getData() answers). Replaceable, for tests.
+	 *
+	 * @var callable|null
+	 */
+	public static $label_source = null;
+
+	/** label(): sure there is no label. */
+	private const NO_LABEL = '#none';
+
+	/** label(): cannot tell. */
+	private const UNKNOWN = '#unknown';
+
+	/** Why label() could not tell, for the order note. */
+	private static string $unknown_why = '';
 
 	/** The order whose full refund must leave it "cancelled", not "refunded". */
 	private static int $cancelling = 0;
@@ -219,13 +247,18 @@ final class Module implements ModuleContract, ProvidesSettings, ProvidesBootData
 
 	/**
 	 * Whether Melhor Envio says the order's label is already on its way: true,
-	 * false (no label, or not yet), or null when it could not be asked.
+	 * false (no label, or not yet), or null when it could not be asked — or
+	 * when there is no telling whether the order left some other way.
 	 */
 	public static function shipment_gone( \WC_Order $order ): ?bool {
 		[ $label, $status ] = self::label_status( $order );
 
-		if ( '' === $label ) {
+		if ( self::NO_LABEL === $label ) {
 			return false;
+		}
+
+		if ( self::UNKNOWN === $label ) {
+			return null;
 		}
 
 		return '' === $status ? null : in_array( $status, self::GONE, true );
@@ -233,14 +266,16 @@ final class Module implements ModuleContract, ProvidesSettings, ProvidesBootData
 
 	/**
 	 * The order's Melhor Envio label and its status there ('' when unknown).
+	 * The label is NO_LABEL or UNKNOWN when there is none to ask about
+	 * ({@see self::label()}).
 	 *
 	 * @return array{0:string,1:string}
 	 */
 	private static function label_status( \WC_Order $order ): array {
 		$label = self::label( $order );
 
-		if ( '' === $label ) {
-			return array( '', '' );
+		if ( self::NO_LABEL === $label || self::UNKNOWN === $label ) {
+			return array( $label, '' );
 		}
 
 		$tracking = self::api( 'POST', '/shipment/tracking', array( 'orders' => array( $label ) ) );
@@ -262,20 +297,46 @@ final class Module implements ModuleContract, ProvidesSettings, ProvidesBootData
 			$this->leave( $back, __( 'Não foi possível cancelar este pedido. Atualize a página e tente de novo.', 'galaxie-woo' ), 'error', false );
 		}
 
+		$reason  = isset( $_REQUEST['reason'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['reason'] ) ) : '';
+		$comment = isset( $_REQUEST['comment'] ) ? sanitize_textarea_field( wp_unslash( $_REQUEST['comment'] ) ) : '';
+		$comment = function_exists( 'mb_substr' ) ? mb_substr( $comment, 0, 500 ) : substr( $comment, 0, 500 );
+
+		// A bare link (WooCommerce's own Cancel button on the orders table or the
+		// order-received page, which the reason dialog does not catch): to the
+		// order's screen, where the script opens the dialog for it.
+		if ( '' === $reason && 'GET' === strtoupper( (string) ( $_SERVER['REQUEST_METHOD'] ?? 'GET' ) ) && self::eligible( $order ) && ! self::in_transit( $order ) ) { // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+			$this->leave( add_query_arg( self::OPEN_ARG, $order_id, $order->get_view_order_url() ), '', '', false );
+		}
+
+		if ( ! self::lock( $order_id ) ) {
+			$this->leave( $back, __( 'Já estamos processando o cancelamento deste pedido. Atualize a página em instantes.', 'galaxie-woo' ), 'notice', false );
+		}
+
+		// Read again under the lock: a second press (another tab, a double
+		// click) finds what the first one did and reports it instead of
+		// refunding twice.
+		$fresh = wc_get_order( $order_id );
+		$order = $fresh instanceof \WC_Order ? $fresh : $order;
+		$done  = self::already_handled( $order );
+
+		if ( '' !== $done ) {
+			self::unlock( $order_id );
+			$this->finish( $order, $done, $back );
+		}
+
 		if ( ! self::eligible( $order ) ) {
+			self::unlock( $order_id );
 			$this->leave( $back, __( 'Este pedido não pode mais ser cancelado por aqui. Fale com a gente.', 'galaxie-woo' ), 'error', false );
 		}
 
 		// On its way: the screen opens the in-transit notice; nothing to ask.
 		if ( self::in_transit( $order ) ) {
+			self::unlock( $order_id );
 			$this->leave( add_query_arg( self::POSTED_ARG, $order_id, $back ), '', '', false );
 		}
 
-		$reason  = isset( $_REQUEST['reason'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['reason'] ) ) : '';
-		$comment = isset( $_REQUEST['comment'] ) ? sanitize_textarea_field( wp_unslash( $_REQUEST['comment'] ) ) : '';
-		$comment = function_exists( 'mb_substr' ) ? mb_substr( $comment, 0, 500 ) : substr( $comment, 0, 500 );
-
 		if ( ! in_array( $reason, self::reasons(), true ) ) {
+			self::unlock( $order_id );
 			$this->leave( $back, __( 'Escolha o motivo do cancelamento para continuar.', 'galaxie-woo' ), 'error', false );
 		}
 
@@ -283,8 +344,17 @@ final class Module implements ModuleContract, ProvidesSettings, ProvidesBootData
 		$order->update_meta_data( self::META_COMMENT, $comment );
 		$order->save();
 
-		$result = self::cancel( $order, $reason, $comment );
+		try {
+			$result = self::cancel( $order, $reason, $comment );
+		} finally {
+			self::unlock( $order_id );
+		}
 
+		$this->finish( $order, $result, $back );
+	}
+
+	/** Back to the screen with what came of the request: cancelled, posted or requested. */
+	private function finish( \WC_Order $order, string $result, string $back ): void {
 		if ( 'cancelled' === $result ) {
 			// WooCommerce's own words, so Galaxie's screens recognise the notice
 			// and show their "cancelled" alert instead (AccountParts).
@@ -292,19 +362,53 @@ final class Module implements ModuleContract, ProvidesSettings, ProvidesBootData
 		}
 
 		if ( 'posted' === $result ) {
-			$this->leave( add_query_arg( self::POSTED_ARG, $order_id, $back ), '', '', false );
+			$this->leave( add_query_arg( self::POSTED_ARG, $order->get_id(), $back ), '', '', false );
 		}
 
-		$this->leave(
-			$back,
-			sprintf(
-				/* translators: %s: order number */
-				__( 'Recebemos seu pedido de cancelamento do pedido #%s. Vamos confirmar por e-mail em breve.', 'galaxie-woo' ),
-				$order->get_order_number()
-			),
-			'notice',
-			false
-		);
+		$this->leave( $back, __( 'Recebemos seu pedido de cancelamento; vamos confirmar em até 1 dia útil.', 'galaxie-woo' ), 'notice', false );
+	}
+
+	/**
+	 * What an earlier request already did with this order: 'cancelled' (by the
+	 * customer, here), 'requested' (with the store) or '' (nothing yet).
+	 */
+	private static function already_handled( \WC_Order $order ): string {
+		if ( '' !== (string) $order->get_meta( self::META_CANCELLED ) ) {
+			return 'cancelled';
+		}
+
+		if ( '' !== (string) $order->get_meta( self::META_REQUESTED ) ) {
+			return 'requested';
+		}
+
+		return '';
+	}
+
+	/**
+	 * One cancellation at a time per order. `add_option()` is an INSERT on a
+	 * unique key, so only one request wins; a lock older than LOCK_TTL is a
+	 * request that died, and is taken over.
+	 */
+	private static function lock( int $order_id ): bool {
+		$key = self::LOCK_PREFIX . $order_id;
+
+		if ( add_option( $key, (string) time(), '', 'no' ) ) {
+			return true;
+		}
+
+		$since = (int) get_option( $key, 0 );
+
+		if ( $since > 0 && time() - $since < self::LOCK_TTL ) {
+			return false;
+		}
+
+		delete_option( $key );
+
+		return add_option( $key, (string) time(), '', 'no' );
+	}
+
+	private static function unlock( int $order_id ): void {
+		delete_option( self::LOCK_PREFIX . $order_id );
 	}
 
 	/**
@@ -375,8 +479,12 @@ final class Module implements ModuleContract, ProvidesSettings, ProvidesBootData
 	private static function undo_shipment( \WC_Order $order ): string {
 		[ $label, $status ] = self::label_status( $order );
 
-		if ( '' === $label ) {
+		if ( self::NO_LABEL === $label ) {
 			return 'ok';
+		}
+
+		if ( self::UNKNOWN === $label ) {
+			return self::$unknown_why ?: __( 'não há como confirmar que o pedido ainda não foi postado', 'galaxie-woo' );
 		}
 
 		if ( '' === $status ) {
@@ -427,19 +535,115 @@ final class Module implements ModuleContract, ProvidesSettings, ProvidesBootData
 		return 'ok';
 	}
 
-	/** The Melhor Envio order (label) id the Melhor Envio plugin keeps on the order, or ''. */
+	/**
+	 * The Melhor Envio order (label) id the Melhor Envio plugin keeps on the
+	 * order; NO_LABEL when it is sure there is none; UNKNOWN otherwise.
+	 *
+	 * "No label" refunds at once, so it must be known, not assumed: the order
+	 * went by a Melhor Envio method, the Melhor Envio plugin is there and
+	 * answers for it, and nothing on the order says it was posted another way.
+	 * Everything else — the plugin off or renamed, an error, free shipping or
+	 * local pickup (posted at a counter or handed over without a label from
+	 * the plugin), a tracking code written on the order — is UNKNOWN, and the
+	 * request goes to the store ({@see self::request()}). Why is kept in
+	 * $unknown_why for the order note.
+	 */
 	private static function label( \WC_Order $order ): string {
-		if ( ! class_exists( '\MelhorEnvio\Services\OrderQuotationService' ) ) {
-			return '';
+		self::$unknown_why = '';
+
+		$unknown = static function ( string $why ): string {
+			self::$unknown_why = $why;
+
+			return self::UNKNOWN;
+		};
+
+		if ( is_callable( self::$label_source ) ) {
+			$data = call_user_func( self::$label_source, $order );
+		} elseif ( ! class_exists( '\MelhorEnvio\Services\OrderQuotationService' ) ) {
+			return $unknown( __( 'o plugin do Melhor Envio não está ativo', 'galaxie-woo' ) );
+		} else {
+			try {
+				$data = ( new \MelhorEnvio\Services\OrderQuotationService() )->getData( $order->get_id() );
+			} catch ( \Throwable $e ) {
+				return $unknown( __( 'o plugin do Melhor Envio falhou ao ler o pedido', 'galaxie-woo' ) );
+			}
 		}
 
-		try {
-			$data = ( new \MelhorEnvio\Services\OrderQuotationService() )->getData( $order->get_id() );
-		} catch ( \Throwable $e ) {
-			return '';
+		if ( ! is_array( $data ) ) {
+			return $unknown( __( 'o Melhor Envio não tem registro deste pedido', 'galaxie-woo' ) );
 		}
 
-		return is_array( $data ) ? (string) ( $data['order_id'] ?? '' ) : '';
+		$label = trim( (string) ( $data['order_id'] ?? '' ) );
+
+		if ( '' !== $label ) {
+			return $label;
+		}
+
+		if ( '' !== trim( (string) ( $data['tracking'] ?? '' ) ) || self::has_tracking_meta( $order ) ) {
+			return $unknown( __( 'o pedido tem um código de rastreio', 'galaxie-woo' ) );
+		}
+
+		$methods = array();
+
+		foreach ( $order->get_shipping_methods() as $line ) {
+			$methods[] = (string) $line->get_method_id();
+		}
+
+		if ( ! $methods ) {
+			return $unknown( __( 'o pedido não tem forma de entrega', 'galaxie-woo' ) );
+		}
+
+		/**
+		 * Shipping method id prefixes whose labels the Melhor Envio plugin
+		 * records on the order — an order sent by one of these, with no label
+		 * recorded, has not been posted.
+		 *
+		 * @param string[]  $prefixes
+		 * @param \WC_Order $order
+		 */
+		$trusted = (array) apply_filters( 'galaxie_woo/cancel_label_methods', array( 'melhorenvio' ), $order );
+
+		foreach ( $methods as $method ) {
+			$known = false;
+
+			foreach ( $trusted as $prefix ) {
+				if ( '' !== (string) $prefix && 0 === strpos( $method, (string) $prefix ) ) {
+					$known = true;
+					break;
+				}
+			}
+
+			if ( ! $known ) {
+				return $unknown(
+					in_array( $method, array( 'local_pickup', 'pickup_location' ), true )
+						? __( 'retirada no local', 'galaxie-woo' )
+						/* translators: %s: shipping method id */
+						: sprintf( __( 'a entrega (%s) não é do Melhor Envio, então a etiqueta pode ter sido feita fora do plugin', 'galaxie-woo' ), $method )
+				);
+			}
+		}
+
+		return self::NO_LABEL;
+	}
+
+	/** Any tracking code another plugin (or the store, by hand) wrote on the order. */
+	private static function has_tracking_meta( \WC_Order $order ): bool {
+		foreach ( $order->get_meta_data() as $meta ) {
+			$data = $meta->get_data();
+			$key  = (string) ( $data['key'] ?? '' );
+
+			if ( '' === $key || false === stripos( $key, 'track' ) ) {
+				continue;
+			}
+
+			$value = $data['value'] ?? '';
+
+			if ( is_array( $value ) ? array_filter( $value ) : '' !== trim( (string) $value ) ) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	/**
@@ -576,9 +780,11 @@ final class Module implements ModuleContract, ProvidesSettings, ProvidesBootData
 		foreach (
 			array(
 				__( 'O botão Cancelar aparece em Minha conta para pedidos "Processando" e "Aguardando" (os não pagos o WooCommerce já cancela).', 'galaxie-woo' ),
-				__( 'Sem etiqueta no Melhor Envio: cancela e estorna na hora. Etiqueta no carrinho do Melhor Envio: é removida. Etiqueta paga e ainda não postada: é cancelada lá (o crédito volta para a carteira) e o pedido é cancelado e estornado.', 'galaxie-woo' ),
+				__( 'Entrega por um método do Melhor Envio e nenhuma etiqueta: cancela e estorna na hora. Etiqueta no carrinho do Melhor Envio: é removida. Etiqueta paga e ainda não postada: é cancelada lá (o crédito volta para a carteira) e o pedido é cancelado e estornado.', 'galaxie-woo' ),
+				__( 'Quando não dá para ter certeza de que o pedido não saiu — frete grátis ou outra entrega que não é do Melhor Envio, retirada no local, código de rastreio no pedido, plugin do Melhor Envio desativado ou com erro — nada é estornado: o pedido vai para a sua revisão (nota no pedido + e-mail) e o cliente lê "Recebemos seu pedido de cancelamento; vamos confirmar em até 1 dia útil."', 'galaxie-woo' ),
 				__( 'Etiqueta já postada: o botão continua, e abre o aviso "Cancelamento de pedido em rota" (título, texto e botão OK editáveis no widget Galaxie Account Orders / Order). O texto padrão orienta a recusar o recebimento.', 'galaxie-woo' ),
 				__( 'Se o Melhor Envio não responder ou o estorno falhar, nada é estornado: o pedido ganha uma nota, você recebe um e-mail para decidir e o cliente vê que o pedido de cancelamento foi recebido.', 'galaxie-woo' ),
+				__( 'O botão Cancelar nativo do WooCommerce (tabela de pedidos, página de pedido recebido) leva à tela do pedido, que abre a pergunta do motivo. Dois cliques seguidos não estornam duas vezes.', 'galaxie-woo' ),
 				__( 'O estorno é sempre do valor total que resta no pedido (produtos e frete). O WooCommerce envia à loja o e-mail "Pedido cancelado" e ao cliente o "Pedido reembolsado".', 'galaxie-woo' ),
 			) as $line
 		) {

@@ -69,7 +69,16 @@ function announce(root: Element): void {
   })
 }
 
-async function load(key: string, template: string, url: string, push: boolean): Promise<void> {
+/**
+ * The value a screen was opened with — an order's id on its page — so going
+ * Back to it asks for that order again, not for whichever is the latest. The
+ * order widget writes it on its box.
+ */
+function screenValue(root: ParentNode | null): string {
+  return root?.querySelector<HTMLElement>('[data-account-value]')?.dataset.accountValue ?? ''
+}
+
+async function load(key: string, template: string, url: string, push: boolean, value = ''): Promise<void> {
   const host = region()
   const config = getGalaxieConfig()
 
@@ -83,6 +92,7 @@ async function load(key: string, template: string, url: string, push: boolean): 
   const res = await post<ScreenResponse>(config.myAccount.ajaxUrl, 'galaxie_myaccount_screen', config.myAccount.nonce, {
     screen: key,
     template,
+    value,
   })
 
   host.classList.remove('is-loading')
@@ -108,7 +118,7 @@ async function load(key: string, template: string, url: string, push: boolean): 
   setActive(key)
 
   if (push) {
-    window.history.pushState({ galaxieScreen: key, galaxieTemplate: template }, '', url)
+    window.history.pushState({ galaxieScreen: key, galaxieTemplate: template, galaxieValue: value || screenValue(body) }, '', url)
   }
 
   announce(body)
@@ -119,7 +129,11 @@ export function bootAccountMenu(): void {
   const first = region()
 
   if (first && !window.history.state) {
-    window.history.replaceState({ galaxieScreen: first.dataset.accountScreen ?? '' }, '', window.location.href)
+    window.history.replaceState(
+      { galaxieScreen: first.dataset.accountScreen ?? '', galaxieValue: screenValue(first) },
+      '',
+      window.location.href
+    )
   }
 
   document.addEventListener('click', (event) => {
@@ -153,10 +167,17 @@ export function bootAccountMenu(): void {
   })
 
   window.addEventListener('popstate', (event) => {
-    const state = event.state as { galaxieScreen?: string; galaxieTemplate?: string } | null
+    const state = event.state as { galaxieScreen?: string; galaxieTemplate?: string; galaxieValue?: string } | null
 
     if (!state?.galaxieScreen || !region()) return
 
-    void load(state.galaxieScreen, state.galaxieTemplate ?? '', window.location.href, false)
+    // A screen that needs a value (an order) and has none recorded is loaded
+    // for real rather than guessed.
+    if (state.galaxieScreen === 'view-order' && !state.galaxieValue) {
+      window.location.reload()
+      return
+    }
+
+    void load(state.galaxieScreen, state.galaxieTemplate ?? '', window.location.href, false, state.galaxieValue ?? '')
   })
 }
