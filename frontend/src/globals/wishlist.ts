@@ -61,18 +61,38 @@ interface OpenPopover {
 /** The old markup's second button, still on a cached page, opens the same popover. */
 const TRIGGERS = '.galaxie-wishlist-btn, .galaxie-wishlist-list-btn'
 
+/** Long enough to read the sign-in message before the page changes. */
+const LOGIN_DELAY = 1200
+
+const LOGIN_MESSAGE = 'Entre na sua conta para salvar seus favoritos.'
+
+/**
+ * A visitor: the server remembered what they tapped. Say why the page is
+ * about to change, then go and sign in (they come back afterwards).
+ */
+function sendToLogin(url: string, message?: string): void {
+  void import('@/globals/toast-notices')
+    .then((module) => module.showToast(message || LOGIN_MESSAGE, 'info'))
+    .catch(() => undefined)
+  window.setTimeout(() => window.location.assign(url), LOGIN_DELAY)
+}
+
 async function call(config: WishlistConfig, action: string, fields: Record<string, string>): Promise<WishlistResponse> {
   const body = new URLSearchParams({ action: `galaxie_wishlist_${action}`, nonce: config.nonce, return: window.location.href, ...fields })
   const response = await fetch(config.ajaxUrl, { method: 'POST', credentials: 'same-origin', body })
   const json = (await response.json()) as WishlistResponse
 
-  // A visitor: the server remembered what they tapped; sign in and come back.
-  if (!json.success && json.data?.login) window.location.assign(json.data.login)
+  if (!json.success && json.data?.login) sendToLogin(json.data.login, json.data.message)
 
   return json
 }
 
 export function bootWishlist(config: WishlistConfig): void {
+  // A cached page drawn before buttons always had a name.
+  document.querySelectorAll<HTMLButtonElement>('.galaxie-wishlist-btn:not([aria-label]), .galaxie-wishlist-btn[aria-label=""]').forEach((button) => {
+    applyState(button, button.classList.contains('is-in-wishlist'))
+  })
+
   document.addEventListener('click', (event) => {
     const target = event.target as HTMLElement | null
     const trigger = target?.closest<HTMLButtonElement>(TRIGGERS)
@@ -116,8 +136,8 @@ function applyState(button: HTMLButtonElement, saved: boolean): void {
   if (button.hasAttribute('aria-pressed')) button.setAttribute('aria-pressed', saved ? 'true' : 'false')
 
   // An icon-only button has no visible words; its name has to follow the state.
-  const label = saved ? button.dataset.labelSaved : button.dataset.labelAdd
-  if (label) button.setAttribute('aria-label', label)
+  const label = (saved ? button.dataset.labelSaved : button.dataset.labelAdd) || (saved ? 'Salvo na lista' : 'Salvar na lista')
+  button.setAttribute('aria-label', label)
 }
 
 /** Every button for the product on the page, not only the one tapped. */

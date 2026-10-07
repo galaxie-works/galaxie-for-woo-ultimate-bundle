@@ -77,6 +77,7 @@ final class Plugin {
 		// a shared wish list's gift never needed Gift Wrap — so the "Presente"
 		// tag in wp-admin reads order meta with no toggle in the way.
 		GiftOrders::hooks();
+		\Galaxie\Woo\Modules\Wishlist\Gifts::order_hooks(); // Past gift orders stay masked with the Wishlist module off.
 
 		// And for the same reason, what goes in each gift box: the order screen and
 		// the e-mails read it from the order's own line items.

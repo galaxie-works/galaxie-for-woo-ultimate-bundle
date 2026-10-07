@@ -41,7 +41,27 @@ final class QuotedDestination {
 	 * @return array{country:string,state:string,postcode:string,city:string}|null
 	 */
 	public static function remember(): ?array {
-		if ( is_user_logged_in() || ! FreeShipping::destination_known() || ! WC()->session ) {
+		if ( is_user_logged_in() || ! WC()->session ) {
+			return null;
+		}
+
+		// A gift from a shared wish list in the cart: the session's location is
+		// the list owner's city with a stand-in CEP (Wishlist\Gifts), not this
+		// shopper's — so it is never theirs to keep. What they quoted before the
+		// gift, if anything, is.
+		if ( class_exists( \Galaxie\Woo\Modules\Wishlist\Gifts::class ) && \Galaxie\Woo\Modules\Wishlist\Gifts::cart_gift() ) {
+			$own = \Galaxie\Woo\Modules\Wishlist\Gifts::buyer_area();
+
+			if ( ! $own || '' === $own['postcode'] || '' === $own['country'] ) {
+				return null;
+			}
+
+			WC()->session->set( self::SESSION_KEY, $own );
+
+			return $own;
+		}
+
+		if ( ! FreeShipping::destination_known() ) {
 			return null;
 		}
 

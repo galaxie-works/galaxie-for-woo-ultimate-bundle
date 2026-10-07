@@ -167,6 +167,14 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 				/* translators: 1: the list owner's first name, 2: city/state. */
 				'notice'      => sprintf( __( 'Presente para %1$s · entrega em %2$s, no endereço que %1$s cadastrou.', 'galaxie-woo' ), $gift['name'], $place ),
 				'placeholder' => Gifts::address_placeholder(),
+				// The Galaxie Checkout widget's delivery step (islands/checkout/GiftDelivery.tsx):
+				// the address it asks for is the buyer's own, for billing.
+				/* translators: %s: the list owner's first name. */
+				'delivery'    => sprintf( __( 'Este presente será enviado para %s (endereço protegido).', 'galaxie-woo' ), $gift['name'] ),
+				/* translators: %s: the list owner's first name. */
+				'billingHint' => sprintf( __( 'O endereço abaixo é o seu, usado só na cobrança. O presente vai para o endereço que %s cadastrou.', 'galaxie-woo' ), $gift['name'] ),
+				/* translators: 1: the list owner's first name, 2: city/state. */
+				'summary'     => sprintf( __( 'Presente para %1$s — %2$s', 'galaxie-woo' ), $gift['name'], $place ),
 			);
 		}
 

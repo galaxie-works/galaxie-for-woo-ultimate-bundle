@@ -1,14 +1,18 @@
 /**
- * The block checkout for a gift from a shared wishlist.
+ * The checkout for a gift from a shared wishlist.
  *
  * The parcel goes to the list owner's saved address, which this page never
- * receives. The shipping step is replaced by a line saying who it is for and
- * where (city/state), and the shipping address the checkout holds is filled
- * with that area plus placeholders — the checkout needs something valid to
- * submit. The server writes the real address onto the order and keeps these
+ * receives. The server writes the real address onto the order and keeps
  * placeholders off the buyer's account (see PHP Modules\Wishlist\Gifts).
  *
- * Billing is always the buyer's own, so "use shipping as billing" is turned off.
+ * - The block checkout: the shipping step is replaced by a line saying who it
+ *   is for and where (city/state), and the shipping address the checkout holds
+ *   is filled with that area plus placeholders — the checkout needs something
+ *   valid to submit. Billing is always the buyer's own, so "use shipping as
+ *   billing" is turned off.
+ * - The Galaxie Checkout widget (islands/checkout): its delivery step reads
+ *   {@link giftCheckoutConfig} and says the same (GiftDelivery.tsx); the
+ *   address it asks for is the buyer's, for billing. Nothing to fill there.
  */
 
 export interface GiftCheckoutConfig {
@@ -19,6 +23,17 @@ export interface GiftCheckoutConfig {
   country: string
   notice: string
   placeholder: string
+  /** "Este presente será enviado para <nome> (endereço protegido)." */
+  delivery?: string
+  /** Under the delivery notice: the form below is the buyer's own address. */
+  billingHint?: string
+  /** The folded delivery step's line: "Presente para <nome> — cidade/UF". */
+  summary?: string
+}
+
+/** The gift the checkout is for, as the PHP boot data has it; null for an ordinary order. */
+export function giftCheckoutConfig(): GiftCheckoutConfig | null {
+  return (window as unknown as { __GALAXIE_WOO__?: { giftCheckout?: GiftCheckoutConfig } }).__GALAXIE_WOO__?.giftCheckout ?? null
 }
 
 interface WpData {
@@ -28,6 +43,15 @@ interface WpData {
 
 function wpData(): WpData | undefined {
   return (window as unknown as { wp?: { data?: WpData } }).wp?.data
+}
+
+/**
+ * Only on the block checkout. A mini-cart block elsewhere registers the same
+ * `wc/store/cart` store, and writing placeholders into it there would push
+ * them to the session for no checkout at all.
+ */
+function blockCheckout(): boolean {
+  return null !== document.querySelector('.wp-block-woocommerce-checkout, .wc-block-checkout')
 }
 
 function fill(config: GiftCheckoutConfig): void {
@@ -71,6 +95,7 @@ export function bootGiftCheckout(config?: GiftCheckoutConfig): void {
   let queued = false
   const run = () => {
     queued = false
+    if (!blockCheckout()) return
     place(config)
     fill(config)
   }
