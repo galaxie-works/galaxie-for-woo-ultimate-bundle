@@ -132,6 +132,9 @@ function applyWooFragments(fragments: Record<string, string>, cartHash?: string)
 }
 
 /** WooCommerce's error notice, shown above the cart form. */
+/** Shown when a quantity change was refused without a reason of its own. */
+const UPDATE_FAILED = 'Não foi possível atualizar o carrinho. Atualize a página e tente de novo.'
+
 function showError(form: HTMLElement, message: string): void {
   const wrapper = document.querySelector('.woocommerce-notices-wrapper')
   const notice = document.createElement('ul')
@@ -362,7 +365,11 @@ export function bootCart(config?: CartConfig): void {
         const input = job.line.querySelector<HTMLInputElement>('input.qty')
         const newer = timers.has(key) || queued.has(key)
         if (input && !newer && typeof json.data.quantity === 'number') input.value = String(json.data.quantity)
-        if (json.data.message) showError(form, json.data.message)
+        showError(form, json.data.message || UPDATE_FAILED)
+      } else {
+        // Not an answer from this endpoint at all (WordPress's bare "-1" or
+        // "0"): nothing was saved, and the shopper is told so.
+        showError(form, UPDATE_FAILED)
       }
     } catch {
       // A failed request must not leave a cart showing a quantity the server

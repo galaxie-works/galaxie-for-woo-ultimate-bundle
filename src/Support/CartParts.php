@@ -1640,6 +1640,22 @@ final class CartParts {
 			return array();
 		}
 
+		// The ids come from a public (nopriv) request: only a published,
+		// unprotected post is read for anyone — a draft, a private or a
+		// password-protected one only for someone who may edit it (the
+		// Elementor editor's preview).
+		$post = get_post( $post_id );
+
+		if ( ! $post ) {
+			return array();
+		}
+
+		$public = 'publish' === $post->post_status && '' === (string) $post->post_password;
+
+		if ( ! $public && ! current_user_can( 'edit_post', $post_id ) ) {
+			return array();
+		}
+
 		$document = \Elementor\Plugin::$instance->documents->get( $post_id );
 
 		if ( ! $document ) {
@@ -1648,7 +1664,8 @@ final class CartParts {
 
 		$data = self::find_element( (array) $document->get_elements_data(), $element_id );
 
-		if ( ! $data ) {
+		// And only one of this plugin's own widgets, never another element's settings.
+		if ( ! $data || 'widget' !== ( $data['elType'] ?? '' ) || ! str_starts_with( (string) ( $data['widgetType'] ?? '' ), 'galaxie-' ) ) {
 			return array();
 		}
 

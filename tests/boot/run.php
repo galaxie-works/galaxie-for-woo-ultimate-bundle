@@ -975,6 +975,13 @@ if ( null !== $child ) {
 		galaxie_boot_fire( 'plugins_loaded' );
 
 		$modules = \Galaxie\Woo\Core\Plugin::instance()->modules();
+
+		// The registry isolates a module that throws while booting (the site
+		// stays up); here that is still a failure.
+		foreach ( $modules->failed() as $id => $message ) {
+			throw new RuntimeException( "module '{$id}' failed to boot: {$message}" );
+		}
+
 		$booted  = array_keys( $modules->enabled() );
 
 		// The static helpers modules read while booting and on every request.

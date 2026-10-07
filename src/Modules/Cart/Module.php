@@ -455,18 +455,48 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 		);
 	}
 
+	/**
+	 * The quantity the cart holds for the line a refused update named, or null
+	 * when there is no such line (or no cart). Read-only: it changes nothing.
+	 */
+	private static function held_quantity(): ?float {
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- only reads the cart to undo a refused change on screen.
+		$key = isset( $_POST['cart_item_key'] ) ? sanitize_text_field( wp_unslash( $_POST['cart_item_key'] ) ) : '';
+
+		if ( '' === $key || ! function_exists( 'WC' ) || ! WC()->cart ) {
+			return null;
+		}
+
+		$item = WC()->cart->get_cart_item( $key );
+
+		return $item ? (float) $item['quantity'] : null;
+	}
+
 	public function ajax_update(): void {
-		check_ajax_referer( self::NONCE, 'nonce' );
+		// An expired nonce (a cart tab left open past its lifetime) used to end
+		// the request with a bare "-1": the stepper kept a quantity the server
+		// never saved, and nothing said why. Now it is a JSON error the script
+		// shows, with what the cart still holds so the stepper can go back.
+		if ( ! check_ajax_referer( self::NONCE, 'nonce', false ) ) {
+			$error = array( 'message' => __( 'Sua sessão expirou. Atualize a página.', 'galaxie-woo' ) );
+			$held  = self::held_quantity();
+
+			if ( null !== $held ) {
+				$error['quantity'] = $held;
+			}
+
+			wp_send_json_error( $error );
+		}
 
 		if ( ! function_exists( 'WC' ) || ! WC()->cart ) {
-			wp_send_json_error( array( 'message' => __( 'Cart unavailable.', 'galaxie-woo' ) ) );
+			wp_send_json_error( array( 'message' => __( 'Carrinho indisponível. Atualize a página.', 'galaxie-woo' ) ) );
 		}
 
 		$key      = isset( $_POST['cart_item_key'] ) ? sanitize_text_field( wp_unslash( $_POST['cart_item_key'] ) ) : '';
 		$quantity = isset( $_POST['quantity'] ) ? wc_stock_amount( wp_unslash( $_POST['quantity'] ) ) : null;
 
 		if ( '' === $key || null === $quantity || ! WC()->cart->get_cart_item( $key ) ) {
-			wp_send_json_error( array( 'message' => __( 'That item is no longer in your cart.', 'galaxie-woo' ) ) );
+			wp_send_json_error( array( 'message' => __( 'Este item não está mais no seu carrinho.', 'galaxie-woo' ) ) );
 		}
 
 		$values = WC()->cart->get_cart_item( $key );
@@ -508,7 +538,7 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 
 				wp_send_json_error(
 					array(
-						'message'  => implode( ' ', array_filter( $messages ) ) ?: __( 'That quantity could not be saved.', 'galaxie-woo' ),
+						'message'  => implode( ' ', array_filter( $messages ) ) ?: __( 'Não foi possível salvar essa quantidade.', 'galaxie-woo' ),
 						// What the cart still holds, so the stepper can go back to it.
 						'quantity' => (float) $values['quantity'],
 					)
