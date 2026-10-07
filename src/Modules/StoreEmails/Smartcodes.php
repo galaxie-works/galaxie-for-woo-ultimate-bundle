@@ -94,6 +94,9 @@ final class Smartcodes {
 					'valor_reembolsado'     => array( __( 'Valor reembolsado (o deste reembolso, se parcial)', 'galaxie-woo' ), 'R$ 50,00' ),
 					'presente_para'         => array( __( 'Primeiro nome de quem recebe o presente (vazio se não é presente)', 'galaxie-woo' ), 'Ana' ),
 					'mensagem_cartao'       => array( __( 'Mensagem(ns) do cartão dos kits', 'galaxie-woo' ), 'Feliz aniversário!' ),
+					'pix_expira_em'         => array( __( 'Pix: até quando o código vale (dd/mm/aaaa hh:mm, horário de Brasília), vazio se não é Pix pendente', 'galaxie-woo' ), '07/10/2026 14:30' ),
+					'pix_copia_e_cola'      => array( __( 'Pix: código copia e cola (vazio: a loja não recebe o código do FunnelKit)', 'galaxie-woo' ), '' ),
+					'pix_qr_url'            => array( __( 'Pix: link da imagem/instruções do QR code (vazio: a loja não recebe o código do FunnelKit)', 'galaxie-woo' ), '' ),
 				),
 			),
 			self::GROUP_ACCOUNT => array(
@@ -257,6 +260,8 @@ final class Smartcodes {
 		$shipping = $order->get_items( 'shipping' );
 		$freight  = (float) $order->get_shipping_total() + (float) $order->get_shipping_tax();
 		$discount = (float) $order->get_total_discount();
+		$pix      = PixPending::waiting( $order );
+		$qr       = $pix ? PixPending::qr( $order ) : array();
 
 		return array(
 			'numero'                => (string) $order->get_order_number(),
@@ -282,6 +287,9 @@ final class Smartcodes {
 			'valor_reembolsado'     => $refunded > 0 ? self::money( $refunded, $currency ) : '',
 			'presente_para'         => self::recipient( $order ),
 			'mensagem_cartao'       => implode( '<br>', array_map( 'esc_html', self::card_messages( $order ) ) ),
+			'pix_expira_em'         => $pix ? PixPending::expires_label( $order ) : '',
+			'pix_copia_e_cola'      => $pix ? $qr['copia_e_cola'] : '',
+			'pix_qr_url'            => $pix ? $qr['qr_url'] : '',
 		);
 	}
 

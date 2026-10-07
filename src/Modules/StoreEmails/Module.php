@@ -28,6 +28,9 @@ defined( 'ABSPATH' ) || exit;
  *
  * An e-mail left on "— usar o e-mail padrão —", or whose template cannot be
  * used, goes out exactly as before (WooCommerce's, or YayMail's).
+ *
+ * It also adds an e-mail WooCommerce does not have: "Pix aguardando
+ * pagamento" ({@see PixPending}), for FunnelKit Pix orders left pending.
  */
 final class Module implements ModuleContract, ProvidesSettings, ProvidesRestSettings {
 
@@ -61,6 +64,7 @@ final class Module implements ModuleContract, ProvidesSettings, ProvidesRestSett
 	public function boot(): void {
 		Smartcodes::hooks();
 		Sender::hooks();
+		PixPending::hooks();
 
 		if ( is_admin() ) {
 			add_action( 'admin_post_' . self::TEST_ACTION, array( $this, 'send_test' ) );
@@ -88,6 +92,7 @@ final class Module implements ModuleContract, ProvidesSettings, ProvidesRestSett
 			'customer_note'               => array( __( 'Nota para o cliente', 'galaxie-woo' ), true ),
 			'customer_new_account'        => array( __( 'Nova conta', 'galaxie-woo' ), true ),
 			'customer_reset_password'     => array( __( 'Redefinir senha', 'galaxie-woo' ), true ),
+			PixPending::ID                => array( __( 'Pix aguardando pagamento (e-mail deste plugin)', 'galaxie-woo' ), true ),
 			'new_order'                   => array( __( 'Novo pedido (para a loja)', 'galaxie-woo' ), false ),
 			'cancelled_order'             => array( __( 'Pedido cancelado (para a loja)', 'galaxie-woo' ), false ),
 			'failed_order'                => array( __( 'Pedido malsucedido (para a loja)', 'galaxie-woo' ), false ),

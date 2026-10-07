@@ -204,7 +204,14 @@ class WC_Order {
 		$key = substr( $name, 4 );
 		return $this->data[ $key ] ?? '';
 	}
+	public int $meta_saves = 0;
 	public function get_id() { return $this->data['id']; }
+	public function get_payment_method() { return $this->data['payment_method'] ?? ''; }
+	public function has_status( $status ) { return in_array( $this->data['status'], (array) $status, true ); }
+	public function is_paid() { return in_array( $this->data['status'], array( 'processing', 'completed' ), true ); }
+	public function get_date_paid() { return $this->data['date_paid'] ?? null; }
+	public function update_meta_data( $key, $value ) { $this->meta[ $key ] = $value; }
+	public function save_meta_data() { $this->meta_saves++; }
 	public function get_order_number() { return (string) $this->data['id']; }
 	public function get_date_created() { return new DateTime( '2026-10-06 10:00:00' ); }
 	public function get_meta( $key ) { return $this->meta[ $key ] ?? ''; }
@@ -237,7 +244,27 @@ class WC_Email {
 	public function __construct( string $id, public bool $customer = true ) { $this->id = $id; }
 	public function is_customer_email() { return $this->customer; }
 	public function get_email_type() { return $this->email_type; }
+	public function is_enabled() { return true; }
 }
+
+class GX_PixEmail extends WC_Email {
+	public array $sent = array();
+	public function trigger( $order_id, $order = false ) { $this->sent[] = (int) $order_id; }
+}
+
+final class GX_Mailer {
+	public function __construct( public array $emails ) {}
+	public function get_emails() { return $this->emails; }
+}
+
+final class GX_WC {
+	public function __construct( public GX_Mailer $mailer ) {}
+	public function mailer() { return $this->mailer; }
+}
+
+function WC() { return $GLOBALS['gx_wc']; }
+function wc_get_order( $id ) { return $GLOBALS['gx_orders'][ (int) $id ] ?? false; }
+function as_schedule_single_action( $timestamp, $hook, $args = array(), $group = '' ) { $GLOBALS['gx_scheduled'][] = array( $hook, $args, $group, $timestamp - time() ); return 1; }
 
 class GX_PHPMailer {
 	public $AltBody = 'woocommerce plain text';
@@ -364,6 +391,7 @@ foreach ( array( 'simple', 'raw_html' ) as $design ) {
 
 use Galaxie\Woo\Modules\GiftWrap\Groups;
 use Galaxie\Woo\Modules\StoreEmails\Module;
+use Galaxie\Woo\Modules\StoreEmails\PixPending;
 use Galaxie\Woo\Modules\StoreEmails\Sender;
 use Galaxie\Woo\Modules\StoreEmails\Smartcodes;
 use Galaxie\Woo\Modules\Wishlist\Gifts;
@@ -671,6 +699,88 @@ Sender::sent();
 unset( $GLOBALS['gx_patterns'][14] );
 $check( 'merchant template without its footer pattern: default e-mail', Sender::swap( $params, $email ), $params );
 $GLOBALS['gx_patterns'][14] = '<p>rodapé</p>';
+
+echo "\nPix aguardando pagamento\n";
+
+$pix = static function ( string $intent = 'pi_1' ): WC_Order {
+	$o                           = new WC_Order();
+	$o->data['status']           = 'pending';
+	$o->data['payment_method']   = 'fkwcs_stripe_pix';
+	$o->data['needs_payment']    = true;
+	$o->meta['_fkwcs_intent_id'] = array( 'id' => $intent, 'client_secret' => 'secret' );
+	$GLOBALS['gx_orders'][ $o->get_id() ] = $o;
+	return $o;
+};
+$GLOBALS['gx_scheduled'] = array();
+
+$o = $pix();
+PixPending::attempt( array( 'result' => 'success' ), 1234 );
+$check( 'first attempt: e-mail scheduled once, a minute later, by Action Scheduler', $GLOBALS['gx_scheduled'], array( array( PixPending::SEND_HOOK, array( 1234 ), 'galaxie-woo', 60 ) ) );
+$check( 'first attempt: claimed on the order', array( $o->meta[ PixPending::META ]['intent'], $o->meta[ PixPending::META ]['count'], $o->meta_saves ), array( 'pi_1', 1, 1 ) );
+PixPending::attempt( array( 'result' => 'success' ), 1234 );
+$check( 'a retry right after: nothing more scheduled', count( $GLOBALS['gx_scheduled'] ), 1 );
+
+$t0 = 1791288000; // 2026-10-06 12:00 UTC.
+$at = static function ( WC_Order $o, string $intent, int $at, int $count = 1 ): void {
+	$o->meta[ PixPending::META ] = array( 'intent' => $intent, 'at' => $at, 'count' => $count );
+};
+$o = $pix( 'pi_1' );
+$at( $o, 'pi_1', $t0 );
+$check( 'same intent 10 min later: no', PixPending::due( $o, $t0 + 600 ), false );
+$o->meta['_fkwcs_intent_id'] = array( 'id' => 'pi_2' );
+$check( 'new intent 20 min later (retry guard): no', PixPending::due( $o, $t0 + 1200 ), false );
+$check( 'new intent 2 h later, first QR code still valid: no', PixPending::due( $o, $t0 + 7200 ), false );
+$check( 'new intent after the first QR code expired: yes', PixPending::due( $o, $t0 + 86400 + 60 ), true );
+$o->meta['_fkwcs_intent_id'] = array( 'id' => 'pi_1' );
+$check( 'same intent a day later: no', PixPending::due( $o, $t0 + 90000 ), false );
+$o->meta['_fkwcs_intent_id'] = array( 'id' => 'pi_3' );
+$at( $o, 'pi_2', $t0, 2 );
+$check( 'a third e-mail, even after expiry: no (resent once at most)', PixPending::due( $o, $t0 + 3 * 86400 ), false );
+
+$paid                 = $pix( 'pi_9' );
+$paid->data['status'] = 'processing';
+$check( 'paid order: no', PixPending::due( $paid, $t0 ), false );
+$card                         = $pix( 'pi_9' );
+$card->data['payment_method'] = 'fkwcs_stripe';
+$check( 'card order: no', PixPending::due( $card, $t0 ), false );
+$none = $pix();
+unset( $none->meta['_fkwcs_intent_id'] );
+$check( 'no PaymentIntent yet: no', PixPending::due( $none, $t0 ), false );
+
+$mail             = new GX_PixEmail( PixPending::ID );
+$GLOBALS['gx_wc'] = new GX_WC( new GX_Mailer( array( new WC_Email( 'customer_processing_order' ), $mail ) ) );
+$o                = $pix();
+PixPending::send( 1234 );
+$check( 'sent when the order still waits', $mail->sent, array( 1234 ) );
+$o->data['status'] = 'processing';
+PixPending::send( 1234 );
+$check( 'not sent once the order was paid meanwhile', $mail->sent, array( 1234 ) );
+$o->data['status']    = 'pending';
+$o->data['date_paid'] = new DateTime();
+PixPending::send( 1234 );
+$check( 'not sent when a payment date is set', $mail->sent, array( 1234 ) );
+
+$o = $pix();
+$o->meta[ \Galaxie\Woo\Integrations\FunnelKitStripe::META_ATTEMPT_AT ] = (string) $t0;
+$check( 'expiry: attempt + 24 h, São Paulo time', PixPending::expires_label( $o ), '07/10/2026 09:00' );
+$at( $o, 'pi_1', $t0 + 3600 );
+$check( 'expiry: from the latest attempt known', PixPending::expires_label( $o ), '07/10/2026 10:00' );
+$pv = Smartcodes::values( array( 'order' => $o ) )['pedido'];
+$check( 'smartcodes: pix_expira_em, link_pagamento; QR code empty (FunnelKit never stores it)', array( $pv['pix_expira_em'], '' !== $pv['link_pagamento'], $pv['pix_copia_e_cola'], $pv['pix_qr_url'] ), array( '07/10/2026 10:00', true, '', '' ) );
+add_filter( 'galaxie_woo/store_emails/pix', static fn( $pix ) => array( 'copia_e_cola' => '00020126...', 'qr_url' => 'https://qr.stripe.com/x.png' ), 10, 2 );
+$pv = Smartcodes::values( array( 'order' => $o ) )['pedido'];
+$check( 'smartcodes: QR code when something provides it', array( $pv['pix_copia_e_cola'], $pv['pix_qr_url'] ), array( '00020126...', 'https://qr.stripe.com/x.png' ) );
+$check( 'smartcodes: no Pix values for a card order', Smartcodes::values( array( 'order' => $order() ) )['pedido']['pix_expira_em'], '' );
+
+$template( 50, '<p>Pague até {{pedido.pix_expira_em|amanhã}}: {{pedido.link_pagamento}}</p>', 'Pix do pedido #{{pedido.numero}}' );
+$map( array( array( 'email' => PixPending::ID, 'template' => '50', 'subject' => '' ) ) );
+$email         = new WC_Email( PixPending::ID );
+$email->object = $o;
+$out           = Sender::swap( $params, $email );
+$check( 'Pix e-mail with a FluentCRM template', array( $out[1], $has( $out[2], 'Pague até 07/10/2026 10:00: https://eirnaturals.shop/finalizar-compra/order-pay/' ) ), array( 'Pix do pedido #1234', true ) );
+Sender::sent();
+$check( 'Pix e-mail is a row on the settings tab', isset( Module::emails()[ PixPending::ID ] ), true );
+$check( 'registering leaves a non-list alone', PixPending::register( 'x' ), 'x' );
 
 echo "\nSettings\n";
 

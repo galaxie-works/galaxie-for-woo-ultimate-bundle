@@ -1141,6 +1141,10 @@ if ( null !== $child ) {
 				array( 'woocommerce_email_content_type', $sender, 'content_type', true ),
 				array( 'phpmailer_init', $sender, 'alt_body', true ),
 				array( 'woocommerce_email_sent', $sender, 'sent', true ),
+				// "Pix aguardando pagamento": our WC_Email, its trigger and its delayed send.
+				array( 'woocommerce_email_classes', \Galaxie\Woo\Modules\StoreEmails\PixPending::class, 'register', true ),
+				array( 'woocommerce_payment_successful_result', \Galaxie\Woo\Modules\StoreEmails\PixPending::class, 'attempt', true ),
+				array( \Galaxie\Woo\Modules\StoreEmails\PixPending::SEND_HOOK, \Galaxie\Woo\Modules\StoreEmails\PixPending::class, 'send', true ),
 				array( 'admin_post_galaxie_woo_store_emails_test', \Galaxie\Woo\Modules\StoreEmails\Module::class, 'send_test', $scenario['admin'] ),
 			);
 
