@@ -1021,7 +1021,7 @@ final class BuyBoxWidget extends Widget_Base {
 			printf(
 				'<select name="attribute_%1$s" data-attribute_name="attribute_%1$s" tabindex="-1"><option value="">%2$s</option>',
 				esc_attr( sanitize_title( $name ) ),
-				esc_html__( 'Choose an option', 'galaxie-woo' )
+				esc_html__( 'Choose an option', 'woocommerce' )
 			);
 
 			foreach ( $options as $option ) {

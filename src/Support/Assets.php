@@ -11,9 +11,16 @@ defined( 'ABSPATH' ) || exit;
 
 /**
  * One shared bundle (`assets/dist/galaxie.js` + `.css`, built from `frontend/`)
- * powers every island. Enqueued on demand — a widget calls {@see Assets::enqueue()}
- * from its render() so the bundle only loads on pages that actually use a Galaxie
- * island. Cache-busted by file mtime.
+ * powers every island and global script. Cache-busted by file mtime.
+ *
+ * Where it loads: widgets call {@see Assets::enqueue()} from render(), but
+ * several modules also enqueue it on `wp_enqueue_scripts` for every page
+ * (Cart, ProductData, ToastNotices, VariationSpotlight, Wishlist, and the kit
+ * through Kit\Launcher), so in practice galaxie.css and galaxie.js are on every
+ * storefront page. That is why the entry is kept small: galaxie.js is boot code
+ * plus a ~33 KB core chunk; each React island (and React itself), the account
+ * screens' scripts and the phone field load as chunks only when their markup
+ * is on the page (frontend/src/main.tsx, runtime.ts).
  */
 final class Assets {
 
@@ -65,10 +72,35 @@ final class Assets {
 		}
 	}
 
+	/**
+	 * Marks the bundle's own <script> tag as an ES module.
+	 *
+	 * Only the `type` of that one tag changes: its id, its attributes and any
+	 * inline script WordPress printed before or after it (wp_add_inline_script,
+	 * translations) are kept as they were.
+	 */
 	public static function as_module_tag( string $tag, string $handle, string $src ): string {
 		if ( self::HANDLE !== $handle && self::KIT_HANDLE !== $handle ) {
 			return $tag;
 		}
-		return sprintf( '<script type="module" src="%s"></script>' . "\n", esc_url( $src ) );
+
+		$to_module = static function ( array $match ): string {
+			$open = (string) preg_replace( '/\stype\s*=\s*(["\'])[^"\']*\1/i', '', $match[0] );
+
+			return (string) preg_replace( '/^<script\b/i', '<script type="module"', $open, 1 );
+		};
+
+		// The tag WordPress gives an id of "{handle}-js"; inline ones get "-js-before"/"-js-after".
+		$id    = preg_quote( $handle . '-js', '/' );
+		$count = 0;
+		$out   = preg_replace_callback( '/<script\b(?=[^>]*\sid\s*=\s*(["\'])' . $id . '\1)[^>]*>/i', $to_module, $tag, 1, $count );
+
+		if ( ! $count ) {
+			// No id (an older WordPress, or a filter removed it): find the tag by its src.
+			$url = preg_quote( esc_url( $src ), '/' );
+			$out = preg_replace_callback( '/<script\b(?=[^>]*\ssrc\s*=\s*(["\'])' . $url . '\1)[^>]*>/i', $to_module, $tag, 1, $count );
+		}
+
+		return $count && is_string( $out ) ? $out : $tag;
 	}
 }

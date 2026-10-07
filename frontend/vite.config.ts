@@ -89,6 +89,56 @@ function entriesStayLeaves(): Plugin {
   }
 }
 
+interface ModuleGraphInfo {
+  importedIds: readonly string[]
+  dynamicallyImportedIds: readonly string[]
+}
+type ModuleInfoLookup = (id: string) => ModuleGraphInfo | null
+
+const MAIN_ENTRY = path.resolve(import.meta.dirname, 'src/main.tsx')
+const KIT_ENTRY = path.resolve(import.meta.dirname, 'src/kit.ts')
+const posix = (file: string): string => file.split('\\').join('/')
+const sameFile = (a: string, b: string): boolean => posix(a).toLowerCase() === posix(b).toLowerCase()
+const isEntry = (id: string): boolean => [MAIN_ENTRY, KIT_ENTRY].some((entry) => sameFile(id, entry))
+
+/**
+ * Every module `entry` loads: through static imports only, or through dynamic
+ * ones as well. Computed once per build from the module graph.
+ */
+function closure(entry: string, withDynamic: boolean, get: ModuleInfoLookup): Set<string> {
+  const start = [entry, posix(entry)].find((id) => get(id))
+  const seen = new Set<string>()
+  const stack = start ? [start] : []
+
+  while (stack.length) {
+    const id = stack.pop() as string
+    if (seen.has(id)) continue
+    seen.add(id)
+    const info = get(id)
+    if (!info) continue
+    stack.push(...info.importedIds, ...(withDynamic ? info.dynamicallyImportedIds : []))
+  }
+
+  if (!start) throw new Error(`galaxie: entry ${entry} not found in the module graph`)
+
+  return seen
+}
+
+let graph: { main: Set<string>; kit: Set<string> } | null = null
+
+/** Whether `id` belongs in the `shared` or the `galaxie-core` chunk (see codeSplitting). */
+function inGraph(id: string, get: ModuleInfoLookup, chunk: 'shared' | 'core'): boolean {
+  if (isEntry(id) || /\.css($|\?)/.test(id)) return false
+
+  graph ??= {
+    main: closure(MAIN_ENTRY, false, get),
+    kit: closure(KIT_ENTRY, true, get),
+  }
+  if (!graph.main.has(id)) return false
+
+  return chunk === 'shared' ? graph.kit.has(id) : !graph.kit.has(id)
+}
+
 export default defineConfig({
   // Relative, so the lazy chunks (the phone field's library, see lib/phone.ts)
   // load from beside galaxie.js and the flag sprites resolve from beside
@@ -103,6 +153,10 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, '../assets/dist'),
     emptyOutDir: true,
+    // One stylesheet, galaxie.css, whatever the JS is split into: the CSS of
+    // the core chunk and of the lazy islands all goes there, so nothing is
+    // painted unstyled while a chunk downloads.
+    cssCodeSplit: false,
     manifest: false,
     rollupOptions: {
       // Two entries: everything (galaxie.js), and the kit flow alone
@@ -117,17 +171,38 @@ export default defineConfig({
         // ES-module output so CSS is emitted as a separate, cacheable
         // `galaxie.css` (an IIFE build inlines the CSS into the JS). The entry
         // is `galaxie.js`, enqueued in WordPress with `type="module"` (see
-        // Support\Assets). Its only code-split chunks are dynamic imports that
-        // it loads itself, relative to its own URL; none of them may import
-        // CSS, which all goes into the one `galaxie.css`.
+        // Support\Assets). Its chunks load relative to its own URL; none of
+        // them carries CSS, which all goes into the one `galaxie.css`
+        // (cssCodeSplit: false).
         entryFileNames: '[name].js',
-        // The kit's modules (all but the lazily loaded builder) and the pure
-        // gift libraries in one hashed chunk, so the builder chunk imports
-        // them from there and never from an entry file.
-        manualChunks(id) {
-          if (/[\/]src[\/]globals[\/]kit-(?!builder)[a-z-]+\.ts$/.test(id)) return 'kit-core'
-          if (/[\/]src[\/]lib[\/](gift-[a-z-]+|pix-popup)\.ts$/.test(id)) return 'kit-core'
-          return undefined
+        // Three named chunks, by priority (a module a higher group takes is
+        // removed from the lower ones, dependencies included):
+        //
+        // - `shared`: what both entries load — galaxie.js statically and the
+        //   kit at all — so neither entry pulls in the other's code;
+        // - `kit-core`: the kit's modules (all but the lazily loaded builder)
+        //   and the pure gift libraries, so the builder chunk imports them
+        //   from there and never from an entry file;
+        // - `galaxie-core`: everything else galaxie.js imports statically, so
+        //   the entry file is boot code only and the lazy chunks (islands,
+        //   React, the account scripts) import that chunk, never the entry
+        //   (see entriesStayLeaves).
+        codeSplitting: {
+          groups: [
+            // React, ReactDOM and the scheduler together, fetched with the
+            // first island (see island-root.tsx) and never before.
+            { priority: 5, name: (id) => (/[\/]node_modules[\/](react|react-dom|scheduler)[\/]/.test(id) ? 'react' : null) },
+            { priority: 3, name: (id, ctx) => (inGraph(id, (m) => ctx.getModuleInfo(m), 'shared') ? 'shared' : null) },
+            {
+              priority: 2,
+              name: (id) =>
+                /[\/]src[\/]globals[\/]kit-(?!builder)[a-z-]+\.ts$/.test(id) ||
+                /[\/]src[\/]lib[\/](gift-[a-z-]+|pix-popup)\.ts$/.test(id)
+                  ? 'kit-core'
+                  : null,
+            },
+            { priority: 1, name: (id, ctx) => (inGraph(id, (m) => ctx.getModuleInfo(m), 'core') ? 'galaxie-core' : null) },
+          ],
         },
         chunkFileNames: 'chunks/[name]-[hash].js',
         assetFileNames: (info) =>

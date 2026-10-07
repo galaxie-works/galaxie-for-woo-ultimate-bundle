@@ -13,5 +13,12 @@
 /tests export-ignore
 /frontend export-ignore
 /PLAN.md export-ignore
+/README.md export-ignore
+/acf-json/README.md export-ignore
+/composer.json export-ignore
+/composer.lock export-ignore
+/package.json export-ignore
+/package-lock.json export-ignore
+/pnpm-lock.yaml export-ignore
 /.gitattributes export-ignore
 /.gitignore export-ignore
