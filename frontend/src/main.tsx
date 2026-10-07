@@ -1,10 +1,6 @@
 import '@/styles/index.css'
 
 import { bootElementorIslands, mountIslands, registerIsland } from '@/runtime'
-import { Demo } from '@/islands/demo'
-import { Checkout } from '@/islands/checkout'
-import { Login } from '@/islands/login'
-import { MyAccount } from '@/islands/my-account'
 import { bootToastNotices } from '@/globals/toast-notices'
 import { bootVariationSwatches } from '@/globals/variation-swatches'
 import { bootVariationSpotlight } from '@/globals/variation-spotlight'
@@ -19,19 +15,14 @@ import { bootAddressAutocomplete } from '@/globals/address-autocomplete'
 import { bootCartFragments } from '@/globals/cart-fragments'
 import { bootCoupon } from '@/globals/coupon'
 import { bootFreeProgress } from '@/globals/free-progress'
-import { bootAccountMenu } from '@/globals/account-menu'
-import { bootAccountScreens } from '@/globals/account-screens'
-import { bootAddressBook, type AddressBookConfig } from '@/globals/address-book'
-import { bootPaymentMethods } from '@/globals/payment-methods'
-import { bootWishlistAccount } from '@/globals/wishlist-account'
-import { bootSharedWishlist } from '@/globals/shared-wishlist'
 import { bootGiftCheckout, type GiftCheckoutConfig } from '@/globals/gift-checkout'
+import type { AddressBookConfig } from '@/globals/address-book'
 
-// Each module registers its island(s) here as they are ported.
-registerIsland('demo', Demo)
-registerIsland('checkout', Checkout)
-registerIsland('login', Login)
-registerIsland('my-account', MyAccount)
+// Each module registers its island(s) here. Each is a separate chunk, with
+// React, fetched only when its mount is on the page (see runtime.ts).
+registerIsland('checkout', () => import('@/islands/checkout').then((m) => m.Checkout))
+registerIsland('login', () => import('@/islands/login').then((m) => m.Login))
+registerIsland('my-account', () => import('@/islands/my-account').then((m) => m.MyAccount))
 
 interface GalaxieConfig {
   toastNotices?: boolean
@@ -43,6 +34,70 @@ interface GalaxieConfig {
   addressAutocomplete?: { country: string; placeholder: string }
   addressBook?: AddressBookConfig
   giftCheckout?: GiftCheckoutConfig
+}
+
+/**
+ * The account screens' widgets (menu, details, interests, communication,
+ * delete, orders, payment methods, address book, wishlists). Their code is a
+ * chunk of its own, fetched once one of these is on the page. Every screen
+ * the account menu swaps in arrives through the menu itself, which is in the
+ * same chunk, so its listeners are in place before any swapped-in markup.
+ */
+const ACCOUNT_SELECTOR = [
+  '.galaxie-account-menu',
+  '.galaxie-account-menu-select',
+  '.galaxie-account-content',
+  '.galaxie-details-form',
+  '.galaxie-account-interests',
+  '.galaxie-account-communication',
+  '.galaxie-account-delete',
+  '.galaxie-account-orders',
+  '.galaxie-account-order',
+  '.galaxie-payment-methods',
+  '.galaxie-address-book',
+  '.galaxie-account-wishlist',
+  '.galaxie-shared-wishlist',
+].join(', ')
+
+function inElementorEditor(): boolean {
+  return (
+    document.body.classList.contains('elementor-editor-active') ||
+    new URLSearchParams(window.location.search).has('elementor-preview')
+  )
+}
+
+/**
+ * Runs `load` once something matching `selector` is in the page: now, or —
+ * for markup drawn later (a popup's content, a section loaded over AJAX) —
+ * the first time it appears. In Elementor's editor any widget can be dropped
+ * in at any moment, so there it runs straight away.
+ */
+function whenPresent(selector: string, load: () => void): void {
+  if (inElementorEditor() || document.querySelector(selector)) {
+    load()
+    return
+  }
+
+  // One look per burst of changes. A timer, not requestAnimationFrame, which
+  // never fires in a background tab.
+  let queued = false
+  const observer = new MutationObserver(() => {
+    if (queued) return
+    queued = true
+    window.setTimeout(() => {
+      queued = false
+      if (!document.querySelector(selector)) return
+      observer.disconnect()
+      load()
+    }, 50)
+  })
+  observer.observe(document.body, { childList: true, subtree: true })
+}
+
+function bootAccount(config: GalaxieConfig): void {
+  import('@/boot-account')
+    .then(({ bootAccountGroup }) => bootAccountGroup(config.wishlist, config.addressBook))
+    .catch((error: unknown) => console.error('[galaxie] account scripts failed to load', error))
 }
 
 function boot(): void {
@@ -63,12 +118,7 @@ function boot(): void {
   bootCartFragments()
   bootCoupon()
   bootFreeProgress()
-  bootAccountMenu()
-  bootAccountScreens(config.wishlist)
-  bootAddressBook(config.addressBook)
-  bootPaymentMethods()
-  bootWishlistAccount(config.wishlist)
-  bootSharedWishlist(config.wishlist)
+  whenPresent(ACCOUNT_SELECTOR, () => bootAccount(config))
   bootGiftCheckout(config.giftCheckout)
 
   if (config.productData) {

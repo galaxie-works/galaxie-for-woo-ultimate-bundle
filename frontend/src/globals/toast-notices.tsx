@@ -1,6 +1,4 @@
-import { createRoot } from 'react-dom/client'
-
-import { Toaster, toast, type ToastVariant } from '@/ui/toast'
+import { toast, type ToastVariant } from '@/ui/toast'
 
 /**
  * Global behavior (not an island): intercepts WooCommerce's native notice
@@ -17,24 +15,12 @@ const VARIANT_BY_CLASS: Record<string, ToastVariant> = {
 
 const NOTICE_SELECTOR = '.woocommerce-error, .woocommerce-message, .woocommerce-info'
 
-let toasterMounted = false
-
 /** Messages toasted a moment ago: WooCommerce queues one per recalculation. */
 const recent = new Set<string>()
-
-function ensureToaster(): void {
-  if (toasterMounted) return
-  const host = document.createElement('div')
-  host.setAttribute('data-galaxie-toaster', '')
-  document.body.appendChild(host)
-  createRoot(host).render(<Toaster />)
-  toasterMounted = true
-}
 
 /** A toast from module code (the kit's "Adicionada ao kit…"), with the same look. */
 export function showToast(message: string, variant: ToastVariant = 'success'): void {
   if (!message) return
-  ensureToaster()
   toast(message, { variant })
 }
 
@@ -60,7 +46,6 @@ function convert(el: Element): void {
   texts.forEach((text) => {
     recent.add(text)
     window.setTimeout(() => recent.delete(text), 1500)
-    ensureToaster()
     toast(text, { variant: VARIANT_BY_CLASS[cls] })
   })
   el.remove()
