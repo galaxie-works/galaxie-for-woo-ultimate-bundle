@@ -148,7 +148,9 @@ export function maxQuantity(box: Box, others: Candle[], candle: Candle, current:
     const withMore = others.slice()
     for (let i = 0; i <= n; i++) withMore.push(candle)
 
-    if (!fits(box, withMore, options)) break
+    // Only a proved "no" stops the count (null: the search gave up), as on
+    // the server: GiftGroups::max_quantity().
+    if (fitsKnown(box, withMore, options) === false) break
     n++
   }
 
@@ -293,13 +295,15 @@ export function total(lines: { price: number; quantity: number }[]): number {
 /**
  * A card message as the server stores it (GiftGroups::clean_message()): lone
  * surrogates dropped, line breaks as \n, control characters other than \n and
- * \t removed, trimmed. "<3" and "100%" stay.
+ * \t removed, HTML tags and comments taken out, trimmed. "<3", "a < b" and
+ * "100%" stay.
  */
 export function cleanMessage(message: string): string {
   return message
     .replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, '')
     .replace(/\r\n?/g, '\n')
     .replace(/[\u0000-\u0008\u000B-\u001F\u007F]/g, '')
+    .replace(/<(?:!--[\s\S]*?--|\/?[a-zA-Z][^<>]*)>/g, '')
     .trim()
 }
 

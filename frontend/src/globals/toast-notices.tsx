@@ -1,4 +1,4 @@
-import { toast, type ToastVariant } from '@/ui/toast'
+import { toast, type ToastAction, type ToastVariant } from '@/ui/toast'
 
 /**
  * Global behavior (not an island): turns WooCommerce's notices into toasts,
@@ -51,9 +51,10 @@ const DROPPABLE_LINKS = 'a.button, a.wc-forward'
 const recent = new Set<string>()
 
 /** A toast from module code (the kit's "Adicionada ao kit…"), with the same look. */
-export function showToast(message: string, variant: ToastVariant = 'success'): void {
+export function showToast(message: string, variant: ToastVariant = 'success', action?: ToastAction): void {
   if (!message) return
-  toast(message, { variant })
+  // A toast with a link stays a little longer: there is something to click.
+  toast(message, { variant, action, duration: action ? 7000 : undefined })
 }
 
 /**

@@ -1264,6 +1264,135 @@ button.galaxie-kit-qty-step:disabled {
   cursor: pointer;
 }
 
+/* A kit in the Galaxie Cart widget: one header row (name, the kit's total,
+   the start of its message, "Editar kit"), its lines set in under it. */
+.galaxie-cart-kit-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+  padding: 12px 0 4px;
+  border-top: 1px solid var(--pix-gray-2, rgba(0, 0, 0, 0.08));
+}
+
+.galaxie-cart-kit-title {
+  font-weight: 600;
+}
+
+.galaxie-cart-kit-total {
+  margin-left: auto;
+  font-weight: 600;
+}
+
+.galaxie-cart-kit-message {
+  flex-basis: 100%;
+  font-size: 0.875em;
+  opacity: 0.75;
+  overflow-wrap: anywhere;
+}
+
+.galaxie-cart-kit-head .galaxie-kit-edit-wrap {
+  margin-left: 0;
+  font-size: 0.875em;
+}
+
+.galaxie-cart-line.galaxie-kit-line {
+  padding-left: 16px;
+  border-left: 2px solid var(--pix-gray-2, rgba(0, 0, 0, 0.08));
+}
+
+/* "Kit 1 em edição · Voltar ao kit", above a cart while "Editar kit" has the kit out. */
+.galaxie-kit-editing {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  align-items: center;
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--pix-light-opacity-5, rgba(0, 0, 0, 0.04));
+  font-size: 0.9375em;
+}
+
+.galaxie-kit-editing-back {
+  text-decoration: underline;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+/* The builder's own close button: pixfort's is a <div> no keyboard reaches. */
+.galaxie-kit-topbar {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.galaxie-kit-close {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.875em;
+  cursor: pointer;
+}
+
+.galaxie-kit-close:hover,
+.galaxie-kit-close:focus-visible {
+  background: var(--pix-light-opacity-5, rgba(0, 0, 0, 0.06));
+}
+
+.galaxie-kit-close:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+/* "Carregando…" with something that moves beside it. */
+.galaxie-kit-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.galaxie-kit-loading[hidden] {
+  display: none;
+}
+
+.galaxie-kit-spinner {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 999px;
+  animation: galaxie-kit-spin 0.8s linear infinite;
+}
+
+@keyframes galaxie-kit-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .galaxie-kit-spinner {
+    animation-duration: 2.4s;
+  }
+}
+
+/* Why the card step or the summary cannot go on: the message is missing or too long. */
+.galaxie-kit-field-problem {
+  display: block;
+  color: var(--pix-red, #b42318);
+}
+
+.galaxie-kit-field-problem[hidden] {
+  display: none;
+}
+
 /* Galaxie Kit Progress. */
 .galaxie-kit-progress,
 .galaxie-kit-progress-part {

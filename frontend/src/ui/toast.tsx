@@ -16,11 +16,18 @@
 
 export type ToastVariant = 'success' | 'error' | 'info'
 
+/** A link after the message ("Ver carrinho"). */
+export interface ToastAction {
+  label: string
+  href: string
+}
+
 export interface ToastItem {
   id: number
   message: string
   variant: ToastVariant
   duration: number
+  action?: ToastAction
 }
 
 const SVG_OPEN =
@@ -65,6 +72,13 @@ function render(item: ToastItem): HTMLElement {
   const text = document.createElement('span')
   text.className = 'flex-1'
   text.textContent = item.message
+  if (item.action) {
+    const link = document.createElement('a')
+    link.href = item.action.href
+    link.className = 'font-medium underline underline-offset-2'
+    link.textContent = item.action.label
+    text.append(' ', link)
+  }
   el.appendChild(text)
 
   const close = document.createElement('button')
@@ -78,12 +92,13 @@ function render(item: ToastItem): HTMLElement {
   return el
 }
 
-export function toast(message: string, opts?: { variant?: ToastVariant; duration?: number }): number {
+export function toast(message: string, opts?: { variant?: ToastVariant; duration?: number; action?: ToastAction }): number {
   const item: ToastItem = {
     id: seq++,
     message,
     variant: opts?.variant ?? 'info',
     duration: opts?.duration ?? 4500,
+    action: opts?.action?.label && opts.action.href ? opts.action : undefined,
   }
 
   const el = render(item)

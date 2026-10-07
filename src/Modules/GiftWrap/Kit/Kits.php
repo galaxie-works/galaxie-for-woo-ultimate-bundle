@@ -83,6 +83,7 @@ final class Kits {
 		$draft = $this->set_box( $draft, (int) $input['box'], $in_cart );
 		$draft = $this->set_card( $draft, (int) ( $input['card'] ?? 0 ) );
 		$draft = $this->set_message( $draft, (string) ( $input['message'] ?? '' ) );
+		self::need_message( $draft );
 
 		// The candle the shopper came with is the one thing here that can go away
 		// between the product page and this request. Losing it must not lose the
@@ -142,7 +143,7 @@ final class Kits {
 		if ( $draft['card'] && ! $this->catalog->card_for( (int) $draft['card'], $box ) ) {
 			// A refusal with no way out is a dead end: the shopper cannot guess that
 			// the card is what stands between them and the box they want.
-			throw new KitError( 'card_size', __( 'O cartão deste kit não existe para essa caixa. Troque o cartão (ou siga sem cartão) e escolha a caixa de novo.', 'galaxie-woo' ) );
+			throw $this->card_error( (int) $draft['card'], $box, __( 'O cartão deste kit não existe para essa caixa. Troque o cartão (ou siga sem cartão) e escolha a caixa de novo.', 'galaxie-woo' ) );
 		}
 
 		$draft['box'] = $box;
@@ -171,7 +172,7 @@ final class Kits {
 		}
 
 		if ( ! $this->catalog->card_for( $parent, (int) $draft['box'] ) ) {
-			throw new KitError( 'card_size', __( 'Esse cartão não existe para a caixa deste kit.', 'galaxie-woo' ) );
+			throw $this->card_error( $parent, (int) $draft['box'], __( 'Esse cartão não existe para a caixa deste kit.', 'galaxie-woo' ) );
 		}
 
 		$draft['card'] = $parent;
@@ -395,11 +396,15 @@ final class Kits {
 		$sizes   = $this->catalog->sizes();
 		$options = $this->catalog->options();
 		$units   = $this->units( $draft );
-		$key     = 'packing|' . md5( (string) wp_json_encode( array( self::shape( $box ), $units, $sizes, $options, GiftKit::BUDGET_MS ) ) );
+		$lines   = array_map( static fn( array $line ): array => array( (int) $line['id'], (int) $line['qty'] ), $draft['candles'] );
+		// The lines too, not only their units: each line's cap (the popup's "+")
+		// is kept in the same answer, and the same candles split into other
+		// lines cap differently.
+		$key = 'packing|' . md5( (string) wp_json_encode( array( self::shape( $box ), $units, $sizes, $options, GiftKit::BUDGET_MS, $lines ) ) );
 
 		// [ the answer, whether the search finished ]: only a finished one is
 		// worth keeping past this request ({@see Store::remember()}).
-		$compute = static function () use ( $box, $units, $sizes, $options ): array {
+		$compute = function () use ( $box, $units, $sizes, $options, $draft ): array {
 			$combos = GiftKit::combos( self::shape( $box ), $units, $sizes, $options );
 			$extras = array();
 
@@ -411,20 +416,24 @@ final class Kits {
 				}
 			}
 
-			return array(
-				array(
-					'room'     => GiftKit::wording( $combos, self::labels( $sizes ) ),
-					'extras'   => $extras,
-					'complete' => (bool) $combos['complete'],
-					'fill'     => GiftKit::fill_percent( $combos, $sizes, $units ),
-				),
-				! empty( $combos['complete'] ) && ! empty( $combos['settled'] ),
+			$answer = array(
+				'room'     => GiftKit::wording( $combos, self::labels( $sizes ) ),
+				'extras'   => $extras,
+				'complete' => (bool) $combos['complete'],
+				'fill'     => GiftKit::fill_percent( $combos, $sizes, $units ),
 			);
+
+			// Each line's cap, worked out once here and kept with the rest:
+			// view() used to search again for every line on every request, up
+			// to the whole budget each.
+			list( $answer['caps'], $caps_settled ) = $this->caps( $draft, $answer, $sizes );
+
+			return array( $answer, ! empty( $combos['complete'] ) && ! empty( $combos['settled'] ) && $caps_settled );
 		};
 
 		$found = $this->remember ? ( $this->remember )( $key, $compute ) : $compute()[0];
 
-		return is_array( $found ) && isset( $found['room'], $found['extras'] ) ? $found : $compute()[0];
+		return is_array( $found ) && isset( $found['room'], $found['extras'], $found['caps'] ) ? $found : $compute()[0];
 	}
 
 	/**
@@ -522,8 +531,10 @@ final class Kits {
 			$card = $id ? ( $this->catalog->cards()[ $id ] ?? null ) : null;
 
 			if ( ! $card ) {
-				throw new KitError( 'card_size', __( 'O cartão do kit não existe para esta caixa. Troque o cartão.', 'galaxie-woo' ) );
+				throw $this->card_error( (int) $draft['card'], (int) $box['id'], __( 'O cartão do kit não existe para esta caixa. Troque o cartão.', 'galaxie-woo' ) );
 			}
+
+			self::need_message( $draft );
 
 			$stock[ (string) $card['id'] ] = $card['stock'];
 			$names[ (string) $card['id'] ] = $card['name'];
@@ -627,16 +638,17 @@ final class Kits {
 				continue;
 			}
 
-			$size   = (string) $candle['candle']['size'];
-			$others = $draft;
-			$others['candles'] = array_values( array_filter( $draft['candles'], static fn( array $l ): bool => $l['id'] !== $line['id'] ) );
-			$total += $candle['price'] * $line['qty'];
+			$size     = (string) $candle['candle']['size'];
+			$total   += $candle['price'] * $line['qty'];
+			$room_cap = $box ? (int) ( $packing['caps'][ (string) $line['id'] ] ?? $this->line_cap( $packing, $shapes, $line, $candle, self::without( $draft, (int) $line['id'] ) )[0] ) : (int) $line['qty'];
 
 			$candles[] = array(
 				'id'      => $candle['id'],
 				'name'    => $candle['name'],
 				'image'   => $candle['image'],
 				'price'   => $candle['price'],
+				// The line's price as the store prints it, for the summary ("2 × R$ 60,00").
+				'priceText' => $this->catalog->money( (float) $candle['price'] ),
 				'qty'     => (int) $line['qty'],
 				'size'    => $size,
 				'label'   => $labels[ $size ] ?? $size,
@@ -645,7 +657,7 @@ final class Kits {
 				// The most this line may hold, for the popup's + button: by room,
 				// and by stock only when the store shows stock amounts (a cap would
 				// tell the number). The server checks stock on every add anyway.
-				'cap'     => $box ? ( $this->catalog->shows_stock() ? min( $this->line_cap( $packing, $shapes, $line, $candle, $others ), max( (int) $line['qty'], self::stock_left( $candle, $in_cart ) ) ) : $this->line_cap( $packing, $shapes, $line, $candle, $others ) ) : (int) $line['qty'],
+				'cap'     => $box ? ( $this->catalog->shows_stock() ? min( $room_cap, max( (int) $line['qty'], self::stock_left( $candle, $in_cart ) ) ) : $room_cap ) : (int) $line['qty'],
 			);
 		}
 
@@ -666,6 +678,7 @@ final class Kits {
 				'title'  => $card_row['title'],
 				'image'  => $card_row['image'],
 				'price'  => $card_row['price'],
+				'priceText' => $this->catalog->money( (float) $card_row['price'] ),
 			);
 		}
 
@@ -770,15 +783,56 @@ final class Kits {
 	 * @param array                         $packing From packing().
 	 * @param array<string, array<int,float>> $shapes  Size => [ length, width, height ].
 	 */
-	private function line_cap( array $packing, array $shapes, array $line, array $candle, array $others ): int {
+	private function line_cap( array $packing, array $shapes, array $line, array $candle, array $others ): array {
 		$size = (string) $candle['candle']['size'];
 		$same = isset( $shapes[ $size ] ) && array( (float) $candle['candle']['length'], (float) $candle['candle']['width'], (float) $candle['candle']['height'] ) === $shapes[ $size ];
 
 		if ( $same && ( isset( $packing['extras'][ $size ] ) || $packing['complete'] ) ) {
-			return (int) $line['qty'] + (int) ( $packing['extras'][ $size ] ?? 0 );
+			return array( (int) $line['qty'] + (int) ( $packing['extras'][ $size ] ?? 0 ), false );
 		}
 
-		return max( (int) $line['qty'], $this->room_within( $others, $candle ) );
+		list( $cap, $expired ) = GiftPacking::with_deadline( (float) GiftKit::BUDGET_MS, fn(): int => $this->room_for( $others, $candle ) );
+
+		return array( max( (int) $line['qty'], (int) $cap ), (bool) $expired );
+	}
+
+	/**
+	 * Every line's cap by room, by candle id, and whether each was settled (no
+	 * search ran out of clock): kept with the packing answer, so view() does
+	 * not search once per line on every kit request.
+	 *
+	 * @param array $packing The packing answer so far (room, extras, complete).
+	 * @return array{0: array<string,int>, 1: bool}
+	 */
+	private function caps( array $draft, array $packing, array $sizes ): array {
+		$shapes  = array();
+		$caps    = array();
+		$settled = true;
+
+		foreach ( $sizes as $size ) {
+			$shapes[ (string) $size['size'] ] = array( (float) $size['length'], (float) $size['width'], (float) $size['height'] );
+		}
+
+		foreach ( $draft['candles'] as $line ) {
+			$candle = $this->catalog->candle( (int) $line['id'] );
+
+			if ( ! $candle ) {
+				continue;
+			}
+
+			list( $cap, $expired )          = $this->line_cap( $packing, $shapes, $line, $candle, self::without( $draft, (int) $line['id'] ) );
+			$caps[ (string) $line['id'] ] = $cap;
+			$settled                        = $settled && ! $expired;
+		}
+
+		return array( $caps, $settled );
+	}
+
+	/** The draft without one candle line. */
+	private static function without( array $draft, int $id ): array {
+		$draft['candles'] = array_values( array_filter( $draft['candles'], static fn( array $l ): bool => (int) $l['id'] !== $id ) );
+
+		return $draft;
 	}
 
 	/**
@@ -841,10 +895,46 @@ final class Kits {
 
 		return new KitError(
 			'no_room',
-			/* translators: %d: how many more fit. */
-			sprintf( _n( 'Só cabe mais %d desta vela na caixa deste kit.', 'Só cabem mais %d desta vela na caixa deste kit.', $cap, 'galaxie-woo' ), $cap ),
+			/* translators: %d: how many more fit. {deste} {noun}: "desta vela", "deste sabonete" — the store's own word. */
+			sprintf( Module::nouns( _n( 'Só cabe mais %d {deste} {noun} na caixa deste kit.', 'Só cabem mais %d {deste} {noun} na caixa deste kit.', $cap, 'galaxie-woo' ) ), $cap ),
 			array( 'cap' => $cap )
 		);
+	}
+
+	/**
+	 * A card that cannot go with this box: sold out (a card exists for the box,
+	 * none in stock) is said as such, not as "does not exist for this box" —
+	 * that sent shoppers looking for another box when waiting was the answer.
+	 */
+	private function card_error( int $parent, int $box, string $size_message ): KitError {
+		$rows = array();
+
+		foreach ( $this->catalog->cards() as $card ) {
+			$rows[] = array(
+				'id'     => (int) $card['id'],
+				'parent' => (int) $card['parent'],
+				'attrs'  => (array) ( $card['attrs'] ?? array() ),
+				'stock'  => null,
+			);
+		}
+
+		$attrs = $box ? (array) ( $this->catalog->boxes()[ $box ]['attrs'] ?? array( 'x' => 'none' ) ) : null;
+
+		if ( GiftGroups::card_for( $rows, $parent, $attrs ) ) {
+			return new KitError( 'card_out_of_stock', __( 'O cartão está esgotado no momento. Escolha outro cartão ou siga sem cartão.', 'galaxie-woo' ) );
+		}
+
+		return new KitError( 'card_size', $size_message );
+	}
+
+	/**
+	 * A paid card goes out with a message: an empty one used to pass in
+	 * silence, and the shopper paid for a blank card.
+	 */
+	private static function need_message( array $draft ): void {
+		if ( $draft['card'] && '' === (string) $draft['message'] ) {
+			throw new KitError( 'message_required', __( 'Escreva a mensagem do cartão, ou escolha seguir sem cartão.', 'galaxie-woo' ) );
+		}
 	}
 
 	private static function shape( array $box ): array {

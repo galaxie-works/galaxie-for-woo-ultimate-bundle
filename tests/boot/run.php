@@ -173,7 +173,11 @@ function galaxie_boot_kit( array $booted, array $scenario, callable $hooked ): s
 	$expected = array(
 		array( 'wp_loaded', $ajax, 'merge_on_load', true ),
 		array( 'woocommerce_cart_item_name', $groups, 'name_with_edit', true ),
-		array( 'galaxie_cart_item_after_meta', $groups, 'print_edit', true ),
+		// "Editar kit" in the Galaxie Cart widget moved to the kit's header row.
+		array( 'galaxie_cart_item_after_meta', $groups, 'print_edit', false ),
+		array( 'galaxie_cart_before_line', $groups, 'print_kit_head', true ),
+		array( 'woocommerce_cart_item_restored', $groups, 'after_restore', true ),
+		array( 'woocommerce_check_cart_items', $groups, 'check_items', true ),
 		array( 'wp_footer', $launcher, 'footer', ! $scenario['admin'] ),
 		array( 'wp_enqueue_scripts', $launcher, 'enqueue', ! $scenario['admin'] ),
 	);
@@ -200,11 +204,16 @@ function galaxie_boot_kit( array $booted, array $scenario, callable $hooked ): s
 		throw new RuntimeException( 'Kit: the room_nofit text did not get the store noun: ' . ( $data['texts']['room_nofit'] ?? '(none)' ) );
 	}
 
+	// The noun's gender, not a hardcoded "Adicionada" (KT-11).
+	if ( is_array( $data ) && 'Vela adicionada ao {kit}. {room}' !== ( $data['texts']['added'] ?? '' ) ) {
+		throw new RuntimeException( 'Kit: the added text did not agree with the noun: ' . ( $data['texts']['added'] ?? '(none)' ) );
+	}
+
 	if ( 'Nenhuma vela ainda' !== \Galaxie\Woo\Modules\GiftWrap\Module::nouns( '{Nenhum} {noun} ainda' ) || 'Velas' !== \Galaxie\Woo\Modules\GiftWrap\Module::noun( true, true ) ) {
 		throw new RuntimeException( 'Kit: the default noun is not "vela"' );
 	}
 
-	if ( ! is_array( $data ) || 4549 !== $data['popup'] || array( 'room_many', 'room_one', 'room_nofit', 'full', 'box_holds', 'added', 'offline', 'add_failed', 'not_candle', 'edit_closed', 'edit_failed', 'edit_done' ) !== array_keys( $data['texts'] ) ) {
+	if ( ! is_array( $data ) || 4549 !== $data['popup'] || array( 'room_many', 'room_one', 'room_nofit', 'full', 'box_holds', 'added', 'cart_added', 'view_cart', 'editing', 'editing_back', 'offline', 'add_failed', 'not_candle', 'edit_closed', 'edit_failed', 'edit_done' ) !== array_keys( $data['texts'] ) ) {
 		throw new RuntimeException( 'Kit: boot data ' . json_encode( $data ) );
 	}
 
