@@ -1438,6 +1438,11 @@ final class AccountParts {
 				$look = self::look_in( $elements, $look_def[0], $look_def[2] );
 
 				if ( null === $look ) {
+					// The widget the look came from is gone from its document: drop
+					// the look, so the login falls back to its own style.
+					if ( $document_id && (int) get_option( $look_def[1] . self::LOOK_SOURCE_SUFFIX, 0 ) === $document_id ) {
+						update_option( $look_def[1], array(), false );
+					}
 					continue;
 				}
 

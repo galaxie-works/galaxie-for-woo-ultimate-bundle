@@ -38,6 +38,10 @@ final class CustomerProfile {
 
 		$missing = array();
 		foreach ( $values as $key => $value ) {
+			// The birthdate is only asked for while the Age Gate is on.
+			if ( 'birthdate' === $key && 0 === \Galaxie\Woo\Modules\AgeGate\Module::min_age() ) {
+				continue;
+			}
 			if ( '' === $value ) {
 				$missing[] = $key;
 			}

@@ -105,6 +105,10 @@ final class Module implements ModuleContract, ProvidesBootData, ProvidesElemento
 		}
 
 		QuotedDestination::hooks();
+
+		// The login widget can borrow the checkout's look; keep it in step even
+		// when the My Account module (which also registers this) is off.
+		add_action( 'elementor/document/after_save', array( \Galaxie\Woo\Support\AccountParts::class, 'sync_looks' ), 10, 2 );
 	}
 
 	public function boot_data(): array {

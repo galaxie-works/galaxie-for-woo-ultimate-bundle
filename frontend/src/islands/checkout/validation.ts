@@ -1,3 +1,5 @@
+import { getGalaxieConfig } from '@/lib/wp'
+
 import type { AddressValues, ProfileValues } from './types'
 
 /**
@@ -128,7 +130,10 @@ export function validateProfileStep(
   // All five, not just the two the markup marks `required`: `CustomerProfile`
   // counts the profile as incomplete while any of them is empty, so letting a
   // shopper past with a blank CPF only drops them back onto this step later.
+  // The birthdate only while the Age Gate is on (minAge 0 = off), as on the server.
+  const ageGateOn = !!getGalaxieConfig().ageGate?.minAge
   for (const key of ['first_name', 'last_name', 'phone', 'cpf', 'birthdate'] as const) {
+    if ('birthdate' === key && !ageGateOn) continue
     if ('' === values[key].trim()) {
       errors[key] = REQUIRED
     }
