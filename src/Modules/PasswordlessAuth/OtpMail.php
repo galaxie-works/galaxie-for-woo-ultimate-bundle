@@ -7,6 +7,8 @@
 
 namespace Galaxie\Woo\Modules\PasswordlessAuth;
 
+use Galaxie\Woo\Support\FluentCrmTemplate;
+
 defined( 'ABSPATH' ) || exit;
 
 /**
@@ -15,14 +17,12 @@ defined( 'ABSPATH' ) || exit;
  * Templates), chosen per purpose — signing in, or confirming a new account —
  * on the plugin's Passwordless Auth settings tab.
  *
- * A FluentCRM template is rendered the way FluentCRM renders its own
- * one-off transactional mail, the double opt-in confirmation
- * (`Mailer\Handler::sendDoubleOptInEmail()` in FluentCRM 3.2): block content
- * through its BlockParser, smartcodes through its parser, the template's
- * design wrapper, and `Mailer::send()` with its From / Reply-To. None of the
- * campaign machinery runs: no open pixel, no rewritten links, no compliance
- * footer, no List-Unsubscribe header — a sign-in code is not a campaign, and
- * the person may not even be a contact yet.
+ * A FluentCRM template is rendered by {@see FluentCrmTemplate} — the way
+ * FluentCRM renders its own double opt-in mail, with none of the campaign
+ * machinery (no open pixel, no rewritten links, no compliance footer) — and
+ * sent through FluentCRM's `Mailer::send()` with its From / Reply-To and no
+ * List-Unsubscribe header: a sign-in code is not a campaign, and the person
+ * may not even be a contact yet.
  *
  * The code reaches the template through smartcodes of our own, `{{galaxie.*}}`,
  * which appear in FluentCRM's smartcode picker. They are replaced before
@@ -37,9 +37,6 @@ final class OtpMail {
 
 	/** Smartcode group key: `{{galaxie.otp_code}}`. */
 	private const GROUP = 'galaxie';
-
-	/** FluentCRM's email template post type (`fluentcrmTemplateCPTSlug()`). */
-	private const POST_TYPE = 'fc_template';
 
 	/**
 	 * The values the smartcode callback answers with while a code e-mail is
@@ -102,37 +99,12 @@ final class OtpMail {
 	 * @return array<string,string>
 	 */
 	public static function templates(): array {
-		if ( ! self::crm_active() ) {
-			return array();
-		}
-
-		// Straight from WordPress, not through FluentCRM's ORM: its models
-		// need FluentCRM's own container, and a query that failed there was
-		// swallowed into an empty list — the templates never showed. These are
-		// plain posts of FluentCRM's template post type.
-		$posts = get_posts(
-			array(
-				'post_type'        => self::POST_TYPE,
-				'post_status'      => array( 'publish', 'draft', 'private' ),
-				'posts_per_page'   => 200,
-				'orderby'          => 'ID',
-				'order'            => 'DESC',
-				'suppress_filters' => true,
-			)
-		);
-
-		$out = array();
-		foreach ( $posts as $post ) {
-			$title = '' !== (string) $post->post_title ? (string) $post->post_title : sprintf( '#%d', $post->ID );
-			$out[ (string) $post->ID ] = 'publish' === $post->post_status ? $title : sprintf( '%s (%s)', $title, $post->post_status );
-		}
-
-		return $out;
+		return FluentCrmTemplate::templates();
 	}
 
 	/** Whether FluentCRM is loaded at all. */
 	public static function crm_active(): bool {
-		return defined( 'FLUENTCRM' ) || function_exists( 'FluentCrmApi' );
+		return FluentCrmTemplate::crm_active();
 	}
 
 	/**
@@ -172,79 +144,34 @@ final class OtpMail {
 		self::$current = $values;
 
 		try {
-			$template = get_post( $template_id );
-			if ( ! $template instanceof \WP_Post || self::POST_TYPE !== $template->post_type || 'trash' === $template->post_status ) {
-				return false;
-			}
-
-			$design = (string) get_post_meta( $template->ID, '_design_template', true );
-			$design = '' !== $design ? $design : 'simple';
-
 			// The contact, when there is one, so {{contact.first_name}} and the
-			// like fill in; otherwise an unsaved one built from what we know. A
-			// null subscriber would give every smartcode its default. The name
-			// typed on the sign-up form is anyone's to choose and goes to an
+			// like fill in; otherwise an unsaved one built from what we know. The
+			// name typed on the sign-up form is anyone's to choose and goes to an
 			// address no one has proven yet, so only a name-shaped part of it
 			// reaches the e-mail: no links, no digits, short.
-			$subscriber = null;
-			if ( class_exists( '\FluentCrm\App\Models\Subscriber' ) ) {
-				$subscriber = \FluentCrm\App\Models\Subscriber::where( 'email', $email )->first();
-				if ( ! $subscriber ) {
-					$subscriber = new \FluentCrm\App\Models\Subscriber(
-						array(
-							'email'      => $email,
-							'first_name' => self::safe_name( (string) ( $reg_data['first_name'] ?? '' ) ),
-							'last_name'  => self::safe_name( (string) ( $reg_data['last_name'] ?? '' ) ),
-						)
-					);
-				}
-			}
-
-			$subject = '' !== trim( $subject ) ? $subject : (string) get_post_meta( $template->ID, '_email_subject', true );
-			$body    = self::replace( (string) $template->post_content, $values, true );
-			$subject = self::replace( $subject, $values, false );
-			$header  = self::replace( (string) $template->post_excerpt, $values, false );
-
-			if ( ! in_array( $design, array( 'raw_html', 'visual_builder', 'raw_classic' ), true ) && class_exists( '\FluentCrm\App\Services\BlockParser' ) ) {
-				$body = ( new \FluentCrm\App\Services\BlockParser( $subscriber ) )->parse( $body );
-			}
-
-			$body    = (string) apply_filters( 'fluent_crm/parse_campaign_email_text', $body, $subscriber );
-			$subject = (string) apply_filters( 'fluent_crm/parse_campaign_email_text', $subject, $subscriber );
-			$header  = (string) apply_filters( 'fluent_crm/parse_campaign_email_text', $header, $subscriber );
-
-			$config                    = wp_parse_args( (array) get_post_meta( $template->ID, '_template_config', true ), \FluentCrm\App\Services\Helper::getTemplateConfig( $design ) );
-			$config['design_template'] = $design;
-
-			$html = (string) apply_filters(
-				'fluent_crm/email-design-template-' . $design,
-				$body,
+			$subscriber = FluentCrmTemplate::subscriber(
+				$email,
 				array(
-					'preHeader'     => $header,
-					'email_body'    => $body,
-					'footer_text'   => '',
-					'footer_config' => array( 'disable_footer' => 'yes' ),
-					'config'        => $config,
-				),
-				false,
-				$subscriber
+					'first_name' => self::safe_name( (string) ( $reg_data['first_name'] ?? '' ) ),
+					'last_name'  => self::safe_name( (string) ( $reg_data['last_name'] ?? '' ) ),
+				)
 			);
 
-			if ( '' === trim( wp_strip_all_tags( $html ) ) || false === strpos( $html, $values['otp_code'] ) ) {
+			$rendered = FluentCrmTemplate::render( $template_id, $subject, array( self::GROUP => array( 'values' => $values ) ), $subscriber );
+
+			if ( null === $rendered || false === strpos( $rendered['html'], $values['otp_code'] ) ) {
 				// A template that does not show the code is no use to the
 				// shopper; the plain message will.
 				return false;
 			}
 
-			if ( method_exists( '\FluentCrm\App\Services\Helper', 'maybeDisableEmojiOnEmail' ) ) {
-				\FluentCrm\App\Services\Helper::maybeDisableEmojiOnEmail();
-			}
+			FluentCrmTemplate::disable_emoji();
 
 			$sent = \FluentCrm\App\Services\Libs\Mailer\Mailer::send(
 				array(
 					'to'      => array( 'email' => $email, 'name' => self::safe_name( (string) ( $reg_data['first_name'] ?? '' ) ) ),
-					'subject' => '' !== $subject ? $subject : __( 'Seu código de acesso', 'galaxie-woo' ),
-					'body'    => $html,
+					'subject' => '' !== $rendered['subject'] ? $rendered['subject'] : __( 'Seu código de acesso', 'galaxie-woo' ),
+					'body'    => $rendered['html'],
 					'headers' => \FluentCrm\App\Services\Helper::getMailHeader(),
 				),
 				null, // No subscriber here: it would add a List-Unsubscribe header to a code.
@@ -307,15 +234,6 @@ final class OtpMail {
 	 * @param array<string,string> $values
 	 */
 	private static function replace( string $text, array $values, bool $html ): string {
-		return (string) preg_replace_callback(
-			'/\{\{\s*' . self::GROUP . '\.([a-z_]+)(?:\|[^}]*)?\s*\}\}/',
-			static function ( array $match ) use ( $values, $html ): string {
-				if ( ! isset( $values[ $match[1] ] ) ) {
-					return $match[0];
-				}
-				return $html ? esc_html( $values[ $match[1] ] ) : $values[ $match[1] ];
-			},
-			$text
-		);
+		return FluentCrmTemplate::replace( self::GROUP, $text, $values, $html );
 	}
 }
