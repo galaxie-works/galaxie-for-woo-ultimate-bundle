@@ -602,7 +602,9 @@
     { "name": "line breaks become \\n", "message": "Olá\r\nMãe\rbeijo", "expect": "Olá\nMãe\nbeijo", "length": 13 },
     { "name": "control characters removed, tab kept", "message": "a\u0007b\u0000c\td", "expect": "abc\td", "length": 5 },
     { "name": "trimmed", "message": "  \n Feliz aniversário! \n ", "expect": "Feliz aniversário!", "length": 18 },
-    { "name": "emoji count once", "message": "🎁🎂", "expect": "🎁🎂", "length": 2 }
+    { "name": "emoji count once", "message": "🎁🎂", "expect": "🎁🎂", "length": 2 },
+    { "name": "tags and comments taken out, the text kept", "message": "Te <b>amo</b> <3<!-- x --> <a href=\"x\">aqui</a>", "expect": "Te amo <3 aqui", "length": 14 },
+    { "name": "a lone < is text", "message": "a < b e 2<3", "expect": "a < b e 2<3", "length": 11 }
   ],
   "roles": [
     { "name": "boxes and cards in one category: boxes only as boxes", "rows": [

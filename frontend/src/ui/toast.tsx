@@ -12,11 +12,18 @@ import { cn } from '@/lib/cn'
 
 export type ToastVariant = 'success' | 'error' | 'info'
 
+/** A link after the message ("Ver carrinho"). */
+export interface ToastAction {
+  label: string
+  href: string
+}
+
 export interface ToastItem {
   id: number
   message: string
   variant: ToastVariant
   duration: number
+  action?: ToastAction
 }
 
 type Listener = (items: ToastItem[]) => void
@@ -30,12 +37,13 @@ function emit(): void {
   listeners.forEach((l) => l(snapshot))
 }
 
-export function toast(message: string, opts?: { variant?: ToastVariant; duration?: number }): number {
+export function toast(message: string, opts?: { variant?: ToastVariant; duration?: number; action?: ToastAction }): number {
   const item: ToastItem = {
     id: seq++,
     message,
     variant: opts?.variant ?? 'info',
     duration: opts?.duration ?? 4500,
+    action: opts?.action?.label && opts.action.href ? opts.action : undefined,
   }
   items = [...items, item]
   emit()
@@ -78,7 +86,17 @@ export function Toaster() {
             className="flex items-start gap-3 rounded-lg border border-border bg-popover p-4 text-sm text-popover-foreground shadow-lg animate-in fade-in slide-in-from-top-2"
           >
             <Icon className={cn('mt-0.5 size-4 shrink-0', ICON_COLOR[t.variant])} />
-            <span className="flex-1">{t.message}</span>
+            <span className="flex-1">
+              {t.message}
+              {t.action ? (
+                <>
+                  {' '}
+                  <a href={t.action.href} className="font-medium underline underline-offset-2">
+                    {t.action.label}
+                  </a>
+                </>
+              ) : null}
+            </span>
             <button
               type="button"
               onClick={() => dismissToast(t.id)}

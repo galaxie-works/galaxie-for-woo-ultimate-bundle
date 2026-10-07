@@ -26,9 +26,21 @@ import type { AjaxResult } from '@/lib/wp'
  * A toast, with the toast code (React) loaded only when there is one to show:
  * kit.js runs on pages that have no other use for React.
  */
-export function showKitToast(message: string, variant: 'success' | 'error' | 'info' = 'success'): void {
+export function showKitToast(message: string, variant: 'success' | 'error' | 'info' = 'success', action?: { label: string; href: string }): void {
   if (!message) return
-  void import('@/globals/toast-notices').then((module) => module.showToast(message, variant))
+  void import('@/globals/toast-notices').then((module) => module.showToast(message, variant, action))
+}
+
+/**
+ * fillText() for a sentence about a kit: "Adicionar ao kit {kit}" with a kit
+ * called "Kit 1" read "Adicionar ao kit Kit 1". When the name already starts
+ * with the word, the template's own "kit " before {kit} is dropped; a name
+ * like "Presente da Ana" keeps it.
+ */
+export function kitFill(text: string, values: Record<string, string>): string {
+  const name = (values.kit ?? '').trim()
+  const template = /^kit(?![\p{L}\p{N}])/iu.test(name) ? text.replace(/(?<![\p{L}\p{N}])kit\s+\{kit\}/giu, '{kit}') : text
+  return fillText(template, values)
 }
 
 export interface KitConfig {
@@ -39,6 +51,8 @@ export interface KitConfig {
   continueUrl: string
   nameFormat: string
   nameMax: number
+  /** The cart page, for "Ver carrinho" after a kit goes in. */
+  cartUrl?: string
 }
 
 export interface GiftWrapConfig {
@@ -51,6 +65,7 @@ export interface KitCandle {
   name: string
   image: string
   price: number
+  priceText?: string
   qty: number
   size: string
   label: string
@@ -90,6 +105,7 @@ export interface KitCard {
   priceText?: string
   inStock?: boolean
 }
+
 
 export interface KitSize extends Candle {
   label: string
@@ -158,6 +174,8 @@ export interface KitAnswer {
   current?: string
   previous?: { name: string; count: number } | null
   restored?: string
+  /** The draft is a kit "Editar kit" took out of the cart. */
+  editing?: boolean
 }
 
 export interface KitResult {
@@ -172,6 +190,7 @@ let kit: KitView | null = null
 let loaded = false
 let nonce = ''
 let previousKit: { name: string; count: number } | null = null
+let editing = false
 let channel: BroadcastChannel | null = null
 const listeners = new Set<Listener>()
 
@@ -185,6 +204,11 @@ export function kitAjaxUrl(): string {
 
 export function currentKit(): KitView | null {
   return kit
+}
+
+/** Whether the open draft is a kit taken out of the cart by "Editar kit". */
+export function kitEditing(): boolean {
+  return editing && !!kit
 }
 
 /** An account kit kept aside at login, offered back in the popup. */
@@ -220,13 +244,14 @@ function apply(data: KitAnswer | null | undefined, broadcast = true): void {
   if (data.nonce) nonce = data.nonce
   kit = data.kit ?? null
   previousKit = data.previous ?? null
+  editing = !!data.editing
   loaded = true
 
   for (const notice of data.notices ?? []) showKitToast(notice, 'info')
 
   emit(previous)
 
-  if (broadcast) channel?.postMessage({ kit })
+  if (broadcast) channel?.postMessage({ kit, editing })
 }
 
 /** Whether the server said there may be a draft (see the file header). */
@@ -366,10 +391,11 @@ export function bootKitStore(value?: GiftWrapConfig): void {
 
   if (typeof BroadcastChannel === 'function') {
     channel = new BroadcastChannel('galaxie-kit')
-    channel.onmessage = (event: MessageEvent<{ kit?: KitView | null }>) => {
+    channel.onmessage = (event: MessageEvent<{ kit?: KitView | null; editing?: boolean }>) => {
       if (!event.data || !('kit' in event.data)) return
       const previous = kit
       kit = event.data.kit ?? null
+      editing = !!event.data.editing
       loaded = true
       emit(previous)
     }

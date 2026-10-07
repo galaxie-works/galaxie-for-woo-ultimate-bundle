@@ -229,6 +229,7 @@
   "clean_name": [
     { "name": "spaces and line breaks folded", "name_in": "  Presente\npara   Stella \t ", "expect": "Presente para Stella" },
     { "name": "kept as typed", "name_in": "Mãe <3 100%", "expect": "Mãe <3 100%" },
+    { "name": "tags taken out", "name_in": "<i>Kit</i> da <script>Ana</script>", "expect": "Kit da Ana" },
     { "name": "cut at 40 characters", "name_in": "Um presente muito especial para a minha avó querida", "expect": "Um presente muito especial para a minha" },
     { "name": "emoji count once", "name_in": "🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁", "expect": "🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁🎁" },
     { "name": "control characters dropped", "name_in": "Kit\u0000 da\u0007 Ana", "expect": "Kit da Ana" },

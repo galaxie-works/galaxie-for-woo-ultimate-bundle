@@ -31,6 +31,15 @@ final class Builder {
 	private const CATALOGUE_LIMIT = 50;
 
 	/**
+	 * How long the offer's ids are kept between requests. Every kit request
+	 * reads the offer (the draft's view names its box and card), and working
+	 * it out loads up to 150 products with their variations; any product save
+	 * clears it ({@see GiftPacking::flush_sizes()}), so this only bounds how
+	 * long a change made some other way (a direct database edit) takes to show.
+	 */
+	private const OFFER_SECONDS = 10 * MINUTE_IN_SECONDS;
+
+	/**
 	 * The boxes, ribbons and cards the store offers in gifts, by product
 	 * (variation) id.
 	 *
@@ -248,6 +257,26 @@ final class Builder {
 			return $out;
 		}
 
+		// The ids each role had the last time, for these same categories: each
+		// is loaded on its own (WooCommerce's object cache keeps them) and still
+		// has to be purchasable, so a product taken off sale drops out at once.
+		$signature = md5( (string) wp_json_encode( $categories ) );
+		$kept      = get_transient( GiftPacking::OFFER_TRANSIENT );
+
+		if ( is_array( $kept ) && ( $kept['signature'] ?? '' ) === $signature && is_array( $kept['ids'] ?? null ) ) {
+			foreach ( array_keys( $out ) as $kind ) {
+				foreach ( (array) ( $kept['ids'][ $kind ] ?? array() ) as $id ) {
+					$product = wc_get_product( (int) $id );
+
+					if ( $product instanceof \WC_Product && ! $product->is_type( 'variable' ) && $product->is_purchasable() ) {
+						$out[ $kind ][ (int) $id ] = $product;
+					}
+				}
+			}
+
+			return $out;
+		}
+
 		$products = wc_get_products(
 			array(
 				'status'   => 'publish',
@@ -295,6 +324,15 @@ final class Builder {
 				$out[ $kind ][ $id ] = $found[ $id ];
 			}
 		}
+
+		set_transient(
+			GiftPacking::OFFER_TRANSIENT,
+			array(
+				'signature' => $signature,
+				'ids'       => array_map( 'array_keys', $out ),
+			),
+			self::OFFER_SECONDS
+		);
 
 		return $out;
 	}

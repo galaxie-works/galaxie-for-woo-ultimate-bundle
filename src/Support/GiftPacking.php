@@ -1047,7 +1047,13 @@ final class GiftPacking {
 		self::$terms = array();
 		delete_transient( self::SIZES_TRANSIENT );
 		delete_transient( self::HOLDS_TRANSIENT );
+		// The gift offer's ids (Modules\GiftWrap\Builder::offer()) change with
+		// the same product saves.
+		delete_transient( self::OFFER_TRANSIENT );
 	}
+
+	/** Transient holding the ids of the boxes, ribbons and cards on offer. */
+	public const OFFER_TRANSIENT = 'galaxie_gift_offer';
 
 	/**
 	 * Clears the store sizes whenever a product or variation is created, saved,

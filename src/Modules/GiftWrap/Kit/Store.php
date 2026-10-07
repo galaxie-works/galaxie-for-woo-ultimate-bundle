@@ -16,8 +16,9 @@ defined( 'ABSPATH' ) || exit;
  * - a guest's draft is the session's `galaxie_kit_draft`, and lives as long
  *   as the WooCommerce session;
  * - a signed-in shopper's is user meta `_galaxie_kit_draft`, mirrored to the
- *   session, and kept until added to the cart or discarded. The account copy
- *   is the one read, so another device's change wins;
+ *   session, and kept until added to the cart, discarded, or left untouched
+ *   for TTL (30 days). The account copy is the one read, so another device's
+ *   change wins;
  * - a draft remembers who made it (`owner`, 0 for a guest). A guest draft
  *   still in the session once the shopper is signed in is the one to merge
  *   ({@see CartKits::merge_login()}).
@@ -41,15 +42,42 @@ final class Store {
 	/** Cookie telling the page's script a draft may exist. */
 	public const HINT_COOKIE = 'galaxie_kit';
 
+	/** The id of the draft "Editar kit" took out of the cart, in the session. */
+	public const EDITING_KEY = 'galaxie_kit_editing';
+
+	/**
+	 * An account draft untouched this long is forgotten. Its cookie made every
+	 * page of the shopper ask the uncached kit endpoint for as long as it lived,
+	 * and a kit abandoned for a month is not one anybody is coming back to.
+	 */
+	public const TTL = 30 * DAY_IN_SECONDS;
+
 	/** The visitor's draft, or null. */
 	public static function get(): ?array {
 		$user = self::user();
 
 		if ( $user ) {
-			return GiftKit::normalize( get_user_meta( $user, self::USER_META, true ) );
+			return self::account_draft( $user );
 		}
 
 		return self::session_draft();
+	}
+
+	/** Whether a draft was last changed more than TTL ago (0: never said, kept). */
+	public static function expired( array $draft ): bool {
+		return (int) $draft['updated'] > 0 && (int) $draft['updated'] < time() - self::TTL;
+	}
+
+	/** Marks the draft as one "Editar kit" took out of the cart. */
+	public static function mark_editing( string $id ): void {
+		self::session_set( self::EDITING_KEY, $id );
+	}
+
+	/** Whether the visitor's draft is a kit taken out of the cart to be edited. */
+	public static function editing( ?array $draft ): bool {
+		$session = self::session();
+
+		return $draft && $session && $session->get( self::EDITING_KEY ) === $draft['id'];
 	}
 
 	/** Saves the draft for this visitor. */
@@ -120,6 +148,7 @@ final class Store {
 		}
 
 		self::session_set( self::SESSION_KEY, null );
+		self::session_set( self::EDITING_KEY, null );
 		self::hint( false );
 	}
 
@@ -130,9 +159,16 @@ final class Store {
 		return $session ? GiftKit::normalize( $session->get( self::SESSION_KEY ) ) : null;
 	}
 
-	/** An account's saved draft. */
+	/** An account's saved draft; one past TTL is deleted on the way. */
 	public static function account_draft( int $user ): ?array {
-		return $user ? GiftKit::normalize( get_user_meta( $user, self::USER_META, true ) ) : null;
+		$draft = $user ? GiftKit::normalize( get_user_meta( $user, self::USER_META, true ) ) : null;
+
+		if ( $draft && self::expired( $draft ) ) {
+			delete_user_meta( $user, self::USER_META );
+			return null;
+		}
+
+		return $draft;
 	}
 
 	/**
@@ -195,7 +231,14 @@ final class Store {
 	public static function previous(): ?array {
 		$user = self::user();
 
-		return $user ? GiftKit::normalize( get_user_meta( $user, self::PREVIOUS_META, true ) ) : null;
+		$draft = $user ? GiftKit::normalize( get_user_meta( $user, self::PREVIOUS_META, true ) ) : null;
+
+		if ( $draft && self::expired( $draft ) ) {
+			delete_user_meta( $user, self::PREVIOUS_META );
+			return null;
+		}
+
+		return $draft;
 	}
 
 	/** Forgets the kept-aside draft. */

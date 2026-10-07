@@ -209,7 +209,10 @@ final class GiftGroups {
 				$with[] = $candle;
 			}
 
-			if ( ! GiftPacking::fits( $box, $with, $options ) ) {
+			// Only a proved "no" stops the count: a search that ran out of work
+			// (or of a caller's deadline, GiftPacking::with_deadline()) has not
+			// shown the next one will not go in. The add is checked again anyway.
+			if ( false === GiftPacking::fits_known( $box, $with, $options ) ) {
 				break;
 			}
 
@@ -579,8 +582,9 @@ final class GiftGroups {
 	/**
 	 * A card message as it is stored: what the shopper typed, only made safe to
 	 * keep — invalid UTF-8 dropped, line breaks as \n, control characters other
-	 * than \n and \t removed, trimmed. "<3" and "100%" stay as they are: this is
-	 * text, escaped where it is printed, never here.
+	 * than \n and \t removed, HTML tags and comments taken out, trimmed. "<3",
+	 * "a < b" and "100%" stay as they are: this is plain text, escaped where it
+	 * is printed (wp-admin and the e-mails print order meta as markup).
 	 *
 	 * @param string $message Message.
 	 */
@@ -593,6 +597,9 @@ final class GiftGroups {
 
 		$message = preg_replace( '/\r\n?/', "\n", $message );
 		$message = preg_replace( '/[\x00-\x08\x0B-\x1F\x7F]/u', '', (string) $message );
+		// A tag is "<" then a letter, "/" or "!--": "<3" is not one. The same rule
+		// as cleanMessage() in gift-groups.ts.
+		$message = preg_replace( '/<(?:!--[\s\S]*?--|\/?[a-zA-Z][^<>]*)>/u', '', (string) $message );
 
 		return trim( (string) $message );
 	}

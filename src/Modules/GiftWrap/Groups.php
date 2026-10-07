@@ -8,6 +8,7 @@
 namespace Galaxie\Woo\Modules\GiftWrap;
 
 use Galaxie\Woo\Support\GiftGroups;
+use Galaxie\Woo\Support\GiftKit;
 use Galaxie\Woo\Support\GiftPacking;
 
 defined( 'ABSPATH' ) || exit;
@@ -35,10 +36,17 @@ defined( 'ABSPATH' ) || exit;
  * - A group left without candles loses its accessories (removal, a product
  *   that vanished on session load). Removing a candle otherwise changes
  *   nothing: fewer candles always fit.
- * - An accessory's quantity belongs to its gift: refused in the classic and
- *   Galaxie carts, fixed in the block cart (Store API quantity limits). Removing
- *   one on its own is allowed — every accessory is optional.
- * - A boxed candle's quantity can grow only while the box still closes.
+ * - A kit (a group with a name) stands or falls whole: removing its box, or
+ *   its last candle, takes every line of it out, with one notice, and the
+ *   cart's "Desfazer" brings every line back. A kit line that finds itself
+ *   without a box anyway (the box sold out and WooCommerce dropped it) stops
+ *   being a kit line and stays as an ordinary product.
+ * - An accessory's quantity belongs to its gift, and every quantity in a kit
+ *   belongs to the kit ("Editar kit" changes it): refused in the classic and
+ *   Galaxie carts, fixed in the block cart (Store API quantity limits).
+ *   Removing a card or ribbon on its own is allowed — they are optional.
+ * - A boxed candle's quantity (outside kits) can grow only while the box
+ *   still closes; a search that runs out of time does not refuse it.
  */
 final class Groups {
 
@@ -80,11 +88,32 @@ final class Groups {
 		add_action( 'woocommerce_after_cart_contents', array( self::class, 'edit_off' ) );
 		add_action( 'woocommerce_review_order_before_cart_contents', array( self::class, 'edit_on' ) );
 		add_action( 'woocommerce_review_order_after_cart_contents', array( self::class, 'edit_off' ) );
-		add_action( 'galaxie_cart_item_after_meta', array( self::class, 'print_edit' ), 10, 2 );
+		// The Galaxie Cart widget prints "Editar kit" in the kit's header row
+		// (print_kit_head()); print_edit() stays for a widget saved without it.
 
 		add_action( 'woocommerce_cart_item_removed', array( self::class, 'after_removal' ), 20, 2 );
+		add_action( 'woocommerce_cart_item_restored', array( self::class, 'after_restore' ), 5, 2 );
 		// After WooCommerce dropped what can no longer be bought, and after a login merge.
 		add_action( 'woocommerce_cart_loaded_from_session', array( self::class, 'tidy' ), 20, 1 );
+		// Before checkout, and on the cart page: the last word on half a kit.
+		add_action( 'woocommerce_check_cart_items', array( self::class, 'check_items' ), 5 );
+
+		// "Pedir novamente" would take a kit apart into loose products.
+		add_filter( 'woocommerce_order_again_cart_item_data', array( self::class, 'order_again_data' ), 10, 3 );
+		add_filter( 'woocommerce_add_to_cart_validation', array( self::class, 'refuse_order_again' ), 1, 6 );
+
+		// The Galaxie Cart widget: a header row over each kit, its lines under it.
+		add_action( 'galaxie_cart_before_line', array( self::class, 'print_kit_head' ), 10, 2 );
+		add_filter( 'galaxie_cart_line_class', array( self::class, 'line_class' ), 10, 2 );
+		// WooCommerce's own templates (cart table, mini cart, checkout review): a class to hang a style on.
+		add_filter( 'woocommerce_cart_item_class', array( self::class, 'line_class' ), 20, 2 );
+		add_filter( 'woocommerce_mini_cart_item_class', array( self::class, 'line_class' ), 20, 2 );
+
+		// The block cart and checkout: the kit as data of its own, not markup inside `item_data`.
+		add_action( 'woocommerce_blocks_loaded', array( self::class, 'register_store_api' ) );
+
+		// The card message is the shopper's text: printed as text in wp-admin and e-mails.
+		add_filter( 'woocommerce_order_item_display_meta_value', array( self::class, 'display_meta_value' ), 20, 3 );
 
 		add_filter( 'woocommerce_update_cart_validation', array( self::class, 'validate_update' ), 20, 4 );
 		add_filter( 'woocommerce_cart_item_quantity', array( self::class, 'quantity_html' ), 20, 3 );
@@ -373,11 +402,29 @@ final class Groups {
 		return $gift && self::editable( $gift ) ? $group['id'] : '';
 	}
 
-	/** An accessory: its quantity is its gift's. */
+	/**
+	 * An accessory, or any line of a kit: its quantity is its gift's. A kit's
+	 * quantities change through "Editar kit", where the box is checked again;
+	 * a stepper on the cart line looked live and did nothing useful.
+	 */
 	public static function is_locked( $item ): bool {
 		$group = self::group_of( $item );
 
-		return null !== $group && self::ROLE_CANDLE !== $group['role'];
+		return null !== $group && ( self::ROLE_CANDLE !== $group['role'] || self::is_kit( $group ) );
+	}
+
+	/** A kit (Kit flow) rather than a gift built before kits: it has a name. */
+	public static function is_kit( array $group ): bool {
+		return '' !== ( $group['name'] ?? '' );
+	}
+
+	/**
+	 * "Kit 1" as a sentence says it: a name that already starts with the word
+	 * stands alone, any other gets it in front ("kit Presente da Ana").
+	 */
+	public static function kit_phrase( string $name ): string {
+		/* translators: %s: the kit's name as the shopper typed it. */
+		return preg_match( '/^kit\b/iu', $name ) ? $name : sprintf( __( 'kit %s', 'galaxie-woo' ), $name );
 	}
 
 	// ----------------------------------------------------------- showing
@@ -401,28 +448,25 @@ final class Groups {
 		$contents = WC()->cart->get_cart();
 
 		if ( isset( self::numbers( $contents )[ $group['id'] ] ) ) {
-			$row = array(
-				// Escaped: a kit's name is the shopper's text, and WooCommerce prints
-				// item data keys through wp_kses_post() (block cart: as markup).
+			// Plain text only, `display` included: the Store API hands it to every
+			// cart that reads it (the block cart, the pixfort mini cart), and some
+			// print it as text — a link inside showed up as raw markup. "Editar
+			// kit" lives in the classic templates (name_with_edit()), the Galaxie
+			// Cart widget (print_edit(), print_kit_head()) and, for the block
+			// cart, the `galaxie-kit` extension data (register_store_api()).
+			// The name is escaped: it is the shopper's text, and WooCommerce
+			// prints item data keys through wp_kses_post().
+			$data[] = array(
 				'key'   => esc_html( self::title_of( $group, $contents ) ),
 				'value' => self::role_label( $group['role'] ),
 			);
-
-			// The block cart and checkout print `display` as markup (links kept):
-			// "Editar kit" goes there. Classic templates get it with the name
-			// instead (name_with_edit()), so flat text elsewhere stays plain.
-			$edit = self::is_store_api() ? self::edit_target( $cart_item ) : '';
-
-			if ( '' !== $edit ) {
-				$row['display'] = esc_html( $row['value'] ) . ' · ' . self::edit_link( $edit );
-			}
-
-			$data[] = $row;
 		}
 
 		if ( self::ROLE_CARD === $group['role'] && '' !== $group['message'] ) {
 			$data[] = array(
 				'key'   => __( 'Mensagem', 'galaxie-woo' ),
+				// Plain text (tags are stripped when it is typed, GiftGroups::clean_message());
+				// WooCommerce and the Store API print it through wp_kses_post().
 				'value' => $group['message'],
 			);
 		}
@@ -477,6 +521,145 @@ final class Groups {
 		}
 	}
 
+	/**
+	 * The Galaxie Cart widget: a header row before the first line of each kit —
+	 * its name, what the kit costs, the start of the card's message and "Editar
+	 * kit" — so the kit reads as one thing and its lines sit under it.
+	 *
+	 * @param mixed $cart_item
+	 * @param mixed $cart_item_key
+	 */
+	public static function print_kit_head( $cart_item, $cart_item_key = '' ): void {
+		static $printed = array();
+
+		$group = self::group_of( $cart_item );
+
+		if ( ! $group || ! self::is_kit( $group ) || isset( $printed[ $group['id'] ] ) || ! function_exists( 'WC' ) || ! WC()->cart ) {
+			return;
+		}
+
+		$contents = WC()->cart->get_cart();
+		$gift     = self::groups( $contents )[ $group['id'] ] ?? null;
+
+		if ( ! $gift ) {
+			return;
+		}
+
+		$printed[ $group['id'] ] = true;
+
+		$lines   = $gift['candles'] + (array) $gift['box'] + $gift['ribbons'] + $gift['cards'];
+		$total   = 0.0;
+		$tax     = function_exists( 'wc_tax_enabled' ) && wc_tax_enabled() && WC()->cart->display_prices_including_tax();
+		$message = '';
+
+		foreach ( $lines as $line ) {
+			$total += (float) ( $line['line_subtotal'] ?? 0 ) + ( $tax ? (float) ( $line['line_subtotal_tax'] ?? 0 ) : 0.0 );
+		}
+
+		foreach ( $gift['cards'] as $card ) {
+			$message = (string) ( self::group_of( $card )['message'] ?? '' );
+		}
+
+		if ( '' !== $message && function_exists( 'mb_strlen' ) && mb_strlen( $message ) > 80 ) {
+			$message = rtrim( mb_substr( $message, 0, 79 ) ) . '…';
+		}
+
+		$edit = self::editable( $gift ) && Module::kit_popup_id() ? self::edit_link( $group['id'] ) : '';
+
+		printf(
+			'<div class="galaxie-cart-kit-head" data-galaxie-kit="%1$s"><span class="galaxie-cart-kit-title">%2$s</span><span class="galaxie-cart-kit-total">%3$s</span>%4$s%5$s</div>',
+			esc_attr( $group['id'] ),
+			esc_html( $group['name'] ),
+			wp_kses_post( function_exists( 'wc_price' ) ? wc_price( $total ) : (string) $total ),
+			'' !== $message ? '<span class="galaxie-cart-kit-message">' . esc_html( sprintf( /* translators: %s: the start of the card's message. */ __( 'Mensagem: “%s”', 'galaxie-woo' ), $message ) ) . '</span>' : '',
+			'' !== $edit ? '<span class="galaxie-cart-kit-edit galaxie-kit-edit-wrap">' . $edit . '</span>' : '' // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in edit_link().
+		);
+	}
+
+	/**
+	 * `galaxie-kit-line` (and the kit's id) on the lines of a kit, wherever a
+	 * cart prints a class for its lines.
+	 *
+	 * @param mixed $class
+	 * @param mixed $cart_item
+	 * @return mixed
+	 */
+	public static function line_class( $class, $cart_item = array() ) {
+		$group = self::group_of( $cart_item );
+
+		if ( ! is_string( $class ) || ! $group || ! self::is_kit( $group ) ) {
+			return $class;
+		}
+
+		return trim( $class . ' galaxie-kit-line galaxie-kit-line--' . sanitize_html_class( $group['role'] ) );
+	}
+
+	/**
+	 * The block cart and checkout: `extensions.galaxie-kit` on each cart item —
+	 * the kit's id, name, role and whether "Editar kit" applies — instead of a
+	 * link inside the item data's text.
+	 */
+	public static function register_store_api(): void {
+		if ( ! function_exists( 'woocommerce_store_api_register_endpoint_data' ) || ! class_exists( '\Automattic\WooCommerce\StoreApi\Schemas\V1\CartItemSchema' ) ) {
+			return;
+		}
+
+		woocommerce_store_api_register_endpoint_data(
+			array(
+				'endpoint'        => \Automattic\WooCommerce\StoreApi\Schemas\V1\CartItemSchema::IDENTIFIER,
+				'namespace'       => 'galaxie-kit',
+				'data_callback'   => array( self::class, 'store_api_data' ),
+				'schema_callback' => array( self::class, 'store_api_schema' ),
+				'schema_type'     => ARRAY_A,
+			)
+		);
+	}
+
+	/**
+	 * @param mixed $cart_item
+	 * @return array<string,mixed>
+	 */
+	public static function store_api_data( $cart_item ): array {
+		$group = self::group_of( $cart_item );
+
+		if ( ! $group || ! self::is_kit( $group ) ) {
+			return array();
+		}
+
+		return array(
+			'group'    => $group['id'],
+			'name'     => $group['name'],
+			'role'     => $group['role'],
+			'editable' => '' !== self::edit_target( $cart_item ),
+		);
+	}
+
+	/** @return array<string,mixed> */
+	public static function store_api_schema(): array {
+		return array(
+			'group'    => array(
+				'description' => 'Kit id in the cart.',
+				'type'        => 'string',
+				'readonly'    => true,
+			),
+			'name'     => array(
+				'description' => 'Kit name.',
+				'type'        => 'string',
+				'readonly'    => true,
+			),
+			'role'     => array(
+				'description' => 'candle, box, ribbon or card.',
+				'type'        => 'string',
+				'readonly'    => true,
+			),
+			'editable' => array(
+				'description' => 'Whether "Editar kit" applies (on the box line).',
+				'type'        => 'boolean',
+				'readonly'    => true,
+			),
+		);
+	}
+
 	/** Whether this request is the Store API's (the block cart and checkout). */
 	private static function is_store_api(): bool {
 		if ( function_exists( 'WC' ) && is_object( WC() ) && method_exists( WC(), 'is_store_api_request' ) ) {
@@ -521,19 +704,152 @@ final class Groups {
 
 	// ------------------------------------------------------------- rules
 
+	/** Set while this class restores a kit's lines itself (see after_restore()). */
+	private static bool $restoring = false;
+
 	/**
-	 * A gift left without candles takes its accessories with it.
+	 * A gift left without candles takes its accessories with it, and a kit
+	 * whose box or last candle was removed goes whole: its other lines leave
+	 * the cart the way the removed one did — into WooCommerce's removed items,
+	 * so the cart's "Desfazer" (after_restore()) brings the kit back entire.
+	 *
+	 * A card on its own may go: a kit without a card is still a kit.
 	 *
 	 * @param mixed $cart_item_key
 	 * @param mixed $cart
 	 */
 	public static function after_removal( $cart_item_key, $cart ): void {
+		if ( ! $cart instanceof \WC_Cart ) {
+			return;
+		}
+
+		$removed = $cart->get_removed_cart_contents()[ (string) $cart_item_key ] ?? null;
+		$group   = self::group_of( $removed );
+
+		if ( $group && self::is_kit( $group ) && ! self::$restoring ) {
+			$gift = self::groups( $cart->get_cart_contents() )[ $group['id'] ] ?? null;
+
+			if ( $gift && ( self::ROLE_BOX === $group['role'] || ! $gift['candles'] ) ) {
+				self::take_out( $cart, $group['id'] );
+				self::say_removed( $group['name'] );
+			}
+		}
+
 		self::tidy( $cart );
 	}
 
 	/**
-	 * Drops accessories whose gift has no candle left, and lists each gift's
-	 * lines together — candles, box, ribbons, cards — where its first line was.
+	 * "Desfazer" on any line of a kit taken out whole brings back every line
+	 * of it that is still among the removed items. What could not come back
+	 * (the box, after the removed list was cleaned) is settled by tidy().
+	 *
+	 * @param mixed $cart_item_key
+	 * @param mixed $cart
+	 */
+	public static function after_restore( $cart_item_key, $cart ): void {
+		if ( self::$restoring || ! $cart instanceof \WC_Cart ) {
+			return;
+		}
+
+		$group = self::group_of( $cart->get_cart_contents()[ (string) $cart_item_key ] ?? null );
+
+		if ( ! $group || ! self::is_kit( $group ) ) {
+			return;
+		}
+
+		self::$restoring = true;
+
+		try {
+			foreach ( $cart->get_removed_cart_contents() as $key => $item ) {
+				$other = self::group_of( $item );
+
+				if ( $other && $other['id'] === $group['id'] ) {
+					$cart->restore_cart_item( (string) $key );
+				}
+			}
+		} finally {
+			self::$restoring = false;
+		}
+
+		self::tidy( $cart );
+	}
+
+	/**
+	 * Every line of one gift, out of the cart and into its removed items (as
+	 * WC_Cart::remove_cart_item() keeps them: without the product object),
+	 * firing no removal hooks of its own.
+	 */
+	private static function take_out( \WC_Cart $cart, string $id ): void {
+		$contents = $cart->get_cart_contents();
+		$removed  = $cart->get_removed_cart_contents();
+
+		foreach ( $contents as $key => $item ) {
+			$group = self::group_of( $item );
+
+			if ( $group && $group['id'] === $id ) {
+				unset( $item['data'] );
+				$removed[ $key ] = $item;
+				unset( $contents[ $key ] );
+			}
+		}
+
+		$cart->set_removed_cart_contents( $removed );
+		$cart->set_cart_contents( $contents );
+		self::persist( $cart );
+	}
+
+	/** "O Kit 1 foi removido do carrinho.", once per kit and request. */
+	private static function say_removed( string $name ): void {
+		static $said = array();
+
+		if ( isset( $said[ $name ] ) || ! function_exists( 'wc_add_notice' ) ) {
+			return;
+		}
+
+		$said[ $name ] = true;
+
+		/* translators: %s: "Kit 1", or "kit Presente da Ana". */
+		wc_add_notice( esc_html( sprintf( __( 'O %s foi removido do carrinho.', 'galaxie-woo' ), self::kit_phrase( $name ) ) ), 'notice' );
+	}
+
+	/**
+	 * The persistent cart (user meta) follows a change written straight to the
+	 * contents: WooCommerce only saves it on its own add, remove, restore and
+	 * quantity hooks, so a kit taken out here — or put back as a draft by
+	 * "Editar kit" — would come back on the shopper's next device.
+	 *
+	 * @param mixed $cart
+	 */
+	public static function persist( $cart ): void {
+		if ( ! is_object( $cart ) ) {
+			return;
+		}
+
+		$session = $cart->session ?? null;
+
+		if ( is_object( $session ) && method_exists( $session, 'persistent_cart_update' ) ) {
+			$session->persistent_cart_update();
+		} elseif ( method_exists( $cart, 'persistent_cart_update' ) ) {
+			$cart->persistent_cart_update();
+		}
+	}
+
+	/**
+	 * `woocommerce_check_cart_items` (the cart page and checkout): tidy() once
+	 * more, so no half kit reaches an order whatever path left it.
+	 */
+	public static function check_items(): void {
+		if ( function_exists( 'WC' ) && WC()->cart ) {
+			self::tidy( WC()->cart );
+		}
+	}
+
+	/**
+	 * Drops accessories whose gift has no candle left, turns the lines of a kit
+	 * left without its box into ordinary products (a kit is a box; candles
+	 * tagged "Kit 1: Vela" with no box to go in must not reach an order as a
+	 * kit), and lists each gift's lines together — candles, box, ribbons,
+	 * cards — where its first line was.
 	 *
 	 * Written straight to the contents rather than through remove_cart_item(),
 	 * so the removal fires no hooks of its own and offers no "undo" that would
@@ -555,6 +871,7 @@ final class Groups {
 
 		$ordered = array();
 		$placed  = array();
+		$changed = false;
 
 		foreach ( $contents as $key => $item ) {
 			$group = self::group_of( $item );
@@ -577,12 +894,97 @@ final class Groups {
 				continue;
 			}
 
-			$ordered += $gift['candles'] + (array) $gift['box'] + $gift['ribbons'] + $gift['cards'];
+			$lines = $gift['candles'] + (array) $gift['box'] + $gift['ribbons'] + $gift['cards'];
+
+			if ( ! $gift['box'] && self::is_kit( $group ) ) {
+				foreach ( $lines as $line_key => $line ) {
+					unset( $lines[ $line_key ][ self::CART_KEY ], $lines[ $line_key ][ Flag::CART_KEY ] );
+				}
+
+				$changed = true;
+
+				/* translators: %s: "Kit 1", or "kit Presente da Ana". */
+				$text = sprintf( __( 'O %s ficou sem a caixa e foi desfeito: os produtos continuam no carrinho, sem embalagem de presente.', 'galaxie-woo' ), self::kit_phrase( $gift['name'] ) );
+
+				if ( function_exists( 'wc_add_notice' ) && ( ! function_exists( 'wc_has_notice' ) || ! wc_has_notice( esc_html( $text ), 'notice' ) ) ) {
+					wc_add_notice( esc_html( $text ), 'notice' );
+				}
+			}
+
+			$ordered += $lines;
 		}
 
-		if ( array_keys( $ordered ) !== array_keys( $contents ) ) {
+		if ( $changed || array_keys( $ordered ) !== array_keys( $contents ) ) {
 			$cart->set_cart_contents( $ordered );
+			self::persist( $cart );
 		}
+	}
+
+	/**
+	 * "Pedir novamente": a kit's lines are marked on the way in, so the
+	 * add-to-cart check below can turn them away — repeated line by line, a
+	 * kit came back as loose products with no box around them.
+	 *
+	 * @param mixed $data
+	 * @param mixed $item
+	 * @param mixed $order
+	 * @return mixed
+	 */
+	public static function order_again_data( $data, $item = null, $order = null ) {
+		if ( is_array( $data ) && $item instanceof \WC_Order_Item_Product && '' !== (string) $item->get_meta( self::ITEM_GROUP ) && '' !== (string) $item->get_meta( self::ITEM_NAME ) ) {
+			$data['galaxie_kit_again'] = 1;
+		}
+
+		return $data;
+	}
+
+	/**
+	 * Refuses the lines order_again_data() marked, with one notice.
+	 *
+	 * @param mixed $passed
+	 * @param mixed $product_id
+	 * @param mixed $quantity
+	 * @param mixed $variation_id
+	 * @param mixed $variations
+	 * @param mixed $data
+	 * @return mixed
+	 */
+	public static function refuse_order_again( $passed, $product_id = 0, $quantity = 0, $variation_id = 0, $variations = array(), $data = array() ) {
+		if ( ! is_array( $data ) || empty( $data['galaxie_kit_again'] ) ) {
+			return $passed;
+		}
+
+		static $said = false;
+
+		if ( ! $said && function_exists( 'wc_add_notice' ) ) {
+			$said = true;
+			wc_add_notice( esc_html__( 'Kits precisam ser montados novamente: os produtos dos kits deste pedido não foram adicionados ao carrinho.', 'galaxie-woo' ), 'notice' );
+		}
+
+		return false;
+	}
+
+	/**
+	 * The card message in wp-admin and the e-mails: text, escaped here, since
+	 * WooCommerce prints order item meta values as markup.
+	 *
+	 * @param mixed $display
+	 * @param mixed $meta
+	 * @param mixed $item
+	 * @return mixed
+	 */
+	public static function display_meta_value( $display, $meta = null, $item = null ) {
+		if ( ! is_object( $meta ) || ! $item instanceof \WC_Order_Item_Product || '' === (string) $item->get_meta( self::ITEM_MESSAGE ) ) {
+			return $display;
+		}
+
+		if ( ( $meta->key ?? '' ) !== __( 'Mensagem', 'galaxie-woo' ) || ! is_string( $meta->value ?? null ) ) {
+			return $display;
+		}
+
+		// Escaped, not stripped: "<3" is text, and a tag typed before tags were
+		// stripped on the way in prints as the characters it is.
+		return nl2br( esc_html( $meta->value ) );
 	}
 
 	/**
@@ -612,6 +1014,12 @@ final class Groups {
 
 		if ( 0 === $quantity || $quantity === $current ) {
 			return $passed;
+		}
+
+		if ( self::is_kit( $group ) ) {
+			/* translators: %s: "Kit 1", or "kit Presente da Ana". */
+			wc_add_notice( esc_html( sprintf( __( 'As quantidades do %s mudam em “Editar kit”.', 'galaxie-woo' ), self::kit_phrase( $group['name'] ) ) ), 'error' );
+			return false;
 		}
 
 		if ( self::ROLE_CANDLE !== $group['role'] ) {
@@ -659,7 +1067,15 @@ final class Groups {
 			$others[] = $candle;
 		}
 
-		if ( GiftPacking::fits( $box, $others, Module::packing_options() ) ) {
+		// Only a proved "no" refuses, within the kit's budget: a search that ran
+		// out of work or of clock has not shown the candle will not go in.
+		$options        = Module::packing_options();
+		list( $answer ) = GiftPacking::with_deadline(
+			(float) GiftKit::BUDGET_MS,
+			static fn(): ?bool => GiftPacking::fits_known( $box, $others, $options )
+		);
+
+		if ( false !== $answer ) {
 			return $passed;
 		}
 
@@ -752,7 +1168,13 @@ final class Groups {
 			return $value;
 		}
 
-		$fit = $cache[ $state ] = GiftGroups::max_quantity( $box, $others, $candle, (int) $cart_item['quantity'], Module::packing_options() );
+		$options      = Module::packing_options();
+		$current      = (int) $cart_item['quantity'];
+		list( $fit )  = GiftPacking::with_deadline(
+			(float) GiftKit::BUDGET_MS,
+			static fn(): int => GiftGroups::max_quantity( $box, $others, $candle, $current, $options )
+		);
+		$fit          = $cache[ $state ] = (int) $fit;
 
 		return is_numeric( $value ) ? min( (int) $value, $fit ) : $fit;
 	}

@@ -15,7 +15,8 @@ defined( 'ABSPATH' ) || exit;
  * An admin notice listing candle variations — variations with the candle size
  * attribute — that have neither gift dimensions ("Medidas para embalagem de
  * presente", their own or their size term's) nor WooCommerce dimensions, with a
- * link to edit each product.
+ * link to edit each product; and a second one listing the gift boxes and cards
+ * on offer that Shipping Cartons cannot weigh or size for a quote.
  *
  * The gift builder refuses such a candle ("Não foi possível calcular a
  * embalagem deste produto"), so this is where the merchant finds out before a
@@ -59,7 +60,10 @@ final class DimensionNotice {
 			return;
 		}
 
-		$missing = self::missing( Module::size_attribute(), $on_product ? $product_id : 0 );
+		$missing     = self::missing( Module::size_attribute(), $on_product ? $product_id : 0 );
+		$accessories = self::accessories( $on_product ? $product_id : 0 );
+
+		self::render_accessories( $accessories );
 
 		if ( ! $missing ) {
 			return;
@@ -86,6 +90,87 @@ final class DimensionNotice {
 		}
 
 		echo '</ul></div>';
+	}
+
+	/**
+	 * Boxes and cards on offer that the shipping quote cannot weigh or size.
+	 *
+	 * @param array<int, array{product:\WC_Product, role:string, missing:string[]}> $rows
+	 */
+	private static function render_accessories( array $rows ): void {
+		if ( ! $rows ) {
+			return;
+		}
+
+		echo '<div class="notice notice-warning"><p><strong>' . esc_html__( 'Gift Wrap', 'galaxie-woo' ) . ':</strong> '
+			. esc_html__( 'these gift boxes and cards are missing shipping data (Products → edit → Shipping, or the variation). Shipping Cartons packs every quote with them in it; a missing weight makes it give up and send the Melhor Envio plugin\'s own request. A box with no length, width or height is quoted at its inside measures plus 0.6 cm until they are filled in.', 'galaxie-woo' )
+			. '</p><ul style="list-style:disc;margin-left:1.5em">';
+
+		$labels = array(
+			'weight' => __( 'weight', 'galaxie-woo' ),
+			'length' => __( 'length', 'galaxie-woo' ),
+			'width'  => __( 'width', 'galaxie-woo' ),
+			'height' => __( 'height', 'galaxie-woo' ),
+		);
+
+		foreach ( array_slice( $rows, 0, self::LIMIT ) as $row ) {
+			$product = $row['product'];
+			$parent  = $product->is_type( 'variation' ) ? $product->get_parent_id() : $product->get_id();
+
+			printf(
+				'<li>%1$s (%2$s): %3$s — <a href="%4$s">%5$s</a></li>',
+				esc_html( wp_strip_all_tags( $product->get_name() ) ),
+				esc_html( 'box' === $row['role'] ? __( 'box', 'galaxie-woo' ) : __( 'card', 'galaxie-woo' ) ),
+				esc_html( implode( ', ', array_map( static fn( string $field ): string => $labels[ $field ] ?? $field, $row['missing'] ) ) ),
+				esc_url( (string) get_edit_post_link( $parent ) ),
+				esc_html__( 'Edit', 'galaxie-woo' )
+			);
+		}
+
+		echo '</ul></div>';
+	}
+
+	/**
+	 * The boxes and cards on offer ({@see Builder::offer()}) without what a
+	 * shipping quote needs: a box its weight and outside size, a card (packed
+	 * flat, by weight) its weight. Of one product, or all.
+	 *
+	 * @param int $parent Product id, or 0 for every accessory on offer.
+	 * @return array<int, array{product:\WC_Product, role:string, missing:string[]}>
+	 */
+	public static function accessories( int $parent = 0 ): array {
+		$offer = Builder::offer();
+		$rows  = array();
+
+		foreach ( array( 'box', 'card' ) as $role ) {
+			foreach ( $offer[ $role ] ?? array() as $product ) {
+				$owner = $product->is_type( 'variation' ) ? $product->get_parent_id() : $product->get_id();
+
+				if ( $parent > 0 && $owner !== $parent ) {
+					continue;
+				}
+
+				$fields  = 'box' === $role ? array( 'weight', 'length', 'width', 'height' ) : array( 'weight' );
+				$missing = array();
+
+				foreach ( $fields as $field ) {
+					// get_weight() and friends fall back to the parent's, as the quote does.
+					if ( (float) $product->{'get_' . $field}() <= 0 ) {
+						$missing[] = $field;
+					}
+				}
+
+				if ( $missing ) {
+					$rows[] = array(
+						'product' => $product,
+						'role'    => $role,
+						'missing' => $missing,
+					);
+				}
+			}
+		}
+
+		return $rows;
 	}
 
 	/**

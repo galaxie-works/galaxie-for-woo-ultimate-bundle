@@ -26,7 +26,7 @@ import { BUDGET_MS, fillText } from '@/lib/gift-kit'
 import { tell } from '@/lib/dialog'
 import { blockedByChoice, findAlert, missingChoice, wooChoiceNotice } from '@/globals/buy-box-alert'
 import { celebrate, openKit } from '@/globals/kit-open'
-import { currentKit, kitCall, kitConfig, kitLoaded, kitText, kitUnits, kitValues, onKit, showKitToast } from '@/globals/kit-store'
+import { currentKit, kitCall, kitConfig, kitFill, kitLoaded, kitText, kitUnits, kitValues, onKit, showKitToast } from '@/globals/kit-store'
 import type { KitView } from '@/globals/kit-store'
 
 interface ButtonState {
@@ -38,6 +38,8 @@ interface ButtonState {
   label: Text | null
   candles: Record<string, Candle>
   busy: boolean
+  /** The kit the Buy Box alert last said "adicionado ao kit" about, or ''. */
+  alerted: string
 }
 
 /** The text node pixfort printed the label into (its markup wraps it in spans). */
@@ -101,7 +103,7 @@ function paint(state: ButtonState): void {
   let cap: number | null = null
 
   if (kit) {
-    text = fillText(holder.dataset.textAdd ?? '', kitValues(kit))
+    text = kitFill(holder.dataset.textAdd ?? '', kitValues(kit))
 
     const { id } = chosen(form)
     const candle = id ? state.candles[String(id)] : undefined
@@ -168,9 +170,11 @@ async function add(state: ButtonState, kit: KitView): Promise<void> {
   // Adding to the kit answers where the click was, like adding to the cart
   // does. The toast stays for a buy box with no alert block, or one whose
   // message the merchant emptied to stay silent.
-  const said = note + fillText(texts.added ?? '', kitValues(next))
+  const said = note + kitFill(texts.added ?? '', kitValues(next))
 
-  if (!((findAlert(form) ?? findAlert())?.show('kit_added', said) ?? false)) {
+  if ((findAlert(form) ?? findAlert())?.show('kit_added', said) ?? false) {
+    state.alerted = next?.id ?? ''
+  } else {
     showKitToast(said, limited ? 'info' : 'success')
   }
 
@@ -197,11 +201,21 @@ function init(holder: HTMLElement): void {
     label: labelNode(button, holder.dataset.textStart ?? ''),
     candles,
     busy: false,
+    alerted: '',
   }
 
   const repaint = (): void => paint(state)
 
-  onKit(repaint)
+  onKit((kit) => {
+    // "Adicionado ao Kit 1" stays true only while Kit 1 is the kit being
+    // built: once it went to the cart (or was discarded), the line goes.
+    if (state.alerted && kit?.id !== state.alerted) {
+      state.alerted = ''
+      ;(findAlert(form) ?? findAlert())?.hide()
+    }
+
+    repaint()
+  })
   form.addEventListener('change', repaint)
   form.addEventListener('input', repaint)
 

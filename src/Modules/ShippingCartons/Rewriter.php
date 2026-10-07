@@ -8,6 +8,7 @@
 namespace Galaxie\Woo\Modules\ShippingCartons;
 
 use Galaxie\Woo\Support\CartonQuote;
+use Galaxie\Woo\Support\GiftPacking;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -31,7 +32,7 @@ final class Rewriter {
 		'too_many'    => 'more units than the packer takes',
 		'no_cartons'  => 'no active carton is registered',
 		'lines'       => 'a product in the request is not a WooCommerce product',
-		'dimensions'  => 'a product has no WooCommerce shipping dimensions or weight',
+		'dimensions'  => 'a product has no WooCommerce shipping weight, or no dimensions (a gift box: no inside measures either)',
 		'no_fit'      => 'an item fits no registered carton',
 		'needs_split' => 'no single carton holds the order and the fallback is "send the original request"',
 		'timeout'     => 'packing took longer than its time limit',
@@ -119,13 +120,33 @@ final class Rewriter {
 	 * @return array{length:float, width:float, height:float, weight:float, label:string}
 	 */
 	public static function measure( \WC_Product $product ): array {
-		return array(
+		$line = array(
 			'length' => (float) wc_get_dimension( (float) $product->get_length(), 'cm' ),
 			'width'  => (float) wc_get_dimension( (float) $product->get_width(), 'cm' ),
 			'height' => (float) wc_get_dimension( (float) $product->get_height(), 'cm' ),
 			'weight' => (float) wc_get_weight( (float) $product->get_weight(), 'g' ),
 			'label'  => wp_strip_all_tags( $product->get_name() ),
 		);
+
+		// A gift box with no shipping size of its own still has its inside one
+		// (`_galaxie_box_*`, what the kit packs candles in): that plus the wall a
+		// carton is given when nobody said is its outside, near enough to pack
+		// it. Without this one box with empty dimensions sent every quote that
+		// held it back to the plugin's own request ("dimensions" in the log).
+		// Weight has no such stand-in: a box without one still fails open.
+		if ( $line['length'] <= 0 || $line['width'] <= 0 || $line['height'] <= 0 ) {
+			$inside = GiftPacking::box_from_product( $product );
+
+			if ( $inside ) {
+				foreach ( array( 'length', 'width', 'height' ) as $axis ) {
+					if ( $line[ $axis ] <= 0 ) {
+						$line[ $axis ] = round( (float) $inside[ $axis ] + CartonQuote::WALL, 2 );
+					}
+				}
+			}
+		}
+
+		return $line;
 	}
 
 	/**

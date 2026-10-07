@@ -150,6 +150,8 @@ final class CartKits {
 
 			$cart->set_cart_contents( $snapshot );
 			$cart->calculate_totals();
+			// Each add saved the persistent cart on its way; the rollback must too.
+			Groups::persist( $cart );
 
 			throw new KitError( 'refused', $errors ? wp_strip_all_tags( (string) $errors[0]['notice'] ) : __( 'Não foi possível adicionar o kit ao carrinho.', 'galaxie-woo' ) );
 		}
@@ -237,6 +239,10 @@ final class CartKits {
 
 		$cart->set_cart_contents( $contents );
 		$cart->calculate_totals();
+		// Written straight to the contents, so WooCommerce's own hooks never saw
+		// it: without this the account's saved cart kept the kit, and the next
+		// device (or the next login) showed it in the cart beside the draft.
+		Groups::persist( $cart );
 
 		return (array) $draft;
 	}

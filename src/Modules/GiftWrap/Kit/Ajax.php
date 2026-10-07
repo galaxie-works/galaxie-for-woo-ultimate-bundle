@@ -349,6 +349,8 @@ final class Ajax {
 		Store::clear();
 		Store::ensure_session();
 		Store::put( $carts->extract( $group ) );
+		// The cart says "Kit 1 em edição · Voltar ao kit" while this draft lasts.
+		Store::mark_editing( $group );
 
 		return self::cart_fields() + array( 'edited' => $group );
 	}
@@ -537,6 +539,8 @@ final class Ajax {
 
 		return array(
 			'kit'      => $draft ? self::kits()->view( $draft, self::carts()->in_cart() ) : null,
+			// The draft is a kit "Editar kit" took out of the cart: the cart says so.
+			'editing'  => Store::editing( $draft ),
 			'nonce'    => wp_create_nonce( self::nonce_action() ),
 			'notices'  => Store::take_notices(),
 			// A kit kept aside at login, offered back ("Recuperar kit anterior").

@@ -27,7 +27,7 @@
  * but disabled, with the reason, and each box says what it takes.
  */
 
-import { fits, MAX_ITEMS } from '@/lib/gift-packing'
+import { fitsKnown, MAX_ITEMS } from '@/lib/gift-packing'
 import type { Candle } from '@/lib/gift-packing'
 import { cleanMessage, messageLength } from '@/lib/gift-groups'
 import { cleanName, combos, defaultName, fillText, setRich, wording } from '@/lib/gift-kit'
@@ -35,7 +35,7 @@ import { closePopup, isPopupOpen } from '@/lib/pix-popup'
 import { ask } from '@/lib/dialog'
 import { celebrate } from '@/globals/kit-open'
 import type { KitIntent } from '@/globals/kit-open'
-import { currentKit, kitCall, kitConfig, kitPrevious, kitUnits, kitValues, onKit, refreshKit, roomSentence } from '@/globals/kit-store'
+import { currentKit, kitCall, kitConfig, kitFill, kitPrevious, kitUnits, kitValues, onKit, refreshKit, roomSentence, showKitToast } from '@/globals/kit-store'
 import type { KitAnswer, KitBox, KitCard, KitCatalog, KitPending, KitView } from '@/globals/kit-store'
 import type { Wording } from '@/lib/gift-kit'
 
@@ -172,6 +172,32 @@ function create(root: HTMLElement): Controller {
     if (errorBox) errorBox.hidden = !text
   }
 
+  /**
+   * What is wrong with a card message, in the shopper's words, or ''. Past
+   * the limit, or empty with a card chosen: a paid card goes with a message.
+   */
+  function messageProblem(value: string, max: number, card: boolean): string {
+    const clean = cleanMessage(value)
+
+    if (max > 0 && messageLength(clean) > max) {
+      return fillText(texts.message_over || 'A mensagem passa de {max} caracteres. Encurte-a para continuar.', { max: String(max) })
+    }
+
+    if (card && clean === '') {
+      return texts.message_required || 'Escreva a mensagem do cartão, ou escolha seguir sem cartão.'
+    }
+
+    return ''
+  }
+
+  /** The line under a message field that says why the step cannot go on. */
+  function paintProblem(holder: Element | null, text: string): void {
+    const line = holder?.querySelector<HTMLElement>('[data-kit-message-problem], [data-kit-summary-message-problem]')
+    if (!line) return
+    setText(line, text)
+    line.hidden = !text
+  }
+
   function kitNames(): string[] {
     return catalog?.kitNames ?? []
   }
@@ -216,7 +242,9 @@ function create(root: HTMLElement): Controller {
 
     if (!found) {
       // Past the packing search's dozen nothing is a fit (and nothing is searched).
-      const holds = !units.length || (units.length <= MAX_ITEMS && fits(box.shape, units, catalog?.options ?? {}))
+      // A search that gave up (null) is not a "no": the box stays a choice, and
+      // the server, which checks again, has the last word.
+      const holds = !units.length || (units.length <= MAX_ITEMS && fitsKnown(box.shape, units, catalog?.options ?? {}) !== false)
       const room = holds ? wording(combos(box.shape, units, catalog?.sizes ?? [], catalog?.options ?? {}), labels()) : { state: 'full' as const, combos: '' }
       found = { holds, room }
       packed.set(key, found)
@@ -309,6 +337,7 @@ function create(root: HTMLElement): Controller {
     }
 
     draw()
+    accessiblePopup()
   }
 
   /** "Recuperar kit anterior" wherever the screen has it. */
@@ -501,7 +530,11 @@ function create(root: HTMLElement): Controller {
     setText(count, max > 0 ? `${length}/${max}` : String(length))
     wrap?.classList.toggle('is-over', max > 0 && length > max)
 
-    setDisabled(el.querySelector('[data-kit-action="next"]'), busy || form.card < 0 || (form.card > 0 && max > 0 && length > max))
+    // Said under the field, not left to a button that silently stays off.
+    const problem = form.card > 0 ? messageProblem(form.message, max, true) : ''
+    paintProblem(wrap, problem)
+
+    setDisabled(el.querySelector('[data-kit-action="next"]'), busy || form.card < 0 || problem !== '')
   }
 
   function drawContinue(): void {
@@ -509,7 +542,7 @@ function create(root: HTMLElement): Controller {
     const kit = currentKit()
     const values = kitValues(kit)
 
-    setRich(textTarget(slot(el, 'title')), fillText(texts.continue_title ?? '', values))
+    setRich(textTarget(slot(el, 'title')), kitFill(texts.continue_title ?? '', values))
     const state = kit?.room.state
     // Nothing settled in time: say nothing rather than a list with a hole in it.
     setRich(
@@ -517,7 +550,7 @@ function create(root: HTMLElement): Controller {
       kit?.full
         ? (texts.continue_full ?? '')
         : state === 'many' || state === 'one'
-          ? fillText(texts.continue_text ?? '', values)
+          ? kitFill(texts.continue_text ?? '', values)
           : // A box that holds nothing says so, instead of the silence "unknown" earns.
             state === 'nofit'
             ? roomSentence(kit?.room, values)
@@ -552,7 +585,7 @@ function create(root: HTMLElement): Controller {
     const cardRow = el.querySelector<HTMLElement>('[data-kit-summary-card]')
     if (cardRow) {
       setText(slot(cardRow, 'name'), kit.card?.name ?? texts.summary_no_card ?? '')
-      setText(slot(cardRow, 'price'), '')
+      setText(slot(cardRow, 'price'), kit.card?.priceText ?? '')
       setImage(slot<HTMLImageElement>(cardRow, 'image'), kit.card?.image ?? '')
     }
 
@@ -562,8 +595,10 @@ function create(root: HTMLElement): Controller {
     if (message && document.activeElement !== message) message.value = kit.message
     paintSummaryCount(message?.value ?? kit.message, kit.messageMax)
 
+    // A widget with the line under the field says it there; one saved before
+    // it falls back on the warning the server's view raises.
     const warning = el.querySelector<HTMLElement>('[data-kit-warning]')
-    if (warning) warning.hidden = !kit.warnings.includes('card_without_message')
+    if (warning) warning.hidden = !kit.warnings.includes('card_without_message') || !!el.querySelector('[data-kit-summary-message-problem]')
 
     // The card that no longer exists for this box: the summary used to say
     // "Sem cartão", hide the message and let the cart do the refusing.
@@ -580,7 +615,8 @@ function create(root: HTMLElement): Controller {
             if (!node) return null
 
             setText(slot(node, 'name'), line.name)
-            setText(slot(node, 'price'), '')
+            // What each line costs, so the total above the buttons adds up.
+            setText(slot(node, 'price'), line.priceText ? (line.qty > 1 ? `${line.qty} × ${line.priceText}` : line.priceText) : '')
             setText(slot(node, 'qty'), String(line.qty))
             setImage(slot<HTMLImageElement>(node, 'image'), line.image)
 
@@ -632,7 +668,29 @@ function create(root: HTMLElement): Controller {
       part.hidden = (part.dataset.kitWhen === 'full') !== kit.full
     })
 
-    el.querySelectorAll<HTMLElement>('[data-kit-action="to-cart"], [data-kit-action="to-cart-new"]').forEach((button) => setDisabled(button, busy || kit.count < 1))
+    paintSummaryButtons()
+  }
+
+  /**
+   * The summary's message as typed now (not as last saved): what the cart
+   * would get, and whether it can go. A message past the limit used to be
+   * dropped in silence while "Adicionar kit ao carrinho" stayed on.
+   */
+  function summaryProblem(): string {
+    const kit = currentKit()
+    if (!kit?.card) return ''
+
+    const field = screenEl('summary').querySelector<HTMLTextAreaElement>('[data-kit-summary-message]')
+    return messageProblem(field?.value ?? kit.message, kit.messageMax, true)
+  }
+
+  function paintSummaryButtons(): void {
+    const el = screenEl('summary')
+    const kit = currentKit()
+    const problem = summaryProblem()
+
+    paintProblem(el.querySelector('[data-kit-summary-message-wrap]'), problem)
+    el.querySelectorAll<HTMLElement>('[data-kit-action="to-cart"], [data-kit-action="to-cart-new"]').forEach((button) => setDisabled(button, busy || !kit || kit.count < 1 || problem !== ''))
   }
 
   function paintSummaryCount(value: string, max: number): void {
@@ -641,6 +699,34 @@ function create(root: HTMLElement): Controller {
     const length = messageLength(cleanMessage(value))
     setText(count, max > 0 ? `${length}/${max}` : String(length))
     el.querySelector('[data-kit-summary-message-wrap]')?.classList.toggle('is-over', max > 0 && length > max)
+  }
+
+  /**
+   * The message as typed goes to the server before the kit goes to the cart:
+   * the save waits 700 ms after the last key, and a click inside that pause
+   * sent the kit with the message as it was before. False: not sent (said why).
+   */
+  async function flushMessage(): Promise<boolean> {
+    const kit = currentKit()
+    window.clearTimeout(messageTimer)
+    messageTimer = 0
+
+    if (!kit?.card) return true
+
+    const field = screen === 'summary' ? screenEl('summary').querySelector<HTMLTextAreaElement>('[data-kit-summary-message]') : null
+    const value = field ? field.value : kit.message
+    const problem = messageProblem(value, kit.messageMax, true)
+
+    if (problem) {
+      error(problem)
+      paintSummaryButtons()
+      field?.focus()
+      return false
+    }
+
+    if (cleanMessage(value) === kit.message) return true
+
+    return !!(await change('set_message', { message: value }))
   }
 
   // ------------------------------------------------------------------ server
@@ -804,6 +890,11 @@ function create(root: HTMLElement): Controller {
       return
     }
 
+    // What was typed in the last moment goes first, or the kit goes without it.
+    if (!(await flushMessage())) return
+
+    const name = currentKit()?.name ?? kit.name
+
     // The kit leaves the draft the moment the server answers, and redraw() would
     // send the popup to the welcome screen on the way to the next one — a flash
     // of a screen nobody asked for, at a different height.
@@ -815,6 +906,10 @@ function create(root: HTMLElement): Controller {
       starting_new = false
       return
     }
+
+    // One answer, wherever the kit was sent from: a toast with the way to the
+    // cart, the page left where it was (kit-cart.ts redraws the mini cart).
+    showKitToast(kitFill(config?.texts.cart_added || '{kit} adicionado ao carrinho.', { kit: name }), 'success', config?.cartUrl ? { label: config.texts.view_cart || 'Ver carrinho', href: config.cartUrl } : undefined)
 
     if (again) {
       catalog = (await refreshKit({ catalog: true }))?.catalog ?? catalog
@@ -868,11 +963,14 @@ function create(root: HTMLElement): Controller {
       const value = (target as HTMLTextAreaElement).value
       const kit = currentKit()
       paintSummaryCount(value, kit?.messageMax ?? 0)
+      paintSummaryButtons()
 
       window.clearTimeout(messageTimer)
       messageTimer = window.setTimeout(() => {
-        const max = kit?.messageMax ?? 0
-        if (max > 0 && messageLength(cleanMessage(value)) > max) return
+        messageTimer = 0
+        // Past the limit (or empty) it is not saved, and the line under the
+        // field and the disabled buttons say why — no longer in silence.
+        if (messageProblem(value, kit?.messageMax ?? 0, !!kit?.card)) return
         if (cleanMessage(value) !== (currentKit()?.message ?? '')) void change('set_message', { message: value })
       }, 700)
     }
@@ -901,9 +999,40 @@ function create(root: HTMLElement): Controller {
     }
   })
 
+  /**
+   * What pixfort's popup lacks for a keyboard and a screen reader, put right
+   * from inside: its close "X" is a <div> — given a button's role, a name and
+   * a place in the tab order — and the dialog is named by the screen's title.
+   */
+  function accessiblePopup(): void {
+    const dialog = root.closest<HTMLElement>('dialog, .pix-popup')
+    if (!dialog) return
+
+    dialog.querySelectorAll<HTMLElement>('.pix-popup-close').forEach((close) => {
+      if (close.dataset.galaxieA11y || close instanceof HTMLButtonElement) return
+      close.dataset.galaxieA11y = '1'
+      close.setAttribute('role', 'button')
+      close.setAttribute('tabindex', '0')
+      close.setAttribute('aria-label', texts.close || 'Fechar')
+      close.addEventListener('keydown', (event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') return
+        event.preventDefault()
+        close.click()
+      })
+    })
+
+    const heading = screens.get(screen)?.querySelector<HTMLElement>('[data-slot="title"]')
+    if (heading) {
+      heading.id ||= `galaxie-kit-title-${Math.random().toString(36).slice(2, 10)}`
+      dialog.setAttribute('aria-labelledby', heading.id)
+    }
+
+    if (!dialog.hasAttribute('role') && !(dialog instanceof HTMLDialogElement)) dialog.setAttribute('role', 'dialog')
+  }
+
   return {
     show(intentNow: KitIntent) {
-      void load(intentNow)
+      void load(intentNow).then(accessiblePopup)
     },
 
     redraw(kit, previous) {
@@ -1011,5 +1140,18 @@ export function bootKitBuilder(): void {
 
   onKit((kit, previous) => {
     builders().forEach((root) => controllers.get(root)?.redraw(kit, previous))
+  })
+
+  // Escape closes the kit popup, as it closes any dialog. pixfort's own popup
+  // ignores it; a confirmation of ours open on top closes first (the browser
+  // does that for a modal <dialog>), and the popup stays.
+  document.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape' || event.defaultPrevented || document.querySelector('dialog.galaxie-dialog[open]')) return
+
+    const open = builders().find((root) => isPopupOpen(root.closest<HTMLElement>('dialog, .pix-popup')))
+    if (!open) return
+
+    event.preventDefault()
+    closePopup(open)
   })
 }

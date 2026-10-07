@@ -1,6 +1,6 @@
 import { createRoot } from 'react-dom/client'
 
-import { Toaster, toast, type ToastVariant } from '@/ui/toast'
+import { Toaster, toast, type ToastAction, type ToastVariant } from '@/ui/toast'
 
 /**
  * Global behavior (not an island): intercepts WooCommerce's native notice
@@ -32,10 +32,11 @@ function ensureToaster(): void {
 }
 
 /** A toast from module code (the kit's "Adicionada ao kit…"), with the same look. */
-export function showToast(message: string, variant: ToastVariant = 'success'): void {
+export function showToast(message: string, variant: ToastVariant = 'success', action?: ToastAction): void {
   if (!message) return
   ensureToaster()
-  toast(message, { variant })
+  // A toast with a link stays a little longer: there is something to click.
+  toast(message, { variant, action, duration: action ? 7000 : undefined })
 }
 
 /**

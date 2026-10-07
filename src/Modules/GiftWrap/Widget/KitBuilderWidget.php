@@ -84,6 +84,7 @@ final class KitBuilderWidget extends Widget_Base {
 				'back'       => array( __( 'Back button', 'galaxie-woo' ), __( 'Voltar', 'galaxie-woo' ) ),
 				'next'       => array( __( 'Next button', 'galaxie-woo' ), __( 'Próximo', 'galaxie-woo' ) ),
 				'loading'    => array( __( 'Loading', 'galaxie-woo' ), __( 'Carregando…', 'galaxie-woo' ) ),
+				'close'      => array( __( 'Close button (top of the popup)', 'galaxie-woo' ), __( 'Fechar', 'galaxie-woo' ) ),
 				'error'      => array( __( 'Could not load', 'galaxie-woo' ), __( 'Não foi possível carregar o kit. Tente de novo.', 'galaxie-woo' ) ),
 				'step_name'  => array( __( 'Step 1 label', 'galaxie-woo' ), __( 'Nome', 'galaxie-woo' ) ),
 				'step_box'   => array( __( 'Step 2 label', 'galaxie-woo' ), __( 'Caixa', 'galaxie-woo' ) ),
@@ -116,7 +117,9 @@ final class KitBuilderWidget extends Widget_Base {
 				'card_add'         => array( __( 'Add a card ({preço}, {card})', 'galaxie-woo' ), __( 'Adicionar cartão ({preço})', 'galaxie-woo' ) ),
 				'card_skip'        => array( __( 'No card', 'galaxie-woo' ), __( 'Seguir sem cartão', 'galaxie-woo' ) ),
 				'card_label'       => array( __( 'Message label', 'galaxie-woo' ), __( 'Mensagem do cartão', 'galaxie-woo' ) ),
-				'card_placeholder' => array( __( 'Message placeholder', 'galaxie-woo' ), __( 'Escreva sua mensagem (opcional)', 'galaxie-woo' ) ),
+				'card_placeholder' => array( __( 'Message placeholder', 'galaxie-woo' ), __( 'Escreva sua mensagem', 'galaxie-woo' ) ),
+				'message_required' => array( __( 'A card chosen with no message', 'galaxie-woo' ), __( 'Escreva a mensagem do cartão, ou escolha seguir sem cartão.', 'galaxie-woo' ) ),
+				'message_over'     => array( __( 'A message past the limit ({max})', 'galaxie-woo' ), __( 'A mensagem passa de {max} caracteres. Encurte-a para continuar.', 'galaxie-woo' ) ),
 				'card_next'        => array( __( 'Next button on this step', 'galaxie-woo' ), __( 'Criar kit', 'galaxie-woo' ) ),
 			),
 			'continue' => array(
@@ -136,7 +139,7 @@ final class KitBuilderWidget extends Widget_Base {
 				'summary_no_card'  => array( __( 'No card', 'galaxie-woo' ), __( 'Sem cartão', 'galaxie-woo' ) ),
 				'summary_change'   => array( __( '"Trocar" link', 'galaxie-woo' ), __( 'trocar', 'galaxie-woo' ) ),
 				'summary_message'  => array( __( 'Message label', 'galaxie-woo' ), __( 'Mensagem', 'galaxie-woo' ) ),
-				'summary_no_msg'   => array( __( 'Card without a message', 'galaxie-woo' ), __( 'Cartão sem mensagem', 'galaxie-woo' ) ),
+				'summary_no_msg'   => array( __( 'Card without a message', 'galaxie-woo' ), __( 'Cartão sem mensagem: escreva a mensagem (ou troque para seguir sem cartão) para adicionar o kit ao carrinho.', 'galaxie-woo' ) ),
 				'summary_no_card_fit' => array( __( 'The card no longer exists for this box', 'galaxie-woo' ), __( 'O cartão escolhido não existe para esta caixa. Troque o cartão para continuar.', 'galaxie-woo' ) ),
 				'summary_gone'     => array( __( 'An item that is no longer sold', 'galaxie-woo' ), __( 'Indisponível — remova para continuar', 'galaxie-woo' ) ),
 				'summary_candles'  => array( __( 'Items label', 'galaxie-woo' ), '{Nouns}' ),
@@ -1319,7 +1322,21 @@ final class KitBuilderWidget extends Widget_Base {
 			$sample ? GiftKit::html( GiftKit::fill( $texts['starting'], array( 'candles' => $sample['starting'] ) ) ) : '' // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- through wp_kses().
 		);
 
-		printf( '<p class="galaxie-kit-small galaxie-kit-loading %1$s" data-kit-loading hidden>%2$s</p>', esc_attr( PixfortControls::text_classes( $settings, 'small' ) ), esc_html( $texts['loading'] ) );
+		// A real close button, inside the builder: pixfort's own is a <div> no
+		// keyboard reaches and no screen reader names.
+		printf(
+			'<div class="galaxie-kit-topbar"><button type="button" class="galaxie-kit-close" data-kit-action="close" aria-label="%1$s"><span class="galaxie-kit-close-text">%2$s</span><svg aria-hidden="true" focusable="false" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>',
+			esc_attr( wp_strip_all_tags( $texts['close'] ) ),
+			esc_html( wp_strip_all_tags( $texts['close'] ) )
+		);
+
+		// "Carregando.." typed in the panel reads as a typo: an ellipsis, and a
+		// spinner beside it so the wait looks like one.
+		printf(
+			'<p class="galaxie-kit-small galaxie-kit-loading %1$s" data-kit-loading role="status" aria-live="polite" hidden><span class="galaxie-kit-spinner" aria-hidden="true"></span>%2$s</p>',
+			esc_attr( PixfortControls::text_classes( $settings, 'small' ) ),
+			esc_html( (string) preg_replace( '/\s*\.{2,3}$/u', '…', $texts['loading'] ) )
+		);
 
 		foreach ( self::SCREENS as $name ) {
 			printf( '<section class="galaxie-kit-screen galaxie-kit-screen--%1$s" data-kit-screen="%1$s"%2$s>', esc_attr( $name ), $screen === $name ? '' : ' hidden' );
@@ -1609,7 +1626,7 @@ final class KitBuilderWidget extends Widget_Base {
 		$max = (int) Module::setting( 'card_message_max' );
 
 		printf(
-			'<label class="galaxie-kit-field" data-kit-%1$s-wrap%2$s><span class="galaxie-kit-small galaxie-kit-label %3$s">%4$s</span><textarea class="galaxie-kit-input %8$s %10$s" rows="3" data-kit-%1$s placeholder="%5$s">%6$s</textarea><span class="galaxie-kit-count %9$s" data-kit-%1$s-count>%7$s</span></label>',
+			'<label class="galaxie-kit-field" data-kit-%1$s-wrap%2$s><span class="galaxie-kit-small galaxie-kit-label %3$s">%4$s</span><textarea class="galaxie-kit-input %8$s %10$s" rows="3" data-kit-%1$s placeholder="%5$s" aria-describedby="galaxie-kit-%1$s-problem-%11$s">%6$s</textarea><span class="galaxie-kit-count %9$s" data-kit-%1$s-count>%7$s</span><span class="galaxie-kit-small galaxie-kit-field-problem" id="galaxie-kit-%1$s-problem-%11$s" data-kit-%1$s-problem role="alert" hidden></span></label>',
 			esc_attr( $slot ),
 			$hidden ? ' hidden' : '',
 			esc_attr( PixfortControls::text_classes( $settings, 'summary_label' ) ),
@@ -1619,7 +1636,8 @@ final class KitBuilderWidget extends Widget_Base {
 			esc_html( GiftGroups::message_length( $message ) . '/' . $max ),
 			esc_attr( PixfortControls::surface_classes( $settings, 'field' ) ),
 			esc_attr( PixfortControls::text_classes( $settings, 'count' ) ),
-			esc_attr( 'summary-message' === $slot ? PixfortControls::text_classes( $settings, 'summary_msg' ) : '' )
+			esc_attr( 'summary-message' === $slot ? PixfortControls::text_classes( $settings, 'summary_msg' ) : '' ),
+			esc_attr( (string) $this->get_id() )
 		);
 	}
 

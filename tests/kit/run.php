@@ -145,7 +145,33 @@ class WC_Cart {
 		);
 		return $key;
 	}
+	// Removal and "Desfazer", as WC_Cart does them, with the hooks Groups listens on.
+	public array $removed = array();
+	public function get_removed_cart_contents() { return $this->removed; }
+	public function set_removed_cart_contents( $value = array() ) { $this->removed = (array) $value; }
+	public function remove_cart_item( $key ) {
+		if ( ! isset( $this->contents[ $key ] ) ) {
+			return false;
+		}
+		$this->removed[ $key ] = $this->contents[ $key ];
+		unset( $this->removed[ $key ]['data'], $this->contents[ $key ] );
+		\Galaxie\Woo\Modules\GiftWrap\Groups::after_removal( $key, $this );
+		return true;
+	}
+	public function restore_cart_item( $key ) {
+		if ( ! isset( $this->removed[ $key ] ) ) {
+			return false;
+		}
+		$item         = $this->removed[ $key ];
+		$item['data'] = new WC_Product( $item['variation_id'] ?: $item['product_id'], $item['variation_id'] ? $item['product_id'] : 0 );
+		$this->contents[ $key ] = $item;
+		unset( $this->removed[ $key ] );
+		\Galaxie\Woo\Modules\GiftWrap\Groups::after_restore( $key, $this );
+		return true;
+	}
 }
+
+function wc_add_notice( $message, $type = 'success' ) { $GLOBALS['kt']['added'][] = array( $type, $message ); }
 
 class WooCommerce {
 	public $cart;
@@ -155,7 +181,7 @@ class WooCommerce {
 function WC() { static $wc = null; return $wc ??= new WooCommerce(); }
 
 /** The one Module method the kit code asks, with a popup the tests set. */
-eval( 'namespace Galaxie\\Woo\\Modules\\GiftWrap; final class Module { public static int $popup = 0; public static function kit_popup_id(): int { return self::$popup; } public static function size_attribute(): string { return "pa_peso"; } public static function packing_options(): array { return array(); } public static function noun( bool $many = false, bool $capital = false ): string { $w = $many ? "velas" : "vela"; return $capital ? ucfirst( $w ) : $w; } public static function nouns( string $t ): string { return strtr( $t, array( "{noun}" => "vela", "{nouns}" => "velas", "{Noun}" => "Vela", "{Nouns}" => "Velas", "{um}" => "uma", "{nenhum}" => "nenhuma", "{o}" => "a", "{os}" => "as", "{este}" => "esta", "{esse}" => "essa", "{Um}" => "Uma", "{Nenhum}" => "Nenhuma", "{O}" => "A", "{Os}" => "As", "{Este}" => "Esta", "{Esse}" => "Essa" ) ); } }' );
+eval( 'namespace Galaxie\\Woo\\Modules\\GiftWrap; final class Module { public static int $popup = 0; public static function kit_popup_id(): int { return self::$popup; } public static function size_attribute(): string { return "pa_peso"; } public static function packing_options(): array { return array(); } public static function noun( bool $many = false, bool $capital = false ): string { $w = $many ? "velas" : "vela"; return $capital ? ucfirst( $w ) : $w; } public static function nouns( string $t ): string { return strtr( $t, array( "{noun}" => "vela", "{nouns}" => "velas", "{Noun}" => "Vela", "{Nouns}" => "Velas", "{deste}" => "desta", "{Deste}" => "Desta", "{um}" => "uma", "{nenhum}" => "nenhuma", "{o}" => "a", "{os}" => "as", "{este}" => "esta", "{esse}" => "essa", "{Um}" => "Uma", "{Nenhum}" => "Nenhuma", "{O}" => "A", "{Os}" => "As", "{Este}" => "Esta", "{Esse}" => "Essa" ) ); } }' );
 
 foreach ( array(
 	'src/Support/GiftPacking.php',
@@ -555,13 +581,15 @@ $planted = static function ( bool $settled, int $age ) use ( $kept ): void {
 		Store::PACKING_KEY,
 		array(
 			'key'     => $kept['key'],
-			'value'   => array( 'room' => array( 'state' => 'many', 'combos' => 'cached' ), 'extras' => array(), 'complete' => true, 'fill' => 7 ),
+			'value'   => array( 'room' => array( 'state' => 'many', 'combos' => 'cached' ), 'extras' => array(), 'complete' => true, 'fill' => 7, 'caps' => array() ),
 			'settled' => $settled,
 			'at'      => time() - $age,
 		)
 	);
 };
 $check( 'cache', 'a settled answer is kept', array( is_array( $kept ), $kept['settled'] ?? null ), array( true, true ) );
+// KT-05b: each line's cap is kept with the answer, not searched per line per request.
+$check( 'cache', 'the caps of the lines are kept with it', $kept['value']['caps'] ?? null, array( '100' => $response->data['kit']['candles'][0]['cap'] ) );
 $planted( true, 0 );
 $check( 'cache', 'and read back while the draft is unchanged', array( $call( 'get', array(), '' )->data['kit']['room']['combos'], $call( 'get', array(), '' )->data['kit']['fill'] ), array( 'cached', 7 ) );
 $planted( false, 0 );
@@ -678,9 +706,11 @@ WC()->cart->add_to_cart( 1000, 1, 100, array(), Groups::data( 'named', Groups::R
 $_SERVER['REQUEST_URI'] = '/wp-json/wc/store/v1/cart';
 $check( 'edit link', 'block cart: no "Editar kit" without a kit popup', isset( Groups::item_data( array(), $named )[0]['display'] ), false );
 \Galaxie\Woo\Modules\GiftWrap\Module::$popup = 4549;
-$check( 'edit link', 'block cart: "Editar kit" on the box line once the popup is set', Groups::item_data( array(), $named )[0]['display'] ?? '', 'Caixa · <a href="#galaxie-kit-edit-named" class="galaxie-kit-edit">Editar kit</a>' );
-unset( $_SERVER['REQUEST_URI'] );
+// KT-02: the Store API's item data is text only — some carts print it as text.
+$check( 'edit link', 'block cart: no markup in the item data, popup set or not', isset( Groups::item_data( array(), $named )[0]['display'] ), false );
 $box_line = array_values( array_filter( WC()->cart->get_cart_contents(), fn( $i ) => 'named' === ( Groups::group_of( $i )['id'] ?? '' ) && 'box' === Groups::group_of( $i )['role'] ) )[0];
+$check( 'edit link', 'block cart: "Editar kit" travels as extension data on the box line', Groups::store_api_data( $box_line ), array( 'group' => 'named', 'name' => '<a href="x">Mãe</a> & <3', 'role' => 'box', 'editable' => true ) );
+unset( $_SERVER['REQUEST_URI'] );
 $check( 'edit link', 'the mini cart (outside the cart table): the name stays plain', Groups::name_with_edit( 'Caixa', $box_line, 'k' ), 'Caixa' );
 Groups::edit_on();
 $check( 'edit link', 'the cart table: the link follows the name', Groups::name_with_edit( '<a href="/caixa">Caixa</a>', $box_line, 'k' ), '<a href="/caixa">Caixa</a> <span class="galaxie-kit-edit-wrap"><a href="#galaxie-kit-edit-named" class="galaxie-kit-edit">Editar kit</a></span>' );
@@ -736,6 +766,70 @@ $response = $call( 'restore_previous', array( 'confirm' => '1' ) );
 $check( 'previous', 'confirmed: the empty open kit is dropped, the kept one is the draft, and it is no longer offered', array( $response->ok, $response->data['kit']['id'], $response->data['kit']['name'], $response->data['previous'], Store::previous(), WC()->cart->get_cart_contents() ), array( true, 'soldout', 'Velho', null, null, array() ) );
 $response = $call( 'restore_previous' );
 $check( 'previous', 'nothing left to restore', array( $response->ok, $response->data['reason'] ), array( false, 'no_previous' ) );
+
+// KT-01: a kit stands or falls whole in the cart.
+$reset();
+$GLOBALS['kt']['added'] = array();
+$carts   = new CartKits( $kits );
+$kit     = $carts->add( $kits->start( 'whole', 0, array( 'name' => 'Kit 1', 'box' => 10, 'card' => 30, 'message' => 'Oi', 'candle' => 100, 'qty' => 2 ), array(), array() )[0] );
+$role_of = static fn( string $role ): string => (string) array_keys( array_filter( WC()->cart->get_cart_contents(), fn( $i ) => $role === ( Groups::group_of( $i )['role'] ?? '' ) ) )[0];
+$box_key = $role_of( 'box' );
+WC()->cart->remove_cart_item( $box_key );
+$check( 'remove', 'removing the box takes the whole kit out', array( WC()->cart->get_cart_contents(), count( WC()->cart->removed ) ), array( array(), 3 ) );
+$check( 'remove', 'and says so once', $GLOBALS['kt']['added'], array( array( 'notice', 'O Kit 1 foi removido do carrinho.' ) ) );
+WC()->cart->restore_cart_item( $box_key );
+$gift = Groups::groups( WC()->cart->get_cart_contents() )[ $kit ] ?? null;
+$check( 'remove', '"Desfazer" on the box brings every line back', array( count( WC()->cart->get_cart_contents() ), (bool) $gift['box'], count( $gift['candles'] ), count( $gift['cards'] ), WC()->cart->removed ), array( 3, true, 1, 1, array() ) );
+WC()->cart->remove_cart_item( $role_of( 'card' ) );
+$check( 'remove', 'a card may go on its own: the kit stays', array( count( WC()->cart->get_cart_contents() ), count( Groups::groups( WC()->cart->get_cart_contents() ) ) ), array( 2, 1 ) );
+WC()->cart->remove_cart_item( $role_of( 'candle' ) );
+$check( 'remove', 'its last candle takes the box with it', WC()->cart->get_cart_contents(), array() );
+
+$reset();
+$kit      = ( new CartKits( $kits ) )->add( $kits->start( 'orphan', 0, array( 'name' => 'Kit 1', 'box' => 10, 'candle' => 100, 'qty' => 2 ), array(), array() )[0] );
+$contents = WC()->cart->get_cart_contents();
+unset( $contents[ $role_of( 'box' ) ] );
+WC()->cart->set_cart_contents( $contents );
+Groups::tidy( WC()->cart );
+$line = array_values( WC()->cart->get_cart_contents() )[0];
+$check( 'remove', 'a kit left without its box (dropped on load): its candles become ordinary lines', array( count( WC()->cart->get_cart_contents() ), Groups::group_of( $line ), isset( $line['galaxie_gift_wrap'] ), $line['quantity'] ), array( 1, null, false, 2 ) );
+$check( 'remove', 'kit lines carry no stepper; older gifts\' candles still do', array( Groups::is_locked( Groups::data( 'x', Groups::ROLE_CANDLE, '', 'Kit 2' ) ), Groups::is_locked( Groups::data( 'x', Groups::ROLE_CANDLE ) ) ), array( true, false ) );
+
+// KT-11: a paid card goes with a message; a sold-out card says so.
+$reset();
+$reason_of = static function ( callable $run ): string {
+	try {
+		$run();
+	} catch ( KitError $e ) {
+		return $e->reason;
+	}
+	return '';
+};
+$check( 'card', 'a card with no message is refused at start', $reason_of( fn() => $kits->start( 'nomsg', 0, array( 'box' => 10, 'card' => 30, 'message' => '  ' ), array(), array() ) ), 'message_required' );
+$catalog->cards[21]['stock'] = 0;
+$check( 'card', 'a sold-out card is "esgotado", not "does not exist for this box"', $reason_of( fn() => $kits->set_card( $kits->start( 'soldcard', 0, array( 'box' => 10 ), array(), array() )[0], 30 ) ), 'card_out_of_stock' );
+$catalog->cards[21]['stock'] = null;
+$check( 'card', 'a card with no size for the box still says so', $reason_of( fn() => $kits->set_card( $kits->start( 'nocard', 0, array( 'box' => 11 ), array(), array() )[0], 31 ) ), 'card_size' );
+
+// KT-12: an account draft untouched for 30 days is forgotten.
+$reset();
+$GLOBALS['kt']['user'] = 7;
+$old            = $kits->start( 'stale', 7, array( 'box' => 10 ), array(), array() )[0];
+$old['updated'] = time() - Store::TTL - 60;
+$GLOBALS['kt']['meta'][7][ Store::USER_META ] = $old;
+$check( 'ttl', 'a stale account draft reads as none, and is deleted', array( Store::get(), isset( $GLOBALS['kt']['meta'][7][ Store::USER_META ] ) ), array( null, false ) );
+$old['updated'] = time() - 60;
+$GLOBALS['kt']['meta'][7][ Store::USER_META ] = $old;
+$check( 'ttl', 'a recent one stays', Store::get()['id'] ?? null, 'stale' );
+
+// KT-06: "Editar kit" marks the draft, so the cart can say it is out for editing.
+$reset();
+WC()->session->cookie = true;
+$kit      = ( new CartKits( $kits ) )->add( $kits->start( 'ed', 0, array( 'name' => 'Kit 1', 'box' => 10, 'candle' => 100, 'qty' => 1 ), array(), array() )[0] );
+$response = $call( 'edit_from_cart', array( 'group' => $kit ) );
+$check( 'editing', 'the answer says the draft came out of the cart', array( $response->ok, $response->data['editing'] ?? null ), array( true, true ) );
+$response = $call( 'to_cart' );
+$check( 'editing', 'and stops once it is back in the cart', array( $response->ok, $response->data['editing'] ?? null ), array( true, false ) );
 
 echo "\n  {$passed} passed, {$failed} failed\n";
 exit( $failed > 0 ? 1 : 0 );

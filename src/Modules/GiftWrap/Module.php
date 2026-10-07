@@ -83,7 +83,23 @@ final class Module implements ModuleContract, ProvidesBootData, ProvidesElemento
 		'kit_text_edit_done'     => 'O kit saiu do carrinho para edição. Abra-o pelo botão do kit.',
 		'kit_text_full'          => 'Caixa completa! 🎉',
 		'kit_text_box_holds'     => 'Leva até {combos}',
-		'kit_text_added'         => 'Adicionada ao kit {kit}. {room}',
+		'kit_text_added'         => '{Noun} adicionad{o} ao {kit}. {room}',
+		'kit_text_cart_added'    => '{kit} adicionado ao carrinho.',
+		'kit_text_view_cart'     => 'Ver carrinho',
+		'kit_text_editing'       => '{kit} em edição',
+		'kit_text_editing_back'  => 'Voltar ao kit',
+	);
+
+	/** Every kit sentence the scripts read ({@see self::boot_data()}), by the key after `kit_text_`. */
+	private const KIT_TEXTS = array( 'room_many', 'room_one', 'room_nofit', 'full', 'box_holds', 'added', 'cart_added', 'view_cart', 'editing', 'editing_back', 'offline', 'add_failed', 'not_candle', 'edit_closed', 'edit_failed', 'edit_done' );
+
+	/**
+	 * Defaults this module shipped before, still saved by stores that saved the
+	 * settings tab with them, read as today's: "Adicionada ao kit Kit 1" got the
+	 * noun's gender wrong for anything but a candle, and said "kit" twice.
+	 */
+	private const OLD_TEXTS = array(
+		'kit_text_added' => array( 'Adicionada ao kit {kit}. {room}' ),
 	);
 
 	/**
@@ -157,8 +173,14 @@ final class Module implements ModuleContract, ProvidesBootData, ProvidesElemento
 	public function boot_data(): array {
 		$texts = array();
 
-		foreach ( array( 'room_many', 'room_one', 'room_nofit', 'full', 'box_holds', 'added', 'offline', 'add_failed', 'not_candle', 'edit_closed', 'edit_failed', 'edit_done' ) as $key ) {
-			$texts[ $key ] = self::nouns( (string) self::setting( 'kit_text_' . $key ) );
+		foreach ( self::KIT_TEXTS as $key ) {
+			$text = (string) self::setting( 'kit_text_' . $key );
+
+			if ( in_array( $text, self::OLD_TEXTS[ 'kit_text_' . $key ] ?? array(), true ) ) {
+				$text = self::DEFAULTS[ 'kit_text_' . $key ];
+			}
+
+			$texts[ $key ] = self::nouns( $text );
 		}
 
 		$continue = trim( (string) self::setting( 'kit_continue_url' ) );
@@ -173,6 +195,8 @@ final class Module implements ModuleContract, ProvidesBootData, ProvidesElemento
 					'texts'        => $texts,
 					'continueUrl'  => '' !== $continue ? esc_url_raw( $continue ) : ( function_exists( 'wc_get_page_permalink' ) ? (string) wc_get_page_permalink( 'shop' ) : home_url( '/' ) ),
 					'nameFormat'   => Kit\Kits::name_format(),
+					// "Ver carrinho" in the toast after a kit goes to the cart.
+					'cartUrl'      => function_exists( 'wc_get_cart_url' ) ? (string) wc_get_cart_url() : '',
 					'nameMax'      => \Galaxie\Woo\Support\GiftKit::NAME_MAX,
 				),
 			),
@@ -269,7 +293,7 @@ final class Module implements ModuleContract, ProvidesBootData, ProvidesElemento
 
 	/**
 	 * Replaces the noun tokens in a text: {noun}, {nouns}, {Noun}, {Nouns}
-	 * and the agreeing words {um}, {nenhum}, {o}, {os}, {este}, {esse} (and
+	 * and the agreeing words {um}, {nenhum}, {o}, {os}, {este}, {esse}, {deste} (and
 	 * the same capitalised, {Um}… for a sentence that starts with one).
 	 * Everything else is left for the scripts to fill ({kit}, {combos},
 	 * {candles}/{items}…).
@@ -290,6 +314,8 @@ final class Module implements ModuleContract, ProvidesBootData, ProvidesElemento
 				'{nouns}'  => self::noun( true ),
 				'{Noun}'   => self::noun( false, true ),
 				'{Nouns}'  => self::noun( true, true ),
+				'{deste}'  => $m ? 'deste' : 'desta',
+				'{Deste}'  => $m ? 'Deste' : 'Desta',
 				'{um}'     => $m ? 'um' : 'uma',
 				'{nenhum}' => $m ? 'nenhum' : 'nenhuma',
 				'{o}'      => $m ? 'o' : 'a',
@@ -661,8 +687,34 @@ final class Module implements ModuleContract, ProvidesBootData, ProvidesElemento
 				key: 'kit_text_added',
 				label: __( 'Toast after "Adicionar ao kit"', 'galaxie-woo' ),
 				type: Field::TYPE_TEXT,
-				description: __( '{kit} is the kit\'s name, {room} the room-left sentence, {combos} the bare list.', 'galaxie-woo' ),
+				description: __( '{kit} is the kit\'s name, {room} the room-left sentence, {combos} the bare list. {Noun} and {o} follow the item noun above ("Vela adicionada", "Sabonete adicionado").', 'galaxie-woo' ),
 				default: self::DEFAULTS['kit_text_added']
+			),
+			new Field(
+				key: 'kit_text_cart_added',
+				label: __( 'Toast after a kit goes to the cart', 'galaxie-woo' ),
+				type: Field::TYPE_TEXT,
+				description: __( '{kit} is the kit\'s name. The toast carries a link to the cart.', 'galaxie-woo' ),
+				default: self::DEFAULTS['kit_text_cart_added']
+			),
+			new Field(
+				key: 'kit_text_view_cart',
+				label: __( 'Link to the cart in that toast', 'galaxie-woo' ),
+				type: Field::TYPE_TEXT,
+				default: self::DEFAULTS['kit_text_view_cart']
+			),
+			new Field(
+				key: 'kit_text_editing',
+				label: __( 'Cart line while a kit is out for editing', 'galaxie-woo' ),
+				type: Field::TYPE_TEXT,
+				description: __( 'Shown above the cart and the mini cart after "Editar kit", until the kit goes back to the cart or is discarded. {kit} is its name.', 'galaxie-woo' ),
+				default: self::DEFAULTS['kit_text_editing']
+			),
+			new Field(
+				key: 'kit_text_editing_back',
+				label: __( 'Its link back to the kit', 'galaxie-woo' ),
+				type: Field::TYPE_TEXT,
+				default: self::DEFAULTS['kit_text_editing_back']
 			),
 		);
 	}
@@ -723,8 +775,10 @@ final class Module implements ModuleContract, ProvidesBootData, ProvidesElemento
 			}
 		}
 
-		foreach ( array( 'kit_text_room_many', 'kit_text_room_one', 'kit_text_room_nofit', 'kit_text_full', 'kit_text_box_holds', 'kit_text_added', 'kit_text_offline', 'kit_text_add_failed', 'kit_text_not_candle', 'kit_text_edit_closed', 'kit_text_edit_failed', 'kit_text_edit_done' ) as $key ) {
-			if ( '' === trim( (string) $values[ $key ] ) ) {
+		foreach ( self::KIT_TEXTS as $text ) {
+			$key = 'kit_text_' . $text;
+
+			if ( '' === trim( (string) ( $values[ $key ] ?? '' ) ) ) {
 				$values[ $key ] = self::DEFAULTS[ $key ];
 			}
 		}

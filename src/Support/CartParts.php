@@ -925,7 +925,15 @@ final class CartParts {
 				continue;
 			}
 
-			printf( '<div class="galaxie-cart-line" data-galaxie-key="%s">', esc_attr( $key ) );
+			// A module may print a row of its own before a line (Gift Wrap: the
+			// header of a kit, before its first line) and add classes to it.
+			do_action( 'galaxie_cart_before_line', $item, $key );
+
+			printf(
+				'<div class="%s" data-galaxie-key="%s">',
+				esc_attr( (string) apply_filters( 'galaxie_cart_line_class', 'galaxie-cart-line', $item, $key ) ),
+				esc_attr( $key )
+			);
 
 			foreach ( $fields as $row ) {
 				printf( '<div class="%s">', esc_attr( self::cell_class( $row ) ) );
@@ -1048,7 +1056,10 @@ final class CartParts {
 
 				$meta = wc_get_formatted_cart_item_data( $item, true );
 				if ( $meta ) {
-					printf( '<span class="galaxie-cart-meta">%s</span>', esc_html( wp_strip_all_tags( $meta ) ) );
+					// WooCommerce runs each value through wp_kses_post(), which writes
+					// a lone "<" (a card's "<3") as an entity: decoded once before it
+					// is escaped, or the shopper read "&lt;3".
+					printf( '<span class="galaxie-cart-meta">%s</span>', esc_html( html_entity_decode( wp_strip_all_tags( $meta ), ENT_QUOTES, 'UTF-8' ) ) );
 				}
 
 				// Links a module adds under the line (Gift Wrap: "Editar kit").
