@@ -151,6 +151,7 @@ final class Plugin {
 		$this->modules->register( new \Galaxie\Woo\Modules\GoogleLogin\Module() );
 		$this->modules->register( new \Galaxie\Woo\Modules\AddressAutocomplete\Module() );
 		$this->modules->register( new \Galaxie\Woo\Modules\FluentCRM\Module() );
+		$this->modules->register( new \Galaxie\Woo\Modules\StoreEmails\Module() );
 		$this->modules->register( new \Galaxie\Woo\Modules\Checkout\Module() );
 		$this->modules->register( new \Galaxie\Woo\Modules\MyAccount\Module() );
 		$this->modules->register( new \Galaxie\Woo\Modules\FunnelKitPtBr\Module() );

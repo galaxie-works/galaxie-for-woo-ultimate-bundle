@@ -1194,6 +1194,33 @@ final class Gifts {
 	}
 
 	/**
+	 * Runs `$draw` as part of WooCommerce e-mail `$email`: an address read
+	 * inside it is masked or whole exactly as in that e-mail's own body —
+	 * masked to the customer, whole to the store. For e-mail bodies drawn
+	 * outside WooCommerce's templates (the FluentCRM templates of
+	 * Modules\StoreEmails), which fire none of the header / details hooks
+	 * that tell {@see self::reveals_address()} who is reading. What was set
+	 * before is put back afterwards.
+	 *
+	 * @param mixed    $email A \WC_Email.
+	 * @param callable $draw
+	 * @return mixed What `$draw` returns.
+	 */
+	public static function within_email( $email, callable $draw ) {
+		$before      = self::$email;
+		self::$email = array(
+			'header'  => self::audience( $email, null ),
+			'details' => null,
+		);
+
+		try {
+			return $draw();
+		} finally {
+			self::$email = $before;
+		}
+	}
+
+	/**
 	 * 'customer' or 'admin' for a WooCommerce e-mail, from the e-mail itself or,
 	 * when a template passes none, from `$sent_to_admin`; null if neither says.
 	 *

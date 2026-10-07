@@ -1127,6 +1127,36 @@ if ( null !== $child ) {
 			$shipping = count( $cartons ) . ' carton, rewrite fails open';
 		}
 
+		// Store E-mails (FluentCRM templates for WooCommerce e-mails): off by
+		// default; with every module on, the send-time swap is hooked, the
+		// smartcode groups reach FluentCRM, and "Enviar teste" exists in wp-admin only.
+		if ( $scenario['all'] !== in_array( 'store-emails', $booted, true ) ) {
+			throw new RuntimeException( 'Store E-mails: booted ' . ( $scenario['all'] ? 'not ' : '' ) . 'with every module ' . ( $scenario['all'] ? 'on' : 'at its default' ) );
+		}
+
+		if ( in_array( 'store-emails', $booted, true ) ) {
+			$sender   = \Galaxie\Woo\Modules\StoreEmails\Sender::class;
+			$expected = array(
+				array( 'woocommerce_mail_callback_params', $sender, 'swap', true ),
+				array( 'woocommerce_email_content_type', $sender, 'content_type', true ),
+				array( 'phpmailer_init', $sender, 'alt_body', true ),
+				array( 'woocommerce_email_sent', $sender, 'sent', true ),
+				array( 'admin_post_galaxie_woo_store_emails_test', \Galaxie\Woo\Modules\StoreEmails\Module::class, 'send_test', $scenario['admin'] ),
+			);
+
+			foreach ( $expected as list( $hook, $class, $method, $wanted ) ) {
+				if ( $hooked( $hook, $class, $method ) !== $wanted ) {
+					throw new RuntimeException( "Store E-mails: {$class}::{$method} on {$hook} should " . ( $wanted ? '' : 'not ' ) . 'be hooked here' );
+				}
+			}
+
+			foreach ( array( 'pedido', 'conta', 'loja' ) as $group ) {
+				if ( empty( $GLOBALS['galaxie_boot']['hooks'][ 'fluent_crm/smartcode_group_callback_' . $group ] ) ) {
+					throw new RuntimeException( "Store E-mails: no FluentCRM callback for the {$group} smartcodes" );
+				}
+			}
+		}
+
 		// Checkout: the profile CPF reaches the Brazilian checkout plugin's
 		// CPF/CNPJ fields (Link Nacional's billing_document & co.), never over a
 		// document already there or outside Brazil, and FunnelKit's Pix gets it
