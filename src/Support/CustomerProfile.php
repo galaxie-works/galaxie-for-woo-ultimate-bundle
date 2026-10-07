@@ -16,7 +16,13 @@ defined( 'ABSPATH' ) || exit;
  */
 final class CustomerProfile {
 
-	private const ADDRESS_FIELDS = array( 'address_1', 'address_2', 'city', 'state', 'postcode', 'country' );
+	/**
+	 * `number` and `neighborhood` are kept as `billing_number` /
+	 * `billing_neighborhood` (and shipping_*) user meta: the keys the Brazilian
+	 * checkout plugins (Link Nacional, Brazilian Market) prefill from and write
+	 * back after an order, so all of them read one value.
+	 */
+	private const ADDRESS_FIELDS = array( 'address_1', 'number', 'address_2', 'neighborhood', 'city', 'state', 'postcode', 'country' );
 
 	/** @return array{complete:bool,missing:string[],values:array<string,string>} */
 	public static function status( int $user_id ): array {
@@ -44,7 +50,7 @@ final class CustomerProfile {
 		);
 	}
 
-	/** @return array{has_address:bool,address_1:string,address_2:string,city:string,state:string,postcode:string,country:string} */
+	/** @return array{has_address:bool,address_1:string,number:string,address_2:string,neighborhood:string,city:string,state:string,postcode:string,country:string} */
 	public static function saved_address( int $user_id ): array {
 		$address = array();
 		foreach ( self::ADDRESS_FIELDS as $field ) {

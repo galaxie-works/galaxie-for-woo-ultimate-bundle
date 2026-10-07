@@ -131,7 +131,8 @@ final class ShippingOptionsWidget extends Widget_Base {
 				'label'   => __( 'When no carrier delivers', 'galaxie-woo' ),
 				'type'    => Controls_Manager::TEXTAREA,
 				'rows'    => 2,
-				'default' => __( 'Nenhuma opção de frete encontrada para este CEP.', 'galaxie-woo' ),
+				'default' => \Galaxie\Woo\Modules\Cart\Module::no_rates_text(),
+				'description' => __( 'Shown right after the shopper asks for a CEP no carrier serves, not on every visit afterwards.', 'galaxie-woo' ),
 			)
 		);
 
@@ -250,8 +251,12 @@ final class ShippingOptionsWidget extends Widget_Base {
 		$message  = '';
 
 		if ( '' === $card ) {
-			if ( '' !== $postcode ) {
+			// "No carrier" only as the answer to the calculator: with a CEP
+			// left in the session from earlier, the block greeted the shopper
+			// with "Nenhuma opção de frete encontrada" before they did anything.
+			if ( '' !== $postcode && \Galaxie\Woo\Modules\Cart\Module::quoted_without_rates() ) {
 				$message = (string) ( $settings['none_text'] ?? '' );
+				$message = '' !== trim( $message ) ? $message : \Galaxie\Woo\Modules\Cart\Module::no_rates_text();
 			} elseif ( 'message' === ( $settings['empty_display'] ?? 'hide' ) ) {
 				$message = (string) ( $settings['empty_text'] ?? '' );
 			}

@@ -70,6 +70,10 @@ const PROFILE_NATIVE: Record<string, keyof ProfileValues | null> = {
 const ADDRESS_NATIVE: Record<string, keyof AddressValues | null> = {
   billing_country: null,
   billing_address_1: 'address_1',
+  // Number and bairro as their own fields: Link Nacional's when its options
+  // are on (then required), else the bundle's (Integrations\BrazilianCheckoutFields).
+  billing_number: 'number',
+  billing_neighborhood: 'neighborhood',
   billing_city: 'city',
   billing_state: 'state',
   billing_postcode: 'postcode',
@@ -142,12 +146,31 @@ export function validateProfileStep(
   return result(errors, unattributed ? BAD_NATIVE : null)
 }
 
+/** What a house without a number is written as, on the label and in Link Nacional's own checkbox. */
+export const NO_NUMBER = 'S/N'
+
+/**
+ * "Rua das Flores, 123" -> street and number. Google's places and addresses
+ * saved before Número had a field of its own both put the number at the end
+ * of the street line; anything else stays whole, with no number.
+ */
+export function splitStreet(line: string): { street: string; number: string } {
+  const match = /^(.*\S)\s*,\s*(\d[\w./-]*|s\/n)$/i.exec(line.trim())
+  return match ? { street: match[1], number: match[2].toUpperCase() === 'S/N' ? NO_NUMBER : match[2] } : { street: line.trim(), number: '' }
+}
+
+/** True when an address still lacks what the label needs (Número, Bairro). */
+export function addressIncomplete(values: Partial<AddressValues>): boolean {
+  return '' === (values.number ?? '').trim() || '' === (values.neighborhood ?? '').trim()
+}
+
 export function validateAddressStep(values: AddressValues, nativeFailures: string[]): StepValidation<AddressErrors> {
   const errors: AddressErrors = {}
 
-  // `address_2` stays out: it is the complement, optional by design.
-  for (const key of ['address_1', 'city', 'state', 'postcode'] as const) {
-    if ('' === values[key].trim()) {
+  // `address_2` stays out: it is the complement, optional by design. The
+  // number is required as a field, not as digits: "S/N" is an answer.
+  for (const key of ['address_1', 'number', 'neighborhood', 'city', 'state', 'postcode'] as const) {
+    if ('' === (values[key] ?? '').trim()) {
       errors[key] = REQUIRED
     }
   }

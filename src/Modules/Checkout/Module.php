@@ -63,6 +63,10 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 		// FunnelKit Stripe.
 		BrazilianCheckoutFields::hooks();
 		FunnelKitPixTaxId::hooks();
+
+		// "Não encontramos este pedido." and a way out on order-received /
+		// order-pay when there is no order to show.
+		OrderEndpoints::hooks();
 	}
 
 	public function boot_data(): array {
@@ -134,7 +138,7 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 				key: 'free_shipping_label',
 				label: __( 'Free shipping label', 'galaxie-woo' ),
 				type: Field::TYPE_TEXT,
-				default: __( 'Free Shipping (order minimum)', 'galaxie-woo' )
+				default: __( 'Frete grátis (pedido mínimo)', 'galaxie-woo' )
 			),
 		);
 	}
@@ -177,7 +181,7 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 
 		if ( $this->cart_qualifies_for_free_shipping_bar() ) {
 			$settings = $this->settings();
-			$label    = $settings['free_shipping_label'] ?? __( 'Free Shipping (order minimum)', 'galaxie-woo' );
+			$label    = $settings['free_shipping_label'] ?? __( 'Frete grátis (pedido mínimo)', 'galaxie-woo' );
 			$free     = new \WC_Shipping_Rate( 'galaxie_free_shipping_bar', $label, 0, array(), 'galaxie_free_shipping_bar' );
 			return array( $free->get_id() => $free );
 		}
@@ -224,10 +228,10 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 		$cpf        = isset( $_POST['cpf'] ) ? sanitize_text_field( wp_unslash( $_POST['cpf'] ) ) : '';
 
 		if ( '' === $first_name || '' === $last_name ) {
-			wp_send_json_error( array( 'message' => __( 'Please enter your first and last name.', 'galaxie-woo' ) ) );
+			wp_send_json_error( array( 'message' => __( 'Informe seu nome e sobrenome.', 'galaxie-woo' ) ) );
 		}
 		if ( '' !== $cpf && ! \Galaxie\Woo\Support\Cpf::is_valid( $cpf ) ) {
-			wp_send_json_error( array( 'message' => __( 'Please enter a valid CPF.', 'galaxie-woo' ) ) );
+			wp_send_json_error( array( 'message' => __( 'Informe um CPF válido.', 'galaxie-woo' ) ) );
 		}
 		// An empty date keeps the saved one; the check then applies to that.
 		$saved_birthdate = (string) get_user_meta( $user_id, \Galaxie\Woo\Support\ProfileFields::BIRTHDATE, true );
@@ -239,7 +243,7 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 		if ( '' !== $phone ) {
 			$phone = (string) \Galaxie\Woo\Support\Phone::normalize( $phone );
 			if ( '' === $phone ) {
-				wp_send_json_error( array( 'message' => __( 'Please enter a valid phone number, with area code.', 'galaxie-woo' ) ) );
+				wp_send_json_error( array( 'message' => __( 'Informe um celular válido, com DDD.', 'galaxie-woo' ) ) );
 			}
 		}
 
@@ -272,16 +276,22 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 		$user_id = get_current_user_id();
 
 		$address = array(
-			'address_1' => isset( $_POST['address_1'] ) ? sanitize_text_field( wp_unslash( $_POST['address_1'] ) ) : '',
-			'address_2' => isset( $_POST['address_2'] ) ? sanitize_text_field( wp_unslash( $_POST['address_2'] ) ) : '',
+			'address_1'    => isset( $_POST['address_1'] ) ? sanitize_text_field( wp_unslash( $_POST['address_1'] ) ) : '',
+			'number'       => isset( $_POST['number'] ) ? sanitize_text_field( wp_unslash( $_POST['number'] ) ) : '',
+			'address_2'    => isset( $_POST['address_2'] ) ? sanitize_text_field( wp_unslash( $_POST['address_2'] ) ) : '',
+			'neighborhood' => isset( $_POST['neighborhood'] ) ? sanitize_text_field( wp_unslash( $_POST['neighborhood'] ) ) : '',
 			'city'      => isset( $_POST['city'] ) ? sanitize_text_field( wp_unslash( $_POST['city'] ) ) : '',
 			'state'     => isset( $_POST['state'] ) ? sanitize_text_field( wp_unslash( $_POST['state'] ) ) : '',
 			'postcode'  => isset( $_POST['postcode'] ) ? sanitize_text_field( wp_unslash( $_POST['postcode'] ) ) : '',
 			'country'   => isset( $_POST['country'] ) && '' !== $_POST['country'] ? sanitize_text_field( wp_unslash( $_POST['country'] ) ) : 'BR',
 		);
 
-		if ( '' === $address['address_1'] || '' === $address['city'] || '' === $address['state'] || '' === $address['postcode'] ) {
-			wp_send_json_error( array( 'message' => __( 'Please fill in the required address fields.', 'galaxie-woo' ) ) );
+		// Número and Bairro too: Melhor Envio labels from them, and the
+		// Brazilian checkout plugin can refuse the order without them.
+		foreach ( array( 'address_1', 'number', 'neighborhood', 'city', 'state', 'postcode' ) as $required ) {
+			if ( '' === $address[ $required ] ) {
+				wp_send_json_error( array( 'message' => __( 'Preencha rua, número, bairro, cidade, UF e CEP.', 'galaxie-woo' ) ) );
+			}
 		}
 
 		CustomerProfile::save_address( $user_id, $address );
@@ -292,10 +302,10 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 	private function check_nonce_and_login(): void {
 		$nonce = isset( $_POST['nonce'] ) ? sanitize_text_field( wp_unslash( $_POST['nonce'] ) ) : '';
 		if ( ! wp_verify_nonce( $nonce, self::NONCE_ACTION ) ) {
-			wp_send_json_error( array( 'message' => __( 'Security check failed. Please refresh and try again.', 'galaxie-woo' ) ), 403 );
+			wp_send_json_error( array( 'message' => __( 'Sua sessão expirou. Atualize a página e tente de novo.', 'galaxie-woo' ) ), 403 );
 		}
 		if ( ! is_user_logged_in() ) {
-			wp_send_json_error( array( 'message' => __( 'Please sign in first.', 'galaxie-woo' ) ), 401 );
+			wp_send_json_error( array( 'message' => __( 'Entre na sua conta para continuar.', 'galaxie-woo' ) ), 401 );
 		}
 	}
 }

@@ -181,7 +181,9 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 
 		foreach ( AddressBook::FIELDS as $field ) {
 			$getter            = 'get_' . $type . '_' . $field;
-			$address[ $field ] = is_callable( array( $order, $getter ) ) ? (string) $order->{$getter}() : '';
+			// number / neighborhood have no getter: they are order meta
+			// (`_shipping_number`), as the Brazilian checkout plugins save them.
+			$address[ $field ] = is_callable( array( $order, $getter ) ) ? (string) $order->{$getter}() : (string) $order->get_meta( '_' . $type . '_' . $field );
 		}
 
 		AddressBook::add_if_new( (int) $order->get_customer_id(), $address );

@@ -2331,6 +2331,11 @@ form.galaxie-buybox .galaxie-buybox-btn.is-full > * {
   gap: 8px;
 }
 
+/* `display: flex` above outranks the UA's [hidden]: the bar hidden for no destination drew an empty grey box. */
+.galaxie-free-progress[hidden] {
+  display: none !important;
+}
+
 .galaxie-free-progress-head {
   display: flex;
   align-items: center;

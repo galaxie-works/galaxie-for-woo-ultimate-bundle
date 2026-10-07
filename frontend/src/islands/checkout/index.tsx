@@ -13,6 +13,7 @@ import {
   onCheckoutUpdated,
   relocatePayment,
   relocateShippingMethod,
+  shippingRatesMissing,
   validateNativeFields,
   waitForCheckoutUpdate,
   watchPayment,
@@ -87,6 +88,8 @@ function Checkout(props: CheckoutProps) {
   const [addressSaved, setAddressSaved] = React.useState(props.address.has_address)
   const [addressEditing, setAddressEditing] = React.useState(!props.address.has_address)
   const [shippingEverSeen, setShippingEverSeen] = React.useState(false)
+  /** WooCommerce priced the address and no carrier serves it. */
+  const [noRates, setNoRates] = React.useState(false)
   const [shippingNote, setShippingNote] = React.useState(() => shippingNoteOf(props.summary))
   const [busy, setBusy] = React.useState(false)
   const [notice, setNotice] = React.useState<string | null>(null)
@@ -115,7 +118,9 @@ function Checkout(props: CheckoutProps) {
       email: props.userEmail,
       cpf: profileValues.cpf,
       address_1: addressValues.address_1,
+      number: addressValues.number,
       address_2: addressValues.address_2,
+      neighborhood: addressValues.neighborhood,
       city: addressValues.city,
       state: addressValues.state,
       postcode: addressValues.postcode,
@@ -129,6 +134,7 @@ function Checkout(props: CheckoutProps) {
   React.useEffect(() => {
     if (preview) return
     function run() {
+      setNoRates(shippingRatesMissing())
       if (relocateShippingMethod(shippingMountRef.current)) {
         decorateShipping(shippingMountRef.current, decor)
         setShippingEverSeen(true)
@@ -199,7 +205,9 @@ function Checkout(props: CheckoutProps) {
 
     fillNativeBilling({
       address_1: values.address_1,
+      number: values.number,
       address_2: values.address_2,
+      neighborhood: values.neighborhood,
       city: values.city,
       state: values.state,
       postcode: values.postcode,
@@ -236,7 +244,9 @@ function Checkout(props: CheckoutProps) {
     setAddressErrors({})
     fillNativeBilling({
       address_1: values.address_1,
+      number: values.number,
       address_2: values.address_2,
+      neighborhood: values.neighborhood,
       city: values.city,
       state: values.state,
       postcode: values.postcode,
@@ -278,7 +288,9 @@ function Checkout(props: CheckoutProps) {
     // last point where a rejection is still cheap to explain.
     const values: AddressValues = {
       address_1: addressValues.address_1 ?? '',
+      number: addressValues.number ?? '',
       address_2: addressValues.address_2 ?? '',
+      neighborhood: addressValues.neighborhood ?? '',
       city: addressValues.city ?? '',
       state: addressValues.state ?? '',
       postcode: addressValues.postcode ?? '',
@@ -288,7 +300,14 @@ function Checkout(props: CheckoutProps) {
     if (!check.ok) {
       setAddressErrors(check.errors)
       setAddressEditing(true)
-      setNotice(check.notice)
+      // The Address Book step shows no per-field errors for a chosen entry:
+      // it says what is missing instead (and opens the entry when chosen).
+      setNotice(check.notice ?? (props.addressBook ? props.i18n.completeAddress : null))
+      return
+    }
+
+    if (noRates) {
+      setNotice(props.i18n.noRates)
       return
     }
 
@@ -380,6 +399,8 @@ function Checkout(props: CheckoutProps) {
                   onContinue={handleContinueToPayment}
                   onNotice={setNotice}
                   preview={preview}
+                  noRates={noRates ? props.i18n.noRates : null}
+                  completeNotice={props.i18n.completeAddress}
                 />
               ) : (
                 <AddressStep
@@ -394,6 +415,7 @@ function Checkout(props: CheckoutProps) {
                   onSave={handleAddressSave}
                   onContinue={handleContinueToPayment}
                   preview={preview}
+                  noRates={noRates ? props.i18n.noRates : null}
                 />
               )}
             </StepSection>

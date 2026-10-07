@@ -119,6 +119,15 @@ function galaxie_boot_checkout_endpoints( array $booted ): string {
 			if ( ! $page::is_order_endpoint() || $page::is_form() ) {
 				throw new RuntimeException( "Checkout: CheckoutPage takes {$endpoint} for the checkout form" );
 			}
+
+			// An order-pay that ended in an error, with nothing to pay, gets
+			// the way out; one with its payment form does not.
+			$ends  = \Galaxie\Woo\Modules\Checkout\OrderEndpoints::class;
+			$error = '<div class="woocommerce-notices-wrapper"></div><ul class="woocommerce-error" role="alert"><li>Esse pedido é inválido e não pode ser pago.</li></ul>';
+
+			if ( 'order-pay' === $endpoint && ( ! str_contains( $ends::dead_end_links( $error ), 'galaxie-order-dead-end' ) || '' !== $ends::dead_end_links( $error . '<form id="order_review" method="post">' ) ) ) {
+				throw new RuntimeException( 'Checkout: order-pay dead end links wrong' );
+			}
 		}
 
 		$GLOBALS['galaxie_boot']['endpoint'] = '';
@@ -1157,6 +1166,47 @@ if ( null !== $child ) {
 				if ( false === strpos( $js, $needle ) ) {
 					throw new RuntimeException( "Checkout: the Pix tax_id script lacks {$needle}" );
 				}
+			}
+
+			// Número and Bairro: our fields only where no plugin added them, a
+			// saved number only for the saved street, printed without doubling.
+			foreach ( array( array( 'woocommerce_checkout_fields', 'address_fields' ), array( 'woocommerce_checkout_posted_data', 'fill_address_parts' ), array( 'woocommerce_order_formatted_shipping_address', 'formatted_order_address' ) ) as list( $hook, $method ) ) {
+				if ( ! $hooked( $hook, $br, $method ) ) {
+					throw new RuntimeException( "Checkout: {$br}::{$method} not hooked on {$hook}" );
+				}
+			}
+
+			$co_fields = $br::address_fields( array( 'billing' => array( 'billing_number' => array( 'required' => true ) ), 'shipping' => array() ) );
+
+			if ( true !== ( $co_fields['billing']['billing_number']['required'] ?? null ) || ! isset( $co_fields['billing']['billing_neighborhood'], $co_fields['shipping']['shipping_number'], $co_fields['shipping']['shipping_neighborhood'] ) || ! empty( $co_fields['shipping']['shipping_number']['required'] ) ) {
+				throw new RuntimeException( 'Checkout: address_fields replaced a plugin field or missed one: ' . json_encode( $co_fields ) );
+			}
+
+			$saved = array( 'address_1' => 'Rua das Flores', 'postcode' => '80000-000', 'number' => '12', 'neighborhood' => 'Centro' );
+			$parts = array(
+				'same street fills both' => array( array( 'billing_address_1' => 'rua das flores', 'billing_postcode' => '80000000', 'billing_number' => '', 'shipping_number' => '', 'billing_neighborhood' => '' ), array( 'billing_address_1' => 'rua das flores', 'billing_postcode' => '80000000', 'billing_number' => '12', 'shipping_number' => '12', 'billing_neighborhood' => 'Centro' ) ),
+				'other street untouched' => array( array( 'billing_address_1' => 'Rua B', 'billing_postcode' => '80000-000', 'billing_number' => '' ), array( 'billing_address_1' => 'Rua B', 'billing_postcode' => '80000-000', 'billing_number' => '' ) ),
+				'typed number stays'     => array( array( 'billing_address_1' => 'Rua das Flores', 'billing_postcode' => '80000-000', 'billing_number' => 'S/N' ), array( 'billing_address_1' => 'Rua das Flores', 'billing_postcode' => '80000-000', 'billing_number' => 'S/N' ) ),
+			);
+
+			foreach ( $parts as $label => list( $in, $want ) ) {
+				if ( $br::fill_parts( $in, $saved ) != $want ) { // phpcs:ignore -- key order is not the point.
+					throw new RuntimeException( "Checkout: fill_parts, {$label}: " . json_encode( $br::fill_parts( $in, $saved ) ) );
+				}
+			}
+
+			$printed = $br::with_parts( array( 'address_1' => 'Rua das Flores', 'address_2' => 'Apto 4' ), '12', 'Centro' );
+			$again   = $br::with_parts( array( 'address_1' => 'Rua das Flores, 12', 'address_2' => '' ), '12', '' );
+
+			if ( 'Rua das Flores, 12' !== $printed['address_1'] || 'Apto 4 - Centro' !== $printed['address_2'] || 'Rua das Flores, 12' !== $again['address_1'] ) {
+				throw new RuntimeException( 'Checkout: with_parts printed ' . json_encode( array( $printed, $again ) ) );
+			}
+
+			// The intro promises no Google sign-in while there is none.
+			$intro = \Galaxie\Woo\Modules\Checkout\Widget\CheckoutWidget::without_google( 'Entre com seu e-mail para receber um código ou continue com o Google. Caso ainda não tenha comprado, acesse "Primeira compra".' );
+
+			if ( 'Entre com seu e-mail para receber um código. Caso ainda não tenha comprado, acesse "Primeira compra".' !== $intro ) {
+				throw new RuntimeException( "Checkout: the intro still offers Google: {$intro}" );
 			}
 		}
 

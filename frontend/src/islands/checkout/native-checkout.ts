@@ -47,8 +47,11 @@ export interface NativeBillingState {
   last_name?: string
   phone?: string
   email?: string
+  /** The street alone; the number and the bairro go to fields of their own. */
   address_1?: string
+  number?: string
   address_2?: string
+  neighborhood?: string
   city?: string
   state?: string
   postcode?: string
@@ -75,7 +78,13 @@ export function fillNativeBilling(state: NativeBillingState): void {
     if (state.address_1 !== undefined) {
       setNativeField(`${type}_country`, state.country || 'BR')
       setNativeField(`${type}_address_1`, state.address_1)
+      // Link Nacional's `*_number` / `*_neighborhood` when its options are on
+      // (required there), the bundle's own otherwise (PHP
+      // Integrations\BrazilianCheckoutFields): either way the order gets the
+      // `_shipping_number` / `_shipping_neighborhood` Melhor Envio labels from.
+      setNativeField(`${type}_number`, state.number)
       setNativeField(`${type}_address_2`, state.address_2)
+      setNativeField(`${type}_neighborhood`, state.neighborhood)
       setNativeField(`${type}_city`, state.city)
       setNativeField(`${type}_state`, state.state)
       setNativeField(`${type}_postcode`, state.postcode)
@@ -182,6 +191,20 @@ export function relocateShippingMethod(mount: HTMLElement | null): boolean {
     mount.appendChild(list)
   }
   return true
+}
+
+/**
+ * Did WooCommerce price the address and find nothing? Its review table keeps
+ * the shipping row (the cart needs shipping) but prints a sentence instead of
+ * `#shipping_method` — the case of a CEP no carrier serves, which used to
+ * leave an empty list and a "Continue" that let the shopper through. Read
+ * before `relocateShippingMethod`, which hides that row. Only meaningful once
+ * an address was given: before that, the same row asks for one.
+ */
+export function shippingRatesMissing(): boolean {
+  const row = document.querySelector('#order_review tr.woocommerce-shipping-totals')
+  if (!row) return false
+  return !document.querySelector('#order_review #shipping_method') && !row.querySelector('input.shipping_method')
 }
 
 /** True once a shipping method is actually selected (or the cart never needed one). */

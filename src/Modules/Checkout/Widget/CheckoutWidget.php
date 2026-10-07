@@ -549,8 +549,10 @@ final class CheckoutWidget extends AbstractIslandWidget {
 			'quoted'      => $preview ? null : self::quoted(),
 			'stripeCards' => $logged_in && \Galaxie\Woo\Core\Plugin::instance()->settings()->is_enabled( 'my-account', true ) ? self::own_cards_config() : null,
 			'i18n'      => array(
-				'genericError' => __( 'Algo deu errado. Tente novamente.', 'galaxie-woo' ),
-				'noShipping'   => __( 'Não há opções de envio para este endereço. Confira o endereço e tente novamente.', 'galaxie-woo' ),
+				'genericError'    => __( 'Algo deu errado. Tente novamente.', 'galaxie-woo' ),
+				'noShipping'      => __( 'Não há opções de envio para este endereço. Confira o endereço e tente novamente.', 'galaxie-woo' ),
+				'noRates'         => \Galaxie\Woo\Modules\Cart\Module::no_rates_text(),
+				'completeAddress' => __( 'Informe o número e o bairro deste endereço para continuar.', 'galaxie-woo' ),
 			),
 			'preview'   => null,
 		);
@@ -579,8 +581,10 @@ final class CheckoutWidget extends AbstractIslandWidget {
 			);
 			$props['address'] = array(
 				'has_address' => true,
-				'address_1'   => 'Rua Harmonia, 123',
-				'address_2'   => 'Apto 42',
+				'address_1'    => 'Rua Harmonia',
+				'number'       => '123',
+				'address_2'    => 'Apto 42',
+				'neighborhood' => 'Vila Madalena',
 				'city'        => 'São Paulo',
 				'state'       => 'SP',
 				'postcode'    => '05435-000',
@@ -593,8 +597,8 @@ final class CheckoutWidget extends AbstractIslandWidget {
 				'ajaxUrl' => '',
 				'nonce'   => '',
 				'entries' => $first ? array() : array(
-					array( 'id' => 'sample-home', 'label' => __( 'Casa', 'galaxie-woo' ), 'formatted' => 'Rua Harmonia, 123, Apto 42<br/>Vila Madalena<br/>São Paulo - SP<br/>05435-000', 'values' => array( 'address_1' => 'Rua Harmonia, 123', 'address_2' => 'Apto 42', 'city' => 'São Paulo', 'state' => 'SP', 'postcode' => '05435-000', 'country' => 'BR' ), 'shipping' => true, 'billing' => true ),
-					array( 'id' => 'sample-work', 'label' => __( 'Trabalho', 'galaxie-woo' ), 'formatted' => 'Av. Paulista, 1000, Conj. 81<br/>Bela Vista<br/>São Paulo - SP<br/>01310-100', 'values' => array( 'address_1' => 'Av. Paulista, 1000', 'address_2' => 'Conj. 81', 'city' => 'São Paulo', 'state' => 'SP', 'postcode' => '01310-100', 'country' => 'BR' ), 'shipping' => false, 'billing' => false ),
+					array( 'id' => 'sample-home', 'label' => __( 'Casa', 'galaxie-woo' ), 'formatted' => 'Rua Harmonia, 123, Apto 42<br/>Vila Madalena<br/>São Paulo - SP<br/>05435-000', 'values' => array( 'address_1' => 'Rua Harmonia', 'number' => '123', 'address_2' => 'Apto 42', 'neighborhood' => 'Vila Madalena', 'city' => 'São Paulo', 'state' => 'SP', 'postcode' => '05435-000', 'country' => 'BR' ), 'shipping' => true, 'billing' => true ),
+					array( 'id' => 'sample-work', 'label' => __( 'Trabalho', 'galaxie-woo' ), 'formatted' => 'Av. Paulista, 1000, Conj. 81<br/>Bela Vista<br/>São Paulo - SP<br/>01310-100', 'values' => array( 'address_1' => 'Av. Paulista', 'number' => '1000', 'address_2' => 'Conj. 81', 'neighborhood' => 'Bela Vista', 'city' => 'São Paulo', 'state' => 'SP', 'postcode' => '01310-100', 'country' => 'BR' ), 'shipping' => false, 'billing' => false ),
 				),
 			);
 
@@ -697,7 +701,7 @@ final class CheckoutWidget extends AbstractIslandWidget {
 			'addressButton'   => $from( 'address_button', __( 'Salvar endereço', 'galaxie-woo' ) ),
 			'shippingHeading' => $from( 'shipping_heading', __( 'Forma de envio', 'galaxie-woo' ) ),
 			'paymentButton'   => $from( 'payment_button', __( 'Ir para o pagamento', 'galaxie-woo' ) ),
-			'entryIntro'      => $from( 'entry_intro', '' ),
+			'entryIntro'      => self::without_google( $from( 'entry_intro', '' ) ),
 			'tabLogin'        => $from( 'tab_login', __( 'Já sou cliente', 'galaxie-woo' ) ),
 			'tabRegister'     => $from( 'tab_register', __( 'Primeira compra', 'galaxie-woo' ) ),
 			'sendCode'        => $from( 'send_code', __( 'Receber código', 'galaxie-woo' ) ),
@@ -733,15 +737,48 @@ final class CheckoutWidget extends AbstractIslandWidget {
 			'birthdate'       => __( 'Data de nascimento', 'galaxie-woo' ),
 			'cpf'             => __( 'CPF', 'galaxie-woo' ),
 			'phone'           => __( 'Celular', 'galaxie-woo' ),
-			'address1'        => __( 'Endereço', 'galaxie-woo' ),
+			'address1'        => __( 'Rua ou avenida', 'galaxie-woo' ),
+			'number'          => __( 'Número', 'galaxie-woo' ),
+			'numberNone'      => __( 'Sem número', 'galaxie-woo' ),
 			'address2'        => __( 'Complemento', 'galaxie-woo' ),
 			'address2Hint'    => __( 'Apartamento, bloco, referência (opcional)', 'galaxie-woo' ),
+			'neighborhood'    => __( 'Bairro', 'galaxie-woo' ),
 			'city'            => __( 'Cidade', 'galaxie-woo' ),
 			'state'           => __( 'UF', 'galaxie-woo' ),
 			'postcode'        => __( 'CEP', 'galaxie-woo' ),
 			'previewShipping' => __( 'As opções de frete do WooCommerce aparecem aqui, calculadas para o endereço.', 'galaxie-woo' ),
 			'previewPayment'  => __( 'Os métodos de pagamento do WooCommerce e o botão de finalizar aparecem aqui.', 'galaxie-woo' ),
 		);
+	}
+
+	/**
+	 * The sign-in intro without its promise of a Google button while there is
+	 * none. The GoogleLogin module is settings only (its `boot()` adds no
+	 * button yet), and the intro saved on the store's checkout said "…ou
+	 * continue com o Google" over a step with no such way in. Merchant text is
+	 * otherwise left as written; only that clause goes, and it comes back by
+	 * itself once the module is on with a client ID.
+	 */
+	public static function without_google( string $intro ): string {
+		if ( '' === $intro || self::google_sign_in_ready() ) {
+			return $intro;
+		}
+
+		$clean = preg_replace( '/\s*,?\s*(?:ou|or)\s+(?:continue|entre|siga)\s+com\s+(?:o\s+|a\s+conta\s+(?:do\s+)?)?Google\b/iu', '', $intro );
+
+		return is_string( $clean ) ? $clean : $intro;
+	}
+
+	private static function google_sign_in_ready(): bool {
+		$settings = \Galaxie\Woo\Core\Plugin::instance()->settings();
+
+		if ( ! $settings->is_enabled( 'google-login', false ) ) {
+			return false;
+		}
+
+		$google = $settings->module_settings( 'google-login' );
+
+		return '' !== trim( (string) ( $google['client_id'] ?? '' ) );
 	}
 
 	/** Editor canvas or its preview: sample data, no cart, no native form. */
@@ -770,8 +807,10 @@ final class CheckoutWidget extends AbstractIslandWidget {
 		// (toasts), as on any other page; with no island mount it mounts nothing.
 		if ( CheckoutPage::is_order_endpoint() ) {
 			Assets::enqueue();
+			$page = do_shortcode( '[woocommerce_checkout]' );
 			echo '<div class="galaxie-checkout galaxie-checkout--endpoint">';
-			echo do_shortcode( '[woocommerce_checkout]' ); // phpcs:ignore WordPress.Security.EscapeOutput -- WooCommerce's own templates, escaped there.
+			echo $page; // phpcs:ignore WordPress.Security.EscapeOutput -- WooCommerce's own templates, escaped there.
+			echo \Galaxie\Woo\Modules\Checkout\OrderEndpoints::dead_end_links( $page ); // phpcs:ignore WordPress.Security.EscapeOutput -- built from escaped parts.
 			echo '</div>';
 			return;
 		}

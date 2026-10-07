@@ -12,6 +12,12 @@ interface ShippingChoiceProps {
   shown: boolean
   onContinue: () => void
   preview: boolean
+  /**
+   * Said in place of the carriers when every one refused the address (a CEP
+   * Correios does not know, a region nobody delivers to) — before, the list
+   * was simply empty and "Ir para o pagamento" let the shopper through.
+   */
+  noRates?: string | null
 }
 
 /**
@@ -21,7 +27,7 @@ interface ShippingChoiceProps {
  * list is moved into `shippingMountRef` on every recalculation and must
  * always have somewhere to land.
  */
-function ShippingChoice({ text, shippingMountRef, busy, shown, onContinue, preview }: ShippingChoiceProps) {
+function ShippingChoice({ text, shippingMountRef, busy, shown, onContinue, preview, noRates = null }: ShippingChoiceProps) {
   const { cls, buttons } = useUi<CheckoutUi>()
 
   return (
@@ -30,6 +36,11 @@ function ShippingChoice({ text, shippingMountRef, busy, shown, onContinue, previ
         {text.shippingHeading}
       </div>
       {preview ? <SampleShipping /> : <div ref={shippingMountRef} className="galaxie-shipping-mount" />}
+      {noRates && !preview && (
+        <p role="status" className={cn('gx-co-body', cls.body)}>
+          {noRates}
+        </p>
+      )}
       <PixButton button={buttons.paymentButton} onClick={onContinue} disabled={busy} />
     </div>
   )

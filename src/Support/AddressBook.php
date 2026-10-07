@@ -26,8 +26,16 @@ final class AddressBook {
 
 	public const META_KEY = '_galaxie_address_book';
 
-	/** The WooCommerce address keys an entry holds, without the billing_/shipping_ prefix. */
-	public const FIELDS = array( 'first_name', 'last_name', 'company', 'country', 'address_1', 'address_2', 'city', 'state', 'postcode', 'phone' );
+	/**
+	 * The WooCommerce address keys an entry holds, without the billing_/shipping_
+	 * prefix. `number` and `neighborhood` are not WooCommerce's own: they are the
+	 * `billing_number` / `billing_neighborhood` meta the Brazilian checkout
+	 * plugins keep (and Melhor Envio labels from), with `address_1` the street.
+	 */
+	public const FIELDS = array( 'first_name', 'last_name', 'company', 'country', 'address_1', 'number', 'address_2', 'neighborhood', 'city', 'state', 'postcode', 'phone' );
+
+	/** Kept through an edit that does not send them (My Account's form has no such fields yet). */
+	private const BRAZILIAN = array( 'number', 'neighborhood' );
 
 	private const LIMIT = 20;
 
@@ -123,11 +131,20 @@ final class AddressBook {
 		}
 
 		$entries = self::entries( $user_id );
-		$entry   = self::clean( $data );
 
 		if ( '' !== $id && ! isset( $entries[ $id ] ) ) {
 			return new \WP_Error( 'missing', __( 'Este endereço não existe mais. Recarregue a página.', 'galaxie-woo' ) );
 		}
+
+		if ( '' !== $id ) {
+			foreach ( self::BRAZILIAN as $field ) {
+				if ( ! array_key_exists( $field, $data ) ) {
+					$data[ $field ] = $entries[ $id ][ $field ] ?? '';
+				}
+			}
+		}
+
+		$entry = self::clean( $data );
 
 		// Saving an address that is already in the book updates it instead of
 		// filing a second copy.
@@ -199,7 +216,7 @@ final class AddressBook {
 	 * those belong to the customer, not to the place.
 	 */
 	private static function clear_wc( int $user_id, string $type ): void {
-		foreach ( array( 'company', 'address_1', 'address_2', 'city', 'state', 'postcode' ) as $field ) {
+		foreach ( array( 'company', 'address_1', 'number', 'address_2', 'neighborhood', 'city', 'state', 'postcode' ) as $field ) {
 			update_user_meta( $user_id, $type . '_' . $field, '' );
 		}
 	}
@@ -267,7 +284,21 @@ final class AddressBook {
 	 * @param array<string,string> $entry
 	 */
 	public static function format( array $entry ): string {
-		$values = array_map( 'esc_html', array_intersect_key( $entry, array_flip( array_diff( self::FIELDS, array( 'phone' ) ) ) ) );
+		$values = array_map( 'esc_html', array_intersect_key( $entry, array_flip( array_diff( self::FIELDS, array( 'phone', 'number', 'neighborhood' ) ) ) ) );
+
+		// Number and bairro folded into the lines WooCommerce always prints,
+		// rather than handed over as keys: those only show where a Brazilian
+		// plugin's address format has a placeholder for them, and that format
+		// depends on its options.
+		$number       = esc_html( (string) ( $entry['number'] ?? '' ) );
+		$neighborhood = esc_html( (string) ( $entry['neighborhood'] ?? '' ) );
+
+		if ( '' !== $number && '' !== ( $values['address_1'] ?? '' ) ) {
+			$values['address_1'] .= ', ' . $number;
+		}
+		if ( '' !== $neighborhood ) {
+			$values['address_2'] = implode( ' - ', array_filter( array( $values['address_2'] ?? '', $neighborhood ) ) );
+		}
 
 		return (string) WC()->countries->get_formatted_address( $values );
 	}
@@ -350,6 +381,9 @@ final class AddressBook {
 			$address['country'] ?? '',
 			preg_replace( '/\W+/', '', (string) ( $address['postcode'] ?? '' ) ),
 			$address['address_1'] ?? '',
+			// The door: with the street alone in address_1, two numbers on one
+			// street are two places.
+			$address['number'] ?? '',
 			$address['address_2'] ?? '',
 			$address['city'] ?? '',
 			$address['state'] ?? '',

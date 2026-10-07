@@ -53,6 +53,27 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 	 */
 	private const CALCULATOR_NOTICE = 'Informe um CEP válido para calcular o frete.';
 
+	/** Set while this request's calculator submission found no carrier for the CEP. */
+	private static bool $quoted_without_rates = false;
+
+	/**
+	 * What the cart and the checkout's delivery step say when every carrier
+	 * refused a CEP (one Correios does not know, a region nobody serves) —
+	 * one sentence, so both places say the same thing.
+	 */
+	public static function no_rates_text(): string {
+		return __( 'Não encontramos opções de entrega para este CEP. Confira o número ou fale com a gente.', 'galaxie-woo' );
+	}
+
+	/**
+	 * Did the shopper just ask for a CEP that no carrier serves? True only on
+	 * the request that answers the calculator: a CEP merely sitting in the
+	 * session from earlier is no reason to greet the shopper with a refusal.
+	 */
+	public static function quoted_without_rates(): bool {
+		return self::$quoted_without_rates;
+	}
+
 	public function id(): string {
 		return 'cart';
 	}
@@ -135,7 +156,7 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 		$kept = array_values(
 			array_filter(
 				$errors,
-				static fn( $notice ): bool => self::CALCULATOR_NOTICE !== trim( wp_strip_all_tags( (string) ( $notice['notice'] ?? '' ) ) )
+				static fn( $notice ): bool => ! in_array( trim( wp_strip_all_tags( (string) ( $notice['notice'] ?? '' ) ) ), array( self::CALCULATOR_NOTICE, self::no_rates_text() ), true )
 			)
 		);
 
@@ -219,10 +240,40 @@ final class Module implements ModuleContract, ProvidesElementorWidgets, Provides
 			return;
 		}
 
+		$queued = function_exists( 'wc_get_notices' ) ? wc_get_notices() : array();
+
 		\WC_Shortcode_Cart::calculate_shipping();
 		WC()->cart->calculate_totals();
 
 		unset( $_POST['calc_shipping'] );
+
+		// A real CEP no carrier quoted (40020-000, 99999-999): WooCommerce
+		// still says "Custos de envio atualizados." and the cart showed
+		// "Frete: Informe o CEP" as if nothing had been typed. That success
+		// notice goes, and the shopper is told what happened instead.
+		// WooCommerce's own refusal (a postcode it rejected) is left to speak.
+		$refused = function_exists( 'wc_notice_count' ) && wc_notice_count( 'error' ) > count( (array) ( $queued['error'] ?? array() ) );
+
+		if ( ! $refused && WC()->cart->needs_shipping() && ! self::has_rates() ) {
+			self::$quoted_without_rates = true;
+
+			if ( function_exists( 'wc_set_notices' ) ) {
+				wc_set_notices( $queued );
+				wc_add_notice( self::no_rates_text(), 'error' );
+				$this->print_notices_next();
+			}
+		}
+	}
+
+	/** Did any package come back with at least one rate? */
+	private static function has_rates(): bool {
+		foreach ( WC()->shipping()->get_packages() as $package ) {
+			if ( ! empty( $package['rates'] ) ) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	/**
