@@ -24,9 +24,14 @@ defined( 'ABSPATH' ) || exit;
  * placeholder, use the Media Library alt instead, or an empty alt — the right
  * value for a decorative image — when the library has none.
  *
- * An alt typed in the widget is left alone. Images pixfort prints from a bare
- * URL (no attachment id) do not pass through this filter; those need the
- * widget's own field.
+ * An alt typed in the widget is left alone.
+ *
+ * Images pixfort prints from a bare URL (no attachment id — the decorative
+ * leaves in the section corners, imported with the demo) never reach that
+ * filter: pixfort builds the tag itself. For those the placeholder is removed
+ * from the widget's rendered HTML (`elementor/widget/render_content`), which
+ * leaves `alt=""` — what a decorative image should have — and drops the
+ * matching `aria-label="Image link"` from a wrapping link.
  */
 final class Module implements ModuleContract {
 
@@ -48,6 +53,33 @@ final class Module implements ModuleContract {
 
 	public function boot(): void {
 		add_filter( 'wp_get_attachment_image_attributes', array( self::class, 'alt' ), 20, 2 );
+		add_filter( 'elementor/widget/render_content', array( self::class, 'strip_placeholder' ), 20, 1 );
+	}
+
+	/**
+	 * Whatever pixfort printed with its placeholder after the attachment filter
+	 * had its turn: images from a bare URL.
+	 *
+	 * @param string|mixed $content Rendered widget HTML.
+	 * @return string|mixed
+	 */
+	public static function strip_placeholder( $content ) {
+		if ( ! is_string( $content ) || false === stripos( $content, 'Image link' ) && false === strpos( $content, self::translated() ) ) {
+			return $content;
+		}
+
+		foreach ( array_unique( array( 'Image link', self::translated() ) ) as $placeholder ) {
+			$quoted  = preg_quote( esc_attr( $placeholder ), '/' );
+			$content = (string) preg_replace( '/(<img\b[^>]*?\salt=)(["\'])' . $quoted . '\2/i', '$1$2$2', $content );
+			$content = (string) preg_replace( '/(<a\b[^>]*?)\saria-label=(["\'])' . $quoted . '\2/i', '$1', $content );
+		}
+
+		return $content;
+	}
+
+	/** pixfort's placeholder as its translation renders it. */
+	private static function translated(): string {
+		return (string) __( 'Image link', 'pixfort-core' ); // phpcs:ignore WordPress.WP.I18n.TextDomainMismatch
 	}
 
 	/**
