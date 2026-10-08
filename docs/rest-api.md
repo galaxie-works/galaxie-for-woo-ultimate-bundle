@@ -23,6 +23,7 @@ AUTH='USER:APP_PASSWORD'
 | Routes | Capability |
 | --- | --- |
 | `galaxie-woo/v1/*` | `manage_woocommerce` (same as the settings page) |
+| `galaxie-woo/v1/puriochat` | `manage_options` (same as PurioChat's settings screen) |
 | product and variation meta | `edit_product` on that product or variation |
 
 ## Settings routes: `galaxie-woo/v1`
@@ -195,6 +196,37 @@ curl -u "$AUTH" -X POST "$SITE/wp-json/wp/v2/pa_peso/42" \
 
 Values are cleaned like the variation fields. `null` deletes a value. Any
 change clears the cached candle sizes.
+
+## PurioChat settings: `galaxie-woo/v1/puriochat`
+
+With the **PurioChat settings over REST** module on (`PUT /modules/puriochat-settings`
+`{"enabled": true}`), PurioChat's own settings (the AI chat plugin by PureThemes)
+can be read and changed without its settings screen. Capability: `manage_options`,
+the same as PurioChat's screen.
+
+| Method | Body / query | Returns |
+| --- | --- | --- |
+| `GET` | `?keys=a,b` (only those), `?schema=0` (no schema) | `{ plugin, settings, secrets, schema }` |
+| `PUT` / `PATCH` | `{ "option_name": value, ... }` | `{ updated, settings }` (only the keys sent) |
+
+- The setting list and the cleaning come from PurioChat itself (its settings
+  registry and sanitizer), so a new PurioChat setting appears here without a
+  plugin change. When PurioChat renames those internals the route answers 501.
+- Beyond the registry: `listeo_ai_search_enabled_post_types` (Data Training post
+  types — content still has to be trained on PurioChat's Data Training tab),
+  `listeo_ai_disable_auto_training`, and the contact form's
+  `listeo_ai_contact_form_*` options.
+- API keys, the webhook secret and messaging tokens are never returned or written
+  here; `secrets` only says which are set.
+- A write is all or nothing. Unknown keys, secrets, values outside a setting's
+  `options`, non-0/1 checkboxes and a provider change without
+  `listeo_ai_chat_model` in the same request are refused with a 400 and nothing
+  is saved.
+
+```sh
+curl -u "$AUTH" "$SITE/wp-json/galaxie-woo/v1/puriochat?keys=listeo_ai_chat_name,listeo_ai_primary_color&schema=0"
+curl -u "$AUTH" -X PATCH -H 'Content-Type: application/json'   -d '{"listeo_ai_chat_name":"Runa","listeo_ai_primary_color":"#C6A96B"}'   "$SITE/wp-json/galaxie-woo/v1/puriochat"
+```
 
 ## WP-CLI
 
