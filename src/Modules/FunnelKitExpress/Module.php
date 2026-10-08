@@ -55,6 +55,9 @@ final class Module implements ModuleContract {
 	/** FunnelKit's express script handle (registered in SmartButtons::register_stripe_js()). */
 	public const SCRIPT = 'fkwcs-express-checkout-js';
 
+	/** Everything FunnelKit enqueues on product and cart pages for the wallet. */
+	private const STOREFRONT_SCRIPTS = array( self::SCRIPT, 'fkwcs-stripe-js', 'fkwcs-stripe-external' );
+
 	public function id(): string {
 		return 'funnelkit-express';
 	}
@@ -131,13 +134,23 @@ final class Module implements ModuleContract {
 		return $removed;
 	}
 
-	/** No container on the page, so no express script either. */
+	/**
+	 * No container on the page, so none of FunnelKit's scripts either: the
+	 * express script, its main script and Stripe.js itself. Stripe.js alone is
+	 * ~290 KB and pulls in hCaptcha, PerimeterX and Google Pay frames; measured
+	 * on a throttled phone it held the product page's DOMContentLoaded (and so
+	 * pixfort's page-transition overlay) back by about 1.5 s. Nothing else on a
+	 * product or cart page uses them — the card and Pix fields live on the
+	 * checkout, which this never touches.
+	 */
 	public static function dequeue(): void {
 		if ( ! function_exists( 'is_product' ) || ! ( is_product() || is_cart() ) || self::customer_ready( get_current_user_id() ) ) {
 			return;
 		}
 
-		wp_dequeue_script( self::SCRIPT );
+		foreach ( self::STOREFRONT_SCRIPTS as $handle ) {
+			wp_dequeue_script( $handle );
+		}
 	}
 
 	/**

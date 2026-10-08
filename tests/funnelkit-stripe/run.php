@@ -489,7 +489,7 @@ unset( $GLOBALS['gx_filters']['fkwcs_express_button_cart_position'] );
 $GLOBALS['gx_dequeued'] = array();
 $GLOBALS['gx_page']     = 'product';
 FunnelKitExpress::dequeue();
-$check( 'express', 'visitor on a product page: express script dequeued', $GLOBALS['gx_dequeued'], array( 'fkwcs-express-checkout-js' ) );
+$check( 'express', 'visitor on a product page: express script, FunnelKit main script and Stripe.js dequeued', $GLOBALS['gx_dequeued'], array( 'fkwcs-express-checkout-js', 'fkwcs-stripe-js', 'fkwcs-stripe-external' ) );
 $GLOBALS['gx_dequeued'] = array();
 $GLOBALS['gx_page']     = 'checkout';
 FunnelKitExpress::dequeue();
