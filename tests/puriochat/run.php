@@ -148,6 +148,8 @@ $result = $api->update_settings( new WP_REST_Request( array(), array( 'listeo_ai
 $check( 'PATCH reports the keys it wrote', $result['updated'] ?? null, array( 'listeo_ai_chat_name', 'listeo_ai_chat_enabled', 'listeo_ai_primary_color' ) );
 $check( 'PATCH stores text', get_option( 'listeo_ai_chat_name' ), 'Runa' );
 $check( 'PATCH stores checkbox as int', get_option( 'listeo_ai_chat_enabled' ), 1 );
+$check( 'WordPress request parameters in the body are ignored', $code( $api->update_settings( new WP_REST_Request( array(), array( 'listeo_ai_chat_name' => 'Runa', '_fields' => 'updated', '_locale' => 'user' ) ) ) ), 'not an error' );
+$check( 'only WordPress parameters is an empty write', $code( $api->update_settings( new WP_REST_Request( array(), array( '_fields' => 'updated' ) ) ) ), 'galaxie_empty_settings' );
 $check( 'PATCH goes through PurioChat sanitizer', get_option( 'listeo_ai_primary_color' ), '#C6A96B' );
 
 $api = $reset();

@@ -116,6 +116,10 @@ final class Controller {
 		$patch = $request->get_json_params();
 		$patch = is_array( $patch ) ? $patch : (array) $request->get_body_params();
 
+		// WordPress's own request parameters (`_fields`, `_embed`, `_locale`,
+		// `_method`) can arrive in the body; PurioChat has no option named so.
+		$patch = array_filter( $patch, static fn( $key ) => '_' !== substr( (string) $key, 0, 1 ), ARRAY_FILTER_USE_KEY );
+
 		if ( ! $patch ) {
 			return new \WP_Error( 'galaxie_empty_settings', __( 'Send at least one setting, as a JSON object.', 'galaxie-woo' ), array( 'status' => 400 ) );
 		}
