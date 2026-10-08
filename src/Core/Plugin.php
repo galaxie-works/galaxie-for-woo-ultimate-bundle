@@ -172,5 +172,6 @@ final class Plugin {
 		$this->modules->register( new \Galaxie\Woo\Modules\ProductData\Module() );
 		$this->modules->register( new \Galaxie\Woo\Modules\PixfortIconPicker\Module() );
 		$this->modules->register( new \Galaxie\Woo\Modules\PixfortImageAlt\Module() );
+		$this->modules->register( new \Galaxie\Woo\Modules\AssetTrim\Module() );
 	}
 }
