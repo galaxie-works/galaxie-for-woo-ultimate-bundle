@@ -80,6 +80,33 @@ final class Dialog {
 	/** How far the title, the message and the buttons stand apart, in px. */
 	public const BOX_GAP = 20;
 
+	/**
+	 * The title and the message, as the merchant set them on the cancel order
+	 * dialog: the theme's text size in Dynamic Heading and bold for the title,
+	 * small text for the message, each paragraph keeping its own bottom margin.
+	 */
+	public const TITLE = array(
+		'size'              => '',
+		'bold'              => 'font-weight-bold',
+		'content_color'     => 'dynamic-heading',
+		'remove_pb_padding' => '',
+	);
+
+	public const BODY = array(
+		'size'              => 'text-sm',
+		'bold'              => '',
+		'remove_pb_padding' => '',
+	);
+
+	/**
+	 * A notice's only button ("OK"): the shop's primary colour at the normal
+	 * size the confirm and cancel buttons have, not a small pill.
+	 */
+	public const NOTICE = array(
+		'color' => 'primary',
+		'size'  => 'normal',
+	);
+
 	public const DESTRUCTIVE = array(
 		'style'       => 'outline',
 		'color'       => 'red',
@@ -129,6 +156,7 @@ final class Dialog {
 			$buttons['no']     = array( $named( __( 'cancel button', 'galaxie-woo' ) ), $args['no'], $args['no_defaults'] ?? self::CANCEL );
 		} else {
 			$buttons['yes'][0] = $named( __( 'button', 'galaxie-woo' ) );
+			$buttons['yes'][2] = $args['yes_defaults'] ?? self::NOTICE;
 		}
 
 		foreach ( $buttons as $key => $button ) {
@@ -197,13 +225,13 @@ final class Dialog {
 		$widget->end_controls_section();
 
 		$texts = array(
-			'title_text' => array( $named( __( 'title', 'galaxie-woo' ) ), '.galaxie-dialog-title', array( 'size' => 'text-18', 'bold' => 'font-weight-bold' ) ),
-			'body_text'  => array( $named( __( 'message', 'galaxie-woo' ) ), '.galaxie-dialog-text', array( 'bold' => '' ) ),
+			'title_text' => array( $named( __( 'title', 'galaxie-woo' ) ), '.galaxie-dialog-title', self::TITLE ),
+			'body_text'  => array( $named( __( 'message', 'galaxie-woo' ) ), '.galaxie-dialog-text', self::BODY ),
 		);
 
 		foreach ( $texts as $key => $text ) {
 			$widget->start_controls_section( $prefix . '_' . $key . '_style', array( 'label' => $text[0], 'tab' => Controls_Manager::TAB_STYLE ) + $when );
-			PixfortControls::text( $widget, $prefix . '_' . $key, array_merge( $text[2], array( 'remove_pb_padding' => 'm-0' ) ), array(), $box . ' ' . $text[1], 'text', array( 'position' ) );
+			PixfortControls::text( $widget, $prefix . '_' . $key, $text[2], array(), $box . ' ' . $text[1], 'text', array( 'position' ) );
 			$widget->end_controls_section();
 		}
 	}

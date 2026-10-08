@@ -1254,8 +1254,8 @@ final class AccountParts {
 			'cancel_posted',
 			array(
 				'label'     => __( 'Cancelamento de pedido em rota', 'galaxie-woo' ),
-				'title'     => __( 'Seu pedido já está a caminho', 'galaxie-woo' ),
-				'text'      => __( 'Para que o pedido seja cancelado, simplesmente recuse o recebimento.', 'galaxie-woo' ),
+				'title'     => __( 'Seu pedido já foi postado', 'galaxie-woo' ),
+				'text'      => __( 'Você pode recusar a entrega ou, depois de receber, desistir em até 7 dias, conforme nossa política de Trocas e devoluções.', 'galaxie-woo' ),
 				'yes'       => __( 'OK', 'galaxie-woo' ),
 				'no'        => null,
 				'condition' => $condition,

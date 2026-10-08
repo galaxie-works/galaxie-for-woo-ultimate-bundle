@@ -749,7 +749,18 @@ function galaxie_boot_kit( array $booted, array $scenario, callable $hooked ): s
 			throw new RuntimeException( 'Dialog: the shop\'s dialog look changed' );
 		}
 
+		// Title, message and a notice's single button follow the cancel order
+		// dialog the merchant styled, not text-18, an m-0 paragraph or a small pill.
+		if ( array( 'size' => '', 'bold' => 'font-weight-bold', 'content_color' => 'dynamic-heading', 'remove_pb_padding' => '' ) !== $dialog::TITLE
+			|| array( 'size' => 'text-sm', 'bold' => '', 'remove_pb_padding' => '' ) !== $dialog::BODY
+			|| array( 'color' => 'primary', 'size' => 'normal' ) !== $dialog::NOTICE ) {
+			throw new RuntimeException( 'Dialog: the title, message or notice look changed' );
+		}
+
 		$look = array(
+			'account_kit_discard_title_text_size'              => '',
+			'account_kit_discard_title_text_remove_pb_padding' => '',
+			'account_kit_discard_body_text_size'               => 'text-sm',
 			'account_kit_discard_yes_style'   => 'outline',
 			'account_kit_discard_yes_size'    => 'normal',
 			'account_kit_discard_no_size'     => 'normal',

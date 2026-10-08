@@ -135,7 +135,7 @@ final class Module implements ModuleContract, ProvidesSettings, ProvidesBootData
 		return array(
 			'orderCancellation' => array(
 				'ajaxUrl'  => admin_url( 'admin-ajax.php' ),
-				'posted'   => __( 'Seu pedido já está a caminho. Para que ele seja cancelado, basta recusar o recebimento.', 'galaxie-woo' ),
+				'posted'   => __( 'Seu pedido já foi postado. Você pode recusar a entrega ou, depois de receber, desistir em até 7 dias, conforme nossa política de Trocas e devoluções.', 'galaxie-woo' ),
 				'reasons'  => self::reasons(),
 				'question' => __( 'Por que você quer cancelar?', 'galaxie-woo' ),
 				'choose'   => __( 'Escolha um motivo', 'galaxie-woo' ),
