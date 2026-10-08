@@ -19,6 +19,9 @@ function is_email( $email ) { return (bool) filter_var( $email, FILTER_VALIDATE_
 function wp_slash( $value ) { return is_string( $value ) ? addslashes( $value ) : $value; }
 function sanitize_textarea_field( $str ) { return trim( (string) $str ); }
 function wp_kses_post( $str ) { return strip_tags( (string) $str, '<b><strong><em><a><br>' ); }
+function get_post_status( $id ) { return $GLOBALS['gx_posts'][ $id ]['status'] ?? false; }
+function get_the_title( $id ) { return $GLOBALS['gx_posts'][ $id ]['title'] ?? ''; }
+$GLOBALS['gx_posts'] = array( 993104 => array( 'status' => 'publish', 'title' => 'Trocas e devoluções' ), 7 => array( 'status' => 'draft', 'title' => 'Rascunho' ) );
 function sanitize_hex_color( $color ) { return preg_match( '/^#([A-Fa-f0-9]{3}){1,2}$/', (string) $color ) ? $color : ''; }
 
 spl_autoload_register(
@@ -182,6 +185,16 @@ $check( 'bad contact e-mail refused', $code( $api->update_settings( new WP_REST_
 $api->update_settings( new WP_REST_Request( array(), array( 'listeo_ai_contact_form_recipient' => ' Contato@EirNaturals.shop ', 'listeo_ai_disable_auto_training' => false ) ) );
 $check( 'contact e-mail cleaned', get_option( 'listeo_ai_contact_form_recipient' ), 'contato@eirnaturals.shop' );
 $check( 'auto-training flag stored as int', get_option( 'listeo_ai_disable_auto_training' ), 0 );
+
+// Knowledge sources ("Sugestões para IA").
+$api = $reset();
+$api->update_settings( new WP_REST_Request( array(), array( 'listeo_ai_knowledge_sources' => array( array( 'topic' => ' trocas, devoluções ', 'post_id' => '993104', 'post_title' => 'ignored' ) ) ) ) );
+$check( 'source stored with the real title', get_option( 'listeo_ai_knowledge_sources' ), array( array( 'topic' => 'trocas, devoluções', 'post_id' => 993104, 'post_title' => 'Trocas e devoluções' ) ) );
+$check( 'source on a draft refused', $code( $api->update_settings( new WP_REST_Request( array(), array( 'listeo_ai_knowledge_sources' => array( array( 'topic' => 'x', 'post_id' => 7 ) ) ) ) ) ), 'galaxie_puriochat_invalid' );
+$check( 'source without topic refused', $code( $api->update_settings( new WP_REST_Request( array(), array( 'listeo_ai_knowledge_sources' => array( array( 'post_id' => 993104 ) ) ) ) ) ), 'galaxie_puriochat_invalid' );
+$check( 'sources must be a list', $code( $api->update_settings( new WP_REST_Request( array(), array( 'listeo_ai_knowledge_sources' => array( 'topic' => 'x', 'post_id' => 993104 ) ) ) ) ), 'galaxie_puriochat_invalid' );
+$api->update_settings( new WP_REST_Request( array(), array( 'listeo_ai_knowledge_sources' => array() ) ) );
+$check( 'empty list clears the sources', get_option( 'listeo_ai_knowledge_sources' ), array() );
 
 // After save.
 $api = $reset( array( 'listeo_ai_chat_history_enabled' => 0 ) );

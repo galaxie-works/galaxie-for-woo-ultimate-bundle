@@ -214,7 +214,9 @@ the same as PurioChat's screen.
   plugin change. When PurioChat renames those internals the route answers 501.
 - Beyond the registry: `listeo_ai_search_enabled_post_types` (Data Training post
   types — content still has to be trained on PurioChat's Data Training tab),
-  `listeo_ai_disable_auto_training`, and the contact form's
+  `listeo_ai_disable_auto_training`, `listeo_ai_knowledge_sources` (the "Sugestões
+  para IA" dialog: `[{ "topic": "...", "post_id": 123 }]`, published posts only,
+  title filled in), and the contact form's
   `listeo_ai_contact_form_*` options.
 - API keys, the webhook secret and messaging tokens are never returned or written
   here; `secrets` only says which are set.

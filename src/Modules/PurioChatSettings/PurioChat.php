@@ -141,6 +141,12 @@ final class PurioChat {
 				'options'     => $this->allowed_post_types(),
 				'description' => 'Post types the assistant is trained on (Data Training tab). Content added here still has to be trained there before the assistant sees it.',
 			),
+			'listeo_ai_knowledge_sources'           => array(
+				'source'      => 'knowledge-sources',
+				'type'        => 'sources',
+				'default'     => array(),
+				'description' => '"Sugestões para IA": rows of { topic, post_id }. For each topic the assistant also searches that published page, post or product (it must be trained). post_title is filled in from the post.',
+			),
 			'listeo_ai_disable_auto_training'       => array(
 				'source'      => 'data-training',
 				'type'        => 'checkbox',
@@ -338,6 +344,9 @@ final class PurioChat {
 				}
 				return $types;
 
+			case 'sources':
+				return $this->sanitize_sources( $key, $value );
+
 			case 'email':
 				$email = sanitize_email( (string) $value );
 				if ( '' !== $email && ! is_email( $email ) ) {
@@ -348,6 +357,42 @@ final class PurioChat {
 			default:
 				return sanitize_text_field( (string) $value );
 		}
+	}
+
+	/**
+	 * Rows as PurioChat's "Sugestões para IA" dialog saves them
+	 * (`ajax_add_knowledge_source()`): topic, post id, post title. The title is
+	 * taken from the post, and a post that is not published is refused — the
+	 * assistant could not find it.
+	 *
+	 * @param mixed $value
+	 * @return array<int,array{topic:string,post_id:int,post_title:string}>|\WP_Error
+	 */
+	private function sanitize_sources( string $key, $value ) {
+		if ( ! is_array( $value ) || ! array_is_list( $value ) ) {
+			return $this->invalid( $key, 'expected a JSON array of { "topic": "...", "post_id": 123 }' );
+		}
+
+		$rows = array();
+		foreach ( $value as $i => $row ) {
+			$topic   = is_array( $row ) ? sanitize_text_field( (string) ( $row['topic'] ?? '' ) ) : '';
+			$post_id = is_array( $row ) ? (int) ( $row['post_id'] ?? 0 ) : 0;
+
+			if ( '' === $topic || $post_id <= 0 ) {
+				return $this->invalid( $key, "row {$i} needs a topic and a post_id" );
+			}
+			if ( 'publish' !== get_post_status( $post_id ) ) {
+				return $this->invalid( $key, "row {$i}: post {$post_id} is not a published post" );
+			}
+
+			$rows[] = array(
+				'topic'      => $topic,
+				'post_id'    => $post_id,
+				'post_title' => sanitize_text_field( (string) get_the_title( $post_id ) ),
+			);
+		}
+
+		return $rows;
 	}
 
 	/** PurioChat's default post types plus the custom ones added on its Data Training tab. @return string[] */
