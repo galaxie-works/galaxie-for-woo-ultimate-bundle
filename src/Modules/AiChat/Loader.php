@@ -22,6 +22,12 @@ defined( 'ABSPATH' ) || exit;
  * Not loaded when the module is off, nor when ai-chat-wp is also installed as
  * a standalone plugin and active (it loads first, alphabetically): two copies
  * would declare the same classes.
+ *
+ * Nor in a request where PurioChat, the plugin it was forked from, is still
+ * active. Both draw the chat widget and run the same cron, and an older fork
+ * declared classes PurioChat also declares, which took the site down on
+ * 2026-10-09. That request deactivates PurioChat instead; the plugin loads on
+ * the next one, and its activation copies PurioChat's data.
  */
 final class Loader {
 
@@ -29,6 +35,15 @@ final class Loader {
 
 	/** The plugin file, relative to the bundle. */
 	private const FILE = 'lib/ai-chat-wp/ai-chat-wp.php';
+
+	/** PurioChat (free and Pro): replaced by this module. */
+	private const LEGACY_PLUGINS = array(
+		'ai-chat-search/ai-chat-search.php',
+		'ai-chat-search-pro/ai-chat-search-pro.php',
+	);
+
+	/** Set when this module deactivated PurioChat, for a one-time notice. */
+	private const RETIRED_NOTICE = 'galaxie_ai_chat_retired_puriochat';
 
 	/** Cron hooks the plugin schedules; cleared when the module is switched off. */
 	private const CRON_HOOKS = array(
@@ -51,7 +66,44 @@ final class Loader {
 			return;
 		}
 
+		if ( self::legacy_active() ) {
+			add_action( 'plugins_loaded', array( self::class, 'retire_legacy' ), 0 );
+			return;
+		}
+
+		add_action( 'admin_notices', array( self::class, 'retired_notice' ) );
+
 		require_once GALAXIE_WOO_DIR . self::FILE;
+	}
+
+	/** Whether PurioChat is active, or already loaded in this request. */
+	private static function legacy_active(): bool {
+		if ( class_exists( 'Listeo_AI_Search', false ) || class_exists( 'AI_Chat_Search_Pro', false ) ) {
+			return true;
+		}
+
+		return (bool) array_intersect( self::LEGACY_PLUGINS, (array) get_option( 'active_plugins', array() ) );
+	}
+
+	/** Deactivates PurioChat; the embedded plugin takes over from the next request. */
+	public static function retire_legacy(): void {
+		if ( ! function_exists( 'deactivate_plugins' ) ) {
+			require_once ABSPATH . 'wp-admin/includes/plugin.php';
+		}
+
+		deactivate_plugins( self::LEGACY_PLUGINS, true );
+		update_option( self::RETIRED_NOTICE, 1, false );
+	}
+
+	public static function retired_notice(): void {
+		if ( ! get_option( self::RETIRED_NOTICE ) || ! current_user_can( 'activate_plugins' ) ) {
+			return;
+		}
+
+		delete_option( self::RETIRED_NOTICE );
+		echo '<div class="notice notice-info is-dismissible"><p>';
+		esc_html_e( 'Galaxie: o PurioChat foi desativado porque o módulo Assistente de IA (AI Chat) o substitui. As configurações, o treino e o histórico foram copiados; os dados do PurioChat continuam guardados.', 'galaxie-woo' );
+		echo '</p></div>';
 	}
 
 	/** Whether the copy running is the one in the bundle (not a standalone install). */

@@ -203,5 +203,41 @@ $check( 'turning history on creates its table', $GLOBALS['gx_tables'], 1 );
 $api->update_settings( new WP_REST_Request( array(), array( 'aicwp_chat_name' => 'Runa' ) ) );
 $check( 'other writes leave the table alone', $GLOBALS['gx_tables'], 1 );
 
+// The embedded plugin must not declare a global name another plugin could
+// also declare. On 2026-10-09 three unprefixed admin classes it shared with
+// PurioChat were a fatal "Cannot declare class" on every page of the site.
+$scan_globals = static function ( string $lib ): array {
+	$unprefixed = array();
+	$files      = new RecursiveIteratorIterator( new RecursiveDirectoryIterator( $lib, FilesystemIterator::SKIP_DOTS ) );
+	foreach ( $files as $file ) {
+		$path = str_replace( '\\', '/', $file->getPathname() );
+		if ( 'php' !== $file->getExtension() || str_contains( $path, '/vendor/' ) ) {
+			continue;
+		}
+		$code = (string) file_get_contents( $path );
+		if ( preg_match( '/^\s*namespace\s+[A-Za-z]/m', $code ) ) {
+			continue;
+		}
+		$relative = substr( $path, strlen( str_replace( '\\', '/', $lib ) ) + 1 );
+		preg_match_all( '/^\s*(?:final\s+|abstract\s+)?(class|interface|trait)\s+([A-Za-z0-9_]+)/m', $code, $types, PREG_SET_ORDER );
+		foreach ( $types as $m ) {
+			if ( 0 !== strpos( $m[2], 'AICWP_' ) ) {
+				$unprefixed[] = "{$relative}: {$m[1]} {$m[2]}";
+			}
+		}
+		preg_match_all( '/^function\s+&?\s*([A-Za-z0-9_]+)\s*\(/m', $code, $functions );
+		foreach ( $functions[1] as $name ) {
+			if ( 0 !== strpos( $name, 'aicwp_' ) ) {
+				$unprefixed[] = "{$relative}: function {$name}";
+			}
+		}
+	}
+	return $unprefixed;
+};
+$check( 'embedded plugin declares no unprefixed global class or function', $scan_globals( dirname( __DIR__, 2 ) . '/lib/ai-chat-wp' ), array() );
+if ( getenv( 'GX_SCAN_DIR' ) ) {
+	$check( 'scan of ' . getenv( 'GX_SCAN_DIR' ), $scan_globals( (string) getenv( 'GX_SCAN_DIR' ) ), array() );
+}
+
 echo "\n  {$passed} passed, {$failed} failed\n";
 exit( $failed ? 1 : 0 );
