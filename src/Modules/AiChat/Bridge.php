@@ -1,71 +1,72 @@
 <?php
 /**
- * Bridge to PurioChat's own settings registry and sanitizer.
+ * Bridge to AI Chat's own settings registry and sanitizer.
  *
  * @package Galaxie\Woo
  */
 
-namespace Galaxie\Woo\Modules\PurioChatSettings;
+namespace Galaxie\Woo\Modules\AiChat;
 
 defined( 'ABSPATH' ) || exit;
 
 /**
- * PurioChat's settings live in one registry, `get_settings_registry()` on
- * `Listeo_AI_Search_Admin_Interface` (Pro adds its keys through the
- * `ai_chat_search_settings_registry` filter), and every save is cleaned by
+ * AI Chat (lib/ai-chat-wp, the embedded galaxie-works/ai-chat-wp) keeps its
+ * settings in one registry, `get_settings_registry()` on
+ * `AICWP_Admin_Interface` (extensions add keys through the
+ * `aicwp_settings_registry` filter), and every save is cleaned by
  * `sanitize_setting()` on the same class. Both are private.
  *
- * Rather than copy ~100 keys and their rules (and drift on PurioChat's next
- * update), this reads them in place: an instance made WITHOUT the constructor —
- * which would register PurioChat's admin hooks a second time — and the two
+ * Rather than copy ~80 keys and their rules (and drift when lib/ai-chat-wp is
+ * updated), this reads them in place: an instance made WITHOUT the constructor,
+ * which would register the plugin's admin hooks a second time, and the two
  * methods called through reflection. Neither touches instance state; the
  * registry is a literal array and the sanitizer only reads the registry.
  *
- * When PurioChat renames either method the routes answer 501 instead of
- * guessing.
+ * When either method is renamed the routes answer 501 instead of guessing.
  *
- * The settings PurioChat saves outside the registry (Data Training post types,
- * auto-training, the contact form) are described here by hand: {@see extras()}.
+ * The settings saved outside the registry (Data Training post types,
+ * auto-training, knowledge sources, the contact form) are described here by
+ * hand: {@see extras()}.
  */
-final class PurioChat {
+final class Bridge {
 
-	private const ADMIN_CLASS = 'Listeo_AI_Search_Admin_Interface';
+	private const ADMIN_CLASS = 'AICWP_Admin_Interface';
 
 	/**
-	 * Never read or written over REST. PurioChat's own list
+	 * Never read or written over REST. The plugin's own list
 	 * (`get_secret_setting_keys()`) covers the provider API keys only.
 	 */
 	private const SECRETS = array(
-		'listeo_ai_search_api_key',
-		'listeo_ai_search_gemini_api_key',
-		'listeo_ai_search_mistral_api_key',
-		'listeo_ai_search_openrouter_api_key',
-		'listeo_ai_webhook_secret',
-		'listeo_ai_whatsapp_auth_token',
-		'listeo_ai_telegram_bot_token',
-		'listeo_ai_telegram_secret_token',
+		'aicwp_api_key',
+		'aicwp_gemini_api_key',
+		'aicwp_mistral_api_key',
+		'aicwp_openrouter_api_key',
+		'aicwp_webhook_secret',
+		'aicwp_whatsapp_auth_token',
+		'aicwp_telegram_bot_token',
+		'aicwp_telegram_secret_token',
 	);
 
 	/** Registry keys that are not settings: `enabled_types` is read nowhere. */
-	private const HIDDEN = array( 'listeo_ai_search_enabled_types' );
+	private const HIDDEN = array( 'aicwp_enabled_types' );
 
 	/**
 	 * Allowed values of the choice settings whose registry entry lists none
-	 * (PurioChat checks them only in its settings screen's markup, so its
+	 * (the plugin checks them only in its settings screen's markup, so its
 	 * sanitizer would store anything).
 	 */
 	private const CHOICES = array(
-		'listeo_ai_floating_position'             => array( 'left', 'right' ),
-		'listeo_ai_color_scheme'                  => array( 'light', 'dark', 'auto' ),
-		'listeo_ai_floating_header_style'         => array( 'simple', 'image', 'animated' ),
-		'listeo_ai_chat_quick_buttons_visibility' => array( 'always', 'hide_after_first' ),
-		'listeo_ai_chat_loading_style'            => array( 'spinner', 'dots' ),
-		'listeo_ai_chat_context_length'           => array( 'short', 'normal', 'long' ),
-		'listeo_ai_search_suggestions_source'     => array( 'top_searches', 'custom' ),
+		'aicwp_floating_position'             => array( 'left', 'right' ),
+		'aicwp_color_scheme'                  => array( 'light', 'dark', 'auto' ),
+		'aicwp_floating_header_style'         => array( 'simple', 'image', 'animated' ),
+		'aicwp_chat_quick_buttons_visibility' => array( 'always', 'hide_after_first' ),
+		'aicwp_chat_loading_style'            => array( 'spinner', 'dots' ),
+		'aicwp_chat_context_length'           => array( 'short', 'normal', 'long' ),
+		'aicwp_suggestions_source'            => array( 'top_searches', 'custom' ),
 	);
 
-	/** Post types PurioChat always offers on its Data Training tab. */
-	private const DEFAULT_POST_TYPES = array( 'listing', 'post', 'page', 'product', 'ai_pdf_document', 'ai_external_page' );
+	/** Post types the plugin always offers on its Data Training tab. */
+	private const DEFAULT_POST_TYPES = array( 'post', 'page', 'product', 'ai_pdf_document', 'ai_external_page' );
 
 	/** @var object|null */
 	private $admin = null;
@@ -80,17 +81,13 @@ final class PurioChat {
 		return class_exists( self::ADMIN_CLASS );
 	}
 
-	/** PurioChat's version, or '' when it does not say. */
+	/** The embedded plugin's version, or '' when it is not loaded. */
 	public function version(): string {
-		return defined( 'LISTEO_AI_SEARCH_VERSION' ) ? (string) constant( 'LISTEO_AI_SEARCH_VERSION' ) : '';
-	}
-
-	public function pro(): bool {
-		return class_exists( 'AI_Chat_Search_Pro_Proxy_License_Manager' ) || defined( 'AI_CHAT_SEARCH_PRO_VERSION' );
+		return defined( 'AICWP_VERSION' ) ? (string) constant( 'AICWP_VERSION' ) : '';
 	}
 
 	/**
-	 * Every readable setting with its schema: PurioChat's registry minus the
+	 * Every readable setting with its schema: the plugin's registry minus the
 	 * secrets, plus {@see extras()}.
 	 *
 	 * @return array<string,array<string,mixed>>|\WP_Error
@@ -125,7 +122,7 @@ final class PurioChat {
 	}
 
 	/**
-	 * Settings PurioChat saves through their own admin-ajax actions, not the
+	 * Settings the plugin saves through their own admin-ajax actions, not the
 	 * registry.
 	 *
 	 * @return array<string,array<string,mixed>>
@@ -134,50 +131,50 @@ final class PurioChat {
 		$admin_email = (string) get_option( 'admin_email', '' );
 
 		return array(
-			'listeo_ai_search_enabled_post_types'   => array(
+			'aicwp_enabled_post_types'         => array(
 				'source'      => 'data-training',
 				'type'        => 'array',
-				'default'     => array( 'listing' ),
+				'default'     => array(),
 				'options'     => $this->allowed_post_types(),
 				'description' => 'Post types the assistant is trained on (Data Training tab). Content added here still has to be trained there before the assistant sees it.',
 			),
-			'listeo_ai_knowledge_sources'           => array(
+			'aicwp_knowledge_sources'          => array(
 				'source'      => 'knowledge-sources',
 				'type'        => 'sources',
 				'default'     => array(),
 				'description' => '"Sugestões para IA": rows of { topic, post_id }. For each topic the assistant also searches that published page, post or product (it must be trained). post_title is filled in from the post.',
 			),
-			'listeo_ai_disable_auto_training'       => array(
+			'aicwp_disable_auto_training'      => array(
 				'source'      => 'data-training',
 				'type'        => 'checkbox',
 				'default'     => 0,
 				'description' => 'Stop re-training a post automatically when it is saved.',
 			),
-			'listeo_ai_contact_form_recipient'      => array(
+			'aicwp_contact_form_recipient'     => array(
 				'source'      => 'contact-form',
 				'type'        => 'email',
 				'default'     => $admin_email,
 				'description' => 'Who receives the messages the assistant sends.',
 			),
-			'listeo_ai_contact_form_from_name'      => array(
+			'aicwp_contact_form_from_name'     => array(
 				'source'      => 'contact-form',
 				'type'        => 'text',
 				'default'     => '',
 				'description' => 'Sender name of those e-mails.',
 			),
-			'listeo_ai_contact_form_from_email'     => array(
+			'aicwp_contact_form_from_email'    => array(
 				'source'      => 'contact-form',
 				'type'        => 'email',
 				'default'     => $admin_email,
 				'description' => 'Sender address of those e-mails.',
 			),
-			'listeo_ai_contact_form_subject'        => array(
+			'aicwp_contact_form_subject'       => array(
 				'source'      => 'contact-form',
 				'type'        => 'text',
 				'default'     => '[{site_name}] New message from {name}',
 				'description' => 'Subject; {site_name} and {name} are replaced.',
 			),
-			'listeo_ai_contact_form_success_message' => array(
+			'aicwp_contact_form_success_message' => array(
 				'source'      => 'contact-form',
 				'type'        => 'text',
 				'default'     => '',
@@ -210,7 +207,7 @@ final class PurioChat {
 	}
 
 	/**
-	 * The value to store, cleaned the way PurioChat's own save would clean it,
+	 * The value to store, cleaned the way the plugin's own save would clean it,
 	 * or an error explaining why it cannot be stored.
 	 *
 	 * @param mixed               $value
@@ -248,17 +245,17 @@ final class PurioChat {
 		// backslashes in a prompt would be lost.
 		$config   = $this->registry();
 		$callback = is_array( $config ) ? (string) ( $config[ $key ]['sanitize'] ?? '' ) : '';
-		if ( in_array( $callback, array( 'wp_kses_post', 'sanitize_textarea_field' ), true ) || 'listeo_ai_chat_system_prompt' === $key ) {
+		if ( in_array( $callback, array( 'wp_kses_post', 'sanitize_textarea_field' ), true ) || 'aicwp_chat_system_prompt' === $key ) {
 			$value = wp_slash( $value );
 		}
 
 		return $this->call( 'sanitize_setting', array( $key, $value ) );
 	}
 
-	/** The work PurioChat's own save does after the options are written. @param array<string,mixed> $saved */
+	/** The work the plugin's own save does after the options are written. @param array<string,mixed> $saved */
 	public function after_save( array $saved ): void {
-		if ( array_key_exists( 'listeo_ai_chat_history_enabled', $saved ) && get_option( 'listeo_ai_chat_history_enabled', 0 ) && class_exists( 'Listeo_AI_Search_Chat_History' ) ) {
-			\Listeo_AI_Search_Chat_History::create_table();
+		if ( array_key_exists( 'aicwp_chat_history_enabled', $saved ) && get_option( 'aicwp_chat_history_enabled', 0 ) && class_exists( 'AICWP_Chat_History' ) ) {
+			\AICWP_Chat_History::create_table();
 		}
 	}
 
@@ -293,7 +290,7 @@ final class PurioChat {
 	}
 
 	/**
-	 * A private method of PurioChat's admin class, on an instance built
+	 * A private method of the plugin's admin class, on an instance built
 	 * without its constructor.
 	 *
 	 * @param mixed[] $args
@@ -301,7 +298,7 @@ final class PurioChat {
 	 */
 	private function call( string $method, array $args = array() ) {
 		if ( ! $this->installed() ) {
-			return new \WP_Error( 'galaxie_puriochat_missing', __( 'PurioChat is not active.', 'galaxie-woo' ), array( 'status' => 503 ) );
+			return new \WP_Error( 'galaxie_ai_chat_missing', __( 'AI Chat is not loaded.', 'galaxie-woo' ), array( 'status' => 503 ) );
 		}
 
 		try {
@@ -321,7 +318,7 @@ final class PurioChat {
 	}
 
 	/**
-	 * Data Training, auto-training and the contact form, cleaned as their own
+	 * Data Training, auto-training, knowledge sources and the contact form, cleaned as their own
 	 * admin-ajax handlers clean them.
 	 *
 	 * @param mixed               $value
@@ -340,7 +337,7 @@ final class PurioChat {
 				$types   = array_values( array_unique( array_map( 'sanitize_key', array_map( 'strval', $value ) ) ) );
 				$unknown = array_diff( $types, $this->allowed_post_types() );
 				if ( $unknown ) {
-					return $this->invalid( $key, 'not offered by PurioChat: ' . implode( ', ', $unknown ) . ' (allowed: ' . implode( ', ', $this->allowed_post_types() ) . ')' );
+					return $this->invalid( $key, 'not offered by AI Chat: ' . implode( ', ', $unknown ) . ' (allowed: ' . implode( ', ', $this->allowed_post_types() ) . ')' );
 				}
 				return $types;
 
@@ -360,7 +357,7 @@ final class PurioChat {
 	}
 
 	/**
-	 * Rows as PurioChat's "Sugestões para IA" dialog saves them
+	 * Rows as the plugin's "Sugestões para IA" dialog saves them
 	 * (`ajax_add_knowledge_source()`): topic, post id, post title. The title is
 	 * taken from the post, and a post that is not published is refused — the
 	 * assistant could not find it.
@@ -395,9 +392,9 @@ final class PurioChat {
 		return $rows;
 	}
 
-	/** PurioChat's default post types plus the custom ones added on its Data Training tab. @return string[] */
+	/** The plugin's default post types plus the custom ones added on its Data Training tab. @return string[] */
 	private function allowed_post_types(): array {
-		$custom = get_option( 'listeo_ai_search_custom_post_types', array() );
+		$custom = get_option( 'aicwp_custom_post_types', array() );
 
 		return array_values( array_unique( array_merge( self::DEFAULT_POST_TYPES, is_array( $custom ) ? array_map( 'strval', $custom ) : array() ) ) );
 	}
@@ -425,15 +422,15 @@ final class PurioChat {
 	 * provider list omits Mistral, which the sanitizer and the chat accept.
 	 */
 	private function open_select( string $key ): bool {
-		return in_array( $key, array( 'listeo_ai_search_provider', 'listeo_ai_embedding_model', 'listeo_ai_chat_model', 'listeo_ai_floating_button_icon' ), true );
+		return in_array( $key, array( 'aicwp_provider', 'aicwp_embedding_model', 'aicwp_chat_model', 'aicwp_floating_button_icon' ), true );
 	}
 
 	private function invalid( string $key, string $why ): \WP_Error {
-		return new \WP_Error( 'galaxie_puriochat_invalid', sprintf( '%s: %s', $key, $why ), array( 'status' => 400, 'key' => $key ) );
+		return new \WP_Error( 'galaxie_ai_chat_invalid', sprintf( '%s: %s', $key, $why ), array( 'status' => 400, 'key' => $key ) );
 	}
 
 	private function unsupported( string $why ): \WP_Error {
-		/* translators: %s: what is missing in PurioChat */
-		return new \WP_Error( 'galaxie_puriochat_unsupported', sprintf( __( 'This PurioChat version is not supported (%s).', 'galaxie-woo' ), $why ), array( 'status' => 501 ) );
+		/* translators: %s: what is missing in AI Chat */
+		return new \WP_Error( 'galaxie_ai_chat_unsupported', sprintf( __( 'This AI Chat version is not supported (%s).', 'galaxie-woo' ), $why ), array( 'status' => 501 ) );
 	}
 }

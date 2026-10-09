@@ -1,33 +1,33 @@
 <?php
 /**
- * REST route for PurioChat's settings.
+ * REST route for AI Chat's settings.
  *
  * @package Galaxie\Woo
  */
 
-namespace Galaxie\Woo\Modules\PurioChatSettings;
+namespace Galaxie\Woo\Modules\AiChat;
 
 use Galaxie\Woo\Core\Rest\SettingsController;
 
 defined( 'ABSPATH' ) || exit;
 
 /**
- * `galaxie-woo/v1/puriochat`:
+ * `galaxie-woo/v1/ai-chat`:
  *
- *   GET        /puriochat   { plugin, settings, secrets, schema }
- *                           ?keys=a,b   only those settings
- *                           ?schema=0   leave the schema out
- *   PUT|PATCH  /puriochat   { "listeo_ai_chat_name": "Runa", ... } — only the keys sent change
+ *   GET        /ai-chat   { plugin, settings, secrets, schema }
+ *                         ?keys=a,b   only those settings
+ *                         ?schema=0   leave the schema out
+ *   PUT|PATCH  /ai-chat   { "aicwp_chat_name": "Runa", ... } — only the keys sent change
  *
- * `manage_options`, the capability PurioChat's own settings screen asks for.
+ * `manage_options`, the capability AI Chat's own settings screen asks for.
  * A write is all or nothing: every key is checked and cleaned first, and one
  * bad key leaves every option untouched. See docs/rest-api.md.
  */
 final class Controller {
 
-	public const ROUTE = '/puriochat';
+	public const ROUTE = '/ai-chat';
 
-	public function __construct( private PurioChat $purio ) {}
+	public function __construct( private Bridge $chat ) {}
 
 	public function hooks(): void {
 		add_action( 'rest_api_init', array( $this, 'register_routes' ) );
@@ -69,12 +69,12 @@ final class Controller {
 			return true;
 		}
 
-		return new \WP_Error( 'rest_forbidden', __( 'Sorry, you are not allowed to change PurioChat settings.', 'galaxie-woo' ), array( 'status' => rest_authorization_required_code() ) );
+		return new \WP_Error( 'rest_forbidden', __( 'Sorry, you are not allowed to change AI Chat settings.', 'galaxie-woo' ), array( 'status' => rest_authorization_required_code() ) );
 	}
 
 	/** @param \WP_REST_Request $request */
 	public function get_settings( $request ) {
-		$schema = $this->purio->schema();
+		$schema = $this->chat->schema();
 
 		if ( $schema instanceof \WP_Error ) {
 			return $schema;
@@ -91,11 +91,10 @@ final class Controller {
 
 		$body = array(
 			'plugin'   => array(
-				'version' => $this->purio->version(),
-				'pro'     => $this->purio->pro(),
+				'version' => $this->chat->version(),
 			),
 			'settings' => $this->values( $schema ),
-			'secrets'  => $this->purio->secrets_set(),
+			'secrets'  => $this->chat->secrets_set(),
 		);
 
 		if ( false !== $request['schema'] && 'false' !== $request['schema'] && '0' !== (string) $request['schema'] ) {
@@ -107,7 +106,7 @@ final class Controller {
 
 	/** @param \WP_REST_Request $request */
 	public function update_settings( $request ) {
-		$schema = $this->purio->schema();
+		$schema = $this->chat->schema();
 
 		if ( $schema instanceof \WP_Error ) {
 			return $schema;
@@ -117,19 +116,19 @@ final class Controller {
 		$patch = is_array( $patch ) ? $patch : (array) $request->get_body_params();
 
 		// WordPress's own request parameters (`_fields`, `_embed`, `_locale`,
-		// `_method`) can arrive in the body; PurioChat has no option named so.
+		// `_method`) can arrive in the body; AI Chat has no option named so.
 		$patch = array_filter( $patch, static fn( $key ) => '_' !== substr( (string) $key, 0, 1 ), ARRAY_FILTER_USE_KEY );
 
 		if ( ! $patch ) {
 			return new \WP_Error( 'galaxie_empty_settings', __( 'Send at least one setting, as a JSON object.', 'galaxie-woo' ), array( 'status' => 400 ) );
 		}
 
-		$secrets = array_values( array_filter( array_keys( $patch ), fn( $key ) => $this->purio->is_secret( (string) $key ) ) );
+		$secrets = array_values( array_filter( array_keys( $patch ), fn( $key ) => $this->chat->is_secret( (string) $key ) ) );
 		if ( $secrets ) {
 			return new \WP_Error(
-				'galaxie_puriochat_secret',
+				'galaxie_ai_chat_secret',
 				/* translators: %s: option names */
-				sprintf( __( 'API keys and tokens are set on PurioChat\'s own settings screen, not here: %s', 'galaxie-woo' ), implode( ', ', $secrets ) ),
+				sprintf( __( 'API keys and tokens are set on AI Chat\'s own settings screen, not here: %s', 'galaxie-woo' ), implode( ', ', $secrets ) ),
 				array( 'status' => 400, 'keys' => $secrets )
 			);
 		}
@@ -139,17 +138,17 @@ final class Controller {
 			return $this->unknown( $unknown );
 		}
 
-		// PurioChat's own save swaps the chat model when the provider changes, to
-		// a default it picks. Make that choice explicit instead.
-		if ( array_key_exists( 'listeo_ai_search_provider', $patch )
-			&& (string) $patch['listeo_ai_search_provider'] !== (string) get_option( 'listeo_ai_search_provider', '' )
-			&& ! array_key_exists( 'listeo_ai_chat_model', $patch ) ) {
-			return new \WP_Error( 'galaxie_puriochat_model_required', __( 'Changing listeo_ai_search_provider needs listeo_ai_chat_model in the same request, so the chat keeps a model that provider offers.', 'galaxie-woo' ), array( 'status' => 400 ) );
+		// AI Chat's own save swaps the chat model when the provider changes, to a
+		// default it picks. Make that choice explicit instead.
+		if ( array_key_exists( 'aicwp_provider', $patch )
+			&& (string) $patch['aicwp_provider'] !== (string) get_option( 'aicwp_provider', '' )
+			&& ! array_key_exists( 'aicwp_chat_model', $patch ) ) {
+			return new \WP_Error( 'galaxie_ai_chat_model_required', __( 'Changing aicwp_provider needs aicwp_chat_model in the same request, so the chat keeps a model that provider offers.', 'galaxie-woo' ), array( 'status' => 400 ) );
 		}
 
 		$clean = array();
 		foreach ( $patch as $key => $value ) {
-			$value = $this->purio->sanitize( (string) $key, $value, $schema[ $key ] );
+			$value = $this->chat->sanitize( (string) $key, $value, $schema[ $key ] );
 			if ( $value instanceof \WP_Error ) {
 				return $value;
 			}
@@ -160,7 +159,7 @@ final class Controller {
 			update_option( $key, $value );
 		}
 
-		$this->purio->after_save( $clean );
+		$this->chat->after_save( $clean );
 
 		return rest_ensure_response(
 			array(
@@ -177,7 +176,7 @@ final class Controller {
 	private function values( array $schema ): array {
 		$values = array();
 		foreach ( $schema as $key => $entry ) {
-			$values[ $key ] = $this->purio->value( $key, $entry );
+			$values[ $key ] = $this->chat->value( $key, $entry );
 		}
 		return $values;
 	}
@@ -185,9 +184,9 @@ final class Controller {
 	/** @param string[] $keys */
 	private function unknown( array $keys ): \WP_Error {
 		return new \WP_Error(
-			'galaxie_puriochat_unknown',
+			'galaxie_ai_chat_unknown',
 			/* translators: %s: option names */
-			sprintf( __( 'Not a PurioChat setting: %s. GET the route for the list.', 'galaxie-woo' ), implode( ', ', $keys ) ),
+			sprintf( __( 'Not an AI Chat setting: %s. GET the route for the list.', 'galaxie-woo' ), implode( ', ', $keys ) ),
 			array( 'status' => 400, 'keys' => array_values( $keys ) )
 		);
 	}

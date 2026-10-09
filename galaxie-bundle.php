@@ -54,6 +54,10 @@ spl_autoload_register(
 	}
 );
 
+// The embedded AI Chat plugin starts itself while plugins load, before
+// `plugins_loaded`, so it is required here rather than from its module's boot.
+\Galaxie\Woo\Modules\AiChat\Loader::load();
+
 add_action(
 	'plugins_loaded',
 	static function () {

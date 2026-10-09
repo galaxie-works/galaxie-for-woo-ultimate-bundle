@@ -173,6 +173,6 @@ final class Plugin {
 		$this->modules->register( new \Galaxie\Woo\Modules\PixfortIconPicker\Module() );
 		$this->modules->register( new \Galaxie\Woo\Modules\PixfortImageAlt\Module() );
 		$this->modules->register( new \Galaxie\Woo\Modules\AssetTrim\Module() );
-		$this->modules->register( new \Galaxie\Woo\Modules\PurioChatSettings\Module() );
+		$this->modules->register( new \Galaxie\Woo\Modules\AiChat\Module() );
 	}
 }

@@ -23,7 +23,7 @@ AUTH='USER:APP_PASSWORD'
 | Routes | Capability |
 | --- | --- |
 | `galaxie-woo/v1/*` | `manage_woocommerce` (same as the settings page) |
-| `galaxie-woo/v1/puriochat` | `manage_options` (same as PurioChat's settings screen) |
+| `galaxie-woo/v1/ai-chat` | `manage_options` (same as AI Chat's settings screen) |
 | product and variation meta | `edit_product` on that product or variation |
 
 ## Settings routes: `galaxie-woo/v1`
@@ -197,37 +197,40 @@ curl -u "$AUTH" -X POST "$SITE/wp-json/wp/v2/pa_peso/42" \
 Values are cleaned like the variation fields. `null` deletes a value. Any
 change clears the cached candle sizes.
 
-## PurioChat settings: `galaxie-woo/v1/puriochat`
+## AI Chat settings: `galaxie-woo/v1/ai-chat`
 
-With the **PurioChat settings over REST** module on (`PUT /modules/puriochat-settings`
-`{"enabled": true}`), PurioChat's own settings (the AI chat plugin by PureThemes)
-can be read and changed without its settings screen. Capability: `manage_options`,
-the same as PurioChat's screen.
+The **Assistente de IA (AI Chat)** module (`PUT /modules/ai-chat` `{"enabled": true}`) runs
+galaxie-works/ai-chat-wp from `lib/ai-chat-wp` (a git subtree; update it with
+`git subtree pull --prefix=lib/ai-chat-wp https://github.com/galaxie-works/ai-chat-wp.git main --squash`).
+The first request after switching it on does what the plugin's activation would: tables,
+defaults, cron, and the one-time copy of PurioChat's settings, trained content and history
+(PurioChat is then deactivated). Switching it off clears the plugin's cron; settings and data stay.
+If ai-chat-wp is also installed as a standalone plugin and active, that copy runs instead.
+
+Its settings can be read and changed without the plugin's settings screen. Capability:
+`manage_options`, the same as that screen.
 
 | Method | Body / query | Returns |
 | --- | --- | --- |
 | `GET` | `?keys=a,b` (only those), `?schema=0` (no schema) | `{ plugin, settings, secrets, schema }` |
 | `PUT` / `PATCH` | `{ "option_name": value, ... }` | `{ updated, settings }` (only the keys sent) |
 
-- The setting list and the cleaning come from PurioChat itself (its settings
-  registry and sanitizer), so a new PurioChat setting appears here without a
-  plugin change. When PurioChat renames those internals the route answers 501.
-- Beyond the registry: `listeo_ai_search_enabled_post_types` (Data Training post
-  types — content still has to be trained on PurioChat's Data Training tab),
-  `listeo_ai_disable_auto_training`, `listeo_ai_knowledge_sources` (the "Sugestões
-  para IA" dialog: `[{ "topic": "...", "post_id": 123 }]`, published posts only,
-  title filled in), and the contact form's
-  `listeo_ai_contact_form_*` options.
-- API keys, the webhook secret and messaging tokens are never returned or written
-  here; `secrets` only says which are set.
-- A write is all or nothing. Unknown keys, secrets, values outside a setting's
-  `options`, non-0/1 checkboxes and a provider change without
-  `listeo_ai_chat_model` in the same request are refused with a 400 and nothing
-  is saved.
+- The setting list and the cleaning come from the plugin itself (its settings registry and
+  sanitizer), so a new setting appears here without a bundle change. When those internals are
+  renamed the route answers 501.
+- Beyond the registry: `aicwp_enabled_post_types` (Data Training post types — content still has
+  to be trained on the plugin's Data Training tab), `aicwp_disable_auto_training`,
+  `aicwp_knowledge_sources` (the "Sugestões para IA" dialog: `[{ "topic": "...", "post_id": 123 }]`,
+  published posts only, title filled in), and the contact form's `aicwp_contact_form_*` options.
+- API keys, the webhook secret and messaging tokens are never returned or written here;
+  `secrets` only says which are set.
+- A write is all or nothing. Unknown keys, secrets, values outside a setting's `options`,
+  non-0/1 checkboxes and a provider change without `aicwp_chat_model` in the same request are
+  refused with a 400 and nothing is saved. WordPress's own `_`-prefixed parameters are ignored.
 
 ```sh
-curl -u "$AUTH" "$SITE/wp-json/galaxie-woo/v1/puriochat?keys=listeo_ai_chat_name,listeo_ai_primary_color&schema=0"
-curl -u "$AUTH" -X PATCH -H 'Content-Type: application/json'   -d '{"listeo_ai_chat_name":"Runa","listeo_ai_primary_color":"#C6A96B"}'   "$SITE/wp-json/galaxie-woo/v1/puriochat"
+curl -u "$AUTH" "$SITE/wp-json/galaxie-woo/v1/ai-chat?keys=aicwp_chat_name,aicwp_primary_color&schema=0"
+curl -u "$AUTH" -X PATCH -H 'Content-Type: application/json'   -d '{"aicwp_chat_name":"Runa","aicwp_primary_color":"#C6A96B"}'   "$SITE/wp-json/galaxie-woo/v1/ai-chat"
 ```
 
 ## WP-CLI
