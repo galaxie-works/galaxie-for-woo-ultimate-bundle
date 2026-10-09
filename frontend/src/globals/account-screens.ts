@@ -362,7 +362,12 @@ function reasonForm(cfg: OrderCancellationConfig) {
   select.required = true
   select.add(new Option(cfg.choose, ''))
   for (const reason of cfg.reasons) select.add(new Option(reason, reason))
-  label.appendChild(select)
+  // Wrapped for a chevron of our own: the browser's sits against the border
+  // and keeps the system colours whatever the theme.
+  const selectWrap = document.createElement('span')
+  selectWrap.className = 'galaxie-select'
+  selectWrap.appendChild(select)
+  label.appendChild(selectWrap)
 
   const commentLabel = document.createElement('label')
   commentLabel.className = 'galaxie-cancel-reason-field'
