@@ -30,6 +30,48 @@ if (!defined('ABSPATH')) {
 
 class AICWP_Utility_Helper {
 
+    /**
+     * A price as plain text, formatted the way the store shows prices
+     * (WooCommerce's currency symbol, its position, decimal and thousand
+     * separators, number of decimals): "R$ 39,90", not "R$39.90".
+     *
+     * @param float|int|string $amount
+     * @return string Empty for an empty amount.
+     */
+    public static function format_price($amount) {
+        if ($amount === '' || $amount === null) {
+            return '';
+        }
+        if (!function_exists('wc_price')) {
+            return number_format((float) $amount, 2);
+        }
+        $text = html_entity_decode(wp_strip_all_tags(wc_price((float) $amount)), ENT_QUOTES, 'UTF-8');
+        return trim(str_replace("\xc2\xa0", ' ', $text));
+    }
+
+    /**
+     * The price a product card shows: a variable product whose variations
+     * cost different amounts reads "A partir de: R$ 39,90" (WooCommerce's own,
+     * translated "From:" text), anything else just its price.
+     *
+     * @param WC_Product $product
+     * @param float|int|string $amount The price to show (already tax-adjusted for display).
+     * @return string
+     */
+    public static function format_product_price($product, $amount) {
+        $price = self::format_price($amount);
+        if ($price === '' || !is_object($product) || !method_exists($product, 'is_type') || !$product->is_type('variable')) {
+            return $price;
+        }
+        $min = (float) $product->get_variation_price('min', true);
+        $max = (float) $product->get_variation_price('max', true);
+        if ($min === $max || !function_exists('wc_get_price_html_from_text')) {
+            return $price;
+        }
+        $from = trim(html_entity_decode(wp_strip_all_tags(wc_get_price_html_from_text()), ENT_QUOTES, 'UTF-8'));
+        return $from !== '' ? $from . ' ' . $price : $price;
+    }
+
 
 
     /**

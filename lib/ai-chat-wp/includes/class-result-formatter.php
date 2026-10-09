@@ -72,9 +72,9 @@ class AICWP_Result_Formatter {
 
                     // Formatted prices with currency symbol (plain text, no HTML)
                     $currency_symbol = get_woocommerce_currency_symbol();
-                    $listing['regular_price_formatted'] = $product->get_regular_price() ? $currency_symbol . number_format((float)$product->get_regular_price(), 2) : '';
-                    $listing['sale_price_formatted'] = $product->get_sale_price() ? $currency_symbol . number_format((float)$product->get_sale_price(), 2) : '';
-                    $listing['price_formatted'] = $product->get_price() ? $currency_symbol . number_format((float)$product->get_price(), 2) : '';
+                    $listing['regular_price_formatted'] = $product->get_regular_price() ? AICWP_Utility_Helper::format_price((float)$product->get_regular_price()) : '';
+                    $listing['sale_price_formatted'] = $product->get_sale_price() ? AICWP_Utility_Helper::format_price((float)$product->get_sale_price()) : '';
+                    $listing['price_formatted'] = $product->get_price() ? AICWP_Utility_Helper::format_product_price($product, (float)$product->get_price()) : '';
                 }
             }
             
