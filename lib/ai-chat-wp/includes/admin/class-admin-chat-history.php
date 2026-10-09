@@ -13,11 +13,11 @@ if (!defined('ABSPATH')) {
 }
 
 /**
- * Class Admin_Chat_History
+ * Class AICWP_Admin_Chat_History
  *
  * Manages chat history display and operations in the admin area.
  */
-class Admin_Chat_History {
+class AICWP_Admin_Chat_History {
 
     /**
      * Items per page for pagination

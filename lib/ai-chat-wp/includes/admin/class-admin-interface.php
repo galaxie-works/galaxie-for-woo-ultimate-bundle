@@ -22,19 +22,19 @@ class AICWP_Admin_Interface
 {
     /**
      * Chat history admin handler instance
-     * @var Admin_Chat_History
+     * @var AICWP_Admin_Chat_History
      */
     private $chat_history;
 
     /**
      * Contact messages admin handler instance
-     * @var Admin_Contact_Messages
+     * @var AICWP_Admin_Contact_Messages
      */
     private $contact_messages;
 
     /**
      * Search analytics admin handler instance
-     * @var Admin_Search_Analytics
+     * @var AICWP_Admin_Search_Analytics
      */
     private $search_analytics;
 
@@ -954,9 +954,9 @@ class AICWP_Admin_Interface
     public function __construct()
     {
         // Initialize admin handlers (they register their own AJAX handlers)
-        $this->chat_history = new Admin_Chat_History();
-        $this->contact_messages = new Admin_Contact_Messages();
-        $this->search_analytics = new Admin_Search_Analytics();
+        $this->chat_history = new AICWP_Admin_Chat_History();
+        $this->contact_messages = new AICWP_Admin_Contact_Messages();
+        $this->search_analytics = new AICWP_Admin_Search_Analytics();
 
         // Ensure default settings exist (for existing installations)
         add_action("admin_init", [$this, "ensure_default_settings"], 5);
@@ -5714,7 +5714,7 @@ class AICWP_Admin_Interface
             "user_messages" => 0,
         ]);
 
-        // Chat History Section - delegated to Admin_Chat_History class
+        // Chat History Section - delegated to AICWP_Admin_Chat_History class
         $history_enabled = get_option("aicwp_chat_history_enabled", 0);
         $this->chat_history->render_section($history_enabled);
         ?>
