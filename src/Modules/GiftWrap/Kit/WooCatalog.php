@@ -63,7 +63,9 @@ final class WooCatalog implements Catalog {
 
 		$parent = $product->is_type( 'variation' ) ? $product->get_parent_id() : $product->get_id();
 
-		if ( 'publish' !== get_post_status( $parent ) ) {
+		// Not published, or kept out of kits by the merchant: refused on every
+		// path that adds to a kit, since they all ask this.
+		if ( 'publish' !== get_post_status( $parent ) || ! GiftPacking::kit_allowed( $product ) ) {
 			return $this->candles[ $id ] = null;
 		}
 

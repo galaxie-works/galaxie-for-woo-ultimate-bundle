@@ -159,6 +159,9 @@ final class Module implements ModuleContract, ProvidesBootData, ProvidesElemento
 
 		// The variation sizes over the REST API, sanitised by BoxFields and CandleFields.
 		ProductMeta::hooks();
+
+		// "Pode ser inserido em kits?" on each product's General tab.
+		KitAllowedField::hooks();
 	}
 
 	public function elementor_widgets(): array {

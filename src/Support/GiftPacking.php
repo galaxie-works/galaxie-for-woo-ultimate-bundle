@@ -644,6 +644,29 @@ final class GiftPacking {
 	 * @param \WC_Product $product   Candle variation.
 	 * @param string      $attribute Size attribute, e.g. `pa_peso`.
 	 */
+	/** Product (or variation) meta: 'no' keeps it out of gift kits. Absent means yes. */
+	public const KIT_ALLOWED_META = '_galaxie_kit_allowed';
+
+	/**
+	 * Whether the merchant lets this product into a gift kit — "Pode ser
+	 * inserido em kits?" on the product's General tab (Gift Wrap\KitAllowedField).
+	 * A product that already ships dressed or boxed (the XMas Collection's
+	 * candles, in a knitted gnome and an MDF box) is a candle by every measure
+	 * but cannot go in a kit's box. Kept apart from `candle_from_product()` on
+	 * purpose: that one is also the size engine, and a product out of kits
+	 * still has a size for packing and for the missing-measures notice.
+	 * A variation is out when it or its product says no.
+	 */
+	public static function kit_allowed( \WC_Product $product ): bool {
+		if ( 'no' === (string) $product->get_meta( self::KIT_ALLOWED_META ) ) {
+			return false;
+		}
+
+		$parent = $product->is_type( 'variation' ) ? $product->get_parent_id() : 0;
+
+		return ! $parent || 'no' !== (string) get_post_meta( $parent, self::KIT_ALLOWED_META, true );
+	}
+
 	public static function candle_from_product( \WC_Product $product, string $attribute = 'pa_peso' ): ?array {
 		$size = '';
 

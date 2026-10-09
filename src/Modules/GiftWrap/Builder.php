@@ -178,7 +178,7 @@ final class Builder {
 		foreach ( $ids as $id ) {
 			$variation = wc_get_product( $id );
 
-			if ( ! $variation instanceof \WC_Product || 'publish' !== get_post_status( $variation->get_parent_id() ) || ! $variation->is_purchasable() ) {
+			if ( ! $variation instanceof \WC_Product || 'publish' !== get_post_status( $variation->get_parent_id() ) || ! $variation->is_purchasable() || ! GiftPacking::kit_allowed( $variation ) ) {
 				continue;
 			}
 
