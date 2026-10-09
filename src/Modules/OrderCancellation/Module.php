@@ -569,8 +569,13 @@ final class Module implements ModuleContract, ProvidesSettings, ProvidesBootData
 			}
 		}
 
+		// No record at all: the plugin writes one when a label is made for the
+		// order, so with none no label was ever made through it. That is the same
+		// answer as a record without a label, and the checks below (a Melhor Envio
+		// method, no tracking code) still decide; a label bought outside the plugin
+		// is caught by them exactly as before.
 		if ( ! is_array( $data ) ) {
-			return $unknown( __( 'o Melhor Envio não tem registro deste pedido', 'galaxie-woo' ) );
+			$data = array();
 		}
 
 		$label = trim( (string) ( $data['order_id'] ?? '' ) );

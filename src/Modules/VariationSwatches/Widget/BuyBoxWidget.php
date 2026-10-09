@@ -1521,7 +1521,7 @@ final class BuyBoxWidget extends Widget_Base {
 		foreach ( array_slice( $ids, 0, 60 ) as $id ) {
 			$candidate = wc_get_product( $id );
 
-			if ( ! $candidate instanceof \WC_Product || $candidate->is_type( 'variable' ) || ! $candidate->is_purchasable() ) {
+			if ( ! $candidate instanceof \WC_Product || $candidate->is_type( 'variable' ) || ! $candidate->is_purchasable() || ! GiftPacking::kit_allowed( $candidate ) ) {
 				continue;
 			}
 

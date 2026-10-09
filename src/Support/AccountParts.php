@@ -1281,6 +1281,41 @@ final class AccountParts {
 	 *
 	 * @param array<string,mixed> $settings
 	 */
+	/**
+	 * A cancellation the customer asked for that the store still has to
+	 * confirm (Order Cancellation sent it for review): said on the order's
+	 * screen for as long as it is pending, in the cancelled alert's look. The
+	 * "we received it" notice the request left is otherwise lost — the order
+	 * screens print no WooCommerce notices — and the order looks untouched.
+	 *
+	 * @param array<string,mixed> $settings
+	 */
+	public static function cancel_requested_alert( array $settings, \WC_Order $order ): string {
+		$at = (string) $order->get_meta( '_galaxie_cancel_requested_at' );
+
+		if ( '' === $at || $order->has_status( array( 'cancelled', 'refunded', 'failed' ) ) ) {
+			return '';
+		}
+
+		$when = mysql2date( 'd/m/Y', get_date_from_gmt( $at ) );
+		/* translators: %s: the date the cancellation was asked for. */
+		$text = esc_html( sprintf( __( 'Recebemos seu pedido de cancelamento em %s. Vamos confirmar em até 1 dia útil, e você recebe um e-mail quando ele for concluído.', 'galaxie-woo' ), $when ) );
+		$type = (string) ( $settings['cancel_alert_type'] ?? 'success' );
+
+		if ( ! PixfortControls::available() ) {
+			return sprintf( '<div class="galaxie-order-cancelled is-requested" role="status"><div class="alert alert-%1$s">%2$s</div></div>', esc_attr( $type ), $text );
+		}
+
+		if ( defined( 'PIX_CORE_PLUGIN_URI' ) && defined( 'PIXFORT_PLUGIN_VERSION' ) ) {
+			wp_enqueue_style( 'pixfort-alert-style', PIX_CORE_PLUGIN_URI . 'includes/assets/css/elements/alert.min.css', array(), PIXFORT_PLUGIN_VERSION );
+		}
+
+		return sprintf(
+			'<div class="galaxie-order-cancelled is-requested" role="status">%s</div>',
+			(string) PixfortControls::render_alert( $settings, 'cancel_alert', $text, $type, PixfortControls::icon_value( $settings, 'cancel_alert_icon' ) )
+		);
+	}
+
 	public static function cancelled_alert( array $settings ): string {
 		$text    = trim( (string) ( $settings['cancel_alert_text'] ?? '' ) );
 		$id      = isset( $_GET[ self::CANCELLED_ARG ] ) ? absint( wp_unslash( $_GET[ self::CANCELLED_ARG ] ) ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- display only; the cancelling itself was WooCommerce's, nonce and all.

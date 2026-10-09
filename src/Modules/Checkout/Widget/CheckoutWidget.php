@@ -10,8 +10,10 @@ namespace Galaxie\Woo\Modules\Checkout\Widget;
 use Elementor\Controls_Manager;
 use Galaxie\Woo\Elementor\AbstractIslandWidget;
 use Galaxie\Woo\Modules\Checkout\Module;
+use Galaxie\Woo\Modules\Checkout\OrderReceived;
 use Galaxie\Woo\Modules\Checkout\OrderSummary;
 use Galaxie\Woo\Modules\Checkout\PaymentMarkup;
+use Galaxie\Woo\Support\AccountEndpoints;
 use Galaxie\Woo\Support\AddressBook;
 use Galaxie\Woo\Support\Assets;
 use Galaxie\Woo\Support\CheckoutPage;
@@ -177,6 +179,24 @@ final class CheckoutWidget extends AbstractIslandWidget {
 				'type'         => Controls_Manager::SWITCHER,
 				'default'      => '',
 				'return_value' => 'yes',
+			)
+		);
+
+		$this->end_controls_section();
+
+		// The thank-you page under the checkout URL: WooCommerce's, or a template
+		// of the merchant's with Galaxie Account Order in it (OrderReceived).
+		$this->start_controls_section( 'thankyou_section', array( 'label' => __( 'Order received', 'galaxie-woo' ) ) );
+
+		$this->add_control(
+			'thankyou_template',
+			array(
+				'label'       => __( 'Page after the order', 'galaxie-woo' ),
+				'description' => __( 'An Elementor template replaces WooCommerce\'s thank-you page. Put Galaxie Account Order in it: there it shows the order just placed. Payment methods still run as on WooCommerce\'s page, and anything they print appears below the template.', 'galaxie-woo' ),
+				'type'        => Controls_Manager::SELECT,
+				'options'     => array( '' => __( 'WooCommerce\'s page', 'galaxie-woo' ) ) + AccountEndpoints::templates(),
+				'default'     => '',
+				'label_block' => true,
 			)
 		);
 
@@ -807,6 +827,18 @@ final class CheckoutWidget extends AbstractIslandWidget {
 		// (toasts), as on any other page; with no island mount it mounts nothing.
 		if ( CheckoutPage::is_order_endpoint() ) {
 			Assets::enqueue();
+
+			// A template of the merchant's for the thank-you page, when one is
+			// picked and this address really is an order's (OrderReceived).
+			$custom = OrderReceived::render( absint( $this->get_settings_for_display( 'thankyou_template' ) ) );
+
+			if ( null !== $custom ) {
+				echo '<div class="galaxie-checkout galaxie-checkout--endpoint galaxie-thankyou">';
+				echo $custom; // phpcs:ignore WordPress.Security.EscapeOutput -- Elementor's and WooCommerce's own output.
+				echo '</div>';
+				return;
+			}
+
 			$page = do_shortcode( '[woocommerce_checkout]' );
 			echo '<div class="galaxie-checkout galaxie-checkout--endpoint">';
 			echo $page; // phpcs:ignore WordPress.Security.EscapeOutput -- WooCommerce's own templates, escaped there.

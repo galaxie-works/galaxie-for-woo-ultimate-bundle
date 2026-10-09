@@ -9,6 +9,7 @@ namespace Galaxie\Woo\Modules\MyAccount\Widget;
 
 use Elementor\Controls_Manager;
 use Elementor\Widget_Base;
+use Galaxie\Woo\Modules\Checkout\OrderReceived;
 use Galaxie\Woo\Support\AccountEndpoints;
 use Galaxie\Woo\Support\AccountParts;
 use Galaxie\Woo\Support\Assets;
@@ -215,6 +216,14 @@ final class AccountOrderWidget extends Widget_Base {
 	}
 
 	private function order(): ?\WC_Order {
+		// On the thank-you page, in the template the Galaxie Checkout widget draws
+		// there: the order just placed, its key checked by OrderReceived.
+		$received = OrderReceived::order();
+
+		if ( $received ) {
+			return $received;
+		}
+
 		$current = AccountEndpoints::current();
 
 		if ( 'view-order' === $current['key'] ) {
@@ -270,7 +279,7 @@ final class AccountOrderWidget extends Widget_Base {
 	}
 
 	protected function render(): void {
-		if ( ! function_exists( 'wc_get_order' ) || ( ! is_user_logged_in() && ! AccountParts::editing() ) ) {
+		if ( ! function_exists( 'wc_get_order' ) || ( ! is_user_logged_in() && ! AccountParts::editing() && ! OrderReceived::order() ) ) {
 			return;
 		}
 
@@ -291,7 +300,7 @@ final class AccountOrderWidget extends Widget_Base {
 		$cancel  = $inherit ? array_merge( $s, AccountParts::orders_look(), array( 'cancel_alert_preview' => (string) ( $s['order_cancel_preview'] ?? '' ) ) ) : $s;
 		$scope   = '.elementor-element-' . $this->get_id();
 		$css     = $inherit ? Dialog::css( $cancel, 'cancel_confirm', $scope ) . Dialog::css( $cancel, 'cancel_posted', $scope ) . AccountParts::cancelled_alert_css( $cancel, $scope ) : '';
-		$out     = ( '' !== $css ? '<style>' . $css . '</style>' : '' ) . AccountParts::cancelled_alert( $cancel ) . Dialog::render( $cancel, 'cancel_confirm' ) . Dialog::render( $cancel, 'cancel_posted', false );
+		$out     = ( '' !== $css ? '<style>' . $css . '</style>' : '' ) . AccountParts::cancelled_alert( $cancel ) . AccountParts::cancel_requested_alert( $cancel, $order ) . Dialog::render( $cancel, 'cancel_confirm' ) . Dialog::render( $cancel, 'cancel_posted', false );
 
 		// Header: back link, title, date, status.
 		$back = trim( (string) ( $s['order_back_text'] ?? '' ) );
