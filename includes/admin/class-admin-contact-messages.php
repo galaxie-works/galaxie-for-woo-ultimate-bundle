@@ -13,11 +13,11 @@ if (!defined('ABSPATH')) {
 }
 
 /**
- * Class Admin_Contact_Messages
+ * Class AICWP_Admin_Contact_Messages
  *
  * Manages contact messages display and operations in the admin area.
  */
-class Admin_Contact_Messages {
+class AICWP_Admin_Contact_Messages {
 
     /**
      * Items per page for pagination

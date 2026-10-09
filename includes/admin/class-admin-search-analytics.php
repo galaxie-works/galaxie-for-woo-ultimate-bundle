@@ -13,11 +13,11 @@ if (!defined('ABSPATH')) {
 }
 
 /**
- * Class Admin_Search_Analytics
+ * Class AICWP_Admin_Search_Analytics
  *
  * Manages search analytics display and operations in the admin area.
  */
-class Admin_Search_Analytics {
+class AICWP_Admin_Search_Analytics {
 
     /**
      * Constructor - Register AJAX handlers
