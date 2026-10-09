@@ -1,0 +1,414 @@
+/**
+ * Speech-to-Text Styles (PRO)
+ *
+ * Styling for the microphone button and recording states
+ *
+ * @package AICWP
+ * @since 1.7.0
+ */
+
+/* Mic button - positioned before send button */
+.aicwp-chat-mic-btn {
+    position: absolute !important;
+    right: 62px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 32px !important;
+    height: 32px !important;
+    min-width: 32px !important;
+    padding: 0 !important;
+    border-radius: 50%;
+    border: none;
+    background: transparent;
+    color: #666;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    z-index: 2;
+}
+
+/* Hidden elements by default */
+.mic-recording-ui {
+    display: none;
+}
+
+.aicwp-chat-mic-btn:hover {
+    background: #f0f0f0;
+    color: #333;
+}
+
+.aicwp-chat-mic-btn:focus {
+    outline: none;
+    box-shadow: none;
+}
+
+.aicwp-chat-mic-btn svg {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+}
+
+/* Recording state */
+.aicwp-chat-mic-btn.recording {
+    width: auto !important;
+    min-width: 80px !important;
+    padding: 0 10px !important;
+    border-radius: 16px;
+    background: #ffe5e7;
+    border: none;
+    color: #333;
+}
+
+.aicwp-chat-mic-btn.recording:hover {
+    background: #ffe0e3
+}
+
+.aicwp-chat-mic-btn.recording .mic-icon {
+    display: none !important;
+}
+
+.aicwp-chat-mic-btn.recording .mic-recording-ui {
+    display: flex !important;
+    align-items: center;
+    gap: 6px;
+}
+
+/* Recording dot with pulse animation */
+.mic-recording-dot {
+    width: 8px;
+    height: 8px;
+    background: #dc3545;
+    border-radius: 50%;
+    position: relative;
+    flex-shrink: 0;
+}
+
+.mic-recording-dot::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 8px;
+    height: 8px;
+    background: rgba(220, 53, 69, 0.6);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    animation: mic-pulse-expand 1.2s ease-out infinite;
+}
+
+@keyframes mic-pulse-expand {
+    0% {
+        width: 8px;
+        height: 8px;
+        opacity: 0.6;
+    }
+    100% {
+        width: 24px;
+        height: 24px;
+        opacity: 0;
+    }
+}
+
+/* Recording timer */
+.mic-recording-timer {
+    font-size: 13px;
+    font-weight: 500;
+    color: #dc3545;
+    font-variant-numeric: tabular-nums;
+    min-width: 28px;
+}
+
+/* Stop button */
+.mic-recording-ui .stop-icon {
+    width: 14px;
+    height: 14px;
+    color: #dc3545;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: color 0.15s ease;
+    margin-left: -3px;
+}
+
+.mic-recording-ui .stop-icon:hover {
+    color: #dc3545;
+}
+
+/* Transcribing state */
+.aicwp-chat-mic-btn.transcribing {
+    background: #fff;
+    color: #666;
+    cursor: wait;
+    pointer-events: none;
+}
+
+.aicwp-chat-mic-btn.transcribing .mic-icon {
+    display: none;
+}
+
+.aicwp-chat-mic-btn.transcribing .mic-transcribing-loader {
+    display: inline-block !important;
+    position: relative;
+    width: 14px;
+    height: 14px;
+    box-sizing: border-box;
+    background: conic-gradient(
+        from 90deg at 50% 50%,
+        rgba(160, 160, 160, 0) 0deg,
+        rgba(160, 160, 160, 0) 0.04deg,
+        #707070 360deg
+    );
+    border-radius: 50%;
+    animation: micSpinner 0.7s infinite linear;
+}
+
+.mic-transcribing-loader::before {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 10px;
+    height: 10px;
+    background: #fff;
+    border-radius: 50%;
+}
+
+@keyframes micSpinner {
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+/* Adjust textarea padding to make room for mic button */
+.aicwp-chat-input-wrapper .aicwp-chat-input {
+    padding-right: 60px !important;
+}
+
+.aicwp-chat-mic-btn {
+    color: #929292;
+}
+
+.aicwp-chat-mic-btn:hover {
+    background: var(--ai-chat-primary-color-light, #dfdfdf);
+    color: var(--ai-chat-primary-color, #666);
+}
+
+
+
+
+/* Disabled state */
+.aicwp-chat-mic-btn.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+/* Tooltip on hover (optional enhancement) */
+.aicwp-chat-mic-btn[title] {
+    position: relative;
+}
+
+/* Speech indicator icon on user messages sent via voice */
+.aicwp-chat-message-user.from-speech {
+    position: relative;
+}
+
+.aicwp-speech-indicator {
+    position: absolute;
+    bottom: 4px;
+    right: 8px;
+    color: rgba(255, 255, 255, 0.7);
+    line-height: 1;
+    opacity: 0.8;
+}
+
+.aicwp-speech-indicator svg {
+    display: block;
+}
+
+/* Adjust for messages with padding */
+.aicwp-chat-message-user.from-speech .aicwp-chat-message-content {
+    padding-bottom: 18px;
+}
+
+
+/* ==========================================================================
+   Image Input Button
+   ========================================================================== */
+
+.aicwp-chat-image-btn {
+    position: absolute !important;
+    left: 24px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 34px !important;
+    height: 34px !important;
+    min-width: 34px !important;
+    min-height: 34px !important;
+    max-width: 34px !important;
+    max-height: 34px !important;
+    border-radius: 50px !important;
+    border: none;
+    background: #fff !important;
+    color: #888;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    padding: 0 !important;
+    z-index: 2;
+}
+
+.elementor-chat-style .aicwp-chat-image-btn {
+    background: #f6f6f6 !important;
+    margin-left: -3px;
+}
+
+.aicwp-chat-image-btn:hover {
+    background: var(--ai-chat-primary-color-light, rgba(0, 115, 238, 0.1)) !important;
+    border-color: var(--ai-chat-primary-color, #0073ee);
+    color: var(--ai-chat-primary-color, #0073ee);
+}
+
+.aicwp-chat-image-btn:hover svg {
+    stroke: var(--ai-chat-primary-color, #0073ee);
+}
+
+.aicwp-chat-image-btn svg {
+    flex-shrink: 0;
+    transition: stroke 0.2s ease;
+}
+
+/* Image attached state */
+.aicwp-chat-image-btn.has-image {
+    background: var(--ai-chat-primary-color-light, rgba(0, 115, 238, 0.1)) !important;
+    color: var(--ai-chat-primary-color, #0073ee);
+}
+
+.aicwp-chat-image-btn.has-image svg {
+    stroke: var(--ai-chat-primary-color, #0073ee);
+}
+
+/* Image count badge */
+.aicwp-chat-image-btn .image-count-badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    min-width: 16px;
+    height: 16px;
+    background: var(--ai-chat-primary-color, #0073ee);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 600;
+    border-radius: 50%;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    padding: 0 4px;
+    box-sizing: border-box;
+}
+
+.aicwp-chat-image-btn.has-image .image-count-badge {
+    display: flex;
+}
+
+/* Input padding when image button is present */
+.aicwp-chat-input.has-image-input {
+    padding-left: 50px !important;
+}
+
+/* Image Preview */
+.aicwp-chat-image-preview {
+    position: relative;
+    display: inline-block;
+    margin: 8px 0;
+    max-width: 150px;
+}
+
+.aicwp-chat-image-preview img {
+    max-width: 100%;
+    max-height: 100px;
+    border-radius: 8px;
+    object-fit: cover;
+}
+
+.aicwp-chat-image-preview-remove {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #ff4444;
+    color: white;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    line-height: 1;
+    padding: 0;
+}
+
+.aicwp-chat-image-preview-remove:hover {
+    background: #cc0000;
+}
+
+/* User message with image */
+.aicwp-chat-message-user .aicwp-chat-user-image {
+    max-width: 200px;
+    max-height: 150px;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    display: block;
+}
+
+.aicwp-chat-message-user .aicwp-chat-user-image + .aicwp-chat-message-content {
+    margin-top: 0;
+}
+
+/* ==========================================================================
+   Custom Tooltips
+   ========================================================================== */
+
+.aicwp-tooltip {
+    position: fixed;
+    background: #222;
+    color: #fff;
+    padding: 6px 10px;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.3;
+    border-radius: 8px;
+    white-space: nowrap;
+    z-index: 9999999;
+    pointer-events: none;
+    opacity: 0;
+    transform: translateX(-50%) translateY(-4px);
+    transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.aicwp-tooltip.visible {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+
+/* Triangle indicator below tooltip */
+.aicwp-tooltip::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border-width: 5px;
+    border-style: solid;
+    border-color: #222 transparent transparent transparent;
+}

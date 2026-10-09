@@ -1,0 +1,648 @@
+/**
+ * AI Chat Dark Mode Styles
+ * Neutral Dark Theme
+ *
+ * @package AI Chat for WordPress
+ */
+
+/* Dark mode CSS variables - neutral dark colors */
+.aicwp-chat-wrapper.dark-mode {
+    --chat-bg: #111;
+    --chat-bg-secondary: #222;
+    --chat-bg-tertiary: #222;
+    --chat-border: #333;
+    --chat-border-light: #444;
+    --chat-text: #e5e5e5;
+    --chat-text-secondary: #ccc;
+    --chat-text-muted: #999;
+    --chat-shadow: rgba(0, 0, 0, 0.4);
+}
+
+/* ===== CONTAINER ===== */
+.aicwp-chat-wrapper.dark-mode .aicwp-chat-container {
+    background: var(--chat-bg) !important;
+    border-color: var(--chat-border) !important;
+    box-shadow: 0 5px 20px var(--chat-shadow);
+}
+
+/* ===== HEADER ===== */
+.aicwp-chat-wrapper.dark-mode .aicwp-chat-header {
+    background-color: var(--chat-bg-secondary) !important;
+    border-bottom-color: var(--chat-border) !important;
+}
+
+.aicwp-chat-wrapper.dark-mode .aicwp-chat-title {
+    color: var(--chat-text) !important;
+}
+
+.aicwp-chat-wrapper.dark-mode .aicwp-chat-status-dot {
+    border-color: var(--chat-bg-secondary) !important;
+}
+
+/* Menu */
+.aicwp-chat-wrapper.dark-mode .aicwp-chat-darkmode-toggle,
+.aicwp-chat-wrapper.dark-mode .aicwp-chat-menu-trigger {
+    color: var(--chat-text-muted) !important;
+}
+
+.aicwp-chat-wrapper.dark-mode .aicwp-chat-darkmode-toggle:hover,
+.aicwp-chat-wrapper.dark-mode .aicwp-chat-menu-trigger:hover,
+.aicwp-chat-wrapper.dark-mode .aicwp-chat-menu-trigger[aria-expanded="true"] {
+    background: rgba(0,0,0,0.2) !important;
+    color: var(--chat-text) !important;
+}
+
+.elementor-chat-style .aicwp-chat-wrapper.dark-mode.expanded .aicwp-chat-quick-buttons {
+        padding-bottom: 20px;
+}
+
+.aicwp-chat-wrapper.dark-mode .aicwp-chat-header,
+.elementor-chat-style .aicwp-chat-wrapper.dark-mode.expanded .aicwp-chat-messages { border-radius: 12px 12px 0 0; }
+.aicwp-chat-wrapper.dark-mode .aicwp-chat-menu-dropdown {
+    background: var(--chat-bg-secondary) !important;
+    border-color: var(--chat-border) !important;
+    box-shadow: 0 4px 16px var(--chat-shadow);
+}
+
+.aicwp-chat-wrapper.dark-mode .aicwp-chat-menu-item {
+    color: var(--chat-text-secondary) !important;
+}
+
+.aicwp-chat-wrapper.dark-mode .aicwp-chat-menu-item:hover {
+    background: var(--chat-bg-tertiary) !important;
+    color: var(--chat-text) !important;
+}
+
+.aicwp-chat-wrapper.dark-mode .aicwp-chat-menu-item svg {
+    color: var(--chat-text-muted) !important;
+}
+
+.aicwp-chat-wrapper.dark-mode .aicwp-chat-menu-item:hover svg {
+    color: var(--chat-text) !important;
+}
+
+/* Clear button (shortcode) */
+.aicwp-chat-wrapper.dark-mode button.aicwp-chat-clear-btn {
+    color: var(--chat-text-muted) !important;
+}
+
+.aicwp-chat-wrapper.dark-mode button.aicwp-chat-clear-btn:hover {
+    color: var(--chat-text) !important;
+}
+
+/* ===== MESSAGES AREA ===== */
+.aicwp-chat-wrapper.dark-mode .aicwp-chat-messages {
+    background: var(--chat-bg) !important;
+}
+
+/* User Message */
+.aicwp-chat-wrapper.dark-mode .aicwp-chat-message-user {
+    background: var(--ai-chat-primary-color, #0073ee) !important;
+    color: #fff !important;
+}
+
+/* Assistant/System Message */
+.aicwp-chat-wrapper.dark-mode .aicwp-chat-message-assistant,
+.aicwp-chat-wrapper.dark-mode .aicwp-chat-message.aicwp-chat-message-system {
+    background: #222 !important;
+    color: var(--chat-text) !important;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+.aicwp-chat-wrapper.dark-mode .aicwp-chat-message-assistant.chat-message-results {
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+.aicwp-chat-wrapper.dark-mode .aicwp-chat-message-system {
+    color: var(--chat-text-muted) !important;
+}
+
+/* Message Content */
+.aicwp-chat-wrapper.dark-mode .aicwp-chat-message-content {
+    color: var(--chat-text) !important;
+}
+
+.aicwp-chat-wrapper.dark-mode .aicwp-chat-message-content strong {
+    color: var(--chat-text) !important;
+}
+
+.aicwp-chat-wrapper.dark-mode .aicwp-chat-message-content a,
+.aicwp-chat-wrapper.dark-mode .aicwp-chat-message-content a strong {
+    color: var(--ai-chat-primary-color, #5fa8ff) !important;
+}
+
+.aicwp-chat-wrapper.dark-mode .aicwp-chat-message-content p,
+.aicwp-chat-wrapper.dark-mode .aicwp-chat-message-content {
+    color:  var(--chat-text-muted);
+}
+
+.aicwp-chat-wrapper.dark-mode .aicwp-chat-message-content a:hover {
+    color: #fff !important;
+}
+
+/* Loading Message */
+.aicwp-chat-wrapper.dark-mode div.aicwp-chat-message.aicwp-chat-message-assistant[id^="loading"] {
+    background: transparent !important;
+    box-shadow: none !important;
+    color: var(--chat-text-muted) !important;
+}
+
+/* ===== LOADING INDICATORS ===== */
+.aicwp-chat-wrapper.dark-mode .aicwp-chat-typing-dots span {
+    background: var(--chat-text-muted) !important;
+}
+
+
+.aicwp-chat-wrapper.dark-mode .aicwp-chat-loading::before {
+    background: var(--chat-bg) !important
+}
+
+/* ===== INPUT AREA ===== */
+.aicwp-chat-wrapper.dark-mode .aicwp-chat-input-wrapper {
+    background: var(--chat-bg-secondary) !important;
+    border-top-color: var(--chat-border) !important;
+}
+
+.aicwp-chat-wrapper.dark-mode .aicwp-chat-container {
+    background: var(--chat-bg-secondary) !important;
+}
+.aicwp-chat-wrapper.dark-mode .aicwp-chat-input-wrapper {
+    border-radius: 0 0 12px 12px;
+}
+.elementor-chat-style .aicwp-chat-wrapper.dark-mode .aicwp-chat-input-wrapper {
+    border-radius: 12px;
+}
+
+.aicwp-chat-wrapper.dark-mode .aicwp-chat-input,
+.aicwp-chat-wrapper.dark-mode .aicwp-chat-input:not(.elementor-chat-style .aicwp-chat-input) {
+    background: #303030 !important;
+    color: var(--chat-text) !important;
+    border-color: var(--chat-border) !important;
+    box-shadow: none !important;
+}
+
+.aicwp-chat-wrapper.dark-mode .aicwp-chat-input::placeholder {
+    color: var(--chat-text-muted) !important;
+}
+
+.aicwp-chat-wrapper.dark-mode .aicwp-chat-input:focus {
+    border-color: var(--ai-chat-primary-color, #0073ee) !important;
+    box-shadow: none;
+}
+
+/* Send Button */
+.aicwp-chat-wrapper.dark-mode .aicwp-chat-send-btn {
+    background: var(--ai-chat-primary-color, #0073ee) !important;
+}
+
+.aicwp-chat-wrapper.dark-mode .aicwp-chat-send-btn:disabled {
+    background: var(--chat-border-light) !important;
+}
+
+/* Image Input Button */
+.aicwp-chat-wrapper.dark-mode .aicwp-chat-image-btn {
+    background: #242424 !important;
+    color: #ccc !important;
+}
+
+.aicwp-chat-wrapper.dark-mode .aicwp-chat-mic-btn:not(.recording):hover,
+.aicwp-chat-wrapper.dark-mode .aicwp-chat-image-btn:hover {
+    background: var(--ai-chat-primary-color, #0073ee) !important;
+    color: #fff !important;
+}
+
+.aicwp-chat-wrapper.dark-mode .aicwp-chat-image-btn:hover svg {
+    stroke: #fff !important;
+}
+
+.aicwp-chat-wrapper.dark-mode .aicwp-chat-image-btn.has-image {
+    background: var(--ai-chat-primary-color-light, rgba(0, 115, 238, 0.2)) !important;
+    color: var(--ai-chat-primary-color, #5fa8ff) !important;
+}
+
+/* ===== QUICK ACTION BUTTONS ===== */
+.aicwp-chat-wrapper.dark-mode .aicwp-chat-quick-buttons {
+    background: var(--chat-bg) !important;
+}
+
+.aicwp-chat-wrapper.dark-mode .aicwp-quick-btn {
+    background: var(--chat-bg-tertiary) !important;
+    color: var(--chat-text-secondary) !important;
+}
+
+.aicwp-chat-wrapper.dark-mode .aicwp-quick-btn.has-custom-color {
+    background: var(--quick-btn-color) !important;
+    color: #fff !important;
+}
+
+.aicwp-chat-wrapper.dark-mode .aicwp-quick-btn.has-custom-color .aicwp-btn-icon {
+    stroke: #fff !important;
+    opacity: 1;
+}
+
+.aicwp-chat-wrapper.dark-mode .aicwp-quick-btn:hover {
+    background: var(--quick-btn-color, var(--ai-chat-primary-color, #0073ee)) !important;
+    color: #fff !important;
+}
+
+.aicwp-chat-wrapper.dark-mode .aicwp-quick-btn:hover .aicwp-btn-icon {
+    stroke: #fff !important;
+}
+
+/* ===== LISTING CARDS ===== */
+.aicwp-chat-wrapper.dark-mode .aicwp-listing-item {
+    background: var(--chat-bg-secondary) !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3) !important;
+}
+
+.aicwp-chat-wrapper.dark-mode .aicwp-listing-item:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4) !important;
+}
+
+.aicwp-chat-wrapper.dark-mode .aicwp-listing-title {
+    color: var(--chat-text) !important;
+}
+
+.aicwp-chat-wrapper.dark-mode p.aicwp-listing-excerpt {
+    color: var(--chat-text-muted) !important;
+}
+
+.aicwp-chat-wrapper.dark-mode .aicwp-listing-meta {
+    color: var(--chat-text-muted) !important;
+}
+
+.aicwp-chat-wrapper.dark-mode .aicwp-listing-meta i {
+    color: var(--chat-border-light) !important;
+}
+
+/* Product Price */
+.aicwp-chat-wrapper.dark-mode .product-price {
+    color: var(--chat-text) !important;
+}
+
+.aicwp-chat-wrapper.dark-mode .product-price .regular-price {
+    color: var(--chat-text-muted) !important;
+}
+
+/* Show More Button */
+.aicwp-chat-wrapper.dark-mode .aicwp-show-more-btn {
+    background: var(--ai-chat-primary-color, #0073ee) !important;
+    color: #fff !important;
+}
+
+/* Best Match Badge */
+.aicwp-chat-wrapper.dark-mode .match-badge.best {
+    background: rgba(39, 174, 96, 0.2) !important;
+    color: #5cd690 !important;
+}
+
+/* ===== CONTEXT BUTTONS ===== */
+.aicwp-chat-wrapper.dark-mode .aicwp-product-context-title {
+    color: var(--chat-text) !important;
+}
+
+.aicwp-chat-wrapper.dark-mode .aicwp-load-product-btn {
+    background: var(--chat-bg-tertiary) !important;
+    color: var(--chat-text) !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+}
+
+.aicwp-chat-wrapper.dark-mode .aicwp-load-product-btn:hover {
+    background: var(--chat-border) !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4) !important;
+}
+
+.aicwp-chat-wrapper.dark-mode .context-loaded-icon {
+    color: var(--chat-text) !important;
+}
+
+/* ===== POPULAR SEARCHES ===== */
+.aicwp-chat-wrapper.dark-mode .popular-searches-header {
+    color: var(--chat-text) !important;
+}
+
+.aicwp-chat-wrapper.dark-mode .popular-search-tag {
+    background: var(--chat-bg-tertiary) !important;
+    color: var(--chat-text-secondary) !important;
+}
+
+.aicwp-chat-wrapper.dark-mode .popular-search-tag:hover {
+    background: var(--ai-chat-primary-color, #0073ee) !important;
+    color: #fff !important;
+}
+
+/* ===== DISABLED STATE ===== */
+.aicwp-chat-wrapper.dark-mode .aicwp-chat-disabled {
+    background: rgba(255, 193, 7, 0.15) !important;
+    color: #ffc107 !important;
+}
+
+/* ===== POWERED BY ===== */
+.aicwp-chat-wrapper.dark-mode .aicwp-chat-powered-by {
+    color: var(--chat-text-muted) !important;
+}
+
+.aicwp-chat-wrapper.dark-mode .aicwp-chat-powered-by a {
+    color: var(--ai-chat-primary-color, #5fa8ff) !important;
+}
+
+.aicwp-chat-wrapper.dark-mode .aicwp-chat-powered-by a:hover {
+    color: var(--chat-text) !important;
+}
+
+/* ===== TERMS NOTICE ===== */
+.aicwp-chat-wrapper.dark-mode .aicwp-chat-terms-notice {
+    color: var(--chat-text-muted) !important;
+    background: var(--chat-bg-secondary) !important;
+    padding-top: 2px;
+    border-radius: 0 0 12px 12px;
+}
+
+.aicwp-chat-wrapper.dark-mode .aicwp-chat-terms-notice a {
+    color: #eee !important;
+}
+
+/* ===== CONTACT FORM OVERLAY ===== */
+.aicwp-chat-wrapper.dark-mode .aicwp-contact-form-overlay {
+    background: rgba(0, 0, 0, 0.5) !important;
+}
+
+.aicwp-chat-wrapper.dark-mode .aicwp-contact-form {
+    background: var(--chat-bg-secondary) !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4) !important;
+}
+
+.aicwp-chat-wrapper.dark-mode .aicwp-contact-form-header h3 {
+    color: var(--chat-text) !important;
+}
+
+.aicwp-chat-wrapper.dark-mode .aicwp-contact-form-close {
+    background: color-mix(in srgb, var(--chat-border) 70%, transparent) !important;
+}
+
+.aicwp-chat-wrapper.dark-mode .aicwp-contact-form-close svg {
+    stroke: var(--chat-text-muted) !important;
+}
+
+.aicwp-chat-wrapper.dark-mode .aicwp-contact-form-close:hover {
+    background: var(--chat-border) !important;
+}
+
+.aicwp-chat-wrapper.dark-mode .aicwp-contact-form-close:hover svg {
+    stroke: var(--chat-text) !important;
+}
+
+.aicwp-chat-wrapper.dark-mode .aicwp-contact-form-field label {
+    color: var(--chat-text-secondary) !important;
+}
+
+.aicwp-chat-wrapper.dark-mode .aicwp-contact-form-field input,
+.aicwp-chat-wrapper.dark-mode .aicwp-contact-form-field textarea {
+    background: #303030 !important;
+    border-color: var(--chat-border) !important;
+    color: var(--chat-text) !important;
+    box-shadow: none !important;
+}
+
+.aicwp-chat-wrapper.dark-mode .aicwp-contact-form-field input:focus, 
+.aicwp-chat-wrapper.dark-mode .aicwp-contact-form-field textarea:focus {
+    outline: none !important;
+    border-color: var(--ai-chat-primary-color, #0073ee) !important;
+    box-shadow: none !important;
+}
+
+.aicwp-chat-wrapper.dark-mode .aicwp-contact-form-field input::placeholder,
+.aicwp-chat-wrapper.dark-mode .aicwp-contact-form-field textarea::placeholder {
+    color: var(--chat-text-muted) !important;
+}
+
+.aicwp-chat-wrapper.dark-mode .aicwp-contact-form-message.success {
+    background: rgba(39, 174, 96, 0.2) !important;
+    color: #5cd690 !important;
+}
+
+.aicwp-chat-wrapper.dark-mode .aicwp-contact-form-message.error {
+    background: rgba(239, 68, 68, 0.2) !important;
+    color: #f87171 !important;
+}
+
+/* ===== PRE-CHAT FORM (dark mode) ===== */
+.aicwp-chat-wrapper.dark-mode .aicwp-pre-chat-form {
+    background: var(--chat-bg-secondary) !important;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2) !important;
+}
+
+.aicwp-chat-wrapper.dark-mode .aicwp-pre-chat-headline {
+    color: var(--chat-text) !important;
+}
+
+/* ===== SCROLLBAR ===== */
+.aicwp-chat-wrapper.dark-mode .aicwp-chat-messages {
+    scrollbar-color: var(--chat-border) var(--chat-bg);
+    scrollbar-width: thin;
+}
+
+.aicwp-chat-wrapper.dark-mode .aicwp-chat-messages::-webkit-scrollbar {
+    width: 6px;
+}
+
+.aicwp-chat-wrapper.dark-mode .aicwp-chat-messages::-webkit-scrollbar-track {
+    background: var(--chat-bg) !important;
+}
+
+.aicwp-chat-wrapper.dark-mode .aicwp-chat-messages::-webkit-scrollbar-thumb {
+    background: var(--chat-border) !important;
+    border-radius: 3px;
+}
+
+.aicwp-chat-wrapper.dark-mode .aicwp-chat-messages::-webkit-scrollbar-thumb:hover {
+    background: var(--chat-border-light) !important;
+}
+
+/* ===== ELEMENTOR STYLE OVERRIDES ===== */
+.elementor-chat-style .aicwp-chat-wrapper.dark-mode .aicwp-chat-message-assistant,
+.elementor-chat-style .aicwp-chat-wrapper.dark-mode .aicwp-chat-message.aicwp-chat-message-system {
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+.elementor-chat-style .aicwp-chat-wrapper.dark-mode .aicwp-quick-btn {
+    background: var(--chat-bg-tertiary) !important;
+}
+
+.elementor-chat-style .aicwp-chat-wrapper.dark-mode .aicwp-listing-item {
+    border: 1px solid var(--chat-border) !important;
+}
+
+.elementor-chat-style .aicwp-chat-wrapper.dark-mode .aicwp-listing-item:hover {
+    border-color: var(--chat-border-light) !important;
+}
+
+/* ===== FLOATING CHAT DARK MODE ===== */
+
+/* Welcome Bubble Dark Mode */
+.aicwp-floating-chat-widget.dark-mode .aicwp-floating-welcome-bubble {
+    background: #1a1a1a;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+}
+
+.aicwp-floating-chat-widget.dark-mode .aicwp-floating-welcome-bubble-content {
+    color: #e5e5e5;
+}
+
+.aicwp-floating-chat-widget.dark-mode .aicwp-floating-welcome-bubble-arrow {
+    background: #1a1a1a;
+}
+
+/* Popup Container Dark Mode */
+.aicwp-floating-chat-widget.dark-mode .aicwp-floating-chat-popup {
+    background: transparent;
+}
+
+.aicwp-floating-chat-popup .aicwp-chat-wrapper.dark-mode .aicwp-chat-container {
+    box-shadow: 0 5px 25px rgba(0, 0, 0, 0.5);
+}
+
+
+/* Shimmer */
+.dark-mode .aicwp-chat-typing-dots,
+.dark-mode .aicwp-chat-loading,
+.dark-mode .aicwp-chat-shimmer-text {
+    filter: brightness(1.4)
+}
+
+/* ===== CART TOGGLE BUTTON ===== */
+.aicwp-chat-wrapper.dark-mode .aicwp-chat-cart-toggle {
+    color: var(--chat-text-muted) !important;
+}
+
+.aicwp-chat-wrapper.dark-mode .aicwp-chat-cart-toggle:hover {
+    background: rgba(255, 255, 255, 0.08) !important;
+    color: var(--chat-text) !important;
+}
+
+/* ===== PRODUCT CARD (div mode) ===== */
+.aicwp-chat-wrapper.dark-mode div.aicwp-product-card .aicwp-listing-title a {
+    color: inherit !important;
+}
+
+.aicwp-chat-wrapper.dark-mode div.aicwp-product-card .aicwp-listing-title a:hover {
+    color: var(--ai-chat-primary-color, #4da3ff) !important;
+}
+
+/* ===== ADD TO CART BUTTON ===== */
+.aicwp-chat-wrapper.dark-mode .aicwp-add-to-cart-btn {
+    color: #fff !important;
+    background: var(--ai-chat-primary-color, #0073ee) !important;
+}
+
+.aicwp-chat-wrapper.dark-mode .aicwp-add-to-cart-btn:hover {
+    background: var(--ai-chat-primary-color, #4da3ff) !important;
+    color: #fff !important;
+}
+
+.aicwp-chat-wrapper.dark-mode .aicwp-add-to-cart-btn.added {
+    background: #27ae60 !important;
+    color: #fff !important;
+}
+
+/* ===== CART POPUP OVERLAY ===== */
+.aicwp-chat-wrapper.dark-mode .aicwp-cart-overlay {
+    background: rgba(0, 0, 0, 0.5) !important;
+}
+
+.aicwp-chat-wrapper.dark-mode .aicwp-cart-popup {
+    background: var(--chat-bg-secondary) !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4) !important;
+}
+
+.aicwp-chat-wrapper.dark-mode .aicwp-cart-popup-header {
+    border-bottom-color: var(--chat-border) !important;
+}
+
+.aicwp-chat-wrapper.dark-mode .aicwp-cart-popup-header h3 {
+    color: var(--chat-text) !important;
+}
+
+.aicwp-chat-wrapper.dark-mode .aicwp-cart-popup-close {
+    background: color-mix(in srgb, var(--chat-border) 70%, transparent) !important;
+}
+
+.aicwp-chat-wrapper.dark-mode .aicwp-cart-popup-close svg {
+    stroke: var(--chat-text-muted) !important;
+}
+
+.aicwp-chat-wrapper.dark-mode .aicwp-cart-popup-close:hover {
+    background: var(--chat-border) !important;
+}
+
+.aicwp-chat-wrapper.dark-mode .aicwp-cart-popup-close:hover svg {
+    stroke: var(--chat-text) !important;
+}
+
+.aicwp-chat-wrapper.dark-mode .aicwp-cart-empty {
+    color: var(--chat-text-muted) !important;
+}
+
+.aicwp-chat-wrapper.dark-mode .aicwp-cart-item {
+    border-bottom-color: var(--chat-border) !important;
+}
+
+.aicwp-chat-wrapper.dark-mode .aicwp-cart-item-title {
+    color: var(--chat-text) !important;
+}
+
+.aicwp-chat-wrapper.dark-mode .aicwp-cart-item-title:hover {
+    color: var(--ai-chat-primary-color, #4da3ff) !important;
+}
+
+.aicwp-chat-wrapper.dark-mode .aicwp-cart-item-price {
+    color: var(--chat-text-secondary) !important;
+}
+
+.aicwp-chat-wrapper.dark-mode .aicwp-cart-item-qty {
+    border-color: var(--chat-border) !important;
+}
+
+.aicwp-chat-wrapper.dark-mode .aicwp-cart-qty-minus,
+.aicwp-chat-wrapper.dark-mode .aicwp-cart-qty-plus {
+    background: #303030 !important;
+    color: var(--chat-text) !important;
+}
+
+.aicwp-chat-wrapper.dark-mode .aicwp-cart-qty-minus:hover,
+.aicwp-chat-wrapper.dark-mode .aicwp-cart-qty-plus:hover {
+    background: #404040 !important;
+}
+
+.aicwp-chat-wrapper.dark-mode .aicwp-cart-qty-value {
+    color: var(--chat-text) !important;
+    border-color: var(--chat-border) !important;
+}
+
+.aicwp-chat-wrapper.dark-mode .aicwp-cart-item-remove {
+    color: var(--chat-text-muted) !important;
+}
+
+.aicwp-chat-wrapper.dark-mode .aicwp-cart-item-remove:hover {
+    color: #e74c3c !important;
+}
+
+.aicwp-chat-wrapper.dark-mode .aicwp-cart-popup-footer {
+    border-top-color: var(--chat-border) !important;
+}
+
+.aicwp-chat-wrapper.dark-mode .aicwp-cart-subtotal-row {
+    color: var(--chat-text) !important;
+}
+
+.aicwp-chat-wrapper.dark-mode .aicwp-cart-view-btn {
+    background: #303030 !important;
+    color: var(--chat-text) !important;
+    border: none !important;
+}
+
+.aicwp-chat-wrapper.dark-mode .aicwp-cart-view-btn:hover {
+    background: #404040 !important;
+}

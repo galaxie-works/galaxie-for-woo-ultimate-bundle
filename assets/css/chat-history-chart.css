@@ -1,0 +1,150 @@
+/**
+ * AI Chat for WordPress - Chat History Chart Styles
+ *
+ * Styles for the chat history activity chart
+ *
+ * @package AICWP
+ * @since 1.7.5
+ */
+
+/* Chart wrapper */
+.aicwp-ui-chat-history-chart-wrapper {
+    margin: 25px 0;
+    padding: 20px;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+}
+
+/* Chart header with title and legend */
+.aicwp-ui-chart-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.aicwp-ui-chart-header h4 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: #1f2937;
+}
+
+/* Custom legend */
+.aicwp-ui-chart-legend {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+}
+
+.aicwp-ui-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: #6b7280;
+}
+
+.aicwp-ui-legend-color {
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+}
+
+/* Conversations - Blue */
+.aicwp-ui-legend-conversations .aicwp-ui-legend-color {
+    background-color: #3b82f6;
+}
+
+/* Messages - Green */
+.aicwp-ui-legend-messages .aicwp-ui-legend-color {
+    background-color: #10b981;
+}
+
+/* Emails Sent - Purple */
+.aicwp-ui-legend-emails .aicwp-ui-legend-color {
+    background-color: #8b5cf6;
+}
+
+/* Chart toolbar: toggle + legend row */
+.aicwp-ui-chart-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.aicwp-ui-chart-period-toggle .aicwp-ui-position-btn {
+    padding: 4px 12px;
+    font-size: 12px;
+}
+
+/* Chart container */
+.aicwp-ui-chart-container {
+    position: relative;
+    height: 220px;
+    width: 100%;
+    max-width: 100%;
+    overflow: visible;
+    margin-bottom: 45px;
+}
+
+/* Ensure canvas respects container */
+.aicwp-ui-chart-container canvas {
+    max-width: 100% !important;
+    width: 100% !important;
+}
+
+/* No data state */
+.aicwp-ui-chart-no-data {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 200px;
+    background: #f9fafb;
+    border-radius: 6px;
+    border: 1px dashed #e5e7eb;
+}
+
+.aicwp-ui-chart-no-data p {
+    margin: 0;
+    color: #9ca3af;
+    font-size: 13px;
+    text-align: center;
+    padding: 20px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .aicwp-ui-chart-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .aicwp-ui-chart-legend {
+        gap: 15px;
+    }
+
+    .aicwp-ui-legend-item {
+        font-size: 12px;
+    }
+
+    .aicwp-ui-chart-container {
+        height: 180px;
+    }
+}
+
+@media (max-width: 480px) {
+    .aicwp-ui-chat-history-chart-wrapper {
+        padding: 15px;
+    }
+
+    .aicwp-ui-chart-container {
+        height: 150px;
+    }
+}
