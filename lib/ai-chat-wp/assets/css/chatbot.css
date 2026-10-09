@@ -1,0 +1,2238 @@
+/**
+ * AI Chat Styles
+ *
+ * @package AI Chat for WordPress
+ */
+
+/* Chat Wrapper */
+.aicwp-chat-wrapper {
+    width: 100%;
+    margin: 0 auto;
+}
+
+.aicwp-chat-wrapper i {
+    font-family: "Font Awesome 6 Free" !important;
+}
+
+/* Chat Container */
+.aicwp-chat-container {
+    background: white;
+    border: 1px solid #e5e5e5;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    height: 100%;
+    box-shadow: 0 5px 16px rgba(0, 0, 0, 0.1);
+}
+
+/* Chat Header */
+.aicwp-chat-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid #e5e5e5;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.aicwp-chat-header-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.aicwp-chat-avatar-wrapper {
+    position: relative;
+    flex-shrink: 0;
+}
+
+body .aicwp-chat-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 100px !important;
+    object-fit: cover;
+    flex-shrink: 0;
+    display: block;
+}
+
+.aicwp-chat-status-dot {
+    position: absolute;
+    bottom: -2px;
+    right: -2px;
+    width: 8px;
+    height: 8px;
+    background: #22c55e;
+    border-radius: 100px !important;
+    border: 2px solid #fff;
+    box-shadow: 0 2px 3px rgba(0, 0, 0, 0.1);
+    box-sizing: content-box !important;
+}
+
+.aicwp-chat-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #333;
+}
+
+/* Chat Header Menu Dropdown */
+.aicwp-chat-menu {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 0;
+}
+
+/* Menu icon buttons (shared styles) */
+.aicwp-chat-darkmode-toggle,
+.aicwp-chat-menu-trigger {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    cursor: pointer;
+    color: #777;
+    transition: all 0.15s ease;
+}
+
+.aicwp-chat-darkmode-toggle:hover,
+.aicwp-chat-menu-trigger:hover,
+.aicwp-chat-menu-trigger[aria-expanded="true"] {
+    background: rgba(0, 0, 0, 0.05);
+    color: #333;
+}
+
+/* Dark Mode Toggle – icon visibility */
+.aicwp-chat-darkmode-toggle .icon-sun { display: none; }
+.aicwp-chat-darkmode-toggle .icon-moon { display: block; }
+.dark-mode .aicwp-chat-darkmode-toggle .icon-sun { display: block; }
+.dark-mode .aicwp-chat-darkmode-toggle .icon-moon { display: none; }
+
+.aicwp-chat-menu-dropdown {
+    position: absolute;
+    top: 100%;
+    margin-top: 5px;
+    right: 0;
+    min-width: 150px;
+    background: #fff;
+    border: 1px solid #e5e5e5;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    padding: 4px;
+    z-index: 100;
+    opacity: 0;
+    visibility: hidden;
+    transform: scale(0.95) translateY(-4px);
+    transform-origin: top right;
+    transition: all 0.15s ease;
+}
+
+html[dir="rtl"] .aicwp-chat-menu-dropdown {
+    left: 0 !important;
+    right: initial !important;
+}
+
+.aicwp-chat-menu-dropdown[data-state="open"] {
+    opacity: 1;
+    visibility: visible;
+    transform: scale(1) translateY(0);
+}
+
+.aicwp-chat-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 5px 10px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #333;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.15s ease;
+    white-space: nowrap;
+    line-height: 20px;
+}
+
+.aicwp-chat-menu-item:hover {
+    background: #f5f5f5;
+}
+
+.aicwp-chat-menu-item svg {
+    flex-shrink: 0;
+    color: #666;
+}
+
+.aicwp-chat-menu-item:hover svg {
+    color: #333;
+}
+
+/* Expanded state for floating chat popup */
+@media (min-width: 992px) {
+    .aicwp-floating-chat-popup.is-expanded {
+        width: 600px !important;
+        max-width: calc(100vw - 45px) !important;
+        height: 100vh !important;
+        max-height: calc(100vh - 165px) !important;
+    }
+}
+
+/* Hide expand icon when expanded, show collapse icon */
+.aicwp-floating-chat-popup.is-expanded .aicwp-chat-expand-btn .icon-expand {
+    display: none;
+}
+.aicwp-floating-chat-popup.is-expanded .aicwp-chat-expand-btn .icon-collapse {
+    display: inline;
+}
+.aicwp-chat-expand-btn .icon-collapse {
+    display: none;
+}
+
+/* Hide expand text when expanded, show collapse text */
+.aicwp-floating-chat-popup.is-expanded .aicwp-chat-expand-btn .text-expand {
+    display: none;
+}
+.aicwp-floating-chat-popup.is-expanded .aicwp-chat-expand-btn .text-collapse {
+    display: inline;
+}
+.aicwp-chat-expand-btn .text-collapse {
+    display: none;
+}
+
+@media (max-width: 992px) { .aicwp-chat-expand-btn { display: none !important;} }
+
+/* Clear Button (shortcode only - floating widget uses menu) */
+button.aicwp-chat-clear-btn {
+    background: transparent !important;
+    border: none;
+    color: #888;
+    font-size: 12px;
+    cursor: pointer;
+    padding: 0 !important;
+    border-radius: 4px;
+    transition: all 0.3s ease;
+    display: flex;
+    justify-content: center;
+    min-height: auto !important;
+    max-height: 16px !important;
+    max-width: 16px !important;
+    min-width: auto !important;
+}
+
+button.aicwp-chat-clear-btn:hover {
+    color: #333;
+    transform: rotate(180deg);
+}
+
+button.aicwp-chat-clear-btn img {
+    width: auto;
+    height: auto;
+    max-width: 12px;
+    max-height: 12px;
+    opacity: 0.4;
+}
+
+.aicwp-chat-send-btn { padding: 0 !important; }
+
+/* Messages Area */
+.aicwp-chat-messages {
+    flex: 1;
+    padding: 20px;
+    overflow-y: auto;
+    background: #f8f8f8;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    scroll-behavior: smooth;
+}
+
+
+/* Individual Messages */
+.aicwp-chat-message {
+    line-height: 24px;
+    display: flex;
+    width: 100%;
+}
+
+.aicwp-chat-message-user {
+    color: var(--ai-chat-primary-color);
+    background: var(--ai-chat-primary-color-light);
+    padding: 12px 16px;
+    border-radius: 8px;
+    max-width: 80%;
+    width: fit-content;
+    margin-left: auto;
+}
+
+.aicwp-chat-message.aicwp-chat-message-system,
+.aicwp-chat-message-assistant {
+    color: #444;
+    background: #f6f6f6;
+    padding: 12px 16px;
+    border-radius: 8px;
+    max-width: 100%;
+    width: fit-content;
+    margin-right: auto;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08);
+    background: #fff;
+}
+
+/* Assistant message avatar */
+.aicwp-chat-message-assistant.has-avatar {
+    position: relative;
+    margin-left: 32px;
+}
+
+.aicwp-chat-message-avatar {
+    position: absolute;
+    left: -32px;
+    top: 0;
+    width: 24px;
+    height: 24px;
+    border-radius: 100px !important;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+.aicwp-chat-message-assistant.chat-message-results {
+padding: 0;
+    background: transparent;
+    box-shadow: none;
+}
+
+.aicwp-chat-message-system {
+    color: #666;
+    /* font-size: 14px; */
+    /* font-style: italic; */
+}
+
+.aicwp-chat-message-label {
+    font-weight: 600;
+    margin-bottom: 4px;
+    font-size: 14px;
+}
+
+.aicwp-chat-message-content {
+    line-height: 23px;
+    font-size: 14px;
+    word-break: break-word;
+}
+
+.aicwp-chat-message-content p {
+    margin: 0 0 15px 0;
+    font-size: 14px;
+    line-height: 23px;
+    color: #666;
+}
+
+.aicwp-chat-message-content p
+.aicwp-chat-message-content {
+    color: #666;
+}
+
+.aicwp-chat-message-content p:last-child {
+    margin-bottom: 0;
+}
+
+.aicwp-chat-message-content strong {
+    font-weight: 600;
+    color: #222;
+}
+.aicwp-chat-message-content a strong,
+.aicwp-chat-message-content a {
+    color: var(--ai-chat-primary-color);
+    text-decoration: underline;
+}
+
+.aicwp-chat-message-content a:hover {
+    color: #1a252f;
+}
+.aicwp-sources-list {
+    display: flex;
+    flex-direction: column;
+}
+
+.aicwp-chat-message-content ol,
+.aicwp-chat-message-content ul { 
+    display: flex; 
+    flex-direction: column; 
+    gap: 10px;
+    padding-left: 20px;
+    margin: 8px 0;
+}
+
+.aicwp-chat-message-content ol li,
+.aicwp-chat-message-content ul li{ 
+    margin: 0;
+}
+
+/* Listing Grid Styles */
+.aicwp-results-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 0;
+}
+
+.elementor .aicwp-listing-item,
+.aicwp-listing-item {
+    background: white;
+    border-radius: 8px;
+    border: none;
+    display: flex;
+    align-items: stretch;
+    min-height: 90px;
+    text-decoration: none !important;
+    color: inherit;
+    overflow: hidden;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+    transition: all 0.3s ease;
+}
+.elementor .aicwp-listing-item:hover,
+.aicwp-listing-item:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+    border-color: #d0d0d0;
+}
+
+.aicwp-listing-hidden {
+    display: none;
+}
+
+.aicwp-listing-thumbnail {
+    width: 90px;
+    height: 90px;
+    flex-shrink: 0;
+    overflow: hidden;
+    padding: 12px;
+    margin-top: 5px;
+    margin-left: 3px;
+}
+
+body .aicwp-listing-thumbnail img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 8px;
+}
+
+.aicwp-listing-details {
+    flex: 1;
+    display: flex;
+    padding: 12px 16px;
+    padding-left: 0;
+    align-items: stretch;
+    gap: 0;
+    text-decoration: none;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    word-break: break-word;
+}
+
+.aicwp-listing-title {
+    margin: 0 0 4px 0;
+    font-size: 15px !important;
+    font-weight: 600;
+    line-height: 20px;
+    color: #333;
+}
+
+body p.aicwp-listing-excerpt {
+    color: #666;
+    font-size: 13px;
+    line-height: 1.4;
+    margin: 0;
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.aicwp-listing-meta {
+    display: flex;
+    gap: 0;
+    font-size: 13px;
+    color: #888;
+    flex-wrap: wrap;
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    display: flex;
+    gap: 0 5px;
+}
+
+.aicwp-listing-meta span {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.aicwp-listing-meta i {
+    width: 12px;
+    text-align: center;
+    font-size: 11px;
+    color: #b4b4b4;
+}
+
+.aicwp-listing-rating {
+    color: #f59e0b;
+    font-weight: 500;
+}
+
+/* Hidden by default — customers can opt in via custom CSS override (display: inline-flex) */
+.aicwp-product-sku {
+    display: none !important;
+}
+
+.aicwp-listing-rating i {
+    color: #f59e0b !important;
+}
+.aicwp-listing-rating svg {
+    top: 2px; position: relative;
+}
+
+/* Product-Specific Styles */
+.product-price {
+    font-weight: 600;
+    color: #333;
+    font-size: 14px;
+    display: flex !important;
+    gap: 0 !important;
+}
+
+.product-price .regular-price {
+    text-decoration: line-through;
+    color: #888;
+    font-weight: 400;
+    margin-right: 6px;
+}
+
+.product-price .sale-price {
+    color: #27ae60;
+    font-weight: 600;
+    background-color: #fbf2d1;
+    color: #8a803e;
+    padding: 0px 4px;
+    border-radius: 50px;
+}
+
+.stock-status {
+    font-size: 13px;
+    font-weight: 500;
+    padding: 0;
+    border-radius: 54px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    display: inline-block !important;
+    margin-bottom: -8px;
+}
+.stock-status svg { top: 2px; position: relative; }
+.stock-status.in-stock {
+    color: #27ae60;
+    /* background: #27ae6010; */
+}
+
+.stock-status.in-stock i {
+    color: #27ae60 !important;
+}
+
+.stock-status.out-of-stock {
+    color: #e74c3c;
+    /* background: #e74c3c10; */
+}
+
+.stock-status.out-of-stock i {
+    color: #e74c3c !important;
+}
+
+/* Show More Button */
+.aicwp-show-more-btn {
+    display: block;
+    width: auto;
+    margin-top: 12px;
+    padding: 6px 16px;
+    background: white;
+    border:none;
+    color: var(--ai-chat-primary-color);
+    background: var(--ai-chat-primary-color-light);
+    border-radius: 8px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-weight: 500;
+    margin: 0 auto;
+    margin-top: 15px;
+    border-radius: 8px;
+}
+
+.aicwp-show-more-btn:hover {
+
+}
+
+/* Loading Animation - Typing Dots */
+.aicwp-chat-loader-wrapper {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.aicwp-chat-typing-dots {
+    display: flex;
+    gap: 3px;
+    align-items: center;
+}
+
+.aicwp-chat-typing-dots span {
+    width: 6.2px;
+    height: 6.2px;
+    background: #777777;
+    border-radius: 50%;
+    opacity: 0.3;
+    animation: aicwpChatTypingDot 1.4s infinite backwards;
+    transform: translateY(0px);
+}
+
+.aicwp-chat-typing-dots span:nth-child(2) {
+    animation-delay: 0.2s;
+}
+
+.aicwp-chat-typing-dots span:nth-child(3) {
+    animation-delay: 0.4s;
+}
+
+@keyframes aicwpChatTypingDot {
+    0%, 60%, 100% {
+        opacity: 0.3;
+    }
+    30% {
+        opacity: 1;
+        transform: translateY(-3px);
+    }
+}
+
+.aicwp-chat-shimmer-text {
+    font-size: 14px;
+    display: inline-block;
+    background: linear-gradient(90deg,
+        #666 0%,
+        #666 40%,
+        #888 48%,
+        #bbbbbb 52%,
+        #888 56%,
+        #666 62%,
+        #666 100%
+    );
+    background-size: 300px 100%;
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: aicwpChatShimmer 3.5s linear infinite;
+}
+
+@keyframes aicwpChatShimmer {
+    0% {
+        background-position: -300px 0;
+    }
+    100% {
+        background-position: 300px 0;
+    }
+}
+.aicwp-chat-loading {
+    top: 2px;
+    margin-right: 2px;
+    position: relative;
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    box-sizing: border-box;
+    background: conic-gradient(
+        from 90deg at 50% 50%,
+        rgba(160, 160, 160, 0) 0deg,
+        rgba(160, 160, 160, 0) 0.04deg,
+        #707070 360deg
+    );
+    border-radius: 50%;
+    animation: rotate 0.7s infinite linear;
+}
+
+.aicwp-chat-loading::before {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 10px;
+    height: 10px;
+    background: #fff; /* Change to your actual background color */
+    border-radius: 50%;
+}
+
+.aicwp-chat-loading::after {
+    content: "";
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 2px;
+    height: 2px;
+    background: #a2a2a2;
+    border-radius: 50%;
+}
+
+@keyframes rotate {
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
+}
+div.aicwp-chat-message.aicwp-chat-message-assistant[id^="loading"] {
+    background: none;
+    box-shadow: none;
+    padding: 0;
+    font-weight: 500;
+    color: #666;
+    margin-left: 0;
+}
+
+div.aicwp-chat-message.aicwp-chat-message-assistant[id^="loading"] .aicwp-chat-message-avatar {
+    display: none;
+}
+
+/* Input Area */
+.aicwp-chat-input-wrapper {
+    border-top: 1px solid #e5e5e5;
+    padding: 16px;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    position: relative;
+}
+
+.aicwp-chat-input {
+    flex: 1;
+    padding: 12px 15px !important;
+    border: none !important;
+    border-radius: 8px;
+    font-size: 15px !important;
+    font-family: inherit;
+    resize: none;
+    min-height: 48px !important;
+    min-width: auto  !important;
+    height: 48px !important;
+    min-width: auto;
+    margin-bottom: 0;
+    box-shadow: none !important;
+    border-radius: 50px !important;
+    padding-right: 50px !important;
+    line-height: 22px !important;
+    box-sizing: border-box;
+}
+
+.aicwp-chat-input:not(.elementor-chat-style .aicwp-chat-input) {
+    background: #f5f5f5 !important;
+}
+
+.aicwp-chat-input {
+    background: #f5f5f5; 
+    color: #666 !important;
+}
+
+.aicwp-chat-input::placeholder {
+    color: #888 !important
+}
+
+
+body#dark-mode .aicwp-chat-input {background: #f5f5f5; color: #555;}
+
+.aicwp-chat-input:focus {
+    outline: none;
+    border-color: #d0d0d0;
+}
+
+.aicwp-chat-send-btn {
+    background: #222;
+    color: white;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+    flex-shrink: 0;
+    font-weight: 500;
+    align-self: stretch;
+    transition: 0.2s;
+    right: 24px;
+    line-height: 24px;
+    top: 50%;
+    position: absolute !important;
+    border-radius: 50px !important;
+    height: 34px !important;
+    width: 34px !important;
+    min-width: 34px !important;
+    max-width: 34px !important;
+    max-height: 34px !important;
+    min-height: 34px !important;
+    transform: translateY(-50%);
+    margin: 0;
+}
+
+.aicwp-chat-send-btn img{
+    width: auto;
+    height: auto;
+    min-width: 25px;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+.aicwp-chat-send-btn:hover {
+    background: #222;
+}
+
+.aicwp-chat-send-btn:disabled {
+    background: #555;
+    cursor: not-allowed;
+}
+
+/* Best Match Badge - Simple and Clean (matches frontend) */
+.match-badge.best {
+    font-weight: 600;
+    font-size: 12px;
+    padding: 0px 8px;
+    line-height: 16px;
+    text-shadow: none;
+    border-radius: 50px;
+    background: #00b54d21;
+    display: flex;
+    justify-content: center;
+    align-content: center;
+    flex-wrap: wrap;
+    color: #27ae60;
+    height: 21px;
+    position: relative;
+    top: -1px;
+    display: inline-block;
+}
+
+/* Listing structure adjustments for sidebar */
+.aicwp-listing-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-width: 0;
+}
+
+.aicwp-listing-sidebar {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-end;
+    gap: 4px;
+    min-width: 100px;
+}
+
+.aicwp-listing-sidebar:empty {
+    display: none;
+}
+
+/* Disabled State */
+.aicwp-chat-disabled {
+    background: #fff3cd;
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+    color: #856404;
+}
+.aicwp-chat-disabled p { margin: 0}
+/* Listing items without thumbnails */
+.aicwp-listing-item:not(:has(.aicwp-listing-thumbnail)) .aicwp-listing-details {
+    padding-left: 16px;
+}
+
+/* Product Context Button (WooCommerce) */
+#product-context-btn {
+    text-align: center;
+    justify-content: center;
+    margin: 15px 0;
+}
+
+.aicwp-product-context-title {
+    font-size: 16px;
+    color: #333;
+    font-weight: 500;
+    margin: 0 0 12px 0;
+    text-align: center;
+}
+
+.aicwp-load-product-btn {
+    background: #222;
+    color: white;
+    border: none;
+    border-radius: 24px;
+    padding: 8px 20px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.aicwp-load-product-btn:hover {
+    opacity: 0.9;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.aicwp-load-product-btn:active {
+    transform: scale(0.98);
+}
+
+.aicwp-load-product-btn svg {
+    flex-shrink: 0;
+}
+
+.aicwp-load-product-btn.loading {
+    opacity: 0.7;
+    cursor: wait;
+}
+
+.aicwp-load-product-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Context Loaded Confirmation Icon */
+.context-loaded-icon {
+    display: inline-block;
+    vertical-align: middle;
+    margin-right: 4px;
+    color: #222;
+}
+
+
+/*--------------------------------------
+# Popular Searches
+---------------------------------------*/
+.aicwp-popular-searches {
+    margin-top: 30px;
+    padding: 0;
+}
+
+.popular-searches-header {
+    font-size: 14px;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 12px;
+}
+
+.popular-searches-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.popular-search-tag {
+    background: var(--ai-chat-primary-color-light);
+    border-radius: 50px;
+    padding: 5px 13px;
+    font-size: 13px;
+    color: var(--ai-chat-primary-color);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-weight: 500;
+    border: none;
+    line-height: 22px;
+}
+
+.popular-search-tag:hover {
+    background: var(--ai-chat-primary-color, #222);
+    color: white;
+    border-color: var(--ai-chat-primary-color, #222);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.popular-search-tag:active {
+    transform: translateY(0);
+}
+
+/*--------------------------------------
+# Elementor Custom Styles
+---------------------------------------*/
+.elementor-chat-style .aicwp-chat-wrapper { height: auto !important;}
+
+.elementor-chat-style .aicwp-chat-wrapper .aicwp-chat-messages {
+    max-height: 0;
+    height: 400px;
+    padding: 0 20px; /* Keep horizontal padding, remove vertical */
+    transition: max-height 0.7s cubic-bezier(0.4, 0, 0.2, 1),
+                padding 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    scroll-behavior: smooth;
+}
+
+.elementor-chat-style .aicwp-chat-wrapper.expanded .aicwp-chat-messages {
+    max-height: 400px;
+    padding: 20px;
+}
+.elementor-chat-style .aicwp-chat-container {
+    border: none;
+    zoom: 1.12;
+    position: relative;
+}
+
+.elementor-chat-style .aicwp-chat-container {border-radius: 10px; transition: 0.3s;}
+.elementor-chat-style .aicwp-chat-wrapper.expanded .aicwp-chat-container {border-radius: 10px;}
+
+.elementor-chat-style .aicwp-chat-messages {
+    background: transparent;
+}
+
+.elementor-chat-style .aicwp-chat-wrapper.expanded .aicwp-chat-messages {
+
+}
+
+.elementor-chat-style .aicwp-chat-input {
+    background: transparent;
+}
+
+.elementor-chat-style .aicwp-chat-input-wrapper {
+    border: none;
+    background: transparent;
+    border-radius: 10px;
+    padding: 12px;
+}
+
+.elementor-chat-style .aicwp-chat-input-wrapper {
+}
+
+.elementor-chat-style .aicwp-chat-message.aicwp-chat-message-system,
+.elementor-chat-style .aicwp-chat-message-assistant {
+box-shadow: none;
+background: transparent;
+padding: 12px 0;
+}
+
+.elementor-chat-style .aicwp-chat-avatar-wrapper { display: none; }
+.elementor-chat-style .aicwp-chat-message-avatar { top: 10px; }
+
+/* Elementor style avatar adjustments */
+.elementor-chat-style .aicwp-chat-message-assistant.has-avatar {
+    margin-left: 32px;
+    padding-left: 0;
+}
+
+.elementor-chat-style .aicwp-chat-title {
+    display: none;
+}
+
+.elementor-chat-style .aicwp-chat-header {
+    border: none;
+    background: transparent;
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    opacity: 0;transition: 0.3s;z-index: 111;
+    left: 15px; top: 15px;
+    display: none;overflow: hidden;padding: 0;
+}
+
+
+.elementor-chat-style .aicwp-chat-wrapper.expanded  .aicwp-chat-header{
+    opacity: 1;
+    display: block;
+    background: transparent !important;
+}
+
+.elementor-chat-style .aicwp-chat-message-system { display: none; }
+
+.elementor-chat-style .aicwp-chat-message-user {
+    padding: 8px 15px; border-radius: 30px;
+}
+
+.elementor .elementor-chat-style  .aicwp-listing-item {
+    border: 1px solid #e0e0e0;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.07);
+}
+
+.elementor .elementor-chat-style  .aicwp-listing-item:hover {
+    border: 1px solid #ddd;
+    box-shadow: 0 3px 6px rgba(0,0,0,0.1);
+}
+.elementor-chat-style .aicwp-chat-menu { position: absolute; top: 0; right: 10px; }
+
+.elementor-chat-style .aicwp-chat-quick-buttons {
+    max-height: 0;
+    opacity: 0;
+    overflow: hidden;
+    padding: 0 15px;
+    margin: 0;
+    pointer-events: none;
+    transition: max-height 0.3s ease, opacity 0.3s ease, padding 0.3s ease, margin 0.3s ease;
+    background: transparent;
+}
+
+.elementor-chat-style  .aicwp-quick-btn { background-color: #f4f4f4; }
+
+.elementor-chat-style .aicwp-chat-wrapper.expanded .aicwp-chat-quick-buttons {
+    max-height: 100px;
+    opacity: 1;
+    padding: 0 20px;
+    padding-top: 15px;
+    margin-bottom: 0;
+    pointer-events: auto;
+}
+
+.elementor .aicwp-listing-item.aicwp-listing-item.aicwp-listing-hidden { display: none; }
+
+/*--------------------------------------
+# Powered by Badge
+---------------------------------------*/
+.aicwp-chat-powered-by {
+    text-align: center;
+    font-size: 12px;
+    color: #888;
+    background: transparent;
+    padding: 0;
+    margin: -10px 0 10px 0;
+    line-height: 27px;
+}
+
+.aicwp-chat-powered-by a {
+    color: var(--ai-chat-primary-color, #0073ee);
+    text-decoration: none;
+    font-weight: 600;
+    transition: color 0.2s ease;
+}
+
+.aicwp-chat-powered-by a:hover {
+    color: #111;
+}
+
+/* Elementor chat style adjustments */
+.elementor-chat-style .aicwp-chat-powered-by {
+    background: transparent;
+    border: none;
+    padding: 6px 12px;
+}
+
+/*--------------------------------------
+# Quick Action Buttons
+---------------------------------------*/
+.aicwp-chat-quick-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 16px 20px;
+    background: #f8f8f8
+}
+
+.aicwp-quick-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: #ebebeb;
+    line-height: 20px;
+    color: #777;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    /* box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08); */
+}
+
+/* Custom color buttons - show color in default state */
+.aicwp-quick-btn.has-custom-color {
+    background: var(--quick-btn-color-light);
+    color: var(--quick-btn-color);
+}
+
+.aicwp-quick-btn.has-custom-color .aicwp-btn-icon {
+    opacity: 1;
+    stroke: var(--quick-btn-color);
+}
+
+.aicwp-quick-btn:hover {
+    background: var(--quick-btn-color-light, var(--ai-chat-primary-color-light, rgba(0, 115, 238, 0.1)));
+    border-color: var(--quick-btn-color, var(--ai-chat-primary-color, #0073ee));
+    color: var(--quick-btn-color, var(--ai-chat-primary-color, #0073ee));
+}
+
+.aicwp-quick-btn:active {
+    transform: scale(0.97);
+}
+
+/* Button icon styling */
+.aicwp-btn-icon {
+    flex-shrink: 0;
+    opacity: 0.8;
+    transition: opacity 0.2s ease, stroke 0.2s ease;
+}
+
+.aicwp-quick-btn:hover .aicwp-btn-icon {
+    opacity: 1;
+    stroke: var(--quick-btn-color, var(--ai-chat-primary-color, #0073ee));
+}
+
+/* ==========================================================================
+   Contact Form Overlay
+   ========================================================================== */
+
+.aicwp-contact-form-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.3);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    box-sizing: border-box;
+    border-radius: inherit;
+}
+
+.aicwp-contact-form {
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+    width: 100%;
+    max-width: 340px;
+    max-height: 100%;
+    overflow-y: auto;
+}
+
+.aicwp-contact-form-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 20px;
+    padding-bottom: 0;
+    /* border-bottom: 1px solid #eee; */
+}
+
+.aicwp-contact-form-header h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #333;
+}
+
+.aicwp-contact-form-close {
+    background: none;
+    border: none;
+    padding: 6px !important;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    width: 28px !important;
+    height: 28px !important;
+    background: #f5f5f5;
+    min-width: auto !important;
+    min-height: auto !important;
+    box-sizing: border-box;
+}
+
+.aicwp-contact-form-close svg {
+    stroke: #888;
+    transition: stroke 0.2s ease;
+}
+
+.aicwp-contact-form-close:hover {
+    background: #eee;
+}
+
+.aicwp-contact-form-close:hover svg {
+    stroke: #333;
+}
+
+.aicwp-contact-form-body {
+    padding: 20px;
+}
+
+.aicwp-contact-form-field {
+    margin-bottom: 16px;
+}
+
+.aicwp-contact-form-field label {
+    display: block;
+    font-size: 13px;
+    font-weight: 500;
+    color: #555;
+    margin-bottom: 6px;
+}
+
+.aicwp-contact-form-field label .required {
+    color: #dc3545;
+}
+
+body .aicwp-contact-form-field input,
+body .aicwp-contact-form-field textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 14px;
+    height: 40px;
+    font-family: inherit;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    box-sizing: border-box;
+}
+.aicwp-contact-form-field input:focus,
+.aicwp-contact-form-field textarea:focus {
+    outline: none !important;
+    border-color: var(--ai-chat-primary-color, #0073ee) !important;
+    box-shadow: 0 0 0 3px var(--ai-chat-primary-color-light, rgba(0, 115, 238, 0.1)) !important;
+}
+
+.aicwp-contact-form-field textarea {
+    resize: vertical;
+    min-height: 80px;
+}
+
+.aicwp-contact-form-actions {
+    margin-top: 20px;
+}
+
+body .aicwp-contact-form-submit {
+    width: 100%;
+    padding: 8px 20px !important;
+    background: var(--ai-chat-primary-color, #0073ee);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    height: 42px !important;
+    min-height: 42px !important;
+    line-height: 20px !important;
+    font-size: 14px !important;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.aicwp-contact-form-submit:hover {
+    background: color-mix(in srgb, var(--ai-chat-primary-color, #0073ee) 85%, #000);
+}
+
+.aicwp-contact-form-submit:active {
+    transform: scale(0.98);
+}
+
+.aicwp-contact-form-submit:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+.aicwp-contact-form-submit .button-spinner {
+    display: flex;
+    align-items: center;
+}
+
+.aicwp-contact-form-message {
+    margin-top: 16px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    text-align: center;
+}
+
+.aicwp-contact-form-message.success {
+    background: #d4edda;
+    color: #155724;
+}
+
+.aicwp-contact-form-message.error {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+/* ==========================================================================
+   Pre-Chat Required Fields Form
+   Reuses contact form field styles but positioned inline (not overlay)
+   ========================================================================== */
+
+.aicwp-pre-chat-form {
+    position: relative;
+    background: #fff;
+    border: none;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08);
+    width: 100%;
+    max-width: 400px;
+    box-sizing: border-box;
+}
+
+.aicwp-pre-chat-form .aicwp-contact-form-body {
+    padding: 14px 20px 16px;
+}
+
+.elementor-chat-style .aicwp-pre-chat-form {
+    margin-top: 40px;
+    zoom: 0.9;
+    max-width: 400px;
+    box-shadow: none;
+    background: #f8f8f8;
+}
+
+.aicwp-pre-chat-form .aicwp-contact-form-field {
+    margin-bottom: 12px;
+}
+
+.aicwp-pre-chat-form .aicwp-contact-form-actions {
+    margin-top: 14px;
+}
+
+/* ==========================================================================
+   Image Input Button
+   ========================================================================== */
+
+.aicwp-chat-image-btn {
+    position: absolute !important;
+    left: 24px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 34px !important;
+    height: 34px !important;
+    min-width: 34px !important;
+    min-height: 34px !important;
+    max-width: 34px !important;
+    max-height: 34px !important;
+    border-radius: 50px !important;
+    border: none;
+    background: #fff !important;
+    color: #888;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    padding: 0 !important;
+    z-index: 2;
+}
+
+.aicwp-chat-image-btn:hover {
+    background: var(--ai-chat-primary-color-light, rgba(0, 115, 238, 0.1)) !important;
+    border-color: var(--ai-chat-primary-color, #0073ee);
+    color: var(--ai-chat-primary-color, #0073ee);
+}
+
+.aicwp-chat-image-btn:hover svg {
+    stroke: var(--ai-chat-primary-color, #0073ee);
+}
+
+.aicwp-chat-image-btn svg {
+    flex-shrink: 0;
+    transition: stroke 0.2s ease;
+}
+
+/* Image attached state */
+.aicwp-chat-image-btn.has-image {
+    background: var(--ai-chat-primary-color-light, rgba(0, 115, 238, 0.1)) !important;
+    color: var(--ai-chat-primary-color, #0073ee);
+}
+
+.aicwp-chat-image-btn.has-image svg {
+    stroke: var(--ai-chat-primary-color, #0073ee);
+}
+
+/* Image count badge */
+.aicwp-chat-image-btn .image-count-badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    min-width: 16px;
+    height: 16px;
+    background: var(--ai-chat-primary-color, #0073ee);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 600;
+    border-radius: 50%;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    padding: 0 4px;
+    box-sizing: border-box;
+}
+
+.aicwp-chat-image-btn.has-image .image-count-badge {
+    display: flex;
+}
+
+/* Input padding when image button is present */
+.aicwp-chat-input.has-image-input {
+    padding-left: 50px !important;
+}
+
+/* Image Preview */
+.aicwp-chat-image-preview {
+    position: relative;
+    display: inline-block;
+    margin: 8px 0;
+    max-width: 150px;
+}
+
+.aicwp-chat-image-preview img {
+    max-width: 100%;
+    max-height: 100px;
+    border-radius: 8px;
+    object-fit: cover;
+}
+
+.aicwp-chat-image-preview-remove {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #ff4444;
+    color: white;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    line-height: 1;
+    padding: 0;
+}
+
+.aicwp-chat-image-preview-remove:hover {
+    background: #cc0000;
+}
+
+/* User message with image */
+.aicwp-chat-message-user .aicwp-chat-user-image {
+    max-width: 200px;
+    max-height: 150px;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    display: block;
+}
+
+.aicwp-chat-message-user .aicwp-chat-user-image + .aicwp-chat-message-content {
+    margin-top: 0;
+}
+
+/* ==========================================================================
+   Custom Tooltips
+   ========================================================================== */
+
+.aicwp-tooltip {
+    position: fixed;
+    background: #222;
+    color: #fff;
+    padding: 6px 10px;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.3;
+    border-radius: 8px;
+    white-space: nowrap;
+    z-index: 9999999;
+    pointer-events: none;
+    opacity: 0;
+    transform: translateX(-50%) translateY(-4px);
+    transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.aicwp-tooltip.visible {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+
+/* Triangle indicator below tooltip */
+.aicwp-tooltip::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border-width: 5px;
+    border-style: solid;
+    border-color: #222 transparent transparent transparent;
+}
+
+/* =============================================
+   Typing Animation
+   ============================================= */
+
+/* Default: words are visible (for restored messages) */
+.stream-word {
+    display: inline;
+}
+
+/* Hidden state ONLY during active animation */
+.streaming-active .stream-word {
+    display: none;
+}
+
+/* Hide block elements (li, p, headings) until their content appears - ONLY during active animation */
+.streaming-active .stream-block-hidden {
+    display: none;
+}
+
+/* Visible state during animation - fade in smoothly */
+.streaming-active .stream-word.visible {
+    display: inline;
+    animation: streamWordFadeIn 0.15s ease-out forwards;
+}
+
+@keyframes streamWordFadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+/* Fade trail effect - most recent words are more faded */
+.streaming-active .stream-word.trail-1 {
+    opacity: 0.4;
+}
+
+.streaming-active .stream-word.trail-2 {
+    opacity: 0.55;
+}
+
+.streaming-active .stream-word.trail-3 {
+    opacity: 0.7;
+}
+
+.streaming-active .stream-word.trail-4 {
+    opacity: 0.85;
+}
+
+.streaming-active .stream-word.trail-5 {
+    opacity: 0.95;
+}
+
+
+
+/* =============================================
+   Chat window Header with Image
+   ============================================= */
+.aicwp-floating-chat-popup.chat-image-header .aicwp-chat-header {
+   height: 120px;
+    position: relative;
+    border-bottom: none;
+}
+
+.aicwp-floating-chat-popup.chat-image-header .aicwp-chat-header-left {
+    z-index: 100;
+    align-self: flex-end;
+    top: 20px;
+    position: relative;
+}
+
+.aicwp-floating-chat-popup.chat-image-header .aicwp-chat-menu {
+    align-self: flex-start;
+}
+
+.aicwp-floating-chat-popup.chat-image-header .aicwp-chat-avatar {
+    height: 45px;
+    width: 45px;
+    box-shadow: 0 0 0 3px rgba(255,255,255,0.4);
+}
+
+.aicwp-floating-chat-popup.chat-image-header .aicwp-chat-header {
+  background-image: var(--header-bg-image);
+  background-size: cover;
+  background-position: center;
+  background-color: var(--header-bg-color);
+}
+
+.aicwp-floating-chat-popup.chat-image-header .aicwp-chat-avatar-wrapper {
+    top: 15px;
+    position: relative;
+}
+
+.aicwp-floating-chat-popup.chat-image-header .aicwp-chat-title {
+    display: none; 
+}
+
+.aicwp-floating-chat-popup.chat-image-header .aicwp-chat-menu-trigger,
+.aicwp-floating-chat-popup.chat-image-header .aicwp-chat-cart-toggle {
+    color: #fff;
+}
+
+.aicwp-floating-chat-popup.chat-image-header .aicwp-chat-darkmode-toggle:hover,
+.aicwp-floating-chat-popup.chat-image-header .aicwp-chat-menu-trigger:hover,
+.aicwp-floating-chat-popup.chat-image-header .aicwp-chat-menu-trigger[aria-expanded="true"],
+.aicwp-floating-chat-popup.chat-image-header .aicwp-chat-cart-toggle:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+
+.chat-image-bg-welcome-text {
+    padding-top: 20px;
+}
+
+.chat-image-bg-welcome-text p,
+.chat-image-bg-welcome-text h3 { 
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+.chat-image-bg-welcome-text h3 { 
+    color: #111;
+    font-size: 21px !important;
+    font-weight: 600;
+    padding-bottom: 5px !important;
+    line-height: 28px;
+}
+
+.chat-image-bg-welcome-text p { 
+    color: #666;
+    font-size: 17px !important;
+    font-weight: 400;
+    line-height: 28px !important;
+}
+
+
+/* Styles with image overlay */
+.aicwp-floating-chat-popup.chat-image-header.chat-image-header-overlay .aicwp-chat-header:before {
+   content: "";
+    background: linear-gradient(transparent 20%, #ffffff47 50%, #fff);
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 2;
+    pointer-events: none;
+}
+
+.aicwp-floating-chat-widget:not(.dark-mode) .aicwp-floating-chat-popup.chat-image-header.chat-image-header-overlay .aicwp-chat-messages{
+    background: linear-gradient(#fff 50%, #f8f8f8);
+}
+
+.aicwp-floating-chat-popup.chat-image-header.chat-image-header-overlay .aicwp-chat-header {
+   height: 150px;
+}
+
+.aicwp-floating-chat-popup.chat-image-header.chat-image-header-overlay .aicwp-chat-avatar-wrapper {
+    top: 0;
+}
+
+.aicwp-floating-chat-popup.chat-image-header.chat-image-header-overlay .chat-image-bg-welcome-text {
+    padding-top: 5px;
+}
+
+.aicwp-floating-chat-popup.chat-image-header .aicwp-chat-header-left,
+.aicwp-floating-chat-popup.chat-image-header .chat-image-bg-welcome-text {
+    padding-left: 10px;
+}
+
+
+/* Dark mode adjustments */
+.aicwp-floating-chat-widget.dark-mode .chat-image-bg-welcome-text h3 { 
+    color: #fff  !important;
+}
+.aicwp-floating-chat-widget.dark-mode  .chat-image-bg-welcome-text p { 
+    color: #bbb  !important;
+}
+.aicwp-floating-chat-popup.chat-image-header .aicwp-chat-darkmode-toggle svg,
+.aicwp-floating-chat-widget.dark-mode .aicwp-floating-chat-popup.chat-image-header .aicwp-chat-menu-trigger,
+.aicwp-floating-chat-popup.chat-image-header .aicwp-chat-cart-toggle,
+.aicwp-floating-chat-widget.dark-mode .aicwp-floating-chat-popup.chat-image-header .aicwp-chat-cart-toggle {
+    color: #fff  !important;
+}
+.aicwp-floating-chat-widget.dark-mode .aicwp-floating-chat-popup.chat-image-header.chat-image-header-overlay .aicwp-chat-header:before {
+    background: linear-gradient(transparent 20%, var(--chat-bg));
+}
+
+.aicwp-floating-chat-widget.dark-mode .aicwp-floating-chat-popup.chat-image-header .aicwp-chat-avatar {
+    box-shadow: 0 0 0 3px rgba(0,0,0,0.2);
+}
+
+/* =============================================
+   Animated Wave Header
+   ============================================= */
+
+.aicwp-silk-wave-wrap {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    z-index: 0;
+    border-radius: inherit;
+    will-change: transform;
+}
+
+.aicwp-silk-wave-canvas {
+    display: block;
+    width: 100%;
+    height: calc(100% - 1px);
+    filter: contrast(1.3);
+}
+
+.dark-mode .aicwp-silk-wave-canvas {
+    filter: contrast(1.1);
+}
+
+.aicwp-silk-wave-grain {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    pointer-events: none;
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-size: 256px 256px;
+}
+
+.aicwp-floating-chat-popup.chat-animated-header .aicwp-chat-header {
+    background-image: none;
+    background-color: transparent;
+}
+
+.aicwp-floating-chat-popup.chat-animated-header .aicwp-chat-header-left,
+.aicwp-floating-chat-popup.chat-animated-header .aicwp-chat-menu {
+    z-index: 10;
+    position: relative;
+}
+
+/* ==========================================================================
+   CART TOGGLE BUTTON (Header)
+   ========================================================================== */
+
+.aicwp-chat-cart-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    cursor: pointer;
+    color: #777;
+    transition: all 0.15s ease;
+    position: relative;
+}
+
+.aicwp-chat-cart-toggle > svg {
+    position: relative;
+    left: -1px;
+}
+
+.aicwp-chat-cart-toggle:hover {
+    background: rgba(0, 0, 0, 0.05);
+    color: #333;
+}
+
+.aicwp-cart-badge {
+    position: absolute;
+    top: 1px;
+    right: 1px;
+    background: var(--ai-chat-primary-color, #0073ee);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 1;
+    min-width: 16px;
+    height: 16px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 4px;
+    box-sizing: border-box;
+    pointer-events: none;
+}
+
+/* ==========================================================================
+   ADD TO CART BUTTON (Product Cards)
+   ========================================================================== */
+
+/* Product card as div (when cart enabled) - match <a> card styling */
+div.aicwp-product-card {
+    cursor: default;
+}
+
+div.aicwp-product-card .aicwp-listing-title a {
+    color: inherit;
+    text-decoration: none;
+}
+
+div.aicwp-product-card .aicwp-listing-title a:hover {
+    color: var(--ai-chat-primary-color, #0073ee);
+}
+
+div.aicwp-product-card .aicwp-listing-thumbnail a {
+    display: block;
+}
+
+.aicwp-atc-wrapper {
+    display: flex;
+    margin-top: 8px;
+    margin-bottom: 3px;
+}
+
+.aicwp-add-to-cart-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 12px;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.4;
+    color: var(--ai-chat-primary-color, #0073ee);
+    background: var(--ai-chat-primary-color-light, rgba(0, 115, 238, 0.1));
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-decoration: none !important;
+    white-space: nowrap;
+    width: auto;
+}
+
+.aicwp-add-to-cart-btn:hover {
+    background: var(--ai-chat-primary-color, #0073ee);
+    color: #fff;
+    text-decoration: none !important;
+}
+
+.aicwp-add-to-cart-btn.loading {
+    pointer-events: none;
+}
+
+.aicwp-add-to-cart-btn.added {
+    background: #27ae60;
+    color: #fff;
+}
+
+.aicwp-add-to-cart-btn svg {
+    flex-shrink: 0;
+}
+
+/* ==========================================================================
+   CART POPUP OVERLAY
+   ========================================================================== */
+
+.aicwp-cart-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.3);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    box-sizing: border-box;
+    border-radius: inherit;
+}
+
+.aicwp-cart-popup {
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+    width: 100%;
+    max-width: 360px;
+    max-height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.aicwp-cart-popup-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid #eee;
+    flex-shrink: 0;
+}
+
+.aicwp-cart-popup-header h3 {
+    margin: 0;
+    font-size: 16px !important;
+    font-weight: 600;
+    color: #333;
+    display: flex;
+    align-items: center;
+}
+
+.aicwp-cart-popup-close {
+    background: #f5f5f5;
+    border: none;
+    padding: 6px !important;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    width: 28px !important;
+    height: 28px !important;
+    min-width: auto !important;
+    min-height: auto !important;
+    box-sizing: border-box;
+}
+
+.aicwp-cart-popup-close svg {
+    stroke: #888;
+    transition: stroke 0.2s ease;
+}
+
+.aicwp-cart-popup-close:hover {
+    background: #eee;
+}
+
+.aicwp-cart-popup-close:hover svg {
+    stroke: #333;
+}
+
+.aicwp-cart-popup-body {
+    overflow-y: auto;
+    flex: 1;
+    padding: 12px 16px;
+    min-height: 60px;
+}
+
+.aicwp-cart-loading {
+    display: flex;
+    justify-content: center;
+    padding: 20px;
+    color: #aaa;
+}
+
+.aicwp-cart-spinner {
+    animation: aicwp-cart-spin 0.8s linear infinite;
+}
+
+@keyframes aicwp-cart-spin {
+    to { transform: rotate(360deg); }
+}
+
+.aicwp-cart-empty {
+    text-align: center;
+    padding: 24px 16px;
+    color: #888;
+    font-size: 14px;
+}
+
+.aicwp-cart-empty p {
+    margin: 0;
+    font-size: 14px;
+}
+
+/* Cart Item */
+.aicwp-cart-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid #f0f0f0;
+    transition: opacity 0.2s ease;
+}
+
+.aicwp-cart-item:last-child {
+    border-bottom: none;
+}
+
+.aicwp-cart-item-image {
+    width: 48px;
+    height: 48px;
+    border-radius: 6px;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.aicwp-cart-item-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.aicwp-cart-item-details {
+    flex: 1;
+    min-width: 0;
+}
+
+.aicwp-cart-item-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #333;
+    text-decoration: none;
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.3;
+}
+
+.aicwp-cart-item-title:hover {
+    color: var(--ai-chat-primary-color, #0073ee);
+    text-decoration: none;
+}
+
+.aicwp-cart-item-price {
+    font-size: 13px;
+    color: #666;
+    margin-top: 0;
+}
+
+.aicwp-cart-item-qty {
+    display: inline-flex;
+    align-items: center;
+    gap: 0;
+    margin-top: 4px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.aicwp-cart-qty-minus,
+.aicwp-cart-qty-plus {
+    width: 26px;
+    height: 24px;
+    border: none;
+    background: #f8f8f8;
+    color: #555;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s ease;
+    padding: 0 !important;
+    min-width: auto !important;
+    min-height: auto !important;
+    line-height: 1;
+}
+
+.aicwp-cart-qty-minus:hover,
+.aicwp-cart-qty-plus:hover {
+    background: #eee;
+}
+
+.aicwp-cart-qty-value {
+    width: 28px;
+    text-align: center;
+    font-size: 12px;
+    font-weight: 500;
+    color: #333;
+    line-height: 24px;
+    border-left: 1px solid #ddd;
+    border-right: 1px solid #ddd;
+}
+
+.aicwp-cart-item-remove {
+    background: none;
+    border: none;
+    padding: 4px !important;
+    cursor: pointer;
+    color: #bbb;
+    transition: color 0.15s ease;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: auto !important;
+    min-height: auto !important;
+    width: auto !important;
+    height: auto !important;
+}
+
+.aicwp-cart-item-remove:hover {
+    color: #e74c3c;
+}
+
+/* Cart Footer */
+.aicwp-cart-popup-footer {
+    border-top: 1px solid #eee;
+    padding: 14px 20px;
+    flex-shrink: 0;
+}
+
+.aicwp-cart-subtotal-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #333;
+}
+
+.aicwp-cart-popup-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.aicwp-cart-view-btn,
+.aicwp-cart-checkout-btn {
+    flex: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 14px;
+    font-size: 13px;
+    font-weight: 500;
+    border-radius: 8px;
+    text-decoration: none;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    text-align: center;
+}
+
+.aicwp-cart-view-btn {
+    color: #555;
+    background: #f0f0f0;
+    border: none;
+}
+
+.aicwp-cart-view-btn:hover {
+    background: #e5e5e5;
+    color: #333;
+    text-decoration: none;
+}
+
+.aicwp-cart-checkout-btn {
+    color: #fff;
+    background: var(--ai-chat-primary-color, #0073ee);
+    border: 1px solid transparent;
+}
+
+.aicwp-cart-checkout-btn:hover {
+    opacity: 0.9;
+    color: #fff;
+    text-decoration: none;
+}
+

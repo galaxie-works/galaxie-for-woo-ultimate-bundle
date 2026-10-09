@@ -1,0 +1,7 @@
+* text=auto
+*.png binary
+*.jpg binary
+*.mo binary
+*.svg text
+.gitignore export-ignore
+.gitattributes export-ignore

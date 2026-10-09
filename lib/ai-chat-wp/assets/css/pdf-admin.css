@@ -1,0 +1,361 @@
+/**
+ * PDF Admin UI Styles
+ * AI Chat & Search Pro
+ */
+
+/* PDF Card Styling - No thick border */
+.post-type-card.pdf-card {
+    /* No special border - matches other cards */
+}
+
+/* PDF Upload Link - Match manual-selection-link styling exactly */
+.pdf-upload-link {
+    font-size: 13px;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 10px;
+    border-radius: 4px;
+    transition: all 0.2s;
+    font-weight: 500;
+    line-height: 1;
+    background: #2271b120;
+    color: #2271b1;
+    border: 1px solid #2271b130;
+}
+
+.pdf-upload-link:hover {
+    background: #2271b130;
+    border-color: #2271b150;
+}
+
+/* Green styling when post type is enabled (matches manual-selection-link.active) */
+.post-type-card.enabled .pdf-upload-link {
+    background: #00a32a20;
+    color: #00a32a;
+    border: 1px solid #00a32a30;
+}
+
+.post-type-card.enabled .pdf-upload-link:hover {
+    background: #00a32a30;
+    border-color: #00a32a50;
+}
+
+.pdf-upload-link .dashicons {
+    font-size: 13px;
+    width: 13px;
+    height: 13px;
+}
+
+/* PDF Modal Content */
+.pdf-modal-content {
+    max-width: 700px;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+/* Upload Section */
+.pdf-upload-section {
+    margin-bottom: 30px;
+}
+
+.pdf-upload-section h3 {
+    margin-top: 0;
+    margin-bottom: 10px;
+}
+
+.pdf-upload-form {
+    margin-top: 15px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.pdf-upload-status {
+    color: #666;
+    font-size: 13px;
+}
+
+/* Upload Progress */
+.pdf-upload-progress {
+    margin-top: 20px;
+}
+
+.progress-bar {
+    width: 100%;
+    height: 20px;
+    background: #f0f0f0;
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 10px;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #4CAF50, #45a049);
+    width: 0%;
+    transition: width 0.3s ease;
+}
+
+.progress-text {
+    text-align: center;
+    font-size: 13px;
+    color: #666;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.progress-text .dashicons {
+    color: #2271b1;
+}
+
+/* PDF Documents List */
+#pdf-documents-list {
+    margin-top: 15px;
+    overflow: auto;
+    max-height: 500px;
+}
+
+.pdf-document-item {
+    background: #f9f9f9;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 15px;
+    margin-bottom: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.pdf-document-info {
+    flex: 1;
+}
+
+.pdf-document-name {
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 5px;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+}
+
+.pdf-document-name .dashicons {
+    color: #222;
+    font-size: 18px;
+}
+
+/* File Type Badge */
+.file-type-badge {
+    display: inline-block;
+    font-size: 9px;
+    font-weight: 700;
+    padding: 0 3px;
+    border-radius: 3px;
+    margin-left: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    vertical-align: middle;
+}
+
+.file-type-badge.file-type-pdf {
+    background: #dc354515;
+    color: #dc3545;
+    border: 1px solid #dc354530;
+}
+
+.file-type-badge.file-type-txt {
+    background: #6c757d15;
+    color: #6c757d;
+    border: 1px solid #6c757d30;
+}
+
+.file-type-badge.file-type-md {
+    background: #0d6efd15;
+    color: #0d6efd;
+    border: 1px solid #0d6efd30;
+}
+
+.file-type-badge.file-type-xml {
+    background: #fd7e1415;
+    color: #fd7e14;
+    border: 1px solid #fd7e1430;
+}
+
+.file-type-badge.file-type-csv {
+    background: #19875415;
+    color: #198754;
+    border: 1px solid #19875430;
+}
+
+.pdf-document-meta {
+    font-size: 12px;
+    color: #666;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.pdf-document-meta span {
+    margin-right: 5px;
+}
+
+/* Status Badges */
+.pdf-status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1;
+}
+
+.pdf-status-badge.status-indexed {
+    background: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.pdf-status-badge.status-training {
+    background: #fff3cd;
+    color: #856404;
+    border: 1px solid #ffeaa7;
+}
+
+.pdf-status-badge.status-pending {
+    background: #f8f9fa;
+    color: #6c757d;
+    border: 1px solid #dee2e6;
+}
+
+.pdf-document-actions {
+    display: flex;
+    gap: 10px;
+}
+
+/* PDF Action Buttons (Train/Delete) - Match manual-selection-link styling */
+.pdf-action-btn {
+    font-size: 13px;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 10px;
+    border-radius: 4px;
+    transition: all 0.2s;
+    font-weight: 500;
+    line-height: 1;
+    box-shadow: none;
+}
+
+.pdf-action-btn.pdf-train-btn {
+    background: #2271b120;
+    color: #2271b1;
+    border: 1px solid #2271b130;
+}
+
+.pdf-action-btn.pdf-train-btn:hover {
+    background: #2271b130;
+    border-color: #2271b150;
+}
+
+.pdf-action-btn.pdf-delete-btn {
+    background: #dc354520;
+    color: #dc3545;
+    border: 1px solid #dc354530;
+}
+
+.pdf-action-btn.pdf-delete-btn:hover {
+    background: #dc354530;
+    border-color: #dc354550;
+}
+
+.pdf-action-btn .dashicons {
+    font-size: 13px;
+    width: 13px;
+    height: 13px;
+}
+
+.pdf-document-actions .button-link {
+    color: #dc3545;
+    text-decoration: none;
+    cursor: pointer;
+    padding: 5px 10px;
+}
+
+.pdf-document-actions .button-link:hover {
+    color: #c82333;
+    text-decoration: underline;
+}
+
+.pdf-no-documents,
+.loading-message {
+    text-align: center;
+    padding: 30px 20px;
+    color: #666;
+    background: #f9f9f9;
+    border-radius: 4px;
+    margin: 0;
+    font-style: normal;
+}
+
+.loading-message { 
+    display: flex;
+    gap: 5px;
+    justify-content: center;
+}
+
+.pdf-no-documents .aicwp-ui-spinner,
+.loading-message  .aicwp-ui-spinner {
+    zoom: 0.9;
+    position: relative;
+    top: 2px;
+}
+
+ #aicwp-ui-add-results .loading-message .aicwp-ui-spinner {top: 0;}
+.pdf-status-badge.status-training .aicwp-ui-spinner { zoom: 0.7; position: relative; margin-left: -5px;}
+
+.loading-message .dashicons {
+    color: #2271b1;
+}
+
+/* Spinning animation for loader */
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.spin {
+    animation: spin 1s linear infinite;
+    display: inline-block;
+}
+
+/* Error Messages */
+.pdf-error {
+    background: #f8d7da;
+    border: 1px solid #f5c6cb;
+    color: #721c24;
+    padding: 12px;
+    border-radius: 4px;
+    margin: 10px 0;
+}
+
+.pdf-success {
+    background: #d4edda;
+    border: 1px solid #c3e6cb;
+    color: #155724;
+    padding: 12px;
+    border-radius: 4px;
+    margin: 10px 0;
+}

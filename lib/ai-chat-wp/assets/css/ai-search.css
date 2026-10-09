@@ -1,0 +1,1500 @@
+/**
+ * AI Chat - Search Styles
+ *
+ * @package AI Chat for WordPress
+ */
+
+.ai-chat-wp-container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    overflow: visible;
+    position: relative;
+}
+
+/* Modern Search Form */
+.ai-search-form-wrapper {
+    position: relative;
+    margin-bottom: 0;
+    overflow: visible;
+    
+}
+
+
+.fs-content .ai-search-form-wrapper,
+.sidebar .ai-search-form-wrapper{
+        position: relative;
+        height: 51px;
+        padding: 0 20px;
+        margin: 0;
+        outline: none;
+        font-size: 15px;
+        color: #888;
+        max-width: 100%;
+        width: 100%;
+        box-sizing: border-box;
+        font-weight: 500;
+        opacity: 1;
+        border-radius: 4px;
+        transition: 0.2s;
+        background-color: #fff;
+        border: 1px solid #dbdbdb;
+        box-shadow: 0 1px 3px 0px rgba(0, 0, 0, 0.06);
+        margin-bottom: 18px;
+        display: flex;
+        align-items: center;
+}
+
+.ai-chat-wp-form {
+    margin: 0;
+}
+
+.search-input-wrapper {
+    display: flex;
+    align-items: center;
+    position: relative;
+    /* background: white;
+    border: 1px solid #e0e0e0; */
+}
+
+.search-input-wrapper input[name="ai_search_hp"] {
+    position: absolute;
+    left: -9999px;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    background: transparent;
+}
+
+.search-input-wrapper {
+    border-radius: 4px;
+    overflow: visible;
+    /* transition: all 0.3s ease;
+    box-shadow: 0 2px 6px rgb(0 0 0 / 8%);
+    padding: 4px; */
+    justify-content: space-between;
+    width: 100%;
+}
+
+/* .search-input-wrapper:focus-within {
+    border-color: #8b5cf6;
+    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1), 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+} */
+
+.search-input-icon {
+    padding: 0 7px 0 0;
+    display: flex;
+    align-items: center;
+}
+
+.search-stars {
+    font-size: 18px;
+    opacity: 0.9;
+    width: 20px;
+}
+
+
+
+.ai-btn-container {
+    position: relative;
+}
+
+.ai-btn-container.ai-btn-error .ai-search-button {
+    opacity: 0;
+    visibility: hidden;
+}
+
+/* Clean consolidated button styles */
+.ai-search-button {
+    padding: 1px 12px;
+    background: linear-gradient(135deg, #a98fe5, #7c3aed);
+    color: white;
+    border: none;
+    border-radius: 50px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+    white-space: nowrap;
+    line-height: 24px;
+    transition: all 0.3s ease;
+    background:linear-gradient(292deg, #8b5cf6, #ec4899, #f59e0b);
+}
+
+.ai-search-button:hover:not(:disabled) {
+    /* background: linear-gradient(135deg, #7c3aed, #6d28d9);
+    transform: translateY(-1px); */
+    /* box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4); */
+}
+
+.ai-search-button:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.ai-search-button.loading-ai {
+    background: linear-gradient(135deg, #6d28d9, #5b21b6);
+}
+
+.ai-search-button.tooltip-visible .button-text {
+    opacity: 0.3;
+}
+.ai-search-button .ai-button-icon {
+    font-size: 12px;
+    margin-right: 4px;
+    font-family: "Font Awesome 6 Free", "Font Awesome 5 Free";
+
+}
+
+
+/* Responsive button behavior - show only icon when container width < 400px */
+.ai-search-form-wrapper {
+    container-type: inline-size;
+}
+
+@container (max-width: 400px) {
+    .ai-btn-container {
+        position: absolute;
+        right: 0;
+        top: 0;
+    }
+    
+    .ai-search-button {
+        width: 24px;
+        height: 24px;
+        transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), padding 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        z-index: 100;
+    }
+    
+    .ai-search-button .ai-button-icon {
+        flex-shrink: 0;
+        margin-right: 0;
+        font-size: 11px;
+    }
+
+    body .listing-item-ai .listing-meta-ai span.address {
+        max-width: 95%
+    }
+    
+    .ai-search-button .button-text {
+        max-width: 0;
+        opacity: 0;
+        overflow: hidden;
+        transition: max-width 0.3s ease, opacity 0.3s ease;
+        white-space: nowrap;
+        font-size: 13px;
+        line-height: 24px;
+    }
+
+    .ai-search-button:hover {
+        width: auto;
+        padding: 3px 12px;
+        z-index: 1000;
+    }
+
+    .ai-search-button:hover .ai-button-icon {
+        margin-right: 4px;
+    }
+
+    .ai-search-button:hover .button-text {
+        max-width: 120px;
+        opacity: 1;
+    }
+
+    body .validation-popup {
+        line-height: 25px;
+        padding: 0 13px;
+        font-size: 13px;
+        height: 25px;
+    }
+
+/* Best Match Badge - Simple and Clean */
+body .match-badge.best {
+    font-weight: 600;
+    text-transform: none;
+    letter-spacing: 0;
+    font-size: 11px;
+    padding: 0px 6px;
+    height: 18px;
+}
+}
+
+/* Compact search results for narrow containers */
+@container (max-width: 400px) {
+    .search-results-container {
+        padding: 15px !important;
+    }
+
+    
+    
+    .listing-thumbnail-ai {
+        width: 60px !important;
+        height: 60px !important;
+        padding: 5px !important;
+        display: none !important;
+    }
+    
+    .listing-item-ai .listing-title-ai {
+        font-size: 14px !important; /* 30% smaller than 16px */
+        margin: 0 !important;
+        line-height: 20px !important;
+    }
+    .listing-item-ai {
+        flex-direction: column;
+    }
+    .listing-item-ai .listing-excerpt-ai {
+        display: none !important; /* Hide excerpt completely */
+    }
+    
+    .listing-details-ai {
+        padding: 10px 13px !important;
+        /* padding-left: 5px !important; */
+        flex-direction: column;
+    }
+
+    .listing-sidebar-ai { justify-content: flex-start}
+    
+    .listing-sidebar-ai {
+        min-width: 80px !important;
+        align-items: flex-start !important;
+        display: none !important;
+    }
+    
+    /* Show compact badge inside title for narrow containers */
+    .listing-title-ai .match-badge.compact {
+
+    }
+    
+    .listing-item-ai .listing-meta-ai {
+        flex-direction: column;
+        align-items: flex-start !important;
+        gap: 0 !important;
+        margin-top: 2px !important;
+        font-size: 13px !important;
+    }
+    
+    .listing-item-ai .listing-meta-ai span {
+        font-size: 13px !important;
+    }
+    .ai-results-header {
+        margin-bottom: 16px !important;
+    }
+    
+    .ai-header-title {
+        font-size: 16px !important;
+    }
+    
+    .ai-header-subtitle {
+        font-size: 12px !important;
+    }
+}
+
+.ai-search-button.loading-ai {
+    background: linear-gradient(135deg, #6d28d9, #5b21b6);
+}
+
+.loading-spinner {
+    display: inline-block;
+}
+
+.loading-spinner i {
+    font-size: 14px;
+}
+
+/* Modern Search Suggestions */
+.search-suggestions {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    right: 0;
+    /* max-width: 100%; */
+    width: 100%;
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    padding: 20px;
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 4%);
+    z-index: 9999;
+    display: none; /* Hidden by default, JS will handle animation */
+    
+    /* Animation properties */
+    opacity: 0;
+    transform: translateY(-10px);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Unique class to avoid Bootstrap conflicts */
+.ai-search-visible {
+    opacity: 1 !important;
+    transform: translateY(0) !important;
+    display: block !important;
+}
+
+.search-suggestions h4 {
+    margin: 0 0 12px 0;
+    font-size: 14px;
+    color: #6b7280;
+    font-weight: 500;
+}
+
+.suggestion-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.suggestion-tag {
+    display: inline-block;
+    padding: 5px 10px;
+    background: #f4f4f4;
+    border-radius: 65px;
+    font-size: 13px;
+    color: #333;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-weight: 500;
+    line-height: 17px;
+}
+
+.suggestion-tag:hover {
+    background: #222;
+    color: white;
+}
+
+/* AI Processing Status */
+.ai-chat-wp-container .ai-processing-status {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    right: 0;
+    /* max-width: 100%; */
+    width: 100%;
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    padding: 15px 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    display: none; /* Hidden by default, JS will handle animation */
+    z-index: 10000; /* Higher than search suggestions */
+    
+    /* Animation properties */
+    opacity: 0;
+    transform: translateY(-10px);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.processing-step {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0;
+    opacity: 0.5;
+    transition: opacity 0.3s ease;
+    position: relative;
+    min-height: 28px;
+    margin: 0 2px;
+}
+
+.processing-step.active {
+    opacity: 1;
+    position: relative;
+    overflow: hidden;
+    border-radius: 74px;
+    min-height: 28px;
+}
+
+.processing-step.active .step-icon,
+.processing-step.active .step-text {
+    color: #8b5cf6;
+}
+
+.processing-step .step-timing {
+    margin-left: auto;
+    font-size: 13px;
+    color: #8b5cf6;
+    background: #f3f0fd;
+    border-radius: 4px;
+    padding: 2px 8px;
+    font-weight: 500;
+    opacity: 0.85;
+    min-width: 48px;
+    text-align: right;
+    box-shadow: 0 1px 2px rgba(139,92,246,0.07);
+    transition: background 0.2s, color 0.2s;
+    margin-right: 2px;
+    display: none;
+}
+
+.processing-step.completed .step-timing,
+.processing-step.active .step-timing {
+    display: inline-block;
+}
+
+.processing-step.active::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -50%;
+    width: 50%;
+    height: 100%;
+    background: linear-gradient(90deg, 
+        transparent, 
+        rgba(139, 92, 246, 0.1), 
+        rgba(168, 85, 247, 0.1), 
+        rgba(139, 92, 246, 0.1), 
+        transparent
+    );
+    animation: lightning 2s infinite;
+    z-index: 1;
+    border-radius: 4px;
+}
+
+.processing-step.active .step-icon,
+.processing-step.active .step-text {
+    position: relative;
+    z-index: 2;
+}
+
+@keyframes lightning {
+    0% {
+        left: -50%;
+    }
+    100% {
+        left: 100%;
+    }
+}
+
+.processing-step.completed {
+    opacity: 1;
+}
+
+.step-icon {
+    font-size: 15px;
+    width: 24px;
+    text-align: center;
+}
+
+.step-text {
+    font-size: 14px;
+    color: #374151;
+    font-weight: 500;
+    line-height: 18px;
+}
+
+/* Results Container */
+.search-results-container {
+    position: absolute;
+    top: calc(100% + 5px);
+    left: 0px;
+    right: 0;
+    /* max-width: 100%; */
+    width: 100%;
+    min-height: auto;
+    max-height: 400px;
+    overflow-y: auto;
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 6%);
+    padding: 20px;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    background: white;
+    z-index: 9999;
+    display: none; /* Hidden by default, JS will handle animation */
+    container-type: inline-size;
+    
+    /* Animation properties */
+    opacity: 0;
+    transform: translateY(-10px);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@media (min-width: 480px) {
+.main-search-inner .search-results-container {min-width: 320px; }
+}
+
+.results-header {
+    margin-bottom: 20px;
+    padding: 20px;
+    background: linear-gradient(135deg, #f8faff, #eef2ff);
+    border: 1px solid #e0e7ff;
+    border-radius: 5px;
+    position: relative;
+    overflow: hidden;
+}
+
+.results-header::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 3px;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+}
+
+/* Modern AI Results Header */
+.ai-results-header {
+    margin-bottom: 20px;
+}
+
+.ai-header-gradient {
+    background: white;
+    /* border: 1px solid #e5e7eb; */
+    border-radius: 16px;
+    /* padding: 24px; */
+    color: #1f2937;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    /* box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); */
+}
+
+.ai-header-icon {
+    font-size: 28px;
+    opacity: 0.8;
+}
+
+.ai-header-content {
+    flex: 1;
+}
+
+.widget .ai-header-title,
+.ai-header-title {
+    font-size: 20px;
+    font-weight: 700;
+    margin: 0;
+    line-height: 1.2;
+    background: linear-gradient(135deg, #8b5cf6, #ec4899, #f59e0b);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.ai-header-subtitle {
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 1.4;
+    color: #6b7280;
+}
+
+.query-highlight {
+    font-weight: 600;
+    background: linear-gradient(135deg, #8b5cf6, #ec4899);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+
+}
+
+.results-count {
+    font-size: 20px;
+    color: #4c51bf;
+    margin-bottom: 8px;
+    font-weight: 600;
+}
+
+.search-explanation {
+    font-size: 14px;
+    color: #6b7280;
+    font-style: italic;
+    line-height: 1.5;
+}
+
+.fallback-notice {
+    padding: 12px 16px;
+    margin-bottom: 15px;
+    background: #d1ecf1;
+    border: 1px solid #bee5eb;
+    border-radius: 5px;
+    color: #0c5460;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.ai-search-input {
+    height: 30px !important;
+    background: transparent;
+    box-shadow: none !Important;
+    margin-left: 0 !important;
+    width: 100%;
+    padding-left: 0 !important;
+    width: 100%;
+    flex: 1;
+    flex-grow: 1;
+    padding: 0;
+    border: none !important;
+    outline: none;
+    font-size: 16px;
+    background: transparent;
+    margin: 0 !important;
+    font-weight: 500;
+    line-height: 20px !important;
+}
+.ai-search-input::placeholder {
+    color: #808080;
+    font-weight: 500;
+    font-size: 15px;
+}
+
+
+/* Results Grid */
+.results-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 24px;
+    margin-bottom: 30px;
+}
+
+/* Results List - New List Layout with Small Square Thumbnails (AI-SPECIFIC) */
+.results-list-ai {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 12px;
+    margin-bottom: 0;
+}
+
+/* List Item - Horizontal Layout (AI-SPECIFIC) - Now as clickable link */
+.listing-item-ai {
+    background: white !important;
+    border-radius: 5px !important;
+    /* overflow: hidden; */
+    /* box-shadow: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06) !important; */
+    transition: all 0.2s ease;
+    border: 1px solid #e0e0e0 !important;
+    display: flex !important;
+    align-items: stretch !important;
+    min-height: 80px !important;
+    position: relative;
+    width: 100% !important;
+    box-shadow: none;
+    /* Link-specific styles */
+    text-decoration: none !important;
+    color: inherit !important;
+    /* align-items: center !important; */
+    overflow: hidden;
+}
+
+.listing-item-ai:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+}
+
+/* Small Square Thumbnail (AI-SPECIFIC) */
+.listing-thumbnail-ai {
+    position: relative;
+    height: 100px;
+    flex-shrink: 0;
+    overflow: hidden;
+    max-height: 100px;
+    width: 100px;
+    padding: 10px;
+    /* border-radius: 5px; */
+    /* overflow: hidden; */
+}
+
+.listing-thumbnail-ai img {
+    width: 100%;
+    height: 100% !important;
+    object-fit: cover;
+    transition: transform 0.2s ease;
+    border-radius: 5px !important;
+}
+
+/* No Thumbnail - Adjust layout when image is missing */
+.listing-item-ai.no-thumbnail .listing-details-ai {
+    padding-left: 16px;
+}
+
+.aicwp-listing-item.no-thumbnail .aicwp-listing-details {
+    padding-left: 16px;
+}
+
+/* Listing Details - Flex Layout (AI-SPECIFIC) */
+.listing-details-ai {
+    display: flex;
+    flex: 1;
+    align-items: stretch;
+    padding: 12px 16px;
+    gap: 0;
+    padding-left: 7px;
+}
+
+.listing-main-ai {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-width: 0; /* Allow text truncation */
+}
+
+.listing-sidebar-ai {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-end;
+    gap: 4px;
+    min-width: 100px;
+}
+
+/* List Layout Typography (AI-SPECIFIC) */
+.listing-item-ai .listing-title-ai {
+    margin: 0 0 4px 0;
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 24px;
+    color: #222;
+    transition: 0.2s;
+}
+
+/* .listing-item-ai:hover .listing-title-ai {
+    color: #8b5cf6;
+} */
+
+.listing-item-ai .listing-excerpt-ai {
+    color: #6b7280;
+    font-size: 14px;
+    line-height: 1.4;
+    margin: 0;
+    display: -webkit-box;
+    -webkit-line-clamp: 1; /* Single line for list view */
+    line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    max-width: 90%;
+}
+
+.listing-item-ai .listing-meta-ai {
+    display: flex;
+    gap: 12px;
+    font-size: 14px;
+    color: #888;
+    flex-wrap: nowrap;
+    align-items: center;
+    margin-top: 5px;
+}
+
+.listing-item-ai .listing-meta-ai span {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    height: 20px;
+}
+
+.listing-item-ai .listing-meta-ai span.address {
+    /* display: flex; */
+    /* align-items: center; */
+    /* gap: 4px; */
+    /* white-space: nowrap; */
+    /* max-width: 335px; */
+    /* white-space: nowrap; */
+    overflow: hidden;
+    /* text-overflow: ellipsis; */
+    color: #888;
+    font-size: 13px;
+    line-height: 1.4;
+    /* margin: 0; */
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    max-width: 70%;
+}
+
+
+.listing-item-ai .listing-meta-ai i {
+    width: 10px;
+    text-align: center;
+    color: #b4b4b4;
+    font-size: 12px;
+}
+
+/* Rating styles when inline with meta */
+.listing-item-ai .listing-meta-ai .rating-ai {
+    color: #f59e0b;
+    font-weight: 500;
+}
+
+.listing-item-ai .listing-meta-ai .rating-ai i {
+    color: #f59e0b !important;
+    font-size: 10px;
+}
+
+/* Sidebar Elements (AI-SPECIFIC) */
+.listing-sidebar-ai .price {
+    font-size: 14px;
+    font-weight: 600;
+    color: #059669;
+    text-align: right;
+}
+
+/* Hide empty sidebar */
+.listing-sidebar-ai:empty {
+    display: none;
+}
+
+/* Hide empty sidebar */
+.listing-sidebar-ai:empty {
+    display: none;
+}
+
+/* Hide empty sidebar - comprehensive approach */
+.listing-sidebar-ai:empty {
+    display: none;
+}
+
+/* Ensure proper spacing when sidebar is present */
+.listing-sidebar-ai {
+    min-width: 100px;
+}
+
+.listing-sidebar-ai { display: none !important;}
+
+/* Best Match Badge - Simple and Clean */
+.match-badge.best {
+    font-weight: 600;
+    font-size: 12px;
+    padding: 0px 8px;
+    line-height: 16px;
+    text-shadow: none;
+    border-radius: 50px;
+    background: #00b54d21;
+    display: flex;
+    justify-content: center;
+    align-content: center;
+    flex-wrap: wrap;
+    color: #27ae60;
+    height: 21px;
+    position: relative;
+    top: -1px;
+    display: inline-block;
+    margin-top: 4px;
+}
+
+
+
+/* No Results */
+.no-results {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0px;
+    right: 0;
+    max-width: 100%;
+    width: 100%;
+    text-align: center;
+    padding: 20px;
+    background: #f8f9fa;
+    border-radius: 4px;
+    z-index: 9999;
+    display: none; /* Hidden by default, JS will handle animation */
+    border: 1px solid #e0e0e0;
+    background: #fff;
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 4%);
+    
+    /* Animation properties */
+    opacity: 0;
+    transform: translateY(-10px);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.no-results h3 {
+    margin: 0 !important;
+    color: #222;
+    font-size: 18px!important;
+    font-weight: 500;
+}
+
+.no-results p {
+    color: #808080;
+    font-size: 16px;
+    margin: 0;
+    line-height: 22px;
+    margin-top: 5px;
+}
+
+/* Error Messages */
+.search-error {
+    position: absolute;
+    top: calc(100% + 0px);
+    left: 0px;
+    right: 0;
+    max-width: 100%;
+    width: 100%;
+    padding: 12px 16px;
+    background: #f8d7da;
+    border: 1px solid #f5c6cb;
+    border-radius: 4px;
+    color: #721c24;
+    font-size: 14px;
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 4%);
+    z-index: 9999;
+    display: none; /* Hidden by default, JS will handle animation */
+    
+    /* Animation properties */
+    opacity: 0;
+    transform: translateY(-10px);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Debug Panel Styles */
+.search-debug-panel {
+    margin-top: 20px;
+    padding: 15px;
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 5px;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+}
+
+.search-debug-panel h4 {
+    margin: 0 0 15px 0;
+    color: #495057;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+.debug-section {
+    margin-bottom: 8px;
+    display: flex;
+    align-items: flex-start;
+}
+
+.debug-section strong {
+    min-width: 140px;
+    color: #495057;
+    margin-right: 10px;
+}
+
+.debug-section span,
+.debug-section pre {
+    color: #212529;
+    word-break: break-word;
+}
+
+.debug-raw {
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid #dee2e6;
+}
+
+.debug-raw-data {
+    background: #ffffff;
+    border: 1px solid #ced4da;
+    border-radius: 5px;
+    padding: 10px;
+    font-size: 11px;
+    max-height: 300px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.debug-toggle-raw {
+    background: #6c757d;
+    color: white;
+    border: none;
+    padding: 4px 8px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 11px;
+}
+
+.debug-toggle-raw:hover {
+    background: #5a6268;
+}
+
+/* AI Search Result Animations - Updated for List Layout (AI-SPECIFIC) */
+.listing-item-ai {
+    opacity: 0;
+    transform: translateY(0px);
+    animation: fadeInUp 0.4s ease-out forwards;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(0px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* AI Results Header Animation */
+.results-header {
+    opacity: 0;
+    transform: translateY(0px);
+    animation: fadeInUp 0.4s ease-out forwards;
+}
+
+@keyframes fadeInDown {
+    from {
+        opacity: 0;
+        transform: translateY(0px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Validation Popup */
+.ai-btn-container {position: absolute;right: 0;top: 50%;transform: translateY(-52%);}
+.validation-popup {
+    position: absolute;
+    top: 50%;
+    right: 100%;
+    background: #dc3545;
+    color: white;
+    line-height: 20px;
+    padding: 1px 13px;
+    border-radius: 55px;
+    font-size: 13px;
+    height: 24px;
+    font-weight: 500;
+    white-space: nowrap;
+    opacity: 0;
+    transform: translateY(-50%) translateX(-10px);
+    transition: all 0.3s ease;
+    z-index: 101;
+    pointer-events: none;
+    right: 0;
+}
+
+
+.validation-popup.show {
+    opacity: 1;
+    transform: translateY(-50%) translateX(0);
+}
+
+.main-search-input .search-input-wrapper {
+    height: 44px;
+}
+
+.main-search-inner .ai-search-input::placeholder,
+.main-search-inner .ai-search-input { font-size: 16px !important;}
+body .main-search-inner .search-suggestions h4 {
+    line-height: 20px;
+    font-size: 14px;
+    color: #666 !important;
+    font-weight: 500;
+    opacity: 1;
+}
+
+.main-search-inner .no-results,
+.main-search-inner .ai-processing-status,
+.main-search-inner .search-suggestions,
+.main-search-inner .search-results-container {
+    border: none;
+    box-shadow: 0 3px 4px rgba(0, 0, 0, 0.08);
+    padding-top: 10px;
+}
+
+
+
+.widget .no-results,
+.widget .ai-processing-status,
+.widget .search-suggestions,
+.widget .search-results-container {
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    top: calc(100% - 2px);
+    border-top: none;
+    border-radius: 0 0 4px 4px;
+    left: -1px;
+    width: calc(100% + 2px);
+    padding-top: 10px;
+}
+
+.widget .search-results-container { left: 0;}
+@media (max-width: 992px) {
+    .main-search-inner .ai-search-form-wrapper {     background: #fff;
+    padding: 5px 14px;
+    border-radius: 5px;}
+.main-search-inner .no-results,
+.main-search-inner .ai-processing-status,
+.main-search-inner .search-suggestions,
+.main-search-inner .search-results-container {
+    padding-top: 20px;
+}
+
+body .header-search-container  .ai-search-form-wrapper {     background: #fff;
+    padding: 5px 14px;
+    border-radius: 5px;
+    border: 1px solid #e0e0e0;
+        box-shadow: 0 1px 3px 0px rgba(0, 0, 0, 0.08);
+}
+body .header-search-container .search-input-wrapper {
+
+}
+
+}
+
+/* Dark Mode Styles */
+#dark-mode .fs-content .ai-search-form-wrapper,
+#dark-mode .sidebar .ai-search-form-wrapper {
+    background-color: #333;
+    border: 1px solid #555;
+    box-shadow: 0 1px 3px 0px rgba(0, 0, 0, 0.3);
+}
+
+#dark-mode .ai-search-input {
+    color: #ddd;
+}
+
+#dark-mode .ai-search-input::placeholder {
+    color: #999;
+}
+
+#dark-mode .search-suggestions {
+    background: #333;
+    border: 1px solid #555;
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 25%);
+}
+
+#dark-mode .search-suggestions h4 {
+    color: #999;
+}
+
+#dark-mode .suggestion-tag {
+    background: #444;
+    color: #ddd;
+}
+
+#dark-mode .suggestion-tag:hover {
+    background: #555;
+    color: white;
+}
+
+#dark-mode .ai-processing-status {
+    background: #333;
+    border: 1px solid #555;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+
+#dark-mode .step-text {
+    color: #ddd;
+}
+
+#dark-mode .processing-step .step-timing {
+    background: #444;
+    color: #8b5cf6;
+}
+
+#dark-mode .search-results-container {
+    background: #333;
+    border: 1px solid #555;
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 25%);
+}
+
+#dark-mode .ai-header-gradient {
+    background: #333;
+}
+
+#dark-mode .ai-header-subtitle {
+    color: #999;
+}
+
+#dark-mode .listing-item-ai {
+    background: #444 !important;
+    border: 1px solid #666 !important;
+}
+
+#dark-mode .listing-item-ai:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+
+#dark-mode .listing-item-ai .listing-title-ai {
+    color: #ddd;
+}
+
+#dark-mode .listing-item-ai .listing-excerpt-ai {
+    color: #999;
+}
+
+#dark-mode .listing-item-ai .listing-meta-ai {
+    color: #999;
+}
+
+#dark-mode .listing-item-ai .listing-meta-ai span.address {
+    color: #999;
+}
+
+#dark-mode .listing-item-ai .listing-meta-ai i {
+    color: #777;
+}
+
+#dark-mode .no-results {
+    background: #333;
+    border: 1px solid #555;
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 25%);
+}
+
+#dark-mode .no-results h3 {
+    color: #ddd !important;
+}
+
+#dark-mode .no-results p {
+    color: #999;
+}
+
+#dark-mode .search-error {
+    background: #5a1a1a;
+    border: 1px solid #7a2222;
+    color: #ffb3b3;
+}
+
+#dark-mode .validation-popup {
+    background: #dc2626;
+}
+
+#dark-mode .main-search-inner .search-suggestions h4 {
+    color: #999 !important;
+}
+
+#dark-mode .main-search-inner .no-results,
+#dark-mode .main-search-inner .ai-processing-status,
+#dark-mode .main-search-inner .search-suggestions,
+#dark-mode .main-search-inner .search-results-container {
+    box-shadow: 0 3px 4px rgba(0, 0, 0, 0.25);
+}
+
+#dark-mode .widget .no-results,
+#dark-mode .widget .ai-processing-status,
+#dark-mode .widget .search-suggestions,
+#dark-mode .widget .search-results-container {
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+@media (max-width: 992px) {
+    #dark-mode .main-search-inner .ai-search-form-wrapper {
+        background: #333;
+        border: 1px solid #555;
+        box-shadow: 0 1px 3px 0px rgba(0, 0, 0, 0.25);
+    }
+    
+    #dark-mode .header-search-container .ai-search-form-wrapper {
+        background: #333;
+        border: 1px solid #555;
+        box-shadow: 0 1px 3px 0px rgba(0, 0, 0, 0.25);
+    }
+}
+
+
+@media (max-width: 992px) {.home-search-carousel .ai-search-form-wrapper {  background: #fff; padding: 3px 10px; border-radius: 5px; }}
+
+/* =================================================================
+   WooCommerce Product Cards in Search Results
+   Copied 1:1 from chat.css for consistent styling
+   ================================================================= */
+
+/* Product listing item */
+.results-list-ai .aicwp-listing-item {
+    background: white;
+    border-radius: 5px;
+    border: 1px solid #e0e0e0;
+    display: flex;
+    align-items: stretch;
+    min-height: 90px;
+    text-decoration: none !important;
+    color: inherit;
+    box-shadow: none;
+    transition: box-shadow 0.2s, border-color 0.2s;
+}
+
+.results-list-ai .aicwp-listing-item:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.07);
+
+}
+
+.results-list-ai .aicwp-listing-thumbnail {
+    width: 90px;
+    height: 90px;
+    flex-shrink: 0;
+    overflow: hidden;
+    padding: 12px;
+    margin-top: 5px;
+    margin-left: 3px;
+}
+
+.results-list-ai .aicwp-listing-thumbnail img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 8px;
+}
+
+.results-list-ai .aicwp-listing-details {
+    flex: 1;
+    display: flex;
+    padding: 12px 16px;
+    padding-left: 0;
+    align-items: stretch;
+    gap: 0;
+    text-decoration: none;
+    word-break: break-word;
+}
+
+.results-list-ai .aicwp-listing-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-width: 0;
+}
+
+.results-list-ai .aicwp-listing-title {
+    margin: 0 0 4px 0;
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 20px;
+    color: #333;
+}
+
+.results-list-ai p.aicwp-listing-excerpt {
+    color: #666;
+    font-size: 13px;
+    line-height: 1.4;
+    margin: 0;
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.results-list-ai .aicwp-listing-meta {
+    display: flex;
+    gap: 0;
+    font-size: 13px;
+    color: #888;
+    flex-wrap: wrap;
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.results-list-ai .aicwp-listing-meta span {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.results-list-ai .aicwp-listing-meta i {
+    width: 12px;
+    text-align: center;
+    font-size: 11px;
+    color: #b4b4b4;
+}
+
+.results-list-ai .aicwp-listing-rating {
+    color: #f59e0b;
+    font-weight: 500;
+}
+
+.results-list-ai .aicwp-listing-rating i {
+    color: #f59e0b !important;
+}
+
+/* Product-Specific Styles */
+.results-list-ai .product-price {
+    font-weight: 600;
+    color: #333;
+    font-size: 14px;
+    display: flex !important;
+}
+
+.results-list-ai .product-price .regular-price {
+    text-decoration: line-through;
+    color: #888;
+    font-weight: 400;
+    margin-right: 6px;
+}
+
+.results-list-ai .product-price .sale-price {
+    color: #27ae60;
+    font-weight: 600;
+    background-color: #fbf2d1;
+    color: #8a803e;
+    padding: 0px 4px;
+    border-radius: 50px;
+}
+
+.results-list-ai .stock-status {
+    font-size: 13px;
+    font-weight: 500;
+    padding: 0;
+    border-radius: 54px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    display: inline-block !important;
+    margin-bottom: -8px;
+}
+
+.results-list-ai .stock-status.in-stock {
+    color: #27ae60;
+}
+
+.results-list-ai .stock-status.in-stock i {
+    color: #27ae60 !important;
+}
+
+.results-list-ai .stock-status.out-of-stock {
+    color: #e74c3c;
+}
+
+.results-list-ai .stock-status.out-of-stock i {
+    color: #e74c3c !important;
+}
+
+/* =================================================================
+   Universal Shortcode Search Submit Button
+   ================================================================= */
+
+.ai-search-submit-btn {
+    position: absolute;
+    right: -10px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: #f0f0f0;
+    border: none;
+    color: #888;
+    width: 36px;
+    height: 36px;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+}
+
+.ai-search-submit-btn:hover {
+    background: #222;
+    color: #fff; 
+}
+
+.ai-search-submit-btn i {
+    font-size: 14px;
+    transition: 0.3s;
+}

@@ -1,0 +1,472 @@
+/**
+ * External Pages Admin Styles
+ *
+ * Similar to PDF Documents modal pattern.
+ *
+ * @package AICWP
+ * @since 1.8.0
+ */
+
+/* Modal content */
+.external-pages-modal-content {
+    max-width: 700px;
+}
+
+/* Add section */
+.external-pages-add-section {
+    margin-bottom: 20px;
+}
+
+.external-pages-add-section h3 {
+    margin: 0 0 10px 0;
+}
+
+.external-pages-add-section .description {
+    margin-bottom: 15px;
+    color: #666;
+}
+
+/* Form styling */
+.external-pages-form-row {
+    margin-bottom: 10px;
+}
+
+.external-pages-form-row textarea {
+    width: 100%;
+    font-family: monospace;
+    font-size: 13px;
+}
+
+/* Results container */
+#aicwp-ui-add-results {
+    margin-top: 15px;
+    padding: 15px;
+    border-radius: 6px;
+    background: #f8f9fa;
+    border: 1px solid #e2e4e7;
+}
+
+#aicwp-ui-add-results .loading-message {
+    margin: 0;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    color: #2271b1;
+    font-weight: 500;
+}
+
+#aicwp-ui-add-results .loading-message .dashicons {
+    margin: 0;
+    color: #2271b1;
+}
+
+#aicwp-ui-add-results .progress-url {
+    margin: 8px 0 0 0;
+    padding: 8px 12px;
+    background: #fff;
+    border-radius: 4px;
+    border: 1px solid #e2e4e7;
+}
+
+/* Warning state - yellow */
+#aicwp-ui-add-results .external-pages-warning {
+    margin: 0 0 10px 0;
+    padding: 0;
+    color: #996800;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+#aicwp-ui-add-results .external-pages-warning::before {
+    content: "⚠";
+}
+
+#aicwp-ui-add-results.has-warning {
+    background: #fff8e5;
+    border-color: #dba617;
+}
+
+#aicwp-ui-add-results .validation-errors {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: 13px;
+    color: #666;
+}
+
+#aicwp-ui-add-results .validation-errors li {
+    padding: 6px 10px;
+    background: #fff;
+    border-radius: 4px;
+    margin-bottom: 4px;
+    border: 1px solid #e2e4e7;
+}
+
+#aicwp-ui-add-results .validation-errors li:last-child {
+    margin-bottom: 0;
+}
+
+/* Error state - red */
+#aicwp-ui-add-results .external-pages-error {
+    margin: 0;
+    padding: 0;
+    color: #d63638;
+    font-weight: 500;
+    text-align: left;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+#aicwp-ui-add-results .external-pages-error::before {
+    content: "✕";
+    font-weight: bold;
+}
+
+#aicwp-ui-add-results.has-error {
+    background: #fcecec;
+    border-color: #d63638;
+}
+
+/* Success state - green */
+#aicwp-ui-add-results.has-success {
+    background: #edfaef;
+    border-color: #00a32a;
+}
+
+/* Result messages inside results container */
+#aicwp-ui-add-results .result-success,
+#aicwp-ui-add-results .result-warning,
+#aicwp-ui-add-results .result-error {
+    margin: 0 0 8px 0;
+    padding: 0;
+    font-weight: 500;
+}
+
+#aicwp-ui-add-results .result-success:last-child,
+#aicwp-ui-add-results .result-warning:last-child,
+#aicwp-ui-add-results .result-error:last-child {
+    margin-bottom: 0;
+}
+
+#aicwp-ui-add-results .result-success {
+    color: #00a32a;
+}
+
+#aicwp-ui-add-results .result-warning {
+    color: #996800;
+}
+
+#aicwp-ui-add-results .result-error {
+    color: #d63638;
+}
+
+#aicwp-ui-add-results .failed-list {
+    margin: 8px 0 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+#aicwp-ui-add-results .failed-list li {
+    padding: 6px 10px;
+    background: #fff;
+    border-radius: 4px;
+    margin-bottom: 4px;
+    border: 1px solid #e2e4e7;
+    font-size: 13px;
+    color: #666;
+}
+
+#aicwp-ui-add-results .failed-list li:last-child {
+    margin-bottom: 0;
+}
+
+/* Add Pages button - match PDF select button styling */
+#aicwp-ui-add-pages-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+#aicwp-ui-add-pages-btn .dashicons {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+    line-height: 1;
+}
+
+/* List section */
+.external-pages-list-section {
+    margin-top: 20px;
+}
+
+.external-pages-list-section h3 {
+    margin: 0;
+}
+
+/* Page items */
+#external-pages-list {
+    margin-top: 15px;
+    max-height: 350px;
+    overflow-y: auto;
+}
+
+.external-page-item {
+    display: flex;
+    align-items: center;
+    padding: 12px;
+    background: #fff;
+    border: 1px solid #e2e4e7;
+    border-radius: 4px;
+    margin-bottom: 8px;
+    gap: 12px;
+}
+
+.external-page-item:hover {
+    border-color: #c3c4c7;
+}
+
+.external-page-icon {
+    flex-shrink: 0;
+    width: 36px;
+    height: 36px;
+    background: #f0f0f1;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.external-page-icon .dashicons {
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+    color: #646970;
+    position: relative; 
+    top: 1px;
+}
+
+.external-page-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.external-page-title {
+    font-weight: 600;
+    color: #1e1e1e;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.external-page-url {
+    font-size: 12px;
+    color: #646970;
+    margin-top: 2px;
+}
+
+.external-page-url a {
+    color: #2271b1;
+    text-decoration: none;
+}
+
+.external-page-url a:hover {
+    text-decoration: underline;
+}
+
+.external-page-source {
+    font-size: 11px;
+    color: #8c8f94;
+    margin-top: 2px;
+}
+
+/* Status badges */
+.external-page-status {
+    flex-shrink: 0;
+    padding: 4px 10px;
+    border-radius: 3px;
+    font-size: 12px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.external-page-status .dashicons {
+    font-size: 14px;
+    width: 14px;
+    height: 14px;
+}
+
+.external-page-status.status-trained {
+    background: #00a32a20;
+    color: #00a32a;
+}
+
+.external-page-status.status-trained .dashicons {
+    color: #00a32a;
+}
+
+.external-page-status.status-pending {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.external-page-status.status-pending .dashicons {
+    color: #ffc107;
+}
+
+/* Actions - styled like PDF docs */
+.external-page-actions {
+    flex-shrink: 0;
+    display: flex;
+    gap: 10px;
+}
+
+/* Match PDF action button styling exactly */
+.external-page-action-btn {
+    font-size: 13px;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 10px;
+    border-radius: 4px;
+    transition: all 0.2s;
+    font-weight: 500;
+    line-height: 1;
+}
+
+.external-page-action-btn .dashicons {
+    font-size: 13px;
+    width: 13px;
+    height: 13px;
+}
+
+/* Delete button - always visible with red styling like PDF */
+.external-page-action-btn.external-page-delete {
+    background: #dc354520;
+    color: #dc3545;
+    border: 1px solid #dc354530;
+}
+
+.external-page-action-btn.external-page-delete:hover {
+    background: #dc354530;
+    border-color: #dc354550;
+}
+
+/* Empty state */
+.external-pages-empty {
+    text-align: center;
+    padding: 30px 20px;
+    color: #666;
+    background: #f9f9f9;
+    border-radius: 4px;
+    margin: 0;
+}
+
+/* Loading message */
+.loading-message {
+    color: #666;
+    padding: 20px;
+    text-align: center;
+}
+
+.loading-message .dashicons {
+    vertical-align: middle;
+    margin-right: 5px;
+}
+
+/* Spin animation */
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.dashicons.spin,
+.dashicons-update.spin {
+    animation: spin 1s linear infinite;
+}
+
+/* Progress URL */
+.progress-url {
+    font-family: monospace;
+    font-size: 12px;
+    color: #999;
+    word-break: break-all;
+    margin: 5px 0 0 0;
+    text-align: center;
+}
+
+/* Results summary */
+.add-results-summary {
+    background: #f9f9f9;
+    border-radius: 4px;
+}
+
+.add-results-summary p {
+    margin: 0 0 8px 0;
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+}
+
+.add-results-summary p:last-child {
+    margin-bottom: 0;
+}
+
+.add-results-summary .dashicons {
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.result-success {
+    color: #155724;
+}
+
+.result-success .dashicons {
+    color: #28a745;
+}
+
+.result-warning {
+    color: #856404;
+}
+
+.result-warning .dashicons {
+    color: #ffc107;
+}
+
+.result-error {
+    color: #721c24;
+}
+
+.result-error .dashicons {
+    color: #dc3545;
+}
+
+.failed-list,
+.validation-errors {
+    margin: 5px 0 0 24px;
+    padding: 0;
+    font-size: 13px;
+}
+
+.failed-list li,
+.validation-errors li {
+    margin-bottom: 3px;
+}
+
+/* Error states */
+.external-pages-error {
+    color: #d63638;
+    padding: 20px;
+    text-align: center;
+}
+
+.external-pages-warning {
+    color: #dba617;
+}
