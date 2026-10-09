@@ -472,11 +472,11 @@ class AICWP_WooCommerce_Integration {
         if ($product->is_on_sale() && $display_sale) {
             $savings = $display_regular - $display_sale;
             $savings_percent = $display_regular > 0 ? round(($savings / $display_regular) * 100) : 0;
-            $content .= "- Regular Price: {$currency_symbol}" . number_format($display_regular, 2) . "\n";
-            $content .= "- Sale Price: {$currency_symbol}" . number_format($display_sale, 2) . " (SAVE {$savings_percent}%)\n";
-            $content .= "- Current Price: {$currency_symbol}" . number_format($display_price, 2) . " - ON SALE!\n";
+            $content .= "- Regular Price: " . AICWP_Utility_Helper::format_price($display_regular) . "\n";
+            $content .= "- Sale Price: " . AICWP_Utility_Helper::format_price($display_sale) . " (SAVE {$savings_percent}%)\n";
+            $content .= "- Current Price: " . AICWP_Utility_Helper::format_price($display_price) . " - ON SALE!\n";
         } else {
-            $content .= "- Price: {$currency_symbol}" . number_format($display_price, 2) . "\n";
+            $content .= "- Price: " . AICWP_Utility_Helper::format_price($display_price) . "\n";
         }
         /**
          * Extra pricing info from third-party plugins (e.g. quantity tiers, bulk discounts).
@@ -577,7 +577,7 @@ class AICWP_WooCommerce_Integration {
                         if ($var_sku) {
                             $content .= " (SKU: {$var_sku})";
                         }
-                        $content .= " - {$currency_symbol}" . number_format($var_price, 2);
+                        $content .= " - " . AICWP_Utility_Helper::format_price($var_price);
                         if ($variation->is_in_stock()) {
                             $content .= " (In Stock)";
                         } else {
@@ -639,8 +639,8 @@ class AICWP_WooCommerce_Integration {
         $display_sale = $product->get_sale_price() ? wc_get_price_to_display($product, array('price' => $product->get_sale_price())) : 0;
 
         // Format price with currency
-        $formatted_price = $display_price ? $currency_symbol . number_format($display_price, 2) : '';
-        $formatted_regular_price = $display_regular ? $currency_symbol . number_format($display_regular, 2) : '';
+        $formatted_price = $display_price ? AICWP_Utility_Helper::format_product_price($product, $display_price) : '';
+        $formatted_regular_price = $display_regular ? AICWP_Utility_Helper::format_price($display_regular) : '';
 
         // Get product image (use WooCommerce placeholder if no image)
         $featured_image = get_the_post_thumbnail_url($product_id, 'medium');
@@ -661,7 +661,7 @@ class AICWP_WooCommerce_Integration {
         // Price data
         $data['price'] = array(
             'regular' => $formatted_regular_price,
-            'sale' => $display_sale ? $currency_symbol . number_format($display_sale, 2) : null,
+            'sale' => $display_sale ? AICWP_Utility_Helper::format_price($display_sale) : null,
             'formatted' => $formatted_price,
             'currency' => get_woocommerce_currency(),
             'raw' => $display_price,
@@ -713,7 +713,7 @@ class AICWP_WooCommerce_Integration {
                     }
                     $variations_data[] = array(
                         'sku' => $var_sku,
-                        'price' => $currency_symbol . number_format($var_display_price, 2),
+                        'price' => AICWP_Utility_Helper::format_price($var_display_price),
                         'attributes' => $var_attrs,
                         'in_stock' => $variation->is_in_stock(),
                     );
@@ -1260,7 +1260,7 @@ class AICWP_WooCommerce_Integration {
                 $range = "{$qty}+";
             }
 
-            $formatted = $currency . number_format($tier_price, 2);
+            $formatted = AICWP_Utility_Helper::format_price($tier_price);
 
             $discount = Wpcpq_Helper::get_discount($base_price, $tier_price, 'percentage');
             if ($discount > 0) {
