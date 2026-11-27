@@ -782,7 +782,21 @@ class AICWP_Chat_API
 
         // Verify post exists and is published
         $post = get_post($post_id);
-        if (!$post || $post->post_status !== "publish") {
+        // Public route: only content the chat is allowed to search. Without the
+        // post type check any published post of any type answered here —
+        // WooCommerce coupons (status "publish", title = the coupon code),
+        // Elementor templates, navigation menus — so the coupon codes of the
+        // store could be listed by walking the IDs. Password-protected posts
+        // stay out too. Same 404 for all, so the route reveals nothing.
+        $searchable_types = class_exists("AICWP_Database_Manager")
+            ? AICWP_Database_Manager::get_enabled_post_types()
+            : [];
+        if (
+            !$post ||
+            $post->post_status !== "publish" ||
+            !in_array($post->post_type, $searchable_types, true) ||
+            post_password_required($post)
+        ) {
             return new WP_REST_Response(
                 [
                     "success" => false,
