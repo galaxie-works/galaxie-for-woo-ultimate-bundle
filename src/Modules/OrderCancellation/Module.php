@@ -385,17 +385,20 @@ final class Module implements ModuleContract, ProvidesSettings, ProvidesBootData
 	}
 
 	/**
-	 * One cancellation at a time per order. `add_option()` is an INSERT on a
-	 * unique key, so only one request wins; a lock older than LOCK_TTL is a
+	 * One cancellation at a time per order. `add_option()` cannot be the lock:
+	 * core writes it with INSERT … ON DUPLICATE KEY UPDATE, so a second request
+	 * a second later "adds" it too. INSERT IGNORE on the unique option_name is
+	 * atomic: exactly one request gets a row. A lock older than LOCK_TTL is a
 	 * request that died, and is taken over.
 	 */
 	private static function lock( int $order_id ): bool {
 		$key = self::LOCK_PREFIX . $order_id;
 
-		if ( add_option( $key, (string) time(), '', 'no' ) ) {
+		if ( self::insert_lock( $key ) ) {
 			return true;
 		}
 
+		wp_cache_delete( $key, 'options' );
 		$since = (int) get_option( $key, 0 );
 
 		if ( $since > 0 && time() - $since < self::LOCK_TTL ) {
@@ -404,7 +407,28 @@ final class Module implements ModuleContract, ProvidesSettings, ProvidesBootData
 
 		delete_option( $key );
 
-		return add_option( $key, (string) time(), '', 'no' );
+		return self::insert_lock( $key );
+	}
+
+	private static function insert_lock( string $key ): bool {
+		global $wpdb;
+
+		if ( ! isset( $wpdb ) || ! is_object( $wpdb ) || ! method_exists( $wpdb, 'query' ) ) {
+			return add_option( $key, (string) time(), '', 'no' );
+		}
+
+		$rows = $wpdb->query(
+			$wpdb->prepare(
+				"INSERT IGNORE INTO {$wpdb->options} (option_name, option_value, autoload) VALUES (%s, %s, 'off')",
+				$key,
+				(string) time()
+			)
+		);
+
+		wp_cache_delete( $key, 'options' );
+		wp_cache_delete( 'notoptions', 'options' );
+
+		return 1 === (int) $rows;
 	}
 
 	private static function unlock( int $order_id ): void {
@@ -438,17 +462,23 @@ final class Module implements ModuleContract, ProvidesSettings, ProvidesBootData
 		if ( $remaining > 0 ) {
 			self::$cancelling = $order->get_id();
 
-			$refund = wc_create_refund(
-				array(
-					'order_id'       => $order->get_id(),
-					'amount'         => wc_format_decimal( $remaining, wc_get_price_decimals() ),
-					'reason'         => sprintf( /* translators: %s: reason */ __( 'Cancelado pelo cliente: %s', 'galaxie-woo' ), $reason ),
-					'refund_payment' => true,
-					'restock_items'  => false, // Cancelling puts the stock back.
-				)
-			);
-
-			self::$cancelling = 0;
+			try {
+				$refund = wc_create_refund(
+					array(
+						'order_id'       => $order->get_id(),
+						'amount'         => wc_format_decimal( $remaining, wc_get_price_decimals() ),
+						'reason'         => sprintf( /* translators: %s: reason */ __( 'Cancelado pelo cliente: %s', 'galaxie-woo' ), $reason ),
+						'refund_payment' => true,
+						'restock_items'  => false, // Cancelling puts the stock back.
+					)
+				);
+			} catch ( \Throwable $e ) {
+				$refund = new \WP_Error( 'galaxie_refund_exception', $e->getMessage() );
+			} finally {
+				// Always reset: left set, the refunded→cancelled filter would also
+				// catch any other full refund of this order in the same request.
+				self::$cancelling = 0;
+			}
 
 			if ( is_wp_error( $refund ) ) {
 				return self::request( $order, $said, sprintf( /* translators: %s: gateway error */ __( 'o estorno falhou: %s', 'galaxie-woo' ), $refund->get_error_message() ) );

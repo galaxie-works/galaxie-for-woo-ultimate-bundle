@@ -152,13 +152,16 @@ final class Module implements ModuleContract {
 			return $valid;
 		}
 
-		// An order staff edit in wp-admin is theirs to discount.
+		// An order staff edit in wp-admin is theirs to discount — also through
+		// the order screen's "Aplicar cupom" button, which is AJAX, and the REST
+		// API: there the signed-in user is the staff member, not the customer.
 		$object = is_object( $discounts ) && method_exists( $discounts, 'get_object' ) ? $discounts->get_object() : null;
-		if ( $object instanceof \WC_Order && is_admin() && ! wp_doing_ajax() ) {
+		if ( $object instanceof \WC_Order && ( ( is_admin() && ! wp_doing_ajax() ) || current_user_can( 'edit_shop_orders' ) ) ) {
 			return $valid;
 		}
 
-		$user_id  = get_current_user_id();
+		// On an order, the order's customer is the one whose history counts.
+		$user_id  = $object instanceof \WC_Order ? (int) $object->get_customer_id() : get_current_user_id();
 		$document = $object instanceof \WC_Order ? self::order_document( $object ) : '';
 		if ( '' === $document ) {
 			$document = Rules::digits( BrazilianCheckoutFields::customer_cpf( $user_id ) );

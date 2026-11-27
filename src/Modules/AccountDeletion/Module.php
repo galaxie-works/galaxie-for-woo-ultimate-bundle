@@ -109,6 +109,12 @@ final class Module implements ModuleContract, ProvidesBootData {
 		$user    = wp_get_current_user();
 		$user_id = (int) $user->ID;
 
+		// Staff accounts own pages, templates and orders' history: deleting one
+		// (wp_delete_user without reassign) would take their content with it.
+		if ( self::is_staff( $user_id ) ) {
+			wp_send_json_error( array( 'message' => __( 'Contas da equipe da loja não podem ser excluídas por aqui. Fale com o administrador do site.', 'galaxie-woo' ) ), 403 );
+		}
+
 		update_user_meta( $user_id, self::META_KEY, current_time( 'mysql', true ) );
 
 		// No more marketing from the moment the customer asked to leave.
@@ -124,6 +130,11 @@ final class Module implements ModuleContract, ProvidesBootData {
 		wp_logout();
 
 		wp_send_json_success( array( 'redirect' => home_url( '/' ) ) );
+	}
+
+	/** Anyone who edits content or runs the store. */
+	private static function is_staff( int $user_id ): bool {
+		return user_can( $user_id, 'edit_posts' ) || user_can( $user_id, 'manage_woocommerce' );
 	}
 
 	/** When the account was flagged, or '' when it is not. */
@@ -231,6 +242,11 @@ final class Module implements ModuleContract, ProvidesBootData {
 		$user = get_userdata( $user_id );
 
 		if ( ! $user ) {
+			return;
+		}
+
+		// Never a staff account, even one flagged before this check existed.
+		if ( self::is_staff( $user_id ) ) {
 			return;
 		}
 
