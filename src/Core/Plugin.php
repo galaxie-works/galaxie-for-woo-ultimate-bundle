@@ -172,6 +172,7 @@ final class Plugin {
 		$this->modules->register( new \Galaxie\Woo\Modules\ProductData\Module() );
 		$this->modules->register( new \Galaxie\Woo\Modules\PixfortIconPicker\Module() );
 		$this->modules->register( new \Galaxie\Woo\Modules\PixfortImageAlt\Module() );
+		$this->modules->register( new \Galaxie\Woo\Modules\PixfortPtBr\Module() );
 		$this->modules->register( new \Galaxie\Woo\Modules\AssetTrim\Module() );
 		$this->modules->register( new \Galaxie\Woo\Modules\AiChat\Module() );
 		$this->modules->register( new \Galaxie\Woo\Modules\CouponCpfLimit\Module() );

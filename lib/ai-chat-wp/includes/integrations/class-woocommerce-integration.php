@@ -620,6 +620,17 @@ class AICWP_WooCommerce_Integration {
     }
 
     /**
+     * Product data in the shape the chat's product cards expect
+     * (same as the search_products results), for other tools that show cards.
+     *
+     * @param int $product_id Product ID
+     * @return array Formatted product data, empty when the product does not exist
+     */
+    public function get_product_card_data($product_id) {
+        return $this->format_product_data($product_id);
+    }
+
+    /**
      * Format product data for API response
      *
      * @param int $product_id Product ID
