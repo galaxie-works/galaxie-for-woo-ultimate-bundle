@@ -1910,11 +1910,20 @@ class AICWP_Chat_API
             // Build structured content for the product
             $structured_content = $this->build_product_structured_content($product);
 
+            // Card data (image, price, stock, type) so the chat can show the product card
+            // with its link and add-to-cart button below the answer, like search results.
+            $card = null;
+            if (class_exists('AICWP_WooCommerce_Integration')) {
+                $wc_integration = new AICWP_WooCommerce_Integration();
+                $card = $wc_integration->get_product_card_data($product_id) ?: null;
+            }
+
             $products[] = array(
                 'product_id' => $product_id,
                 'title' => html_entity_decode(wp_strip_all_tags($product->get_name()), ENT_QUOTES, 'UTF-8'),
                 'url' => esc_url($product->get_permalink()),
-                'structured_content' => $structured_content
+                'structured_content' => $structured_content,
+                'card' => $card
             );
         }
 
@@ -1932,7 +1941,8 @@ class AICWP_Chat_API
                 'product_id' => $products[0]['product_id'],
                 'title' => $products[0]['title'],
                 'url' => $products[0]['url'],
-                'structured_content' => $products[0]['structured_content']
+                'structured_content' => $products[0]['structured_content'],
+                'card' => $products[0]['card']
             ], 200);
         }
 
